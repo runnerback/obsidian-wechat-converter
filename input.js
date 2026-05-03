@@ -3727,6 +3727,7 @@ class AppleStyleView extends ItemView {
     const mobileSync = isMobileClient(this.app);
     modal.titleEl.setText('发布与分发');
     modal.contentEl.addClass('wechat-sync-modal');
+    modal.modalEl?.addClass('wechat-publish-shell');
     if (mobileSync) {
       modal.contentEl.addClass('wechat-sync-modal-mobile');
       modal.modalEl?.addClass('wechat-sync-shell-mobile');
@@ -3962,6 +3963,7 @@ class AppleStyleView extends ItemView {
     modal.titleEl.addClass?.('wechat-multiplatform-title');
     modal.contentEl.addClass('wechat-sync-modal');
     modal.contentEl.addClass('wechat-multiplatform-modal');
+    modal.modalEl?.addClass('wechat-publish-shell');
     modal.modalEl?.addClass('wechat-multiplatform-shell');
     if (mobileSync) {
       modal.contentEl.addClass('wechat-sync-modal-mobile');
@@ -5359,10 +5361,10 @@ class AppleStyleSettingTab extends PluginSettingTab {
           }));
 
       new Setting(containerEl)
-        .setName('Token（可选）')
-        .setDesc('如果 Wechatsync 扩展启用 CLI/MCP 后展示 Token，请填入同一个值；如果扩展没有展示 Token，可以先留空，连接失败时再回到这里补充。')
+        .setName('Wechatsync Token')
+        .setDesc('填入 Wechatsync 扩展「CLI / MCP 连接」中显示的 Token，用于确认 Obsidian 与浏览器扩展是同一组桥接连接。')
         .addText(text => text
-          .setPlaceholder('留空后先尝试连接')
+          .setPlaceholder('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
           .setValue(multiPlatformSettings.token)
           .onChange(async (value) => {
             this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
@@ -5373,12 +5375,12 @@ class AppleStyleSettingTab extends PluginSettingTab {
           }));
 
       new Setting(containerEl)
-        .setName('检测 Wechatsync 连接')
-        .setDesc('检测本地桥接和浏览器扩展是否已连接，并尝试读取已登录平台。')
+        .setName('测试连接')
+        .setDesc('连接本地桥接与浏览器扩展，并读取已登录平台。Token 不一致时会在这里提示。')
         .addButton(button => button
-          .setButtonText('检测')
+          .setButtonText('测试')
           .onClick(async () => {
-            button.setButtonText('检测中...');
+            button.setButtonText('测试中...');
             button.setDisabled?.(true);
             try {
               const bridge = this.plugin.getWechatSyncBridgeService();
@@ -5393,7 +5395,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
               new Notice(`❌ Wechatsync 连接失败：${error.message}`, 10000);
             } finally {
               button.setDisabled?.(false);
-              button.setButtonText('检测');
+              button.setButtonText('测试');
             }
           }));
     }

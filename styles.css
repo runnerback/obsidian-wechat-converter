@@ -2822,6 +2822,31 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   height: 180px;
 }
 
+.wechat-publish-shell {
+  width: min(720px, calc(100vw - 48px));
+}
+
+.wechat-publish-shell .modal-content {
+  height: min(72vh, 720px);
+  min-height: 560px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--apple-tertiary) 45%, transparent) transparent;
+}
+
+.wechat-publish-shell .modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.wechat-publish-shell .modal-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wechat-publish-shell .modal-content::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--apple-tertiary) 36%, transparent);
+}
+
 .wechat-multiplatform-shell {
   max-width: 680px;
 }

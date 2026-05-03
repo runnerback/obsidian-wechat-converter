@@ -15088,7 +15088,7 @@ var AppleStyleView = class extends ItemView {
    * 显示同步选项 Modal
    */
   showSyncModal() {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     if (!this.currentHtml) {
       new Notice(this.getMissingRenderNotice());
       return;
@@ -15107,9 +15107,10 @@ var AppleStyleView = class extends ItemView {
     const mobileSync = isMobileClient(this.app);
     modal.titleEl.setText("\u53D1\u5E03\u4E0E\u5206\u53D1");
     modal.contentEl.addClass("wechat-sync-modal");
+    (_b = modal.modalEl) == null ? void 0 : _b.addClass("wechat-publish-shell");
     if (mobileSync) {
       modal.contentEl.addClass("wechat-sync-modal-mobile");
-      (_b = modal.modalEl) == null ? void 0 : _b.addClass("wechat-sync-shell-mobile");
+      (_c = modal.modalEl) == null ? void 0 : _c.addClass("wechat-sync-shell-mobile");
     }
     const publishModeTabs = modal.contentEl.createDiv({ cls: "wechat-publish-mode-tabs" });
     publishModeTabs.createEl("button", { text: "\u5FAE\u4FE1\u8349\u7A3F\u7BB1", cls: "wechat-publish-mode-tab is-active" });
@@ -15127,7 +15128,7 @@ var AppleStyleView = class extends ItemView {
     }
     const defaultId = this.plugin.settings.defaultAccountId;
     const hasDefault = accounts.some((account) => account.id === defaultId);
-    let selectedAccountId = hasDefault ? defaultId : ((_c = accounts[0]) == null ? void 0 : _c.id) || "";
+    let selectedAccountId = hasDefault ? defaultId : ((_d = accounts[0]) == null ? void 0 : _d.id) || "";
     let coverBase64 = (cachedState == null ? void 0 : cachedState.coverBase64) || frontmatterMeta.coverSrc || this.getFirstImageFromArticle();
     this.sessionCoverBase64 = coverBase64;
     const accountSection = modal.contentEl.createDiv({ cls: "wechat-modal-section" });
@@ -15271,7 +15272,7 @@ var AppleStyleView = class extends ItemView {
     };
   }
   async showMultiPlatformSyncModal() {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f;
     if (!this.currentHtml) {
       new Notice(this.getMissingRenderNotice());
       return;
@@ -15284,10 +15285,11 @@ var AppleStyleView = class extends ItemView {
     (_b = (_a = modal.titleEl).addClass) == null ? void 0 : _b.call(_a, "wechat-multiplatform-title");
     modal.contentEl.addClass("wechat-sync-modal");
     modal.contentEl.addClass("wechat-multiplatform-modal");
-    (_c = modal.modalEl) == null ? void 0 : _c.addClass("wechat-multiplatform-shell");
+    (_c = modal.modalEl) == null ? void 0 : _c.addClass("wechat-publish-shell");
+    (_d = modal.modalEl) == null ? void 0 : _d.addClass("wechat-multiplatform-shell");
     if (mobileSync) {
       modal.contentEl.addClass("wechat-sync-modal-mobile");
-      (_d = modal.modalEl) == null ? void 0 : _d.addClass("wechat-sync-shell-mobile");
+      (_e = modal.modalEl) == null ? void 0 : _e.addClass("wechat-sync-shell-mobile");
     }
     const publishModeTabs = modal.contentEl.createDiv({ cls: "wechat-publish-mode-tabs" });
     const wechatTab = publishModeTabs.createEl("button", { text: "\u5FAE\u4FE1\u8349\u7A3F\u7BB1", cls: "wechat-publish-mode-tab" });
@@ -15330,7 +15332,7 @@ var AppleStyleView = class extends ItemView {
     const cancelBtn = btnRow.createEl("button", { text: "\u53D6\u6D88" });
     const syncBtn = btnRow.createEl("button", { text: "\u540C\u6B65\u5230\u9009\u4E2D\u5E73\u53F0", cls: "mod-cta" });
     syncBtn.disabled = true;
-    (_e = syncBtn.addClass) == null ? void 0 : _e.call(syncBtn, "apple-btn-disabled");
+    (_f = syncBtn.addClass) == null ? void 0 : _f.call(syncBtn, "apple-btn-disabled");
     cancelBtn.onclick = () => modal.close();
     const renderPlatforms = (platforms = []) => {
       var _a2;
@@ -16445,16 +16447,16 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         });
         await this.plugin.saveSettings();
       }));
-      new Setting(containerEl).setName("Token\uFF08\u53EF\u9009\uFF09").setDesc("\u5982\u679C Wechatsync \u6269\u5C55\u542F\u7528 CLI/MCP \u540E\u5C55\u793A Token\uFF0C\u8BF7\u586B\u5165\u540C\u4E00\u4E2A\u503C\uFF1B\u5982\u679C\u6269\u5C55\u6CA1\u6709\u5C55\u793A Token\uFF0C\u53EF\u4EE5\u5148\u7559\u7A7A\uFF0C\u8FDE\u63A5\u5931\u8D25\u65F6\u518D\u56DE\u5230\u8FD9\u91CC\u8865\u5145\u3002").addText((text) => text.setPlaceholder("\u7559\u7A7A\u540E\u5148\u5C1D\u8BD5\u8FDE\u63A5").setValue(multiPlatformSettings.token).onChange(async (value) => {
+      new Setting(containerEl).setName("Wechatsync Token").setDesc("\u586B\u5165 Wechatsync \u6269\u5C55\u300CCLI / MCP \u8FDE\u63A5\u300D\u4E2D\u663E\u793A\u7684 Token\uFF0C\u7528\u4E8E\u786E\u8BA4 Obsidian \u4E0E\u6D4F\u89C8\u5668\u6269\u5C55\u662F\u540C\u4E00\u7EC4\u6865\u63A5\u8FDE\u63A5\u3002").addText((text) => text.setPlaceholder("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx").setValue(multiPlatformSettings.token).onChange(async (value) => {
         this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
           ...this.plugin.settings.multiPlatformSync,
           token: value
         });
         await this.plugin.saveSettings();
       }));
-      new Setting(containerEl).setName("\u68C0\u6D4B Wechatsync \u8FDE\u63A5").setDesc("\u68C0\u6D4B\u672C\u5730\u6865\u63A5\u548C\u6D4F\u89C8\u5668\u6269\u5C55\u662F\u5426\u5DF2\u8FDE\u63A5\uFF0C\u5E76\u5C1D\u8BD5\u8BFB\u53D6\u5DF2\u767B\u5F55\u5E73\u53F0\u3002").addButton((button) => button.setButtonText("\u68C0\u6D4B").onClick(async () => {
+      new Setting(containerEl).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u8FDE\u63A5\u672C\u5730\u6865\u63A5\u4E0E\u6D4F\u89C8\u5668\u6269\u5C55\uFF0C\u5E76\u8BFB\u53D6\u5DF2\u767B\u5F55\u5E73\u53F0\u3002Token \u4E0D\u4E00\u81F4\u65F6\u4F1A\u5728\u8FD9\u91CC\u63D0\u793A\u3002").addButton((button) => button.setButtonText("\u6D4B\u8BD5").onClick(async () => {
         var _a, _b;
-        button.setButtonText("\u68C0\u6D4B\u4E2D...");
+        button.setButtonText("\u6D4B\u8BD5\u4E2D...");
         (_a = button.setDisabled) == null ? void 0 : _a.call(button, true);
         try {
           const bridge = this.plugin.getWechatSyncBridgeService();
@@ -16467,7 +16469,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
           new Notice(`\u274C Wechatsync \u8FDE\u63A5\u5931\u8D25\uFF1A${error.message}`, 1e4);
         } finally {
           (_b = button.setDisabled) == null ? void 0 : _b.call(button, false);
-          button.setButtonText("\u68C0\u6D4B");
+          button.setButtonText("\u6D4B\u8BD5");
         }
       }));
     }
