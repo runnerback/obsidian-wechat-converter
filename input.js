@@ -70,11 +70,14 @@ function normalizeWechatsyncPlatform(platform = {}) {
   return {
     id,
     name: String(platform.name || platform.title || platform.platformName || id),
-    authenticated: platform.authenticated === true
+    authenticated: platform.isAuthenticated === true
+      || platform.authenticated === true
       || platform.isAuth === true
       || platform.loggedIn === true
       || platform.status === 'authenticated'
       || platform.status === 'logged_in',
+    username: typeof platform.username === 'string' ? platform.username : '',
+    error: typeof platform.error === 'string' ? platform.error : '',
   };
 }
 
@@ -4073,8 +4076,11 @@ class AppleStyleView extends ItemView {
         checkbox.type = 'checkbox';
         checkbox.value = platform.id;
         checkbox.disabled = !platform.authenticated;
+        const accountSuffix = platform.authenticated && platform.username
+          ? `（${platform.username}）`
+          : (platform.authenticated ? '' : '（未登录）');
         const label = row.createEl('label', {
-          text: `${platform.name}${platform.authenticated ? '' : '（未登录）'}`,
+          text: `${platform.name}${accountSuffix}`,
         });
         label.onclick = () => {
           if (!checkbox.disabled) checkbox.click();

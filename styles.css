@@ -2745,6 +2745,20 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   border-top: 1px solid var(--background-modifier-border);
 }
 
+.wechat-publish-shell .wechat-modal-buttons {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin: 18px -2px -2px;
+  padding: 14px 2px 2px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--apple-background) 0%, transparent) 0%,
+    var(--apple-background) 28%,
+    var(--apple-background) 100%
+  );
+}
+
 .wechat-modal-buttons button {
   padding: 6px 14px;
   font-size: 13px;
