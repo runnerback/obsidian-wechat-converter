@@ -15113,7 +15113,7 @@ var AppleStyleView = class extends ItemView {
     }
     const publishModeTabs = modal.contentEl.createDiv({ cls: "wechat-publish-mode-tabs" });
     publishModeTabs.createEl("button", { text: "\u5FAE\u4FE1\u8349\u7A3F\u7BB1", cls: "wechat-publish-mode-tab is-active" });
-    const multiPlatformTab = publishModeTabs.createEl("button", { text: "\u5176\u4ED6\u5E73\u53F0 Beta", cls: "wechat-publish-mode-tab" });
+    const multiPlatformTab = publishModeTabs.createEl("button", { text: "\u5176\u4ED6\u5E73\u53F0", cls: "wechat-publish-mode-tab" });
     multiPlatformTab.onclick = () => {
       modal.close();
       this.showMultiPlatformSyncModal();
@@ -15291,7 +15291,7 @@ var AppleStyleView = class extends ItemView {
     }
     const publishModeTabs = modal.contentEl.createDiv({ cls: "wechat-publish-mode-tabs" });
     const wechatTab = publishModeTabs.createEl("button", { text: "\u5FAE\u4FE1\u8349\u7A3F\u7BB1", cls: "wechat-publish-mode-tab" });
-    publishModeTabs.createEl("button", { text: "\u5176\u4ED6\u5E73\u53F0 Beta", cls: "wechat-publish-mode-tab is-active" });
+    publishModeTabs.createEl("button", { text: "\u5176\u4ED6\u5E73\u53F0", cls: "wechat-publish-mode-tab is-active" });
     wechatTab.onclick = () => {
       modal.close();
       this.showSyncModal();
@@ -15308,7 +15308,6 @@ var AppleStyleView = class extends ItemView {
     intro.createEl("div", { text: "Beta", cls: "wechat-multiplatform-badge" });
     if (!bridgeSettings.enabled) {
       const disabledHint = modal.contentEl.createDiv({ cls: "wechat-sync-empty-state" });
-      disabledHint.createEl("div", { cls: "wechat-sync-empty-icon", text: "\u2197" });
       disabledHint.createEl("h3", { text: "\u5C1A\u672A\u542F\u7528\u591A\u5E73\u53F0\u5206\u53D1" });
       disabledHint.createEl("p", { text: "\u8BF7\u5148\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u5F00\u542F Wechatsync \u591A\u5E73\u53F0\u5206\u53D1\uFF0C\u518D\u56DE\u5230\u8FD9\u91CC\u68C0\u6D4B\u5E73\u53F0\u3002" });
       const settingsBtn = disabledHint.createEl("button", { text: "\u53BB\u8BBE\u7F6E", cls: "mod-cta" });

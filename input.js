@@ -3734,7 +3734,7 @@ class AppleStyleView extends ItemView {
 
     const publishModeTabs = modal.contentEl.createDiv({ cls: 'wechat-publish-mode-tabs' });
     publishModeTabs.createEl('button', { text: '微信草稿箱', cls: 'wechat-publish-mode-tab is-active' });
-    const multiPlatformTab = publishModeTabs.createEl('button', { text: '其他平台 Beta', cls: 'wechat-publish-mode-tab' });
+    const multiPlatformTab = publishModeTabs.createEl('button', { text: '其他平台', cls: 'wechat-publish-mode-tab' });
     multiPlatformTab.onclick = () => {
       modal.close();
       this.showMultiPlatformSyncModal();
@@ -3970,7 +3970,7 @@ class AppleStyleView extends ItemView {
 
     const publishModeTabs = modal.contentEl.createDiv({ cls: 'wechat-publish-mode-tabs' });
     const wechatTab = publishModeTabs.createEl('button', { text: '微信草稿箱', cls: 'wechat-publish-mode-tab' });
-    publishModeTabs.createEl('button', { text: '其他平台 Beta', cls: 'wechat-publish-mode-tab is-active' });
+    publishModeTabs.createEl('button', { text: '其他平台', cls: 'wechat-publish-mode-tab is-active' });
     wechatTab.onclick = () => {
       modal.close();
       this.showSyncModal();
@@ -3989,7 +3989,6 @@ class AppleStyleView extends ItemView {
 
     if (!bridgeSettings.enabled) {
       const disabledHint = modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' });
-      disabledHint.createEl('div', { cls: 'wechat-sync-empty-icon', text: '↗' });
       disabledHint.createEl('h3', { text: '尚未启用多平台分发' });
       disabledHint.createEl('p', { text: '请先在插件设置中开启 Wechatsync 多平台分发，再回到这里检测平台。' });
       const settingsBtn = disabledHint.createEl('button', { text: '去设置', cls: 'mod-cta' });
