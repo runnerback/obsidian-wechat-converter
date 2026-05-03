@@ -3047,6 +3047,23 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   line-height: 1.65;
 }
 
+.wechat-multiplatform-inline-btn {
+  margin-top: 12px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--apple-border) 82%, transparent);
+  border-radius: 7px;
+  background: var(--apple-background);
+  color: var(--apple-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wechat-multiplatform-inline-btn:hover {
+  border-color: var(--apple-accent);
+  color: var(--apple-accent);
+}
+
 /* 添加账号按钮 - 虚线边框 */
 .wechat-btn-add {
   width: 100%;
