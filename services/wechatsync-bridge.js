@@ -1,7 +1,7 @@
 const DEFAULT_WECHATSYNC_PORT = 9527;
 const DEFAULT_REQUEST_TIMEOUT_MS = 360000;
 const DEFAULT_CONNECT_TIMEOUT_MS = 60000;
-const DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS = 10000;
+const DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS = 60000;
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 function createEmitter() {
@@ -216,6 +216,12 @@ function createReadableBridgeError(error) {
   if (/Extension not connected|not connected|timeout:no_extension/i.test(message)) {
     const friendly = new Error('尚未连接到 Wechatsync 浏览器扩展。请在已登录目标平台的 Chromium 浏览器中安装并启用 Wechatsync 扩展，然后开启 MCP/桥接。');
     friendly.code = 'EXTENSION_NOT_CONNECTED';
+    friendly.cause = error;
+    return friendly;
+  }
+  if (/Request timeout: listPlatforms/i.test(message)) {
+    const friendly = new Error('Wechatsync 扩展已连接，但读取平台列表超时。平台较多或部分平台检查较慢时可能发生，请稍后重试。');
+    friendly.code = 'PLATFORM_LIST_TIMEOUT';
     friendly.cause = error;
     return friendly;
   }

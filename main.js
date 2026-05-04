@@ -10216,7 +10216,7 @@ var require_wechatsync_bridge = __commonJS({
     var DEFAULT_WECHATSYNC_PORT2 = 9527;
     var DEFAULT_REQUEST_TIMEOUT_MS = 36e4;
     var DEFAULT_CONNECT_TIMEOUT_MS = 6e4;
-    var DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS = 1e4;
+    var DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS = 6e4;
     var WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     function createEmitter() {
       const listeners = /* @__PURE__ */ new Map();
@@ -10416,6 +10416,12 @@ var require_wechatsync_bridge = __commonJS({
       if (/Extension not connected|not connected|timeout:no_extension/i.test(message)) {
         const friendly = new Error("\u5C1A\u672A\u8FDE\u63A5\u5230 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55\u3002\u8BF7\u5728\u5DF2\u767B\u5F55\u76EE\u6807\u5E73\u53F0\u7684 Chromium \u6D4F\u89C8\u5668\u4E2D\u5B89\u88C5\u5E76\u542F\u7528 Wechatsync \u6269\u5C55\uFF0C\u7136\u540E\u5F00\u542F MCP/\u6865\u63A5\u3002");
         friendly.code = "EXTENSION_NOT_CONNECTED";
+        friendly.cause = error;
+        return friendly;
+      }
+      if (/Request timeout: listPlatforms/i.test(message)) {
+        const friendly = new Error("Wechatsync \u6269\u5C55\u5DF2\u8FDE\u63A5\uFF0C\u4F46\u8BFB\u53D6\u5E73\u53F0\u5217\u8868\u8D85\u65F6\u3002\u5E73\u53F0\u8F83\u591A\u6216\u90E8\u5206\u5E73\u53F0\u68C0\u67E5\u8F83\u6162\u65F6\u53EF\u80FD\u53D1\u751F\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002");
+        friendly.code = "PLATFORM_LIST_TIMEOUT";
         friendly.cause = error;
         return friendly;
       }
@@ -10842,7 +10848,7 @@ var require_wechatsync_results = __commonJS({
       return /未登录|登录|auth|unauthori[sz]ed|forbidden|cookie|token|鉴权|401|403/i.test(String(message || ""));
     }
     function isWechatSyncConnectionFailure2(error = {}) {
-      return ["AUTH_FAILED", "EXTENSION_NOT_CONNECTED", "BRIDGE_UNAVAILABLE"].includes(error == null ? void 0 : error.code);
+      return ["AUTH_FAILED", "EXTENSION_NOT_CONNECTED", "BRIDGE_UNAVAILABLE", "PLATFORM_LIST_TIMEOUT"].includes(error == null ? void 0 : error.code);
     }
     function normalizeWechatSyncResponseResults2(result) {
       if (Array.isArray(result == null ? void 0 : result.results))
@@ -16855,7 +16861,11 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
             elapsedMs: Date.now() - startedAt
           });
           button.setButtonText("\u8BFB\u53D6\u5E73\u53F0...");
-          const platforms = await bridge.listPlatforms({ forceRefresh: false, timeoutMs: 1e4 });
+          console.debug("[Wechatsync] reading platform list", {
+            timeoutMs: 6e4,
+            note: "Wechatsync checks platforms in batches; this can take tens of seconds when many platforms are installed."
+          });
+          const platforms = await bridge.listPlatforms({ forceRefresh: false, timeoutMs: 6e4 });
           const usablePlatforms = normalizeWechatsyncPlatformList(platforms);
           console.debug("[Wechatsync] listPlatforms response", {
             elapsedMs: Date.now() - startedAt,
@@ -16890,7 +16900,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
             }
           });
           await this.plugin.saveSettings();
-          const hint = (error == null ? void 0 : error.code) === "EXTENSION_NOT_CONNECTED" ? "\u5982\u679C\u6D4F\u89C8\u5668\u6269\u5C55\u5DF2\u5F00\u542F MCP/CLI\uFF0C\u8BF7\u786E\u8BA4\u6269\u5C55\u91CC\u7684\u670D\u52A1\u5668\u5730\u5740\u7AEF\u53E3\u4E0E\u8FD9\u91CC\u4E00\u81F4\uFF0C\u6216\u5173\u95ED\u518D\u5F00\u542F\u4E00\u6B21\u6269\u5C55 MCP/CLI \u540E\u91CD\u8BD5\u3002" : "";
+          const hint = (error == null ? void 0 : error.code) === "EXTENSION_NOT_CONNECTED" ? "\u5982\u679C\u6D4F\u89C8\u5668\u6269\u5C55\u5DF2\u5F00\u542F MCP/CLI\uFF0C\u8BF7\u786E\u8BA4\u6269\u5C55\u91CC\u7684\u670D\u52A1\u5668\u5730\u5740\u7AEF\u53E3\u4E0E\u8FD9\u91CC\u4E00\u81F4\uFF0C\u6216\u5173\u95ED\u518D\u5F00\u542F\u4E00\u6B21\u6269\u5C55 MCP/CLI \u540E\u91CD\u8BD5\u3002" : (error == null ? void 0 : error.code) === "PLATFORM_LIST_TIMEOUT" ? "\u6865\u63A5\u5DF2\u7ECF\u8FDE\u4E0A\uFF0C\u4F46 Wechatsync \u6B63\u5728\u68C0\u67E5\u591A\u4E2A\u5E73\u53F0\u767B\u5F55\u72B6\u6001\u3002\u4F60\u53EF\u4EE5\u7A0D\u540E\u91CD\u8BD5\uFF0C\u6216\u5148\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u91CC\u6253\u5F00\u4E00\u6B21\u5E73\u53F0\u5217\u8868\u8BA9\u5B83\u66F4\u65B0\u7F13\u5B58\u3002" : "";
           new Notice(`\u274C Wechatsync \u8FDE\u63A5\u5931\u8D25\uFF1A${error.message}${hint ? ` ${hint}` : ""}`, 12e3);
         } finally {
           (_d = button.setDisabled) == null ? void 0 : _d.call(button, false);

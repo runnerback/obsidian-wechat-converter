@@ -99,7 +99,9 @@ describe('Wechatsync bridge service', () => {
 
     await service.waitForConnection(1000);
     const startedAt = Date.now();
-    await expect(service.listPlatforms({ timeoutMs: 20 })).rejects.toThrow(/Request timeout: listPlatforms/);
+    await expect(service.listPlatforms({ timeoutMs: 20 })).rejects.toMatchObject({
+      code: 'PLATFORM_LIST_TIMEOUT',
+    });
     expect(Date.now() - startedAt).toBeLessThan(500);
   });
 
@@ -245,5 +247,6 @@ describe('Wechatsync bridge service', () => {
   it('recognizes common bridge error messages', () => {
     expect(createReadableBridgeError(new Error('MCP token not configured')).code).toBe('AUTH_FAILED');
     expect(createReadableBridgeError(new Error('Extension not connected')).code).toBe('EXTENSION_NOT_CONNECTED');
+    expect(createReadableBridgeError(new Error('Request timeout: listPlatforms')).code).toBe('PLATFORM_LIST_TIMEOUT');
   });
 });

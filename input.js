@@ -5647,7 +5647,11 @@ class AppleStyleSettingTab extends PluginSettingTab {
                 elapsedMs: Date.now() - startedAt,
               });
               button.setButtonText('读取平台...');
-              const platforms = await bridge.listPlatforms({ forceRefresh: false, timeoutMs: 10000 });
+              console.debug('[Wechatsync] reading platform list', {
+                timeoutMs: 60000,
+                note: 'Wechatsync checks platforms in batches; this can take tens of seconds when many platforms are installed.',
+              });
+              const platforms = await bridge.listPlatforms({ forceRefresh: false, timeoutMs: 60000 });
               const usablePlatforms = normalizeWechatsyncPlatformList(platforms);
               console.debug('[Wechatsync] listPlatforms response', {
                 elapsedMs: Date.now() - startedAt,
@@ -5684,7 +5688,9 @@ class AppleStyleSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings();
               const hint = error?.code === 'EXTENSION_NOT_CONNECTED'
                 ? '如果浏览器扩展已开启 MCP/CLI，请确认扩展里的服务器地址端口与这里一致，或关闭再开启一次扩展 MCP/CLI 后重试。'
-                : '';
+                : (error?.code === 'PLATFORM_LIST_TIMEOUT'
+                  ? '桥接已经连上，但 Wechatsync 正在检查多个平台登录状态。你可以稍后重试，或先在浏览器扩展里打开一次平台列表让它更新缓存。'
+                  : '');
               new Notice(`❌ Wechatsync 连接失败：${error.message}${hint ? ` ${hint}` : ''}`, 12000);
             } finally {
               button.setDisabled?.(false);
