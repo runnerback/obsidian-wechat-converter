@@ -157,8 +157,14 @@ function createMinimalWebSocketServer({ http, port, logger = console }) {
   const sockets = new Set();
 
   server.on('upgrade', (req, socket) => {
+    logger.debug?.('[WechatsyncBridge] WebSocket upgrade received', {
+      url: req.url,
+      origin: req.headers.origin || '',
+      userAgent: req.headers['user-agent'] || '',
+    });
     const key = req.headers['sec-websocket-key'];
     if (!key) {
+      logger.warn?.('[WechatsyncBridge] WebSocket upgrade rejected: missing sec-websocket-key');
       socket.destroy();
       return;
     }

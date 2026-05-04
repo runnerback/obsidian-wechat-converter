@@ -105,7 +105,17 @@ describe('Wechatsync result helpers', () => {
       { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin', error: '' },
       { id: 'juejin', name: '掘金', authKnown: true, authenticated: false, username: '', error: '未登录' },
     ]);
-    expect(getFallbackWechatsyncPlatforms().some((platform) => platform.id === 'zhihu')).toBe(true);
+  });
+
+  it('keeps fallback platform candidates aligned with the Wechatsync support matrix', () => {
+    const platformIds = getFallbackWechatsyncPlatforms().map((platform) => platform.id);
+    expect(platformIds).toContain('zhihu');
+    expect(platformIds).toContain('xiaohongshu');
+    expect(platformIds).toContain('toutiao');
+    expect(platformIds).toContain('smzdm');
+    expect(platformIds).toContain('zip-download');
+    expect(platformIds).not.toContain('weixin');
+    expect(platformIds).not.toContain('twitter');
   });
 
   it('normalizes sync responses from arrays, wrapped results, and single results', () => {

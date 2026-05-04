@@ -81,6 +81,7 @@ function createDefaultMultiPlatformSyncSettings() {
 
 function normalizeWechatsyncPlatformId(value = '') {
   const id = String(value || '').trim().toLowerCase();
+  if (id === 'twitter') return 'x';
   return id && id !== 'weixin' ? id : '';
 }
 
@@ -5671,9 +5672,9 @@ class AppleStyleSettingTab extends PluginSettingTab {
       const platformPicker = containerEl.createDiv({ cls: 'wechat-platform-picker' });
       const platformPickerHeader = platformPicker.createDiv({ cls: 'wechat-platform-picker-header' });
       const platformPickerTitle = platformPickerHeader.createDiv();
-      platformPickerTitle.createEl('div', { text: '同步平台（常用）', cls: 'wechat-platform-picker-title' });
+      platformPickerTitle.createEl('div', { text: '同步平台（Wechatsync 支持）', cls: 'wechat-platform-picker-title' });
       platformPickerTitle.createEl('div', {
-        text: '这里只放常用预设，不代表浏览器扩展支持的全部平台；未检测登录状态也可以发送。',
+        text: '按 Wechatsync 官方支持矩阵内置，微信仍走本插件自己的公众号链路；未检测登录状态也可以发送。',
         cls: 'wechat-platform-picker-desc',
       });
       const platformSummary = platformPickerHeader.createDiv({ cls: 'wechat-platform-picker-summary' });

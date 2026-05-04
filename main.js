@@ -10363,8 +10363,15 @@ var require_wechatsync_bridge = __commonJS({
       const server = http.createServer();
       const sockets = /* @__PURE__ */ new Set();
       server.on("upgrade", (req, socket) => {
+        var _a, _b;
+        (_a = logger.debug) == null ? void 0 : _a.call(logger, "[WechatsyncBridge] WebSocket upgrade received", {
+          url: req.url,
+          origin: req.headers.origin || "",
+          userAgent: req.headers["user-agent"] || ""
+        });
         const key = req.headers["sec-websocket-key"];
         if (!key) {
+          (_b = logger.warn) == null ? void 0 : _b.call(logger, "[WechatsyncBridge] WebSocket upgrade rejected: missing sec-websocket-key");
           socket.destroy();
           return;
         }
@@ -10803,25 +10810,35 @@ var require_wechatsync_results = __commonJS({
   "services/wechatsync-results.js"(exports2, module2) {
     var FALLBACK_WECHATSYNC_PLATFORMS = [
       { id: "zhihu", name: "\u77E5\u4E4E" },
-      { id: "juejin", name: "\u6398\u91D1" },
-      { id: "bilibili", name: "\u54D4\u54E9\u54D4\u54E9" },
-      { id: "baijiahao", name: "\u767E\u5BB6\u53F7" },
-      { id: "douyin", name: "\u6296\u97F3\u56FE\u6587" },
-      { id: "twitter", name: "X (Twitter)" },
-      { id: "x", name: "X (Twitter)" },
       { id: "weibo", name: "\u5FAE\u535A" },
+      { id: "xiaohongshu", name: "\u5C0F\u7EA2\u4E66" },
+      { id: "juejin", name: "\u6398\u91D1" },
       { id: "csdn", name: "CSDN" },
+      { id: "jianshu", name: "\u7B80\u4E66" },
+      { id: "toutiao", name: "\u5934\u6761\u53F7" },
+      { id: "douyin", name: "\u6296\u97F3\u56FE\u6587" },
+      { id: "bilibili", name: "B\u7AD9\u4E13\u680F" },
+      { id: "baijiahao", name: "\u767E\u5BB6\u53F7" },
       { id: "yuque", name: "\u8BED\u96C0" },
       { id: "douban", name: "\u8C46\u74E3" },
       { id: "sohu", name: "\u641C\u72D0\u53F7" },
       { id: "xueqiu", name: "\u96EA\u7403" },
       { id: "woshipm", name: "\u4EBA\u4EBA\u90FD\u662F\u4EA7\u54C1\u7ECF\u7406" },
+      { id: "dayu", name: "\u5927\u9C7C\u53F7" },
+      { id: "yidian", name: "\u4E00\u70B9\u53F7" },
       { id: "51cto", name: "51CTO" },
-      { id: "imooc", name: "\u6155\u8BFE\u7F51" },
+      { id: "imooc", name: "\u6155\u8BFE\u624B\u8BB0" },
       { id: "oschina", name: "\u5F00\u6E90\u4E2D\u56FD" },
-      { id: "segmentfault", name: "SegmentFault" },
+      { id: "segmentfault", name: "\u601D\u5426" },
       { id: "cnblogs", name: "\u535A\u5BA2\u56ED" },
-      { id: "eastmoney", name: "\u4E1C\u65B9\u8D22\u5BCC" }
+      { id: "sohufocus", name: "\u641C\u72D0\u7126\u70B9" },
+      { id: "x", name: "X (Twitter)" },
+      { id: "eastmoney", name: "\u4E1C\u65B9\u8D22\u5BCC" },
+      { id: "smzdm", name: "\u4EC0\u4E48\u503C\u5F97\u4E70" },
+      { id: "netease", name: "\u7F51\u6613\u53F7" },
+      { id: "wordpress", name: "WordPress" },
+      { id: "typecho", name: "Typecho" },
+      { id: "zip-download", name: "Markdown \u538B\u7F29\u5305" }
     ];
     function getFallbackWechatsyncPlatforms2() {
       return FALLBACK_WECHATSYNC_PLATFORMS.map((platform) => ({ ...platform }));
@@ -12145,6 +12162,8 @@ function createDefaultMultiPlatformSyncSettings() {
 }
 function normalizeWechatsyncPlatformId(value = "") {
   const id = String(value || "").trim().toLowerCase();
+  if (id === "twitter")
+    return "x";
   return id && id !== "weixin" ? id : "";
 }
 function parseWechatsyncPlatformIds(value = []) {
@@ -16956,9 +16975,9 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       const platformPicker = containerEl.createDiv({ cls: "wechat-platform-picker" });
       const platformPickerHeader = platformPicker.createDiv({ cls: "wechat-platform-picker-header" });
       const platformPickerTitle = platformPickerHeader.createDiv();
-      platformPickerTitle.createEl("div", { text: "\u540C\u6B65\u5E73\u53F0\uFF08\u5E38\u7528\uFF09", cls: "wechat-platform-picker-title" });
+      platformPickerTitle.createEl("div", { text: "\u540C\u6B65\u5E73\u53F0\uFF08Wechatsync \u652F\u6301\uFF09", cls: "wechat-platform-picker-title" });
       platformPickerTitle.createEl("div", {
-        text: "\u8FD9\u91CC\u53EA\u653E\u5E38\u7528\u9884\u8BBE\uFF0C\u4E0D\u4EE3\u8868\u6D4F\u89C8\u5668\u6269\u5C55\u652F\u6301\u7684\u5168\u90E8\u5E73\u53F0\uFF1B\u672A\u68C0\u6D4B\u767B\u5F55\u72B6\u6001\u4E5F\u53EF\u4EE5\u53D1\u9001\u3002",
+        text: "\u6309 Wechatsync \u5B98\u65B9\u652F\u6301\u77E9\u9635\u5185\u7F6E\uFF0C\u5FAE\u4FE1\u4ECD\u8D70\u672C\u63D2\u4EF6\u81EA\u5DF1\u7684\u516C\u4F17\u53F7\u94FE\u8DEF\uFF1B\u672A\u68C0\u6D4B\u767B\u5F55\u72B6\u6001\u4E5F\u53EF\u4EE5\u53D1\u9001\u3002",
         cls: "wechat-platform-picker-desc"
       });
       const platformSummary = platformPickerHeader.createDiv({ cls: "wechat-platform-picker-summary" });
