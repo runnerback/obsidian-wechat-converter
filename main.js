@@ -16801,11 +16801,19 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
     this.plugin.settings.multiPlatformSync = multiPlatformSettings;
     new Setting(containerEl).setName("\u591A\u5E73\u53F0\u5206\u53D1\uFF08Beta\uFF09").setDesc("\u5FAE\u4FE1\u4ECD\u4F7F\u7528\u4E0A\u65B9\u516C\u4F17\u53F7\u8D26\u53F7\uFF1B\u77E5\u4E4E\u3001\u6398\u91D1\u3001CSDN \u7B49\u5176\u4ED6\u5E73\u53F0\u901A\u8FC7 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55\u540C\u6B65\u4E3A\u8349\u7A3F\u3002").setHeading();
     new Setting(containerEl).setName("\u542F\u7528 Wechatsync \u5206\u53D1").setDesc("\u5F00\u542F\u540E\uFF0C\u8BF7\u540C\u65F6\u5728 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55\u8BBE\u7F6E\u4E2D\u6253\u5F00\u300CCLI / MCP \u8FDE\u63A5\u300D\u3002").addToggle((toggle) => toggle.setValue(multiPlatformSettings.enabled).onChange(async (value) => {
+      var _a;
       this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
         ...this.plugin.settings.multiPlatformSync,
         enabled: value
       });
       await this.plugin.saveSettings();
+      if (value) {
+        this.plugin.startWechatSyncBridgeInBackground("settings-enabled");
+      } else if ((_a = this.plugin._wechatSyncBridgeService) == null ? void 0 : _a.stop) {
+        await this.plugin._wechatSyncBridgeService.stop().catch((error) => {
+          console.warn("\u505C\u6B62 Wechatsync \u6865\u63A5\u5931\u8D25:", error);
+        });
+      }
       this.display();
     }));
     if (multiPlatformSettings.enabled) {
@@ -16817,6 +16825,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
           connection: { status: "untested" }
         });
         await this.plugin.saveSettings();
+        this.plugin.startWechatSyncBridgeInBackground("settings-port-change");
       }));
       new Setting(containerEl).setName("Wechatsync Token").setDesc("\u586B\u5165 Wechatsync \u6269\u5C55\u300CCLI / MCP \u8FDE\u63A5\u300D\u4E2D\u663E\u793A\u7684 Token\uFF0C\u7528\u4E8E\u786E\u8BA4 Obsidian \u4E0E\u6D4F\u89C8\u5668\u6269\u5C55\u662F\u540C\u4E00\u7EC4\u6865\u63A5\u8FDE\u63A5\u3002").addText((text) => text.setPlaceholder("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx").setValue(multiPlatformSettings.token).onChange(async (value) => {
         this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
@@ -16825,6 +16834,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
           connection: { status: "untested" }
         });
         await this.plugin.saveSettings();
+        this.plugin.startWechatSyncBridgeInBackground("settings-token-change");
       }));
       new Setting(containerEl).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u8FDE\u63A5\u672C\u5730\u6865\u63A5\u4E0E\u6D4F\u89C8\u5668\u6269\u5C55\uFF0C\u5E76\u4F18\u5148\u8BFB\u53D6\u6269\u5C55\u7F13\u5B58\u7684\u5E73\u53F0\u767B\u5F55\u72B6\u6001\u3002\u9996\u6B21\u542F\u52A8 bridge \u65F6\u53EF\u80FD\u9700\u8981\u7B49\u5F85\u6269\u5C55\u91CD\u8FDE\u3002").addButton((button) => button.setButtonText("\u6D4B\u8BD5").onClick(async () => {
         var _a, _b, _c, _d;
@@ -17455,6 +17465,7 @@ var AppleStylePlugin = class extends Plugin {
         console.warn("\u540C\u6B65\u8F6C\u6362\u5668\u6807\u9898\u5931\u8D25:", error);
       });
     });
+    this.startWechatSyncBridgeInBackground("plugin-load");
     console.log("\u2705 \u5FAE\u4FE1\u516C\u4F17\u53F7\u8F6C\u6362\u5668\u52A0\u8F7D\u5B8C\u6210");
   }
   insertImageSwipeCallout(editor, type = "image-swipe") {
@@ -17536,6 +17547,26 @@ var AppleStylePlugin = class extends Plugin {
       token: settings.token
     });
     return this._wechatSyncBridgeService;
+  }
+  startWechatSyncBridgeInBackground(reason = "manual") {
+    const settings = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    if (!settings.enabled)
+      return;
+    const bridge = this.getWechatSyncBridgeService();
+    bridge.start().then((status) => {
+      console.info("[Wechatsync] bridge warm start", {
+        reason,
+        port: settings.port,
+        status
+      });
+    }).catch((error) => {
+      console.warn("[Wechatsync] bridge warm start failed", {
+        reason,
+        port: settings.port,
+        code: error == null ? void 0 : error.code,
+        message: (error == null ? void 0 : error.message) || String(error)
+      });
+    });
   }
   async loadSettings() {
     const loadedData = await this.loadData() || {};

@@ -5580,6 +5580,13 @@ class AppleStyleSettingTab extends PluginSettingTab {
             enabled: value,
           });
           await this.plugin.saveSettings();
+          if (value) {
+            this.plugin.startWechatSyncBridgeInBackground('settings-enabled');
+          } else if (this.plugin._wechatSyncBridgeService?.stop) {
+            await this.plugin._wechatSyncBridgeService.stop().catch((error) => {
+              console.warn('停止 Wechatsync 桥接失败:', error);
+            });
+          }
           this.display();
         }));
 
@@ -5598,6 +5605,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
               connection: { status: 'untested' },
             });
             await this.plugin.saveSettings();
+            this.plugin.startWechatSyncBridgeInBackground('settings-port-change');
           }));
 
       new Setting(containerEl)
@@ -5613,6 +5621,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
               connection: { status: 'untested' },
             });
             await this.plugin.saveSettings();
+            this.plugin.startWechatSyncBridgeInBackground('settings-token-change');
           }));
 
       new Setting(containerEl)
@@ -6392,6 +6401,8 @@ class AppleStylePlugin extends Plugin {
       });
     });
 
+    this.startWechatSyncBridgeInBackground('plugin-load');
+
     console.log('✅ 微信公众号转换器加载完成');
   }
 
@@ -6484,6 +6495,29 @@ class AppleStylePlugin extends Plugin {
       token: settings.token,
     });
     return this._wechatSyncBridgeService;
+  }
+
+  startWechatSyncBridgeInBackground(reason = 'manual') {
+    const settings = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    if (!settings.enabled) return;
+
+    const bridge = this.getWechatSyncBridgeService();
+    bridge.start()
+      .then((status) => {
+        console.info('[Wechatsync] bridge warm start', {
+          reason,
+          port: settings.port,
+          status,
+        });
+      })
+      .catch((error) => {
+        console.warn('[Wechatsync] bridge warm start failed', {
+          reason,
+          port: settings.port,
+          code: error?.code,
+          message: error?.message || String(error),
+        });
+      });
   }
 
   async loadSettings() {
