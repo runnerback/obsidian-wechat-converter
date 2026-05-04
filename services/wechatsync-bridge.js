@@ -1,6 +1,7 @@
 const DEFAULT_WECHATSYNC_PORT = 9527;
 const DEFAULT_REQUEST_TIMEOUT_MS = 360000;
 const DEFAULT_CONNECT_TIMEOUT_MS = 60000;
+const DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS = 10000;
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 function createEmitter() {
@@ -262,6 +263,10 @@ function createWechatSyncBridgeService(options = {}) {
   const connectionResolvers = [];
   const wsOpenState = getWebSocketOpenState(WebSocketServer);
 
+  function debug(message, details) {
+    logger.debug?.(`[WechatsyncBridge] ${message}`, details || '');
+  }
+
   function isPrimaryConnected() {
     return !!(client && client.readyState === wsOpenState);
   }
@@ -294,8 +299,8 @@ function createWechatSyncBridgeService(options = {}) {
       if (req.method === 'POST' && req.url === '/request') {
         try {
           const body = await readRequestBody(req);
-          const { method, params } = JSON.parse(body || '{}');
-          const result = await requestInternal(method, params);
+          const { method, params, timeoutMs } = JSON.parse(body || '{}');
+          const result = await requestInternal(method, params, { timeoutMs });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ result }));
         } catch (error) {
@@ -333,6 +338,7 @@ function createWechatSyncBridgeService(options = {}) {
       wss.once('error', reject);
       wss.on('connection', (ws) => {
         client = ws;
+        debug('Extension connected', { port, mode: 'primary' });
         notifyConnected();
 
         ws.on('message', (data) => {
@@ -398,11 +404,13 @@ function createWechatSyncBridgeService(options = {}) {
     try {
       await startServer();
       isServerMode = true;
+      debug('Primary bridge started', { port, httpPort: port + 1 });
     } catch (error) {
       if (error?.code !== 'EADDRINUSE') {
         throw createReadableBridgeError(error);
       }
       isServerMode = false;
+      debug('Using existing primary bridge', { port, httpPort: port + 1 });
     }
 
     return getStatus();
@@ -467,20 +475,35 @@ function createWechatSyncBridgeService(options = {}) {
     }
 
     const pending = pendingRequests.get(message.id);
-    if (!pending) return;
+    if (!pending) {
+      debug('Received response for unknown or timed out request', { id: message.id });
+      return;
+    }
 
     clearTimeout(pending.timeout);
     pendingRequests.delete(message.id);
 
     if (message.error) {
       const errorMessage = message.error.message || message.error.error || String(message.error);
+      debug('Request failed', {
+        id: message.id,
+        method: pending.method,
+        elapsedMs: Date.now() - pending.startedAt,
+        error: errorMessage,
+      });
       pending.reject(createReadableBridgeError(new Error(errorMessage)));
       return;
     }
+    debug('Request completed', {
+      id: message.id,
+      method: pending.method,
+      elapsedMs: Date.now() - pending.startedAt,
+      resultKind: Array.isArray(message.result) ? 'array' : typeof message.result,
+    });
     pending.resolve(message.result);
   }
 
-  function requestInternal(method, params) {
+  function requestInternal(method, params, options = {}) {
     if (!isPrimaryConnected()) {
       return Promise.reject(createReadableBridgeError(new Error('Extension not connected.')));
     }
@@ -491,21 +514,35 @@ function createWechatSyncBridgeService(options = {}) {
     const id = idFactory();
     const message = { id, method, params };
     if (token) message.token = token;
+    const timeoutMs = Number.isFinite(Number(options.timeoutMs)) && Number(options.timeoutMs) > 0
+      ? Number(options.timeoutMs)
+      : requestTimeoutMs;
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         pendingRequests.delete(id);
+        debug('Request timed out', { id, method, timeoutMs });
         reject(createReadableBridgeError(new Error(`Request timeout: ${method}`)));
-      }, requestTimeoutMs);
+      }, timeoutMs);
 
-      pendingRequests.set(id, { resolve, reject, timeout });
+      pendingRequests.set(id, { resolve, reject, timeout, method, startedAt: Date.now() });
+      debug('Sending request', {
+        id,
+        method,
+        timeoutMs,
+        mode: 'primary',
+        paramKeys: params && typeof params === 'object' ? Object.keys(params) : [],
+      });
       client.send(JSON.stringify(message));
     });
   }
 
-  function requestViaHttp(method, params) {
+  function requestViaHttp(method, params, options = {}) {
     return new Promise((resolve, reject) => {
-      const data = JSON.stringify({ method, params });
+      const timeoutMs = Number.isFinite(Number(options.timeoutMs)) && Number(options.timeoutMs) > 0
+        ? Number(options.timeoutMs)
+        : requestTimeoutMs;
+      const data = JSON.stringify({ method, params, timeoutMs });
       const req = http.request({
         hostname: 'localhost',
         port: port + 1,
@@ -515,7 +552,7 @@ function createWechatSyncBridgeService(options = {}) {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(data),
         },
-        timeout: requestTimeoutMs,
+        timeout: timeoutMs,
       }, (res) => {
         let body = '';
         res.on('data', (chunk) => {
@@ -538,6 +575,7 @@ function createWechatSyncBridgeService(options = {}) {
       req.on('error', (error) => reject(createReadableBridgeError(error)));
       req.on('timeout', () => {
         req.destroy();
+        debug('HTTP forwarded request timed out', { method, timeoutMs });
         reject(createReadableBridgeError(new Error(`Request timeout: ${method}`)));
       });
       req.write(data);
@@ -545,20 +583,20 @@ function createWechatSyncBridgeService(options = {}) {
     });
   }
 
-  async function request(method, params) {
+  async function request(method, params, options = {}) {
     await start();
     if (isServerMode) {
-      return requestInternal(method, params);
+      return requestInternal(method, params, options);
     }
-    return requestViaHttp(method, params);
+    return requestViaHttp(method, params, options);
   }
 
-  function listPlatforms({ forceRefresh = false } = {}) {
-    return request('listPlatforms', { forceRefresh });
+  function listPlatforms({ forceRefresh = false, timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS } = {}) {
+    return request('listPlatforms', { forceRefresh }, { timeoutMs });
   }
 
-  function checkAuth(platform) {
-    return request('checkAuth', { platform });
+  function checkAuth(platform, { timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS } = {}) {
+    return request('checkAuth', { platform }, { timeoutMs });
   }
 
   function syncArticle({ platforms, title, markdown, content, cover }) {

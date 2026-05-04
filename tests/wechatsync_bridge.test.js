@@ -80,6 +80,29 @@ describe('Wechatsync bridge service', () => {
     expect(platforms[0].id).toBe('zhihu');
   });
 
+  it('can time out platform listing without waiting for the long sync timeout', async () => {
+    const port = await getFreePort();
+    const service = createWechatSyncBridgeService({
+      WebSocketServer,
+      http,
+      port,
+      token: 'secret-token',
+      requestTimeoutMs: 1000,
+      connectTimeoutMs: 1000,
+      idFactory: () => 'slow-list',
+    });
+    cleanup.push(service);
+    await service.start();
+
+    const extension = await connectExtension(port, () => new Promise(() => {}));
+    cleanup.push(extension);
+
+    await service.waitForConnection(1000);
+    const startedAt = Date.now();
+    await expect(service.listPlatforms({ timeoutMs: 20 })).rejects.toThrow(/Request timeout: listPlatforms/);
+    expect(Date.now() - startedAt).toBeLessThan(500);
+  });
+
   it('maps extension token failures to a readable auth error', async () => {
     const port = await getFreePort();
     const service = createWechatSyncBridgeService({

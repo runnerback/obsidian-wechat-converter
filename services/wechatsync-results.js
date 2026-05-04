@@ -1,6 +1,8 @@
 function normalizeWechatsyncPlatform(platform = {}) {
   const id = String(platform.id || platform.type || platform.platform || '').trim();
   if (!id || id === 'weixin') return null;
+  const nestedAuth = platform.auth && typeof platform.auth === 'object' ? platform.auth : {};
+  const user = platform.user && typeof platform.user === 'object' ? platform.user : {};
   return {
     id,
     name: String(platform.name || platform.title || platform.platformName || id),
@@ -8,10 +10,57 @@ function normalizeWechatsyncPlatform(platform = {}) {
       || platform.authenticated === true
       || platform.isAuth === true
       || platform.loggedIn === true
+      || nestedAuth.isAuthenticated === true
+      || nestedAuth.authenticated === true
+      || nestedAuth.loggedIn === true
       || platform.status === 'authenticated'
-      || platform.status === 'logged_in',
-    username: typeof platform.username === 'string' ? platform.username : '',
+      || platform.status === 'logged_in'
+      || platform.status === '已登录',
+    username: typeof platform.username === 'string'
+      ? platform.username
+      : (typeof platform.accountName === 'string'
+        ? platform.accountName
+        : (typeof nestedAuth.username === 'string'
+          ? nestedAuth.username
+          : (typeof user.name === 'string' ? user.name : ''))),
     error: typeof platform.error === 'string' ? platform.error : '',
+  };
+}
+
+function normalizeWechatsyncPlatformList(response) {
+  const candidates = Array.isArray(response)
+    ? response
+    : (Array.isArray(response?.platforms)
+      ? response.platforms
+      : (Array.isArray(response?.result)
+        ? response.result
+        : (Array.isArray(response?.data) ? response.data : [])));
+
+  return candidates
+    .map((platform) => normalizeWechatsyncPlatform(platform))
+    .filter(Boolean);
+}
+
+function summarizeWechatsyncPlatformResponse(response) {
+  const rawPlatforms = Array.isArray(response)
+    ? response
+    : (Array.isArray(response?.platforms)
+      ? response.platforms
+      : (Array.isArray(response?.result)
+        ? response.result
+        : (Array.isArray(response?.data) ? response.data : [])));
+  const normalized = normalizeWechatsyncPlatformList(response);
+  return {
+    responseKind: Array.isArray(response) ? 'array' : typeof response,
+    rawCount: rawPlatforms.length,
+    normalizedCount: normalized.length,
+    authenticatedCount: normalized.filter((platform) => platform.authenticated).length,
+    platforms: normalized.map((platform) => ({
+      id: platform.id,
+      name: platform.name,
+      authenticated: platform.authenticated,
+      username: platform.username,
+    })),
   };
 }
 
@@ -106,6 +155,8 @@ module.exports = {
   isWechatSyncAuthFailureMessage,
   isWechatSyncConnectionFailure,
   normalizeWechatSyncResponseResults,
+  normalizeWechatsyncPlatformList,
   normalizeWechatsyncPlatform,
+  summarizeWechatsyncPlatformResponse,
   updateCachedPlatformsAfterSync,
 };

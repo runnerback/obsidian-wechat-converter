@@ -3,7 +3,9 @@ import {
   getMultiPlatformResultSummary,
   getWechatSyncResultUrl,
   normalizeWechatSyncResponseResults,
+  normalizeWechatsyncPlatformList,
   normalizeWechatsyncPlatform,
+  summarizeWechatsyncPlatformResponse,
   updateCachedPlatformsAfterSync,
 } from '../services/wechatsync-results.js';
 
@@ -23,6 +25,36 @@ describe('Wechatsync result helpers', () => {
     });
 
     expect(normalizeWechatsyncPlatform({ id: 'weixin', name: '微信' })).toBeNull();
+  });
+
+  it('normalizes wrapped platform lists and nested auth fields from extension responses', () => {
+    const response = {
+      platforms: [
+        {
+          id: 'zhihu',
+          name: '知乎',
+          auth: { isAuthenticated: true, username: 'Lin' },
+        },
+        {
+          id: 'douyin',
+          name: '抖音图文',
+          status: '已登录',
+          accountName: 'home',
+        },
+        { id: 'weixin', name: '微信公众号', isAuthenticated: true },
+      ],
+    };
+
+    expect(normalizeWechatsyncPlatformList(response)).toEqual([
+      { id: 'zhihu', name: '知乎', authenticated: true, username: 'Lin', error: '' },
+      { id: 'douyin', name: '抖音图文', authenticated: true, username: 'home', error: '' },
+    ]);
+    expect(summarizeWechatsyncPlatformResponse(response)).toMatchObject({
+      responseKind: 'object',
+      rawCount: 3,
+      normalizedCount: 2,
+      authenticatedCount: 2,
+    });
   });
 
   it('normalizes sync responses from arrays, wrapped results, and single results', () => {

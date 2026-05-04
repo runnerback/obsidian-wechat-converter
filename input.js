@@ -47,7 +47,9 @@ const {
   getWechatSyncResultUrl,
   isWechatSyncConnectionFailure,
   normalizeWechatSyncResponseResults,
+  normalizeWechatsyncPlatformList,
   normalizeWechatsyncPlatform,
+  summarizeWechatsyncPlatformResponse,
   updateCachedPlatformsAfterSync,
 } = require('./services/wechatsync-results');
 const { resolveSyncAccount, toSyncFriendlyMessage } = require('./services/sync-context');
@@ -4193,6 +4195,12 @@ class AppleStyleView extends ItemView {
     const statusEl = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-status' });
     const platformListEl = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-list' });
     const selectedPlatforms = new Set();
+    console.debug('[Wechatsync] render cached platform state', {
+      status: cachedConnection.status,
+      checkedAt: cachedConnection.checkedAt,
+      message: cachedConnection.message,
+      ...summarizeWechatsyncPlatformResponse(cachedConnection.platforms),
+    });
 
     const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
     const cancelBtn = btnRow.createEl('button', { text: '取消' });
@@ -5609,20 +5617,30 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
       new Setting(containerEl)
         .setName('测试连接')
-        .setDesc('连接本地桥接与浏览器扩展，并读取已登录平台。Token 不一致时会在这里提示。')
+        .setDesc('连接本地桥接与浏览器扩展，并优先读取扩展缓存的平台登录状态。Token 不一致时会在这里提示。')
         .addButton(button => button
           .setButtonText('测试')
           .onClick(async () => {
             button.setButtonText('测试中...');
             button.setDisabled?.(true);
+            const startedAt = Date.now();
             try {
+              console.debug('[Wechatsync] test connection started', {
+                port: this.plugin.settings.multiPlatformSync?.port,
+                hasToken: !!this.plugin.settings.multiPlatformSync?.token,
+                forceRefresh: false,
+              });
               const bridge = this.plugin.getWechatSyncBridgeService();
-              await bridge.start();
+              const status = await bridge.start();
+              console.debug('[Wechatsync] bridge started', status);
               await bridge.waitForConnection(3000);
-              const platforms = await bridge.listPlatforms({ forceRefresh: true });
-              const usablePlatforms = Array.isArray(platforms)
-                ? platforms.map((platform) => normalizeWechatsyncPlatform(platform)).filter(Boolean)
-                : [];
+              console.debug('[Wechatsync] extension connection ready');
+              const platforms = await bridge.listPlatforms({ forceRefresh: false, timeoutMs: 10000 });
+              const usablePlatforms = normalizeWechatsyncPlatformList(platforms);
+              console.debug('[Wechatsync] listPlatforms response', {
+                elapsedMs: Date.now() - startedAt,
+                ...summarizeWechatsyncPlatformResponse(platforms),
+              });
               this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
                 ...this.plugin.settings.multiPlatformSync,
                 connection: {
@@ -5633,8 +5651,15 @@ class AppleStyleSettingTab extends PluginSettingTab {
                 },
               });
               await this.plugin.saveSettings();
-              new Notice(`✅ 已连接 Wechatsync，检测到 ${usablePlatforms.length} 个非微信平台`);
+              const authenticatedCount = usablePlatforms.filter((platform) => platform.authenticated).length;
+              new Notice(`✅ 已连接 Wechatsync，检测到 ${usablePlatforms.length} 个非微信平台，${authenticatedCount} 个已登录`);
             } catch (error) {
+              console.error('[Wechatsync] test connection failed', {
+                elapsedMs: Date.now() - startedAt,
+                code: error?.code,
+                message: error?.message || String(error),
+                stack: error?.stack,
+              });
               this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
                 ...this.plugin.settings.multiPlatformSync,
                 connection: {

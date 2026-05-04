@@ -10216,6 +10216,7 @@ var require_wechatsync_bridge = __commonJS({
     var DEFAULT_WECHATSYNC_PORT2 = 9527;
     var DEFAULT_REQUEST_TIMEOUT_MS = 36e4;
     var DEFAULT_CONNECT_TIMEOUT_MS = 6e4;
+    var DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS = 1e4;
     var WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     function createEmitter() {
       const listeners = /* @__PURE__ */ new Map();
@@ -10457,6 +10458,10 @@ var require_wechatsync_bridge = __commonJS({
       const pendingRequests = /* @__PURE__ */ new Map();
       const connectionResolvers = [];
       const wsOpenState = getWebSocketOpenState(WebSocketServer);
+      function debug(message, details) {
+        var _a;
+        (_a = logger.debug) == null ? void 0 : _a.call(logger, `[WechatsyncBridge] ${message}`, details || "");
+      }
       function isPrimaryConnected() {
         return !!(client && client.readyState === wsOpenState);
       }
@@ -10484,8 +10489,8 @@ var require_wechatsync_bridge = __commonJS({
           if (req.method === "POST" && req.url === "/request") {
             try {
               const body = await readRequestBody(req);
-              const { method, params } = JSON.parse(body || "{}");
-              const result = await requestInternal(method, params);
+              const { method, params, timeoutMs } = JSON.parse(body || "{}");
+              const result = await requestInternal(method, params, { timeoutMs });
               res.writeHead(200, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ result }));
             } catch (error) {
@@ -10518,6 +10523,7 @@ var require_wechatsync_bridge = __commonJS({
           wss.once("error", reject);
           wss.on("connection", (ws) => {
             client = ws;
+            debug("Extension connected", { port, mode: "primary" });
             notifyConnected();
             ws.on("message", (data) => {
               handleMessage(data.toString());
@@ -10579,11 +10585,13 @@ var require_wechatsync_bridge = __commonJS({
         try {
           await startServer();
           isServerMode = true;
+          debug("Primary bridge started", { port, httpPort: port + 1 });
         } catch (error) {
           if ((error == null ? void 0 : error.code) !== "EADDRINUSE") {
             throw createReadableBridgeError(error);
           }
           isServerMode = false;
+          debug("Using existing primary bridge", { port, httpPort: port + 1 });
         }
         return getStatus();
       }
@@ -10643,18 +10651,32 @@ var require_wechatsync_bridge = __commonJS({
           return;
         }
         const pending = pendingRequests.get(message.id);
-        if (!pending)
+        if (!pending) {
+          debug("Received response for unknown or timed out request", { id: message.id });
           return;
+        }
         clearTimeout(pending.timeout);
         pendingRequests.delete(message.id);
         if (message.error) {
           const errorMessage = message.error.message || message.error.error || String(message.error);
+          debug("Request failed", {
+            id: message.id,
+            method: pending.method,
+            elapsedMs: Date.now() - pending.startedAt,
+            error: errorMessage
+          });
           pending.reject(createReadableBridgeError(new Error(errorMessage)));
           return;
         }
+        debug("Request completed", {
+          id: message.id,
+          method: pending.method,
+          elapsedMs: Date.now() - pending.startedAt,
+          resultKind: Array.isArray(message.result) ? "array" : typeof message.result
+        });
         pending.resolve(message.result);
       }
-      function requestInternal(method, params) {
+      function requestInternal(method, params, options2 = {}) {
         if (!isPrimaryConnected()) {
           return Promise.reject(createReadableBridgeError(new Error("Extension not connected.")));
         }
@@ -10665,18 +10687,28 @@ var require_wechatsync_bridge = __commonJS({
         const message = { id, method, params };
         if (token)
           message.token = token;
+        const timeoutMs = Number.isFinite(Number(options2.timeoutMs)) && Number(options2.timeoutMs) > 0 ? Number(options2.timeoutMs) : requestTimeoutMs;
         return new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
             pendingRequests.delete(id);
+            debug("Request timed out", { id, method, timeoutMs });
             reject(createReadableBridgeError(new Error(`Request timeout: ${method}`)));
-          }, requestTimeoutMs);
-          pendingRequests.set(id, { resolve, reject, timeout });
+          }, timeoutMs);
+          pendingRequests.set(id, { resolve, reject, timeout, method, startedAt: Date.now() });
+          debug("Sending request", {
+            id,
+            method,
+            timeoutMs,
+            mode: "primary",
+            paramKeys: params && typeof params === "object" ? Object.keys(params) : []
+          });
           client.send(JSON.stringify(message));
         });
       }
-      function requestViaHttp(method, params) {
+      function requestViaHttp(method, params, options2 = {}) {
         return new Promise((resolve, reject) => {
-          const data = JSON.stringify({ method, params });
+          const timeoutMs = Number.isFinite(Number(options2.timeoutMs)) && Number(options2.timeoutMs) > 0 ? Number(options2.timeoutMs) : requestTimeoutMs;
+          const data = JSON.stringify({ method, params, timeoutMs });
           const req = http.request({
             hostname: "localhost",
             port: port + 1,
@@ -10686,7 +10718,7 @@ var require_wechatsync_bridge = __commonJS({
               "Content-Type": "application/json",
               "Content-Length": Buffer.byteLength(data)
             },
-            timeout: requestTimeoutMs
+            timeout: timeoutMs
           }, (res) => {
             let body = "";
             res.on("data", (chunk) => {
@@ -10708,24 +10740,25 @@ var require_wechatsync_bridge = __commonJS({
           req.on("error", (error) => reject(createReadableBridgeError(error)));
           req.on("timeout", () => {
             req.destroy();
+            debug("HTTP forwarded request timed out", { method, timeoutMs });
             reject(createReadableBridgeError(new Error(`Request timeout: ${method}`)));
           });
           req.write(data);
           req.end();
         });
       }
-      async function request2(method, params) {
+      async function request2(method, params, options2 = {}) {
         await start();
         if (isServerMode) {
-          return requestInternal(method, params);
+          return requestInternal(method, params, options2);
         }
-        return requestViaHttp(method, params);
+        return requestViaHttp(method, params, options2);
       }
-      function listPlatforms({ forceRefresh = false } = {}) {
-        return request2("listPlatforms", { forceRefresh });
+      function listPlatforms({ forceRefresh = false, timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS } = {}) {
+        return request2("listPlatforms", { forceRefresh }, { timeoutMs });
       }
-      function checkAuth(platform) {
-        return request2("checkAuth", { platform });
+      function checkAuth(platform, { timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS } = {}) {
+        return request2("checkAuth", { platform }, { timeoutMs });
       }
       function syncArticle({ platforms, title, markdown, content, cover }) {
         return request2("syncArticle", {
@@ -10766,12 +10799,34 @@ var require_wechatsync_results = __commonJS({
       const id = String(platform.id || platform.type || platform.platform || "").trim();
       if (!id || id === "weixin")
         return null;
+      const nestedAuth = platform.auth && typeof platform.auth === "object" ? platform.auth : {};
+      const user = platform.user && typeof platform.user === "object" ? platform.user : {};
       return {
         id,
         name: String(platform.name || platform.title || platform.platformName || id),
-        authenticated: platform.isAuthenticated === true || platform.authenticated === true || platform.isAuth === true || platform.loggedIn === true || platform.status === "authenticated" || platform.status === "logged_in",
-        username: typeof platform.username === "string" ? platform.username : "",
+        authenticated: platform.isAuthenticated === true || platform.authenticated === true || platform.isAuth === true || platform.loggedIn === true || nestedAuth.isAuthenticated === true || nestedAuth.authenticated === true || nestedAuth.loggedIn === true || platform.status === "authenticated" || platform.status === "logged_in" || platform.status === "\u5DF2\u767B\u5F55",
+        username: typeof platform.username === "string" ? platform.username : typeof platform.accountName === "string" ? platform.accountName : typeof nestedAuth.username === "string" ? nestedAuth.username : typeof user.name === "string" ? user.name : "",
         error: typeof platform.error === "string" ? platform.error : ""
+      };
+    }
+    function normalizeWechatsyncPlatformList2(response) {
+      const candidates = Array.isArray(response) ? response : Array.isArray(response == null ? void 0 : response.platforms) ? response.platforms : Array.isArray(response == null ? void 0 : response.result) ? response.result : Array.isArray(response == null ? void 0 : response.data) ? response.data : [];
+      return candidates.map((platform) => normalizeWechatsyncPlatform2(platform)).filter(Boolean);
+    }
+    function summarizeWechatsyncPlatformResponse2(response) {
+      const rawPlatforms = Array.isArray(response) ? response : Array.isArray(response == null ? void 0 : response.platforms) ? response.platforms : Array.isArray(response == null ? void 0 : response.result) ? response.result : Array.isArray(response == null ? void 0 : response.data) ? response.data : [];
+      const normalized = normalizeWechatsyncPlatformList2(response);
+      return {
+        responseKind: Array.isArray(response) ? "array" : typeof response,
+        rawCount: rawPlatforms.length,
+        normalizedCount: normalized.length,
+        authenticatedCount: normalized.filter((platform) => platform.authenticated).length,
+        platforms: normalized.map((platform) => ({
+          id: platform.id,
+          name: platform.name,
+          authenticated: platform.authenticated,
+          username: platform.username
+        }))
       };
     }
     function getWechatSyncResultPlatformId2(result = {}) {
@@ -10858,7 +10913,9 @@ var require_wechatsync_results = __commonJS({
       isWechatSyncAuthFailureMessage,
       isWechatSyncConnectionFailure: isWechatSyncConnectionFailure2,
       normalizeWechatSyncResponseResults: normalizeWechatSyncResponseResults2,
+      normalizeWechatsyncPlatformList: normalizeWechatsyncPlatformList2,
       normalizeWechatsyncPlatform: normalizeWechatsyncPlatform2,
+      summarizeWechatsyncPlatformResponse: summarizeWechatsyncPlatformResponse2,
       updateCachedPlatformsAfterSync: updateCachedPlatformsAfterSync2
     };
   }
@@ -11966,7 +12023,9 @@ var {
   getWechatSyncResultUrl,
   isWechatSyncConnectionFailure,
   normalizeWechatSyncResponseResults,
+  normalizeWechatsyncPlatformList,
   normalizeWechatsyncPlatform,
+  summarizeWechatsyncPlatformResponse,
   updateCachedPlatformsAfterSync
 } = require_wechatsync_results();
 var { resolveSyncAccount, toSyncFriendlyMessage } = require_sync_context();
@@ -15591,6 +15650,12 @@ var AppleStyleView = class extends ItemView {
     const statusEl = modal.contentEl.createDiv({ cls: "wechat-multiplatform-status" });
     const platformListEl = modal.contentEl.createDiv({ cls: "wechat-multiplatform-list" });
     const selectedPlatforms = /* @__PURE__ */ new Set();
+    console.debug("[Wechatsync] render cached platform state", {
+      status: cachedConnection.status,
+      checkedAt: cachedConnection.checkedAt,
+      message: cachedConnection.message,
+      ...summarizeWechatsyncPlatformResponse(cachedConnection.platforms)
+    });
     const btnRow = modal.contentEl.createDiv({ cls: "wechat-modal-buttons" });
     const cancelBtn = btnRow.createEl("button", { text: "\u53D6\u6D88" });
     const syncBtn = btnRow.createEl("button", { text: "\u540C\u6B65\u5230\u9009\u4E2D\u5E73\u53F0", cls: "mod-cta" });
@@ -16761,16 +16826,28 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         });
         await this.plugin.saveSettings();
       }));
-      new Setting(containerEl).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u8FDE\u63A5\u672C\u5730\u6865\u63A5\u4E0E\u6D4F\u89C8\u5668\u6269\u5C55\uFF0C\u5E76\u8BFB\u53D6\u5DF2\u767B\u5F55\u5E73\u53F0\u3002Token \u4E0D\u4E00\u81F4\u65F6\u4F1A\u5728\u8FD9\u91CC\u63D0\u793A\u3002").addButton((button) => button.setButtonText("\u6D4B\u8BD5").onClick(async () => {
-        var _a, _b;
+      new Setting(containerEl).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u8FDE\u63A5\u672C\u5730\u6865\u63A5\u4E0E\u6D4F\u89C8\u5668\u6269\u5C55\uFF0C\u5E76\u4F18\u5148\u8BFB\u53D6\u6269\u5C55\u7F13\u5B58\u7684\u5E73\u53F0\u767B\u5F55\u72B6\u6001\u3002Token \u4E0D\u4E00\u81F4\u65F6\u4F1A\u5728\u8FD9\u91CC\u63D0\u793A\u3002").addButton((button) => button.setButtonText("\u6D4B\u8BD5").onClick(async () => {
+        var _a, _b, _c, _d;
         button.setButtonText("\u6D4B\u8BD5\u4E2D...");
         (_a = button.setDisabled) == null ? void 0 : _a.call(button, true);
+        const startedAt = Date.now();
         try {
+          console.debug("[Wechatsync] test connection started", {
+            port: (_b = this.plugin.settings.multiPlatformSync) == null ? void 0 : _b.port,
+            hasToken: !!((_c = this.plugin.settings.multiPlatformSync) == null ? void 0 : _c.token),
+            forceRefresh: false
+          });
           const bridge = this.plugin.getWechatSyncBridgeService();
-          await bridge.start();
+          const status = await bridge.start();
+          console.debug("[Wechatsync] bridge started", status);
           await bridge.waitForConnection(3e3);
-          const platforms = await bridge.listPlatforms({ forceRefresh: true });
-          const usablePlatforms = Array.isArray(platforms) ? platforms.map((platform) => normalizeWechatsyncPlatform(platform)).filter(Boolean) : [];
+          console.debug("[Wechatsync] extension connection ready");
+          const platforms = await bridge.listPlatforms({ forceRefresh: false, timeoutMs: 1e4 });
+          const usablePlatforms = normalizeWechatsyncPlatformList(platforms);
+          console.debug("[Wechatsync] listPlatforms response", {
+            elapsedMs: Date.now() - startedAt,
+            ...summarizeWechatsyncPlatformResponse(platforms)
+          });
           this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
             ...this.plugin.settings.multiPlatformSync,
             connection: {
@@ -16781,8 +16858,15 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
             }
           });
           await this.plugin.saveSettings();
-          new Notice(`\u2705 \u5DF2\u8FDE\u63A5 Wechatsync\uFF0C\u68C0\u6D4B\u5230 ${usablePlatforms.length} \u4E2A\u975E\u5FAE\u4FE1\u5E73\u53F0`);
+          const authenticatedCount = usablePlatforms.filter((platform) => platform.authenticated).length;
+          new Notice(`\u2705 \u5DF2\u8FDE\u63A5 Wechatsync\uFF0C\u68C0\u6D4B\u5230 ${usablePlatforms.length} \u4E2A\u975E\u5FAE\u4FE1\u5E73\u53F0\uFF0C${authenticatedCount} \u4E2A\u5DF2\u767B\u5F55`);
         } catch (error) {
+          console.error("[Wechatsync] test connection failed", {
+            elapsedMs: Date.now() - startedAt,
+            code: error == null ? void 0 : error.code,
+            message: (error == null ? void 0 : error.message) || String(error),
+            stack: error == null ? void 0 : error.stack
+          });
           this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
             ...this.plugin.settings.multiPlatformSync,
             connection: {
@@ -16795,7 +16879,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
           await this.plugin.saveSettings();
           new Notice(`\u274C Wechatsync \u8FDE\u63A5\u5931\u8D25\uFF1A${error.message}`, 1e4);
         } finally {
-          (_b = button.setDisabled) == null ? void 0 : _b.call(button, false);
+          (_d = button.setDisabled) == null ? void 0 : _d.call(button, false);
           button.setButtonText("\u6D4B\u8BD5");
         }
       }));
