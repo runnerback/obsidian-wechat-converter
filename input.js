@@ -58,6 +58,7 @@ const { processAllImages: processAllImagesService, processMathFormulas: processM
 const { cleanHtmlForDraft: cleanHtmlForDraftService } = require('./services/wechat-html-cleaner');
 const { rasterizeSvgToPngBlob } = require('./services/svg-rasterizer');
 const { createObsidianFetchAdapter } = require('./services/obsidian-fetch-adapter');
+const { stripMarkdownFrontmatter } = require('./services/markdown-utils');
 
 // 视图类型标识
 const APPLE_STYLE_VIEW = 'apple-style-converter';
@@ -4359,7 +4360,7 @@ class AppleStyleView extends ItemView {
       }
       const activeFile = this.getPublishContextFile();
       const title = activeFile?.basename || '无标题文章';
-      const markdown = this.lastResolvedMarkdown || '';
+      const markdown = stripMarkdownFrontmatter(this.lastResolvedMarkdown || '');
       const content = this.getCurrentExportHtml() || this.currentHtml || '';
       const cover = this.sessionCoverBase64 || this.getFrontmatterPublishMeta(activeFile).coverSrc || this.getFirstImageFromArticle() || '';
       const notice = new Notice('正在发送到 Wechatsync 浏览器扩展...', 0);
@@ -6961,3 +6962,4 @@ module.exports.WechatAPI = WechatAPI;
 module.exports.AppleStyleSettingTab = AppleStyleSettingTab;
 module.exports.createImageSwipeCalloutMarkdown = createImageSwipeCalloutMarkdown;
 module.exports.getImageSwipeCommandCopy = getImageSwipeCommandCopy;
+module.exports.stripMarkdownFrontmatter = stripMarkdownFrontmatter;

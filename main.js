@@ -12182,6 +12182,21 @@ var require_obsidian_fetch_adapter = __commonJS({
   }
 });
 
+// services/markdown-utils.js
+var require_markdown_utils = __commonJS({
+  "services/markdown-utils.js"(exports2, module2) {
+    function stripMarkdownFrontmatter2(markdown = "") {
+      return String(markdown || "").replace(
+        /^(?:\uFEFF)?---[ \t]*\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/,
+        ""
+      );
+    }
+    module2.exports = {
+      stripMarkdownFrontmatter: stripMarkdownFrontmatter2
+    };
+  }
+});
+
 // input.js
 var { Plugin, MarkdownView, ItemView, Notice, Platform, requestUrl, request } = require("obsidian");
 var { PluginSettingTab, Setting } = require("obsidian");
@@ -12243,6 +12258,7 @@ var { processAllImages: processAllImagesService, processMathFormulas: processMat
 var { cleanHtmlForDraft: cleanHtmlForDraftService } = require_wechat_html_cleaner();
 var { rasterizeSvgToPngBlob } = require_svg_rasterizer();
 var { createObsidianFetchAdapter } = require_obsidian_fetch_adapter();
+var { stripMarkdownFrontmatter } = require_markdown_utils();
 var APPLE_STYLE_VIEW = "apple-style-converter";
 var APPLE_STYLE_VIEW_TITLE = "\u5FAE\u4FE1\u516C\u4F17\u53F7\u8F6C\u6362\u5668";
 function createDefaultMultiPlatformSyncSettings() {
@@ -15993,7 +16009,7 @@ var AppleStyleView = class extends ItemView {
       }
       const activeFile = this.getPublishContextFile();
       const title = (activeFile == null ? void 0 : activeFile.basename) || "\u65E0\u6807\u9898\u6587\u7AE0";
-      const markdown = this.lastResolvedMarkdown || "";
+      const markdown = stripMarkdownFrontmatter(this.lastResolvedMarkdown || "");
       const content = this.getCurrentExportHtml() || this.currentHtml || "";
       const cover = this.sessionCoverBase64 || this.getFrontmatterPublishMeta(activeFile).coverSrc || this.getFirstImageFromArticle() || "";
       const notice = new Notice("\u6B63\u5728\u53D1\u9001\u5230 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55...", 0);
@@ -18154,3 +18170,4 @@ module.exports.WechatAPI = WechatAPI;
 module.exports.AppleStyleSettingTab = AppleStyleSettingTab;
 module.exports.createImageSwipeCalloutMarkdown = createImageSwipeCalloutMarkdown;
 module.exports.getImageSwipeCommandCopy = getImageSwipeCommandCopy;
+module.exports.stripMarkdownFrontmatter = stripMarkdownFrontmatter;
