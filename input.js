@@ -37,7 +37,6 @@ const {
 } = require('./services/ai-layout');
 const { createWechatSyncService } = require('./services/wechat-sync');
 const {
-  DEFAULT_SYNC_REQUEST_TIMEOUT_MS,
   DEFAULT_WECHATSYNC_PORT,
   createWechatSyncBridgeService,
 } = require('./services/wechatsync-bridge');
@@ -4266,7 +4265,7 @@ class AppleStyleView extends ItemView {
 
     const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
     const cancelBtn = btnRow.createEl('button', { text: '取消' });
-    const syncBtn = btnRow.createEl('button', { text: '同步到选中平台', cls: 'mod-cta' });
+    const syncBtn = btnRow.createEl('button', { text: '发送到浏览器扩展', cls: 'mod-cta' });
     syncBtn.disabled = true;
     syncBtn.addClass?.('apple-btn-disabled');
     cancelBtn.onclick = () => modal.close();
@@ -4340,14 +4339,14 @@ class AppleStyleView extends ItemView {
     } else if (cachedConnection.status === 'failed') {
       statusEl.createEl('span', { text: '未连接', cls: 'wechat-multiplatform-status-dot is-error' });
       statusEl.createEl('span', {
-        text: `上次测试失败${cachedConnection.message ? `：${cachedConnection.message}` : ''}。仍可直接尝试发送，发布时会重新连接浏览器扩展。`,
+        text: `上次测试失败${cachedConnection.message ? `：${cachedConnection.message}` : ''}。仍可直接尝试发送，结果请在浏览器扩展查看。`,
         cls: 'wechat-multiplatform-status-text',
       });
       renderPlatforms(configuredPlatforms);
     } else {
       statusEl.createEl('span', { text: '未测试', cls: 'wechat-multiplatform-status-dot' });
       statusEl.createEl('span', {
-        text: '尚未测试桥接连接。可以先在设置中测试，也可以直接发送，最终结果以浏览器扩展返回为准。',
+        text: '尚未测试桥接连接。可以先在设置中测试，也可以直接发送，最终结果请在浏览器扩展查看。',
         cls: 'wechat-multiplatform-status-text',
       });
       renderPlatforms(configuredPlatforms);
@@ -4363,40 +4362,37 @@ class AppleStyleView extends ItemView {
       const markdown = this.lastResolvedMarkdown || '';
       const content = this.getCurrentExportHtml() || this.currentHtml || '';
       const cover = this.sessionCoverBase64 || this.getFrontmatterPublishMeta(activeFile).coverSrc || this.getFirstImageFromArticle() || '';
-      const notice = new Notice('正在通过 Wechatsync 同步到其他平台...', 0);
+      const notice = new Notice('正在发送到 Wechatsync 浏览器扩展...', 0);
       syncBtn.disabled = true;
       syncBtn.addClass?.('apple-btn-disabled');
-      const syncStartedAt = Date.now();
+      const sendStartedAt = Date.now();
       const requestedPlatformIds = Array.from(selectedPlatforms);
-      console.info('[Wechatsync] syncArticle started', {
+      console.info('[Wechatsync] sendArticle started', {
         platformCount: requestedPlatformIds.length,
         platforms: requestedPlatformIds,
         title,
         hasMarkdown: !!markdown,
         contentLength: content.length,
         hasCover: !!cover,
-        timeoutMs: DEFAULT_SYNC_REQUEST_TIMEOUT_MS,
       });
       try {
         const bridge = this.plugin.getWechatSyncBridgeService();
-        const result = await bridge.syncArticle({
+        const result = await bridge.sendArticle({
           platforms: requestedPlatformIds,
           title,
           markdown,
           content,
           cover,
-          timeoutMs: DEFAULT_SYNC_REQUEST_TIMEOUT_MS,
         });
-        console.info('[Wechatsync] syncArticle completed', {
-          elapsedMs: Date.now() - syncStartedAt,
+        console.info('[Wechatsync] sendArticle accepted', {
+          elapsedMs: Date.now() - sendStartedAt,
           resultKind: Array.isArray(result) ? 'array' : typeof result,
-          resultCount: Array.isArray(result?.results) ? result.results.length : (Array.isArray(result) ? result.length : 0),
-          syncId: result?.syncId,
+          requestId: result?.requestId,
+          accepted: result?.accepted,
+          platformCount: requestedPlatformIds.length,
         });
         notice.hide();
         modal.close();
-        const results = normalizeWechatSyncResponseResults(result);
-        const { authFailedResults } = getMultiPlatformResultSummary(results, requestedPlatformIds);
         const currentMultiPlatformSettings = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
         this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
           ...currentMultiPlatformSettings,
@@ -4404,20 +4400,15 @@ class AppleStyleView extends ItemView {
             ...currentMultiPlatformSettings.connection,
             status: 'connected',
             checkedAt: Date.now(),
-            platforms: updateCachedPlatformsAfterSync(currentMultiPlatformSettings.connection.platforms, results),
             message: '',
           },
         });
         await this.plugin.saveSettings();
-
-        if (authFailedResults.length > 0) {
-          new Notice('部分平台登录状态可能已失效，已更新缓存。请在浏览器重新登录后，到插件设置中测试连接。', 10000);
-        }
-        this.showMultiPlatformSyncResultModal({ results, requestedPlatformIds });
+        new Notice(`✅ 已发送到 Wechatsync 扩展。请在浏览器扩展的历史或目标平台草稿箱查看结果。`, 10000);
       } catch (error) {
         notice.hide();
-        console.error('[Wechatsync] syncArticle failed', {
-          elapsedMs: Date.now() - syncStartedAt,
+        console.error('[Wechatsync] sendArticle failed', {
+          elapsedMs: Date.now() - sendStartedAt,
           code: error?.code,
           message: error?.message || String(error),
           stack: error?.stack,
@@ -4437,7 +4428,7 @@ class AppleStyleView extends ItemView {
           await this.plugin.saveSettings();
         }
         modal.close();
-        new Notice(`❌ Wechatsync 同步失败：${error.message}`, 10000);
+        new Notice(`❌ 发送到 Wechatsync 扩展失败：${error.message}`, 10000);
         this.showMultiPlatformSyncResultModal({
           requestedPlatformIds,
           fatalError: error,

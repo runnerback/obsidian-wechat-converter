@@ -329,6 +329,20 @@ function createWechatSyncBridgeService(options = {}) {
         return;
       }
 
+      if (req.method === 'POST' && req.url === '/send') {
+        try {
+          const body = await readRequestBody(req);
+          const { method, params } = JSON.parse(body || '{}');
+          const result = sendInternal(method, params);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ result }));
+        } catch (error) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: error.message || String(error) }));
+        }
+        return;
+      }
+
       res.writeHead(404);
       res.end('Not found');
     });
@@ -495,7 +509,11 @@ function createWechatSyncBridgeService(options = {}) {
 
     const pending = pendingRequests.get(message.id);
     if (!pending) {
-      debug('Received response for unknown or timed out request', { id: message.id });
+      debug('Received response for one-way, unknown, or timed out request', {
+        id: message.id,
+        hasError: !!message.error,
+        resultKind: Array.isArray(message.result) ? 'array' : typeof message.result,
+      });
       return;
     }
 
@@ -556,6 +574,27 @@ function createWechatSyncBridgeService(options = {}) {
     });
   }
 
+  function sendInternal(method, params) {
+    if (!isPrimaryConnected()) {
+      throw createReadableBridgeError(new Error('Extension not connected.'));
+    }
+    if (!method) {
+      throw new Error('Wechatsync bridge method is required.');
+    }
+
+    const id = idFactory();
+    const message = { id, method, params };
+    if (token) message.token = token;
+    debug('Sending one-way request', {
+      id,
+      method,
+      mode: 'primary',
+      paramKeys: params && typeof params === 'object' ? Object.keys(params) : [],
+    });
+    client.send(JSON.stringify(message));
+    return { accepted: true, requestId: id, method };
+  }
+
   function requestViaHttp(method, params, options = {}) {
     return new Promise((resolve, reject) => {
       const timeoutMs = Number.isFinite(Number(options.timeoutMs)) && Number(options.timeoutMs) > 0
@@ -602,12 +641,62 @@ function createWechatSyncBridgeService(options = {}) {
     });
   }
 
+  function sendViaHttp(method, params) {
+    return new Promise((resolve, reject) => {
+      const data = JSON.stringify({ method, params });
+      const req = http.request({
+        hostname: 'localhost',
+        port: port + 1,
+        path: '/send',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data),
+        },
+        timeout: 5000,
+      }, (res) => {
+        let body = '';
+        res.on('data', (chunk) => {
+          body += chunk;
+        });
+        res.on('end', () => {
+          try {
+            const response = JSON.parse(body || '{}');
+            if (response.error) {
+              reject(createReadableBridgeError(new Error(response.error)));
+            } else {
+              resolve(response.result);
+            }
+          } catch (error) {
+            reject(createReadableBridgeError(error));
+          }
+        });
+      });
+
+      req.on('error', (error) => reject(createReadableBridgeError(error)));
+      req.on('timeout', () => {
+        req.destroy();
+        reject(createReadableBridgeError(new Error('Primary bridge send timeout.')));
+      });
+      req.write(data);
+      req.end();
+    });
+  }
+
   async function request(method, params, options = {}) {
     await start();
     if (isServerMode) {
       return requestInternal(method, params, options);
     }
     return requestViaHttp(method, params, options);
+  }
+
+  async function send(method, params) {
+    await start();
+    if (isServerMode) {
+      return sendInternal(method, params);
+    }
+    return sendViaHttp(method, params);
   }
 
   function listPlatforms({ forceRefresh = false, timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS } = {}) {
@@ -623,6 +712,13 @@ function createWechatSyncBridgeService(options = {}) {
       platforms,
       article: { title, markdown, content, cover },
     }, { timeoutMs });
+  }
+
+  function sendArticle({ platforms, title, markdown, content, cover }) {
+    return send('syncArticle', {
+      platforms,
+      article: { title, markdown, content, cover },
+    });
   }
 
   async function getStatus() {
@@ -641,7 +737,9 @@ function createWechatSyncBridgeService(options = {}) {
     listPlatforms,
     checkAuth,
     syncArticle,
+    sendArticle,
     _request: request,
+    _send: send,
   };
 }
 

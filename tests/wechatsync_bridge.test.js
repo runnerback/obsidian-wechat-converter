@@ -240,6 +240,60 @@ describe('Wechatsync bridge service', () => {
     });
   });
 
+  it('can send article to the extension without waiting for sync results', async () => {
+    const port = await getFreePort();
+    const service = createWechatSyncBridgeService({
+      WebSocketServer,
+      http,
+      port,
+      token: 'secret-token',
+      requestTimeoutMs: 1000,
+      connectTimeoutMs: 1000,
+      idFactory: () => 'one-way-sync',
+    });
+    cleanup.push(service);
+    await service.start();
+
+    let resolveReceived;
+    const receivedMessage = new Promise((resolve) => {
+      resolveReceived = resolve;
+    });
+    const extension = await connectExtension(port, (message) => {
+      resolveReceived(message);
+      return new Promise(() => {});
+    });
+    cleanup.push(extension);
+
+    await service.waitForConnection(1000);
+    const startedAt = Date.now();
+    const result = await service.sendArticle({
+      platforms: ['zhihu'],
+      title: '测试文章',
+      markdown: '# 正文',
+      content: '<h1>正文</h1>',
+    });
+
+    expect(Date.now() - startedAt).toBeLessThan(500);
+    expect(result).toEqual({
+      accepted: true,
+      requestId: 'one-way-sync',
+      method: 'syncArticle',
+    });
+    await expect(receivedMessage).resolves.toMatchObject({
+      id: 'one-way-sync',
+      method: 'syncArticle',
+      token: 'secret-token',
+      params: {
+        platforms: ['zhihu'],
+        article: {
+          title: '测试文章',
+          markdown: '# 正文',
+          content: '<h1>正文</h1>',
+        },
+      },
+    });
+  });
+
   it('can forward through an existing primary bridge HTTP API', async () => {
     const port = await getFreePort();
     const primary = createWechatSyncBridgeService({
