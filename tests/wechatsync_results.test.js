@@ -4,6 +4,7 @@ import {
   getWechatSyncResultUrl,
   getFallbackWechatsyncPlatforms,
   normalizeWechatSyncResponseResults,
+  normalizeWechatsyncAuthSnapshot,
   normalizeWechatsyncCheckAuthResult,
   normalizeWechatsyncPlatformList,
   normalizeWechatsyncPlatform,
@@ -58,6 +59,30 @@ describe('Wechatsync result helpers', () => {
       rawCount: 3,
       normalizedCount: 2,
       authenticatedCount: 2,
+    });
+  });
+
+  it('normalizes cached auth snapshots from the extension without live probing', () => {
+    const snapshot = normalizeWechatsyncAuthSnapshot({
+      source: 'cache',
+      checkedAt: 1770000000000,
+      platforms: [
+        { id: 'zhihu', authKnown: true, authenticated: true, username: 'Lin' },
+        { id: 'juejin', authKnown: true, authenticated: false, error: '未登录' },
+        { id: 'weixin', authKnown: true, authenticated: true },
+      ],
+    }, [
+      { id: 'zhihu', name: '知乎' },
+      { id: 'juejin', name: '掘金' },
+    ]);
+
+    expect(snapshot).toEqual({
+      source: 'cache',
+      checkedAt: 1770000000000,
+      platforms: [
+        { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin', error: '' },
+        { id: 'juejin', name: '掘金', authKnown: true, authenticated: false, username: '', error: '未登录' },
+      ],
     });
   });
 

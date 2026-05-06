@@ -146,6 +146,35 @@ function normalizeWechatsyncPlatformList(response) {
     .filter(Boolean);
 }
 
+function normalizeWechatsyncAuthSnapshot(response = {}, fallbackPlatforms = []) {
+  const source = response && typeof response === 'object' ? response : {};
+  const fallbackById = new Map(
+    (Array.isArray(fallbackPlatforms) ? fallbackPlatforms : [])
+      .map((platform) => normalizeWechatsyncPlatform(platform))
+      .filter(Boolean)
+      .map((platform) => [platform.id, platform])
+  );
+  const platforms = normalizeWechatsyncPlatformList(source).map((platform) => {
+    const fallback = fallbackById.get(platform.id) || {};
+    return {
+      ...fallback,
+      ...platform,
+      name: platform.name && platform.name !== platform.id ? platform.name : (fallback.name || platform.name),
+    };
+  });
+  const checkedAt = Number.isFinite(Number(source.checkedAt))
+    ? Number(source.checkedAt)
+    : platforms.reduce((latest, platform) => {
+      const candidate = Number(platform.checkedAt || platform.lastSuccessAt || platform.lastFailureAt || 0);
+      return Number.isFinite(candidate) && candidate > latest ? candidate : latest;
+    }, 0);
+  return {
+    source: typeof source.source === 'string' ? source.source : 'cache',
+    checkedAt,
+    platforms,
+  };
+}
+
 function summarizeWechatsyncPlatformResponse(response) {
   const rawPlatforms = Array.isArray(response)
     ? response
@@ -261,6 +290,7 @@ module.exports = {
   isWechatSyncAuthFailureMessage,
   isWechatSyncConnectionFailure,
   normalizeWechatSyncResponseResults,
+  normalizeWechatsyncAuthSnapshot,
   normalizeWechatsyncCheckAuthResult,
   normalizeWechatsyncPlatformList,
   normalizeWechatsyncPlatform,

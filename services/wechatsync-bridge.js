@@ -5,6 +5,11 @@ const DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS = 60000;
 const DEFAULT_SYNC_REQUEST_TIMEOUT_MS = 180000;
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
+function isUnsupportedBridgeMethodError(error = {}) {
+  const message = String(error?.message || error || '');
+  return /unknown method|unknown tool|method not found|not supported|unsupported/i.test(message);
+}
+
 function createEmitter() {
   const listeners = new Map();
   return {
@@ -238,7 +243,7 @@ function createReadableBridgeError(error) {
     friendly.cause = error;
     return friendly;
   }
-  if (/Request timeout: (health|listSupportedPlatforms|enqueueSyncArticle)/i.test(message)) {
+  if (/Request timeout: (health|listSupportedPlatforms|enqueueSyncArticle|getSyncTask|getSyncTaskLink|openSyncTask|getAuthSnapshot)/i.test(message)) {
     const friendly = new Error('Wechatsync 扩展响应超时，请确认扩展已开启 MCP/桥接后重试。');
     friendly.code = 'BRIDGE_REQUEST_TIMEOUT';
     friendly.cause = error;
@@ -697,6 +702,21 @@ function createWechatSyncBridgeService(options = {}) {
     return requestViaHttp(method, params, options);
   }
 
+  async function requestWithMethodFallback(method, fallbackMethod, params, options = {}) {
+    try {
+      return await request(method, params, options);
+    } catch (error) {
+      if (!fallbackMethod || !isUnsupportedBridgeMethodError(error)) throw error;
+      debug('Retrying request with fallback method', {
+        method,
+        fallbackMethod,
+        code: error?.code,
+        message: error?.message || String(error),
+      });
+      return request(fallbackMethod, params, options);
+    }
+  }
+
   async function send(method, params) {
     await start();
     if (isServerMode) {
@@ -714,11 +734,11 @@ function createWechatSyncBridgeService(options = {}) {
   }
 
   function listSupportedPlatforms({ timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS } = {}) {
-    return request('listSupportedPlatforms', {}, { timeoutMs });
+    return requestWithMethodFallback('listSupportedPlatforms', 'list_supported_platforms', {}, { timeoutMs });
   }
 
   function checkAuth(platform, { timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS } = {}) {
-    return request('checkAuth', { platform }, { timeoutMs });
+    return requestWithMethodFallback('checkAuth', 'check_auth', { platform }, { timeoutMs });
   }
 
   function syncArticle({ platforms, title, markdown, content, cover, timeoutMs = DEFAULT_SYNC_REQUEST_TIMEOUT_MS }) {
@@ -729,10 +749,38 @@ function createWechatSyncBridgeService(options = {}) {
   }
 
   function enqueueSyncArticle({ platforms, title, markdown, content, cover, source = 'obsidian', timeoutMs = 10000 }) {
-    return request('enqueueSyncArticle', {
+    return requestWithMethodFallback('enqueueSyncArticle', 'enqueue_sync_article', {
       platforms,
       source,
       article: { title, markdown, content, cover },
+    }, { timeoutMs });
+  }
+
+  function getSyncTask(syncIdOrOptions, { timeoutMs = 5000 } = {}) {
+    const params = typeof syncIdOrOptions === 'object' && syncIdOrOptions !== null
+      ? { syncId: syncIdOrOptions.syncId }
+      : { syncId: syncIdOrOptions };
+    return requestWithMethodFallback('getSyncTask', 'get_sync_task', params, { timeoutMs });
+  }
+
+  function getSyncTaskLink(syncIdOrOptions, { timeoutMs = 5000 } = {}) {
+    const params = typeof syncIdOrOptions === 'object' && syncIdOrOptions !== null
+      ? { syncId: syncIdOrOptions.syncId }
+      : { syncId: syncIdOrOptions };
+    return requestWithMethodFallback('getSyncTaskLink', 'get_sync_task_link', params, { timeoutMs });
+  }
+
+  function openSyncTask(syncIdOrOptions, { timeoutMs = 5000 } = {}) {
+    const params = typeof syncIdOrOptions === 'object' && syncIdOrOptions !== null
+      ? { syncId: syncIdOrOptions.syncId }
+      : { syncId: syncIdOrOptions };
+    return requestWithMethodFallback('openSyncTask', 'open_sync_task', params, { timeoutMs });
+  }
+
+  function getAuthSnapshot({ platforms = [], maxAgeMs = 86400000, timeoutMs = 5000 } = {}) {
+    return requestWithMethodFallback('getAuthSnapshot', 'get_auth_snapshot', {
+      platforms,
+      maxAgeMs,
     }, { timeoutMs });
   }
 
@@ -762,6 +810,10 @@ function createWechatSyncBridgeService(options = {}) {
     checkAuth,
     syncArticle,
     enqueueSyncArticle,
+    getSyncTask,
+    getSyncTaskLink,
+    openSyncTask,
+    getAuthSnapshot,
     sendArticle,
     _request: request,
     _send: send,
@@ -773,4 +825,5 @@ module.exports = {
   DEFAULT_SYNC_REQUEST_TIMEOUT_MS,
   createReadableBridgeError,
   createWechatSyncBridgeService,
+  isUnsupportedBridgeMethodError,
 };

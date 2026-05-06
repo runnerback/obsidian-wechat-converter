@@ -419,6 +419,102 @@ describe('Wechatsync bridge service', () => {
     });
   });
 
+  it('queries and opens extension sync tasks through the bridge', async () => {
+    const port = await getFreePort();
+    let requestIndex = 0;
+    const expectedMethods = ['getSyncTask', 'openSyncTask'];
+    const service = createWechatSyncBridgeService({
+      WebSocketServer,
+      http,
+      port,
+      token: 'secret-token',
+      requestTimeoutMs: 1000,
+      connectTimeoutMs: 1000,
+      idFactory: () => `task-${requestIndex + 1}`,
+    });
+    cleanup.push(service);
+    await service.start();
+
+    const extension = await connectExtension(port, (message) => {
+      expect(message.method).toBe(expectedMethods[requestIndex]);
+      expect(message.params).toEqual({ syncId: 'sync-1' });
+      requestIndex += 1;
+      if (message.method === 'getSyncTask') {
+        return {
+          result: {
+            found: true,
+            syncId: 'sync-1',
+            status: 'syncing',
+            summary: { total: 2, success: 1, failed: 0, pending: 1 },
+          },
+        };
+      }
+      return { result: { opened: true, syncId: 'sync-1', target: 'history' } };
+    });
+    cleanup.push(extension);
+
+    await service.waitForConnection(1000);
+    await expect(service.getSyncTask('sync-1')).resolves.toMatchObject({
+      found: true,
+      status: 'syncing',
+    });
+    await expect(service.openSyncTask({ syncId: 'sync-1' })).resolves.toMatchObject({
+      opened: true,
+      target: 'history',
+    });
+  });
+
+  it('falls back to snake_case task and snapshot methods for MCP tool names', async () => {
+    const port = await getFreePort();
+    const methods = [];
+    const service = createWechatSyncBridgeService({
+      WebSocketServer,
+      http,
+      port,
+      token: 'secret-token',
+      requestTimeoutMs: 1000,
+      connectTimeoutMs: 1000,
+      idFactory: () => `fallback-${methods.length + 1}`,
+    });
+    cleanup.push(service);
+    await service.start();
+
+    const extension = await connectExtension(port, (message) => {
+      methods.push(message.method);
+      if (message.method === 'getSyncTask') {
+        return { error: { message: 'unknown method: getSyncTask' } };
+      }
+      if (message.method === 'get_sync_task') {
+        return { result: { found: false, syncId: message.params.syncId, code: 'TASK_NOT_FOUND' } };
+      }
+      if (message.method === 'getAuthSnapshot') {
+        return { error: { message: 'unknown method: getAuthSnapshot' } };
+      }
+      if (message.method === 'get_auth_snapshot') {
+        return {
+          result: {
+            source: 'cache',
+            checkedAt: 1770000000000,
+            platforms: [{ id: 'zhihu', name: '知乎', authKnown: true, authenticated: true }],
+          },
+        };
+      }
+      return { error: { message: `unexpected method: ${message.method}` } };
+    });
+    cleanup.push(extension);
+
+    await service.waitForConnection(1000);
+    await expect(service.getSyncTask('sync-missing')).resolves.toMatchObject({
+      found: false,
+      code: 'TASK_NOT_FOUND',
+    });
+    await expect(service.getAuthSnapshot({ platforms: ['zhihu'] })).resolves.toMatchObject({
+      source: 'cache',
+      platforms: [{ id: 'zhihu', name: '知乎', authKnown: true, authenticated: true }],
+    });
+    expect(methods).toEqual(['getSyncTask', 'get_sync_task', 'getAuthSnapshot', 'get_auth_snapshot']);
+  });
+
   it('can forward through an existing primary bridge HTTP API', async () => {
     const port = await getFreePort();
     const primary = createWechatSyncBridgeService({
@@ -460,5 +556,6 @@ describe('Wechatsync bridge service', () => {
     expect(createReadableBridgeError(new Error('Request timeout: listPlatforms')).code).toBe('PLATFORM_LIST_TIMEOUT');
     expect(createReadableBridgeError(new Error('Request timeout: syncArticle')).code).toBe('SYNC_TIMEOUT');
     expect(createReadableBridgeError(new Error('Request timeout: enqueueSyncArticle')).code).toBe('BRIDGE_REQUEST_TIMEOUT');
+    expect(createReadableBridgeError(new Error('Request timeout: getSyncTask')).code).toBe('BRIDGE_REQUEST_TIMEOUT');
   });
 });
