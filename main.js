@@ -12378,7 +12378,6 @@ function createDefaultMultiPlatformSyncSettings() {
     token: "",
     supportedPlatforms: [],
     selectedPlatforms: [],
-    customPlatforms: [],
     recentTasks: [],
     connection: {
       status: "untested",
@@ -12478,20 +12477,14 @@ function normalizeMultiPlatformSyncSettings(value = {}) {
   const fallbackPlatformIds = new Set(getFallbackWechatsyncPlatforms().map((platform) => platform.id));
   const supportedPlatforms = mergeWechatsyncPlatformLists(source.supportedPlatforms);
   const supportedPlatformIds = new Set(supportedPlatforms.map((platform) => platform.id));
-  const customPlatforms = parseWechatsyncPlatformIds(source.customPlatforms).filter((id) => !fallbackPlatformIds.has(id) && !supportedPlatformIds.has(id));
-  const selectablePlatformIds = /* @__PURE__ */ new Set([...fallbackPlatformIds, ...supportedPlatformIds, ...customPlatforms]);
+  const selectablePlatformIds = /* @__PURE__ */ new Set([...fallbackPlatformIds, ...supportedPlatformIds]);
   const selectedPlatforms = parseWechatsyncPlatformIds(source.selectedPlatforms).filter((id) => selectablePlatformIds.has(id));
-  for (const customPlatform of customPlatforms) {
-    if (!selectedPlatforms.includes(customPlatform))
-      selectedPlatforms.push(customPlatform);
-  }
   return {
     enabled: !!source.enabled,
     port: Number.isInteger(portNumber) && portNumber > 0 && portNumber < 65536 ? portNumber : defaults.port,
     token: typeof source.token === "string" ? source.token.trim() : "",
     supportedPlatforms,
     selectedPlatforms,
-    customPlatforms,
     connection: normalizeMultiPlatformConnection(source.connection),
     recentTasks: normalizeWechatSyncRecentTasks(source.recentTasks)
   };
@@ -17628,7 +17621,6 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       const availablePlatforms = hasExtensionPlatformList ? mergeWechatsyncPlatformLists(multiPlatformSettings.supportedPlatforms) : getFallbackWechatsyncPlatforms();
       const availablePlatformIds = new Set(availablePlatforms.map((platform) => platform.id));
       const selectedPlatformSet = new Set(multiPlatformSettings.selectedPlatforms || []);
-      const customPlatformIds = multiPlatformSettings.customPlatforms || [];
       const cachedAuthPlatforms = normalizeWechatsyncPlatformList(((_a = multiPlatformSettings.connection) == null ? void 0 : _a.platforms) || []);
       const cachedAuthById = new Map(cachedAuthPlatforms.map((platform) => [platform.id, platform]));
       const hasCachedAuthState = cachedAuthPlatforms.some((platform) => platform.authKnown);
@@ -17710,26 +17702,6 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
           await saveSelectedPlatforms();
         };
       }
-      new Setting(containerEl).setName("\u81EA\u5B9A\u4E49\u5E73\u53F0 ID").setDesc("\u5982\u679C\u6D4F\u89C8\u5668\u6269\u5C55\u652F\u6301\u7684\u5E73\u53F0\u6CA1\u6709\u51FA\u73B0\u5728\u4E0A\u65B9\uFF0C\u53EF\u586B\u5165\u9002\u914D\u5668 ID\uFF0C\u591A\u4E2A\u7528\u9017\u53F7\u5206\u9694\u3002\u586B\u5165\u540E\u4F1A\u81EA\u52A8\u52A0\u5165\u540C\u6B65\u3002").addText((text) => text.setPlaceholder("\u4F8B\u5982\uFF1Atwitter, xueqiu").setValue(customPlatformIds.join(", ")).onChange(async (value) => {
-        const nextCustomPlatforms = parseWechatsyncPlatformIds(value).filter((id) => !availablePlatformIds.has(id));
-        const current = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
-        const nextSelected = new Set(current.selectedPlatforms || []);
-        for (const oldCustomPlatform of current.customPlatforms || []) {
-          nextSelected.delete(oldCustomPlatform);
-          selectedPlatformSet.delete(oldCustomPlatform);
-        }
-        for (const customPlatform of nextCustomPlatforms) {
-          nextSelected.add(customPlatform);
-          selectedPlatformSet.add(customPlatform);
-        }
-        this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-          ...current,
-          customPlatforms: nextCustomPlatforms,
-          selectedPlatforms: Array.from(nextSelected)
-        });
-        await this.plugin.saveSettings();
-        updatePlatformSummary();
-      }));
       new Setting(containerEl).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u53EA\u6D4B\u8BD5 Obsidian \u548C Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55\u7684\u6865\u63A5\u662F\u5426\u8FDE\u901A\uFF0C\u4E0D\u4F1A\u9ED8\u8BA4\u626B\u63CF\u6240\u6709\u5E73\u53F0\u3002").addButton((button) => button.setButtonText("\u6D4B\u8BD5").onClick(async () => {
         var _a2, _b2, _c, _d, _e, _f, _g;
         button.setButtonText("\u7B49\u5F85\u6269\u5C55...");
