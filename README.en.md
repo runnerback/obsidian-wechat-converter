@@ -2,20 +2,33 @@
 
 # Wechat Converter for Obsidian
 
-Convert Obsidian Markdown into polished WeChat articles with live preview, copy-to-editor, and optional draft sync.
+Convert Obsidian Markdown into polished WeChat articles, then keep publishing to more platforms from the same workflow. Wechat Converter now supports live preview, copy-to-editor, WeChat draft sync, and beta multi-platform distribution through the Wechatsync browser extension.
 
 ![Version](https://img.shields.io/badge/version-2.7.6-blue)
 ![Obsidian](https://img.shields.io/badge/Obsidian-1.0.0+-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-This plugin is built for writers who publish from Obsidian to WeChat Official Accounts. It focuses on the last mile of publishing: preserving layout, code blocks, math, images, and article metadata while keeping the workflow fast inside Obsidian.
+This plugin is built for writers who publish from Obsidian to WeChat Official Accounts and other Chinese content platforms. It focuses on the last mile of publishing: preserving layout, code blocks, math, images, and article metadata while keeping the workflow fast inside Obsidian.
 
 > This project is deeply refactored from [ai-writing-plugins](https://github.com/Ceeon/ai-writing-plugins). Proper attribution is retained in this repository.
 
 If this plugin saves you time when formatting, copying, or syncing WeChat articles, you can [support ongoing maintenance](./docs/support.md).
 
+## Big Update: Multi-platform Publishing
+
+Wechat Converter is no longer limited to WeChat Official Accounts. From the same `Publish & Distribute` window, you can send the current article to platforms such as Zhihu, Juejin, CSDN, Yuque, Xiaohongshu, and other targets supported by Wechatsync.
+
+- **WeChat still uses the official API path**: WeChat draft sync keeps the plugin's AppID / AppSecret flow, including cover, excerpt, multi-account support, and account-level defaults.
+- **Other platforms use the browser extension path**: Wechatsync handles real browser sessions and saves drafts through the user's logged-in browser state, so Obsidian does not need to embed every platform login.
+- **Choose platforms before sending**: Open the publishing modal, switch to `Other platforms`, select the targets, and send the task to the browser extension.
+- **Lightweight status inside Obsidian**: Settings and publishing views show bridge connectivity, selected platforms, and last-known login hints. Final draft links, failures, and retries remain in the Wechatsync task window.
+- **Built for multi-channel creators**: Write once in Obsidian, sync to WeChat, then push the same article into multiple platform draft boxes for final review and manual publishing.
+
+> Multi-platform publishing is currently beta. Platform login state, draft creation, anti-abuse checks, result links, and retry behavior are handled by Wechatsync. Obsidian focuses on writing, rendering, platform selection, and task delivery.
+
 ## Highlights
 
+- Beta multi-platform publishing through the Wechatsync browser extension.
 - Live article preview with fast side-by-side rendering.
 - Copy rich HTML directly into the WeChat editor.
 - Sync articles to the WeChat draft box with multi-account support.
@@ -34,8 +47,10 @@ If this plugin saves you time when formatting, copying, or syncing WeChat articl
   <img src="images/setting_panel_dark.png" alt="Settings panel (dark)" height="460" />
 </p>
 
-## What's New in 2.7.0
+## Recent Updates
 
+- Multi-platform publishing now lives in the publishing modal. Switch to `Other platforms` to send the rendered article to Wechatsync, then let the browser extension save drafts on supported platforms such as Zhihu, Juejin, and CSDN.
+- Wechatsync bridge settings now include enablement, token verification, platform selection, connection testing, and optional login-status checks for selected platforms.
 - AI layout planning now lives inside the converter workflow, with provider management, connection testing, built-in layout families, color palette switching, schema validation, and reusable debug snapshots.
 - AI layout results can be reused per layout family, applied from cache, recolored without regenerating, and recovered after failed regeneration when a previous successful result exists.
 - Mermaid diagrams keep the Obsidian preview experience, then switch to PNG automatically during copy and draft sync so WeChat does not strip or choke on large SVG payloads.
@@ -48,6 +63,7 @@ If this plugin saves you time when formatting, copying, or syncing WeChat articl
 2. Edit your Markdown note as usual. The right panel updates the article preview in real time.
 3. Click `Copy to WeChat` to paste rich HTML into the WeChat editor.
 4. Optionally click `Sync to Draft` after configuring your WeChat AppID and AppSecret in plugin settings.
+5. For beta multi-platform distribution, enable Wechatsync distribution in plugin settings, connect the browser extension, then use `Publish & Distribute` -> `Other platforms` to send the article to selected platform draft boxes.
 
 ### Horizontally scrollable content
 
