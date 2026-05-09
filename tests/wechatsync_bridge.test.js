@@ -158,6 +158,43 @@ describe('Wechatsync bridge service', () => {
     ]);
   });
 
+  it('checks auth for selected platforms in a single bridge request', async () => {
+    const port = await getFreePort();
+    const service = createWechatSyncBridgeService({
+      WebSocketServer,
+      http,
+      port,
+      token: 'secret-token',
+      requestTimeoutMs: 1000,
+      connectTimeoutMs: 1000,
+      idFactory: () => 'auth-batch-1',
+    });
+    cleanup.push(service);
+    await service.start();
+
+    const extension = await connectExtension(port, (message) => {
+      expect(message).toMatchObject({
+        id: 'auth-batch-1',
+        method: 'checkAuth',
+        token: 'secret-token',
+        params: {
+          platforms: ['zhihu', 'juejin'],
+          forceRefresh: true,
+        },
+      });
+      return {
+        result: [
+          { id: 'zhihu', isAuthenticated: true },
+          { id: 'juejin', isAuthenticated: false, error: '未登录' },
+        ],
+      };
+    });
+    cleanup.push(extension);
+
+    await service.waitForConnection(1000);
+    await expect(service.checkAuth(['zhihu', 'juejin'], { forceRefresh: true })).resolves.toHaveLength(2);
+  });
+
   it('can time out platform listing without waiting for the long sync timeout', async () => {
     const port = await getFreePort();
     const service = createWechatSyncBridgeService({

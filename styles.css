@@ -2425,12 +2425,25 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   font-weight: 600;
 }
 
+.wechat-platform-chip-capabilities {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
 .wechat-platform-chip-status.is-ok {
   color: var(--text-success, var(--color-green));
 }
 
 .wechat-platform-chip-status.is-error {
   color: var(--text-error, var(--color-red));
+}
+
+.wechat-platform-chip-status.is-bridge {
+  color: var(--text-warning, var(--color-orange));
 }
 
 .wechat-platform-chip.is-ok.is-selected {
@@ -2441,6 +2454,10 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 .wechat-platform-chip.is-error.is-selected {
   border-color: color-mix(in srgb, var(--text-error, var(--color-red)) 28%, var(--interactive-accent));
   background: color-mix(in srgb, var(--text-error, var(--color-red)) 5%, var(--background-primary));
+}
+
+.wechat-platform-chip.is-bridge {
+  border-color: color-mix(in srgb, var(--text-warning, var(--color-orange)) 22%, var(--background-modifier-border));
 }
 
 /* 模态框表单样式 */
@@ -3213,12 +3230,25 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   font-weight: 600;
 }
 
+.wechat-multiplatform-platform-capabilities {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--apple-tertiary);
+  font-size: 11px;
+}
+
 .wechat-multiplatform-platform-status.is-ok {
   color: var(--apple-success);
 }
 
 .wechat-multiplatform-platform-status.is-error {
   color: var(--apple-error);
+}
+
+.wechat-multiplatform-platform-status.is-bridge {
+  color: var(--text-warning, var(--color-orange));
 }
 
 .wechat-multiplatform-platform input:disabled + label,

@@ -1,34 +1,34 @@
 const FALLBACK_WECHATSYNC_PLATFORMS = [
-  { id: 'zhihu', name: '知乎' },
-  { id: 'weibo', name: '微博' },
-  { id: 'xiaohongshu', name: '小红书' },
-  { id: 'juejin', name: '掘金' },
-  { id: 'csdn', name: 'CSDN' },
-  { id: 'jianshu', name: '简书' },
-  { id: 'toutiao', name: '头条号' },
-  { id: 'douyin', name: '抖音图文' },
-  { id: 'bilibili', name: 'B站专栏' },
-  { id: 'baijiahao', name: '百家号' },
-  { id: 'yuque', name: '语雀' },
-  { id: 'douban', name: '豆瓣' },
-  { id: 'sohu', name: '搜狐号' },
-  { id: 'xueqiu', name: '雪球' },
-  { id: 'woshipm', name: '人人都是产品经理' },
-  { id: 'dayu', name: '大鱼号' },
-  { id: 'yidian', name: '一点号' },
-  { id: '51cto', name: '51CTO' },
-  { id: 'imooc', name: '慕课手记' },
-  { id: 'oschina', name: '开源中国' },
-  { id: 'segmentfault', name: '思否' },
-  { id: 'cnblogs', name: '博客园' },
-  { id: 'sohufocus', name: '搜狐焦点' },
-  { id: 'x', name: 'X (Twitter)' },
-  { id: 'eastmoney', name: '东方财富' },
-  { id: 'smzdm', name: '什么值得买' },
-  { id: 'netease', name: '网易号' },
-  { id: 'wordpress', name: 'WordPress' },
-  { id: 'typecho', name: 'Typecho' },
-  { id: 'zip-download', name: 'Markdown 压缩包' },
+  { id: 'zhihu', name: '知乎', homepage: 'https://www.zhihu.com', capabilities: ['article', 'draft', 'image_upload', 'tags', 'cover'] },
+  { id: 'weibo', name: '微博', homepage: 'https://card.weibo.com/article/v5/editor', capabilities: ['article', 'draft', 'image_upload', 'cover'] },
+  { id: 'xiaohongshu', name: '小红书', homepage: 'https://creator.xiaohongshu.com/publish/publish?from=menu&target=article', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'juejin', name: '掘金', homepage: 'https://juejin.cn', capabilities: ['article', 'draft', 'image_upload', 'categories', 'tags', 'cover'] },
+  { id: 'csdn', name: 'CSDN', homepage: 'https://editor.csdn.net/md/', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'jianshu', name: '简书', homepage: 'https://www.jianshu.com', capabilities: ['article', 'draft', 'image_upload', 'categories'] },
+  { id: 'toutiao', name: '头条号', homepage: 'https://mp.toutiao.com/profile_v4/graphic/publish', capabilities: ['article', 'draft', 'image_upload', 'cover'] },
+  { id: 'douyin', name: '抖音图文', homepage: 'https://creator.douyin.com', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'bilibili', name: 'B站专栏', homepage: 'https://member.bilibili.com/platform/upload/text', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'baijiahao', name: '百家号', homepage: 'https://baijiahao.baidu.com/', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'yuque', name: '语雀', homepage: 'https://www.yuque.com/dashboard', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'douban', name: '豆瓣', homepage: 'https://www.douban.com/note/create', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'sohu', name: '搜狐号', homepage: 'https://mp.sohu.com/mpfe/v3/main/first/page?newsType=1', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'xueqiu', name: '雪球', homepage: 'https://mp.xueqiu.com/writeV2', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'woshipm', name: '人人都是产品经理', homepage: 'https://www.woshipm.com', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'dayu', name: '大鱼号', homepage: 'https://mp.dayu.com/dashboard/account/profile', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'yidian', name: '一点号', homepage: 'https://mp.yidianzixun.com', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: '51cto', name: '51CTO', homepage: 'https://blog.51cto.com/blogger/publish', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'imooc', name: '慕课手记', homepage: 'https://www.imooc.com/article', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'oschina', name: '开源中国', homepage: 'https://my.oschina.net', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'segmentfault', name: '思否', homepage: 'https://segmentfault.com/user/draft', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'cnblogs', name: '博客园', homepage: 'https://www.cnblogs.com', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'sohufocus', name: '搜狐焦点', homepage: 'https://mp.focus.cn/fe/index.html#/info/draft', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'x', name: 'X (Twitter)', homepage: 'https://x.com/compose/articles', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'eastmoney', name: '东方财富', homepage: 'https://mp.eastmoney.com', capabilities: ['article', 'draft', 'image_upload', 'cover'] },
+  { id: 'smzdm', name: '什么值得买', homepage: 'https://post.smzdm.com/tougao/', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'netease', name: '网易号', homepage: 'https://mp.163.com/#/article-publish', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'wordpress', name: 'WordPress', homepage: '', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'typecho', name: 'Typecho', homepage: '', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'zip-download', name: 'Markdown 压缩包', homepage: '', capabilities: ['article'] },
 ];
 
 function getFallbackWechatsyncPlatforms() {
@@ -39,11 +39,29 @@ function isPlatformNotFoundError(error = '') {
   return /platform not found|adapter not found|not found/i.test(String(error || ''));
 }
 
+function normalizeWechatsyncCapabilities(platform = {}) {
+  const rawCapabilities = Array.isArray(platform.capabilities) ? platform.capabilities : [];
+  const capabilitySet = new Set(rawCapabilities.map((capability) => String(capability || '').trim()).filter(Boolean));
+  if (platform.supportsArticle === true) capabilitySet.add('article');
+  if (platform.supportsDraft === true || platform.draft === true) capabilitySet.add('draft');
+  if (platform.supportsImageUpload === true || platform.imageUpload === true || platform.supportsImages === true) {
+    capabilitySet.add('image_upload');
+  }
+  if (platform.supportsCover === true || platform.cover === true) capabilitySet.add('cover');
+  if (platform.supportsTags === true || platform.tags === true) capabilitySet.add('tags');
+  if (platform.supportsCategories === true || platform.categories === true) capabilitySet.add('categories');
+  return Array.from(capabilitySet);
+}
+
 function normalizeWechatsyncPlatform(platform = {}) {
   const id = String(platform.id || platform.type || platform.platform || '').trim();
   if (!id || id === 'weixin') return null;
   const nestedAuth = platform.auth && typeof platform.auth === 'object' ? platform.auth : {};
   const user = platform.user && typeof platform.user === 'object' ? platform.user : {};
+  const rawStatus = String(platform.status || platform.authStatus || platform.authState || '').trim();
+  const authStatus = ['available', 'login_required', 'unknown', 'bridge_required'].includes(rawStatus)
+    ? rawStatus
+    : '';
   const authKnown = platform.authKnown === true
     || Object.prototype.hasOwnProperty.call(platform, 'isAuthenticated')
     || Object.prototype.hasOwnProperty.call(platform, 'authenticated')
@@ -56,6 +74,10 @@ function normalizeWechatsyncPlatform(platform = {}) {
   return {
     id,
     name: String(platform.name || platform.title || platform.platformName || id),
+    homepage: typeof platform.homepage === 'string' ? platform.homepage : '',
+    icon: typeof platform.icon === 'string' ? platform.icon : '',
+    capabilities: normalizeWechatsyncCapabilities(platform),
+    authStatus,
     authKnown,
     authenticated: platform.isAuthenticated === true
       || platform.authenticated === true
@@ -64,6 +86,7 @@ function normalizeWechatsyncPlatform(platform = {}) {
       || nestedAuth.isAuthenticated === true
       || nestedAuth.authenticated === true
       || nestedAuth.loggedIn === true
+      || authStatus === 'available'
       || platform.status === 'authenticated'
       || platform.status === 'logged_in'
       || platform.status === '已登录',
@@ -76,6 +99,73 @@ function normalizeWechatsyncPlatform(platform = {}) {
           : (typeof user.name === 'string' ? user.name : ''))),
     error: typeof platform.error === 'string' ? platform.error : '',
   };
+}
+
+function getWechatsyncPlatformStatus(platform = {}, options = {}) {
+  if (options.bridgeConnected === false || platform.authStatus === 'bridge_required') return 'bridge_required';
+  const explicitStatus = String(platform.authStatus || platform.authState || '').trim();
+  if (['available', 'login_required', 'unknown', 'bridge_required'].includes(explicitStatus)) return explicitStatus;
+  if (!platform.authKnown) return 'unknown';
+  return platform.authenticated ? 'available' : 'login_required';
+}
+
+function getWechatsyncPlatformStatusBadge(platform = {}, options = {}) {
+  const status = getWechatsyncPlatformStatus(platform, options);
+  if (status === 'bridge_required') return { status, text: '需连接浏览器插件', cls: 'is-bridge' };
+  if (status === 'available') {
+    return {
+      status,
+      text: platform.username ? `上次可用 · ${platform.username}` : '上次可用',
+      cls: 'is-ok',
+    };
+  }
+  if (status === 'login_required') {
+    return { status, text: platform.error || '需登录', cls: 'is-error' };
+  }
+  return { status: 'unknown', text: '未检测', cls: 'is-unknown' };
+}
+
+function buildWechatsyncPlatformCatalog(options = {}) {
+  const {
+    fallbackPlatforms = getFallbackWechatsyncPlatforms(),
+    supportedPlatforms = [],
+    authSnapshotPlatforms = [],
+    bridgeConnected = true,
+  } = options;
+  const normalizedSupported = normalizeWechatsyncPlatformList(supportedPlatforms);
+  const basePlatforms = bridgeConnected && normalizedSupported.length
+    ? normalizedSupported
+    : normalizeWechatsyncPlatformList(fallbackPlatforms);
+  const authById = new Map(
+    normalizeWechatsyncPlatformList(authSnapshotPlatforms).map((platform) => [platform.id, platform])
+  );
+  const catalog = [];
+  const seen = new Set();
+
+  for (const base of basePlatforms) {
+    const auth = authById.get(base.id);
+    const merged = {
+      ...base,
+      ...(auth || {}),
+      name: base.name || auth?.name || base.id,
+      homepage: base.homepage || auth?.homepage || '',
+      icon: base.icon || auth?.icon || '',
+      capabilities: base.capabilities?.length ? base.capabilities : (auth?.capabilities || []),
+    };
+    catalog.push(bridgeConnected
+      ? (auth ? merged : { ...merged, authKnown: false, authenticated: false, username: '', error: '' })
+      : { ...merged, authStatus: 'bridge_required', authKnown: true, authenticated: false, username: '', error: '' });
+    seen.add(base.id);
+  }
+
+  if (bridgeConnected) {
+    for (const auth of authById.values()) {
+      if (seen.has(auth.id)) continue;
+      catalog.push(auth);
+    }
+  }
+
+  return catalog;
 }
 
 function normalizeWechatsyncCheckAuthResult(candidate = {}, auth = {}) {
@@ -282,16 +372,20 @@ function updateCachedPlatformsAfterSync(cachedPlatforms = [], results = []) {
 }
 
 module.exports = {
+  buildWechatsyncPlatformCatalog,
   getFallbackWechatsyncPlatforms,
   getMultiPlatformResultSummary,
   getWechatSyncResultError,
   getWechatSyncResultPlatformId,
   getWechatSyncResultUrl,
+  getWechatsyncPlatformStatus,
+  getWechatsyncPlatformStatusBadge,
   isWechatSyncAuthFailureMessage,
   isWechatSyncConnectionFailure,
   normalizeWechatSyncResponseResults,
   normalizeWechatsyncAuthSnapshot,
   normalizeWechatsyncCheckAuthResult,
+  normalizeWechatsyncCapabilities,
   normalizeWechatsyncPlatformList,
   normalizeWechatsyncPlatform,
   probeWechatsyncPlatformsIndividually,

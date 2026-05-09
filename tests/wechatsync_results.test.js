@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildWechatsyncPlatformCatalog,
   getMultiPlatformResultSummary,
   getWechatSyncResultUrl,
   getFallbackWechatsyncPlatforms,
+  getWechatsyncPlatformStatusBadge,
   normalizeWechatSyncResponseResults,
   normalizeWechatsyncAuthSnapshot,
   normalizeWechatsyncCheckAuthResult,
@@ -20,7 +22,7 @@ describe('Wechatsync result helpers', () => {
       name: '知乎',
       isAuthenticated: true,
       username: 'Lin',
-    })).toEqual({
+    })).toMatchObject({
       id: 'zhihu',
       name: '知乎',
       authKnown: true,
@@ -51,8 +53,8 @@ describe('Wechatsync result helpers', () => {
     };
 
     expect(normalizeWechatsyncPlatformList(response)).toEqual([
-      { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin', error: '' },
-      { id: 'douyin', name: '抖音图文', authKnown: true, authenticated: true, username: 'home', error: '' },
+      expect.objectContaining({ id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin', error: '' }),
+      expect.objectContaining({ id: 'douyin', name: '抖音图文', authKnown: true, authenticated: true, username: 'home', error: '' }),
     ]);
     expect(summarizeWechatsyncPlatformResponse(response)).toMatchObject({
       responseKind: 'object',
@@ -80,8 +82,8 @@ describe('Wechatsync result helpers', () => {
       source: 'cache',
       checkedAt: 1770000000000,
       platforms: [
-        { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin', error: '' },
-        { id: 'juejin', name: '掘金', authKnown: true, authenticated: false, username: '', error: '未登录' },
+        expect.objectContaining({ id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin', error: '' }),
+        expect.objectContaining({ id: 'juejin', name: '掘金', authKnown: true, authenticated: false, username: '', error: '未登录' }),
       ],
     });
   });
@@ -90,7 +92,7 @@ describe('Wechatsync result helpers', () => {
     expect(normalizeWechatsyncCheckAuthResult(
       { id: 'zhihu', name: '知乎' },
       { isAuthenticated: true, username: 'Lin' }
-    )).toEqual({
+    )).toMatchObject({
       id: 'zhihu',
       name: '知乎',
       authKnown: true,
@@ -127,13 +129,14 @@ describe('Wechatsync result helpers', () => {
     });
 
     expect(platforms).toEqual([
-      { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin', error: '' },
-      { id: 'juejin', name: '掘金', authKnown: true, authenticated: false, username: '', error: '未登录' },
+      expect.objectContaining({ id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin', error: '' }),
+      expect.objectContaining({ id: 'juejin', name: '掘金', authKnown: true, authenticated: false, username: '', error: '未登录' }),
     ]);
   });
 
   it('keeps fallback platform candidates aligned with the Wechatsync support matrix', () => {
-    const platformIds = getFallbackWechatsyncPlatforms().map((platform) => platform.id);
+    const platforms = getFallbackWechatsyncPlatforms();
+    const platformIds = platforms.map((platform) => platform.id);
     expect(platformIds).toContain('zhihu');
     expect(platformIds).toContain('xiaohongshu');
     expect(platformIds).toContain('toutiao');
@@ -141,6 +144,60 @@ describe('Wechatsync result helpers', () => {
     expect(platformIds).toContain('zip-download');
     expect(platformIds).not.toContain('weixin');
     expect(platformIds).not.toContain('twitter');
+    expect(platforms.every((platform) => Object.prototype.hasOwnProperty.call(platform, 'homepage'))).toBe(true);
+    expect(platforms.every((platform) => Array.isArray(platform.capabilities))).toBe(true);
+  });
+
+  it('builds a non-empty catalog and marks bridge-required state when disconnected', () => {
+    const catalog = buildWechatsyncPlatformCatalog({
+      supportedPlatforms: [],
+      authSnapshotPlatforms: [],
+      bridgeConnected: false,
+    });
+
+    expect(catalog.length).toBeGreaterThan(0);
+    expect(catalog[0]).toMatchObject({
+      authStatus: 'bridge_required',
+      authKnown: true,
+      authenticated: false,
+    });
+    expect(getWechatsyncPlatformStatusBadge(catalog[0])).toMatchObject({
+      status: 'bridge_required',
+      text: '需连接浏览器插件',
+    });
+  });
+
+  it('uses extension metadata and overlays cached auth snapshot when connected', () => {
+    const catalog = buildWechatsyncPlatformCatalog({
+      supportedPlatforms: [
+        { id: 'zhihu', name: '知乎 Pro', homepage: 'https://example.com/zhihu', capabilities: ['article', 'draft'] },
+        { id: 'juejin', name: '掘金', homepage: 'https://juejin.cn', capabilities: ['article'] },
+      ],
+      authSnapshotPlatforms: [
+        { id: 'zhihu', authKnown: true, authenticated: true, username: 'Lin' },
+      ],
+      bridgeConnected: true,
+    });
+
+    expect(catalog).toEqual([
+      expect.objectContaining({
+        id: 'zhihu',
+        name: '知乎 Pro',
+        homepage: 'https://example.com/zhihu',
+        capabilities: ['article', 'draft'],
+        authenticated: true,
+        username: 'Lin',
+      }),
+      expect.objectContaining({
+        id: 'juejin',
+        name: '掘金',
+        authKnown: false,
+      }),
+    ]);
+    expect(getWechatsyncPlatformStatusBadge(catalog[1])).toMatchObject({
+      status: 'unknown',
+      text: '未检测',
+    });
   });
 
   it('normalizes sync responses from arrays, wrapped results, and single results', () => {
@@ -188,9 +245,9 @@ describe('Wechatsync result helpers', () => {
     ];
 
     expect(updateCachedPlatformsAfterSync(cached, results)).toEqual([
-      { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin', error: '' },
-      { id: 'juejin', name: '掘金', authKnown: true, authenticated: false, username: '', error: '未登录，请重新登录' },
-      { id: 'csdn', name: 'CSDN', authKnown: true, authenticated: true, username: '', error: '' },
+      expect.objectContaining({ id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin', error: '' }),
+      expect.objectContaining({ id: 'juejin', name: '掘金', authKnown: true, authenticated: false, username: '', error: '未登录，请重新登录' }),
+      expect.objectContaining({ id: 'csdn', name: 'CSDN', authKnown: true, authenticated: true, username: '', error: '' }),
     ]);
   });
 });

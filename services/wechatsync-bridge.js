@@ -802,8 +802,11 @@ function createWechatSyncBridgeService(options = {}) {
     return requestWithMethodFallback('listSupportedPlatforms', 'list_supported_platforms', {}, { timeoutMs });
   }
 
-  function checkAuth(platform, { timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS } = {}) {
-    return requestWithMethodFallback('checkAuth', 'check_auth', { platform }, { timeoutMs });
+  function checkAuth(platformOrPlatforms, { timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS, forceRefresh = false } = {}) {
+    const params = Array.isArray(platformOrPlatforms)
+      ? { platforms: platformOrPlatforms, forceRefresh }
+      : { platform: platformOrPlatforms, forceRefresh };
+    return requestWithMethodFallback('checkAuth', 'check_auth', params, { timeoutMs });
   }
 
   function syncArticle({ platforms, title, markdown, content, cover, timeoutMs = DEFAULT_SYNC_REQUEST_TIMEOUT_MS }) {
