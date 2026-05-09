@@ -2064,7 +2064,8 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .apple-placeholder-icon {
-  font-size: 48px;
+  width: 64px;
+  height: 64px;
   margin-bottom: var(--apple-spacing-md);
 }
 

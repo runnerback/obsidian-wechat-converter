@@ -10482,42 +10482,42 @@ var require_wechatsync_bridge = __commonJS({
     function createReadableBridgeError(error) {
       const message = String((error == null ? void 0 : error.message) || error || "");
       if (/Invalid or missing token|MCP token not configured|401|403/i.test(message)) {
-        const friendly = new Error("Wechatsync \u6269\u5C55\u5DF2\u54CD\u5E94\uFF0C\u4F46\u9274\u6743\u5931\u8D25\u3002\u8BF7\u5728 Wechatsync \u6269\u5C55\u4E2D\u5F00\u542F MCP/\u6865\u63A5\uFF0C\u5E76\u786E\u8BA4 Obsidian \u4E0E\u6269\u5C55\u4F7F\u7528\u540C\u4E00\u4E2A Token\u3002");
+        const friendly = new Error("\u6D4F\u89C8\u5668\u6269\u5C55\u5DF2\u54CD\u5E94\uFF0C\u4F46\u9274\u6743\u5931\u8D25\u3002\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u4E2D\u5F00\u542F\u672C\u5730\u6865\u63A5\u8FDE\u63A5\uFF0C\u5E76\u786E\u8BA4 Obsidian \u4E0E\u6269\u5C55\u4F7F\u7528\u540C\u4E00\u4E2A\u8FDE\u63A5 Token\u3002");
         friendly.code = "AUTH_FAILED";
         friendly.cause = error;
         return friendly;
       }
       if (/Extension not connected|not connected|timeout:no_extension/i.test(message)) {
-        const friendly = new Error("\u5C1A\u672A\u8FDE\u63A5\u5230 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55\u3002\u8BF7\u5728\u5DF2\u767B\u5F55\u76EE\u6807\u5E73\u53F0\u7684 Chromium \u6D4F\u89C8\u5668\u4E2D\u5B89\u88C5\u5E76\u542F\u7528 Wechatsync \u6269\u5C55\uFF0C\u7136\u540E\u5F00\u542F MCP/\u6865\u63A5\u3002");
+        const friendly = new Error("\u5C1A\u672A\u8FDE\u63A5\u5230\u6D4F\u89C8\u5668\u6269\u5C55\u3002\u8BF7\u5728\u5DF2\u767B\u5F55\u76EE\u6807\u5E73\u53F0\u7684 Chromium \u6D4F\u89C8\u5668\u4E2D\u5B89\u88C5\u5E76\u542F\u7528\u6269\u5C55\uFF0C\u7136\u540E\u5F00\u542F\u672C\u5730\u6865\u63A5\u8FDE\u63A5\u3002");
         friendly.code = "EXTENSION_NOT_CONNECTED";
         friendly.cause = error;
         return friendly;
       }
       if (/Request timeout: listPlatforms/i.test(message)) {
-        const friendly = new Error("Wechatsync \u6269\u5C55\u5DF2\u8FDE\u63A5\uFF0C\u4F46\u8BFB\u53D6\u5E73\u53F0\u5217\u8868\u8D85\u65F6\u3002\u5E73\u53F0\u8F83\u591A\u6216\u90E8\u5206\u5E73\u53F0\u68C0\u67E5\u8F83\u6162\u65F6\u53EF\u80FD\u53D1\u751F\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002");
+        const friendly = new Error("\u6D4F\u89C8\u5668\u6269\u5C55\u5DF2\u8FDE\u63A5\uFF0C\u4F46\u8BFB\u53D6\u5E73\u53F0\u5217\u8868\u8D85\u65F6\u3002\u5E73\u53F0\u8F83\u591A\u6216\u90E8\u5206\u5E73\u53F0\u68C0\u67E5\u8F83\u6162\u65F6\u53EF\u80FD\u53D1\u751F\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002");
         friendly.code = "PLATFORM_LIST_TIMEOUT";
         friendly.cause = error;
         return friendly;
       }
       if (/Request timeout: syncArticle/i.test(message)) {
-        const friendly = new Error("Wechatsync \u6269\u5C55\u957F\u65F6\u95F4\u6CA1\u6709\u8FD4\u56DE\u540C\u6B65\u7ED3\u679C\u3002\u6D4F\u89C8\u5668\u6269\u5C55\u53EF\u80FD\u4ECD\u5728\u540E\u53F0\u5904\u7406\uFF0C\u8BF7\u5148\u5230\u6269\u5C55\u5386\u53F2\u6216\u76EE\u6807\u5E73\u53F0\u8349\u7A3F\u7BB1\u786E\u8BA4\u7ED3\u679C\uFF1B\u5982\u679C\u67D0\u4E2A\u5E73\u53F0\u5361\u4F4F\uFF0C\u5EFA\u8BAE\u51CF\u5C11\u5E73\u53F0\u540E\u91CD\u8BD5\u3002");
+        const friendly = new Error("\u6D4F\u89C8\u5668\u6269\u5C55\u957F\u65F6\u95F4\u6CA1\u6709\u8FD4\u56DE\u540C\u6B65\u7ED3\u679C\u3002\u6269\u5C55\u53EF\u80FD\u4ECD\u5728\u540E\u53F0\u5904\u7406\uFF0C\u8BF7\u5148\u5230\u6269\u5C55\u5386\u53F2\u6216\u76EE\u6807\u5E73\u53F0\u8349\u7A3F\u7BB1\u786E\u8BA4\u7ED3\u679C\uFF1B\u5982\u679C\u67D0\u4E2A\u5E73\u53F0\u5361\u4F4F\uFF0C\u5EFA\u8BAE\u51CF\u5C11\u5E73\u53F0\u540E\u91CD\u8BD5\u3002");
         friendly.code = "SYNC_TIMEOUT";
         friendly.cause = error;
         return friendly;
       }
       if (/Request timeout: (health|listSupportedPlatforms|enqueueSyncArticle|getSyncTask|getSyncTaskLink|openSyncTask|getAuthSnapshot)/i.test(message)) {
-        const friendly = new Error("Wechatsync \u6269\u5C55\u54CD\u5E94\u8D85\u65F6\uFF0C\u8BF7\u786E\u8BA4\u6269\u5C55\u5DF2\u5F00\u542F MCP/\u6865\u63A5\u540E\u91CD\u8BD5\u3002");
+        const friendly = new Error("\u6D4F\u89C8\u5668\u6269\u5C55\u54CD\u5E94\u8D85\u65F6\uFF0C\u8BF7\u786E\u8BA4\u6269\u5C55\u5DF2\u5F00\u542F\u672C\u5730\u6865\u63A5\u8FDE\u63A5\u540E\u91CD\u8BD5\u3002");
         friendly.code = "BRIDGE_REQUEST_TIMEOUT";
         friendly.cause = error;
         return friendly;
       }
       if (/EADDRINUSE|Primary|ECONNREFUSED|not reachable/i.test(message)) {
-        const friendly = new Error("\u65E0\u6CD5\u8FDE\u63A5 Wechatsync \u672C\u5730\u6865\u63A5\u670D\u52A1\u3002\u8BF7\u786E\u8BA4\u6CA1\u6709\u5176\u4ED6\u540C\u6B65\u8FDB\u7A0B\u5360\u7528\u7AEF\u53E3\uFF0C\u6216\u7A0D\u540E\u91CD\u8BD5\u3002");
+        const friendly = new Error("\u65E0\u6CD5\u8FDE\u63A5\u672C\u5730\u6865\u63A5\u670D\u52A1\u3002\u8BF7\u786E\u8BA4\u6CA1\u6709\u5176\u4ED6\u540C\u6B65\u8FDB\u7A0B\u5360\u7528\u7AEF\u53E3\uFF0C\u6216\u7A0D\u540E\u91CD\u8BD5\u3002");
         friendly.code = "BRIDGE_UNAVAILABLE";
         friendly.cause = error;
         return friendly;
       }
-      return error instanceof Error ? error : new Error(message || "Wechatsync \u6865\u63A5\u8BF7\u6C42\u5931\u8D25\u3002");
+      return error instanceof Error ? error : new Error(message || "\u6D4F\u89C8\u5668\u6269\u5C55\u6865\u63A5\u8BF7\u6C42\u5931\u8D25\u3002");
     }
     function readRequestBody(req) {
       return new Promise((resolve, reject) => {
@@ -12512,7 +12512,7 @@ var { rasterizeSvgToPngBlob } = require_svg_rasterizer();
 var { createObsidianFetchAdapter } = require_obsidian_fetch_adapter();
 var { stripMarkdownFrontmatter } = require_markdown_utils();
 var APPLE_STYLE_VIEW = "apple-style-converter";
-var APPLE_STYLE_VIEW_TITLE = "\u5FAE\u4FE1\u516C\u4F17\u53F7\u8F6C\u6362\u5668";
+var APPLE_STYLE_VIEW_TITLE = "Obsidian \u53D1\u5E03\u52A9\u624B";
 function createDefaultMultiPlatformSyncSettings() {
   return {
     enabled: false,
@@ -13094,7 +13094,7 @@ var AppleStyleView = class extends ItemView {
     return "wand";
   }
   async onOpen() {
-    console.log("\u{1F34E} \u8F6C\u6362\u5668\u9762\u677F\u6253\u5F00");
+    console.log("\u{1F34E} \u53D1\u5E03\u52A9\u624B\u9762\u677F\u6253\u5F00");
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("apple-converter-container");
@@ -13410,7 +13410,7 @@ var AppleStyleView = class extends ItemView {
     } else {
       this.copyBtn = null;
     }
-    createIconBtn("send", "\u4E00\u952E\u540C\u6B65\u5230\u8349\u7A3F\u7BB1", () => this.showSyncModal());
+    createIconBtn("send", "\u53D1\u5E03\u4E0E\u5206\u53D1", () => this.showSyncModal());
     this.settingsOverlay = container.createEl("div", { cls: "apple-settings-overlay" });
     const settingsArea = this.settingsOverlay.createEl("div", { cls: "apple-settings-area" });
     this.settingsArea = settingsArea;
@@ -15845,7 +15845,7 @@ var AppleStyleView = class extends ItemView {
     const emptyState = modal.contentEl.createDiv({ cls: "wechat-sync-empty-state" });
     emptyState.createEl("div", { cls: "wechat-sync-empty-icon", text: "\u2699\uFE0F" });
     emptyState.createEl("h3", { text: "\u5148\u914D\u7F6E\u516C\u4F17\u53F7\u8D26\u53F7" });
-    emptyState.createEl("p", { text: "\u8BF7\u5148\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u586B\u5199 AppID / AppSecret\uFF0C\u518D\u4F7F\u7528\u4E00\u952E\u540C\u6B65\u5230\u8349\u7A3F\u7BB1\u3002" });
+    emptyState.createEl("p", { text: "\u8BF7\u5148\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u586B\u5199 AppID / AppSecret\uFF0C\u518D\u53D1\u9001\u5230\u5FAE\u4FE1\u8349\u7A3F\u7BB1\u3002" });
     const btnRow = modal.contentEl.createDiv({ cls: "wechat-modal-buttons" });
     const cancelBtn = btnRow.createEl("button", { text: "\u53D6\u6D88" });
     cancelBtn.onclick = () => modal.close();
@@ -15853,7 +15853,7 @@ var AppleStyleView = class extends ItemView {
     configBtn.onclick = () => {
       modal.close();
       if (!this.openPluginSettings()) {
-        new Notice("\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u6253\u5F00 Wechat Converter \u5E76\u914D\u7F6E\u8D26\u53F7");
+        new Notice("\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u6253\u5F00 Obsidian \u53D1\u5E03\u52A9\u624B\u5E76\u914D\u7F6E\u516C\u4F17\u53F7\u8D26\u53F7");
       }
     };
     modal.open();
@@ -15882,7 +15882,7 @@ var AppleStyleView = class extends ItemView {
     settingsBtn.onclick = () => {
       modal.close();
       if (!this.openPluginSettings()) {
-        new Notice("\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u6253\u5F00 Wechat Converter \u5E76\u914D\u7F6E\u8D26\u53F7");
+        new Notice("\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u6253\u5F00 Obsidian \u53D1\u5E03\u52A9\u624B\u5E76\u914D\u7F6E\u516C\u4F17\u53F7\u8D26\u53F7");
       }
     };
     const retryBtn = btnRow.createEl("button", { text: "\u91CD\u8BD5\u540C\u6B65", cls: "mod-cta" });
@@ -15953,7 +15953,7 @@ var AppleStyleView = class extends ItemView {
         multiPlatformTab2.onclick = () => this.showMultiPlatformSyncModal({ modal: modal2 });
         const empty = modal2.contentEl.createDiv({ cls: "wechat-sync-empty-state" });
         empty.createEl("h3", { text: "\u5C1A\u672A\u914D\u7F6E\u5FAE\u4FE1\u516C\u4F17\u53F7\u8D26\u53F7" });
-        empty.createEl("p", { text: "\u5FAE\u4FE1\u8349\u7A3F\u7BB1\u9700\u8981\u5148\u914D\u7F6E\u516C\u4F17\u53F7 API\u3002\u5176\u4ED6\u5E73\u53F0\u4ECD\u53EF\u901A\u8FC7 Wechatsync \u6269\u5C55\u53D1\u9001\u3002" });
+        empty.createEl("p", { text: "\u5FAE\u4FE1\u8349\u7A3F\u7BB1\u9700\u8981\u5148\u914D\u7F6E\u516C\u4F17\u53F7 API\u3002\u5176\u4ED6\u5E73\u53F0\u4ECD\u53EF\u901A\u8FC7\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u9001\u3002" });
         const settingsBtn = empty.createEl("button", { text: "\u53BB\u8BBE\u7F6E", cls: "mod-cta" });
         settingsBtn.onclick = () => {
           modal2.close();
@@ -16135,7 +16135,7 @@ var AppleStyleView = class extends ItemView {
         try {
           const result = await bridge.openSyncTask(taskId, { timeoutMs: 8e3 });
           if ((result == null ? void 0 : result.opened) !== false) {
-            new Notice("\u5DF2\u6253\u5F00 Wechatsync \u4EFB\u52A1\u7A97\u53E3");
+            new Notice("\u5DF2\u6253\u5F00\u6D4F\u89C8\u5668\u6269\u5C55\u4EFB\u52A1\u7A97\u53E3");
             return true;
           }
         } catch (error) {
@@ -16167,7 +16167,7 @@ var AppleStyleView = class extends ItemView {
           });
         }
       }
-      new Notice(`\u8BF7\u5728 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55\u5386\u53F2\u8BB0\u5F55\u4E2D\u67E5\u770B\u4EFB\u52A1\uFF1A${taskId}`, 1e4);
+      new Notice(`\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u5386\u53F2\u8BB0\u5F55\u4E2D\u67E5\u770B\u4EFB\u52A1\uFF1A${taskId}`, 1e4);
       return false;
     } catch (error) {
       console.error("[Wechatsync] open task failed", {
@@ -16175,7 +16175,7 @@ var AppleStyleView = class extends ItemView {
         code: error == null ? void 0 : error.code,
         message: (error == null ? void 0 : error.message) || String(error)
       });
-      new Notice(`\u65E0\u6CD5\u6253\u5F00 Wechatsync \u4EFB\u52A1\uFF1A${error.message || String(error)}`, 1e4);
+      new Notice(`\u65E0\u6CD5\u6253\u5F00\u6D4F\u89C8\u5668\u6269\u5C55\u4EFB\u52A1\uFF1A${error.message || String(error)}`, 1e4);
       return false;
     }
   }
@@ -16215,11 +16215,11 @@ var AppleStyleView = class extends ItemView {
     if (typeof Modal !== "function") {
       const syncIdText = taskId ? `\uFF08\u4EFB\u52A1 ${taskId}\uFF09` : "";
       const fallbackText = usedFallbackSend ? "\u5F53\u524D\u6269\u5C55\u672A\u63D0\u4F9B\u4EFB\u52A1 ID\uFF0C" : "";
-      new Notice(`\u2705 \u5DF2\u53D1\u9001\u5230 Wechatsync \u6269\u5C55${syncIdText}\u3002${fallbackText}\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u7684\u5386\u53F2\u6216\u76EE\u6807\u5E73\u53F0\u8349\u7A3F\u7BB1\u67E5\u770B\u7ED3\u679C\u3002`, 1e4);
+      new Notice(`\u2705 \u5DF2\u53D1\u9001\u5230\u6D4F\u89C8\u5668\u6269\u5C55${syncIdText}\u3002${fallbackText}\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u7684\u5386\u53F2\u6216\u76EE\u6807\u5E73\u53F0\u8349\u7A3F\u7BB1\u67E5\u770B\u7ED3\u679C\u3002`, 1e4);
       return;
     }
     const modal = new Modal(this.app);
-    modal.titleEl.setText("\u5DF2\u53D1\u9001\u5230 Wechatsync");
+    modal.titleEl.setText("\u5DF2\u53D1\u9001\u5230\u6D4F\u89C8\u5668\u6269\u5C55");
     (_b = (_a = modal.titleEl).addClass) == null ? void 0 : _b.call(_a, "wechat-multiplatform-title");
     modal.contentEl.addClass("wechat-sync-modal");
     modal.contentEl.addClass("wechat-multiplatform-modal");
@@ -16232,7 +16232,7 @@ var AppleStyleView = class extends ItemView {
       text: "\u4EFB\u52A1\u5DF2\u4EA4\u7ED9\u6D4F\u89C8\u5668\u6269\u5C55"
     });
     summary.createEl("p", {
-      text: taskId ? "Obsidian \u5DF2\u5B8C\u6210\u6295\u9012\uFF0C\u4E0D\u4F1A\u957F\u65F6\u95F4\u7B49\u5F85\u6240\u6709\u5E73\u53F0\u5B8C\u6210\u3002\u540E\u7EED\u8349\u7A3F\u94FE\u63A5\u3001\u5931\u8D25\u539F\u56E0\u548C\u91CD\u8BD5\u8BF7\u5728 Wechatsync \u6269\u5C55\u4EFB\u52A1\u7A97\u53E3\u91CC\u67E5\u770B\u3002" : "\u5F53\u524D\u6269\u5C55\u7248\u672C\u6CA1\u6709\u8FD4\u56DE\u4EFB\u52A1 ID\u3002\u6587\u7AE0\u5DF2\u53D1\u9001\uFF0C\u8BF7\u5728 Wechatsync \u6269\u5C55\u5386\u53F2\u8BB0\u5F55\u4E2D\u67E5\u770B\u6700\u8FD1\u4EFB\u52A1\u3002"
+      text: taskId ? "Obsidian \u5DF2\u5B8C\u6210\u6295\u9012\uFF0C\u4E0D\u4F1A\u957F\u65F6\u95F4\u7B49\u5F85\u6240\u6709\u5E73\u53F0\u5B8C\u6210\u3002\u540E\u7EED\u8349\u7A3F\u94FE\u63A5\u3001\u5931\u8D25\u539F\u56E0\u548C\u91CD\u8BD5\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u4EFB\u52A1\u7A97\u53E3\u91CC\u67E5\u770B\u3002" : "\u5F53\u524D\u6269\u5C55\u7248\u672C\u6CA1\u6709\u8FD4\u56DE\u4EFB\u52A1 ID\u3002\u6587\u7AE0\u5DF2\u53D1\u9001\uFF0C\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u5386\u53F2\u8BB0\u5F55\u4E2D\u67E5\u770B\u6700\u8FD1\u4EFB\u52A1\u3002"
     });
     const list = modal.contentEl.createDiv({ cls: "wechat-multiplatform-result-list" });
     const platformById = new Map(
@@ -16244,7 +16244,7 @@ var AppleStyleView = class extends ItemView {
       taskRow.createEl("div", { text: "\u4EFB\u52A1", cls: "wechat-multiplatform-result-pill is-success" });
       const taskBody = taskRow.createDiv({ cls: "wechat-multiplatform-result-body" });
       taskBody.createEl("div", {
-        text: (task == null ? void 0 : task.found) === false ? "\u6269\u5C55\u6682\u672A\u8FD4\u56DE\u4EFB\u52A1\u8BE6\u60C5" : title || (task == null ? void 0 : task.title) || "\u591A\u5E73\u53F0\u540C\u6B65\u4EFB\u52A1",
+        text: (task == null ? void 0 : task.found) === false ? "\u6269\u5C55\u6682\u672A\u8FD4\u56DE\u4EFB\u52A1\u8BE6\u60C5" : title || (task == null ? void 0 : task.title) || "\u591A\u5E73\u53F0\u53D1\u5E03\u4EFB\u52A1",
         cls: "wechat-multiplatform-result-name"
       });
       taskBody.createEl("div", {
@@ -16289,7 +16289,7 @@ var AppleStyleView = class extends ItemView {
     var _a, _b, _c, _d, _e;
     const { Modal } = require("obsidian");
     if (typeof Modal !== "function") {
-      const message = fatalError ? `Wechatsync \u540C\u6B65\u5931\u8D25\uFF1A${fatalError.message || fatalError}` : "Wechatsync \u540C\u6B65\u5B8C\u6210\uFF0C\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u4E2D\u67E5\u770B\u7ED3\u679C";
+      const message = fatalError ? `\u6D4F\u89C8\u5668\u6269\u5C55\u540C\u6B65\u5931\u8D25\uFF1A${fatalError.message || fatalError}` : "\u540C\u6B65\u5B8C\u6210\uFF0C\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u4E2D\u67E5\u770B\u7ED3\u679C";
       new Notice(message, 1e4);
       return;
     }
@@ -16329,15 +16329,15 @@ var AppleStyleView = class extends ItemView {
       text: fatalError ? "\u540C\u6B65\u6CA1\u6709\u5B8C\u6210" : isAllSuccess ? "\u8349\u7A3F\u5DF2\u4FDD\u5B58" : "\u90E8\u5206\u5E73\u53F0\u9700\u8981\u5904\u7406"
     });
     summary.createEl("p", {
-      text: fatalError ? fatalError.code === "SYNC_TIMEOUT" ? "Obsidian \u6CA1\u6709\u7B49\u5230\u6D4F\u89C8\u5668\u6269\u5C55\u7684\u6700\u7EC8\u56DE\u8C03\u3002\u6269\u5C55\u53EF\u80FD\u4ECD\u5728\u540E\u53F0\u540C\u6B65\uFF0C\u8BF7\u5148\u67E5\u770B Wechatsync \u5386\u53F2\u6216\u76EE\u6807\u5E73\u53F0\u8349\u7A3F\u7BB1\uFF1B\u4E4B\u540E\u53EF\u4EE5\u51CF\u5C11\u5E73\u53F0\u540E\u91CD\u8BD5\u3002" : fatalError.message || "Wechatsync \u8FDE\u63A5\u4E2D\u65AD\uFF0C\u8BF7\u68C0\u67E5\u6269\u5C55\u3001Token \u6216\u6D4F\u89C8\u5668\u767B\u5F55\u6001\u540E\u91CD\u8BD5\u3002" : normalizedResults.length > 0 ? `${successCount}/${normalizedResults.length} \u4E2A\u5E73\u53F0\u5DF2\u4FDD\u5B58\u4E3A\u8349\u7A3F\u3002\u6210\u529F\u7684\u5E73\u53F0\u53EF\u4EE5\u76F4\u63A5\u6253\u5F00\u8349\u7A3F\u68C0\u67E5\uFF0C\u5931\u8D25\u7684\u5E73\u53F0\u4FEE\u590D\u540E\u91CD\u65B0\u540C\u6B65\u3002` : "\u8BF7\u6C42\u5DF2\u53D1\u9001\u5230 Wechatsync \u6269\u5C55\u3002\u82E5\u8FD9\u91CC\u6CA1\u6709\u8FD4\u56DE\u5E73\u53F0\u660E\u7EC6\uFF0C\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u4E2D\u67E5\u770B\u7ED3\u679C\u3002"
+      text: fatalError ? fatalError.code === "SYNC_TIMEOUT" ? "Obsidian \u6CA1\u6709\u7B49\u5230\u6D4F\u89C8\u5668\u6269\u5C55\u7684\u6700\u7EC8\u56DE\u8C03\u3002\u6269\u5C55\u53EF\u80FD\u4ECD\u5728\u540E\u53F0\u540C\u6B65\uFF0C\u8BF7\u5148\u67E5\u770B\u6269\u5C55\u5386\u53F2\u6216\u76EE\u6807\u5E73\u53F0\u8349\u7A3F\u7BB1\uFF1B\u4E4B\u540E\u53EF\u4EE5\u51CF\u5C11\u5E73\u53F0\u540E\u91CD\u8BD5\u3002" : fatalError.message || "\u6D4F\u89C8\u5668\u6269\u5C55\u8FDE\u63A5\u4E2D\u65AD\uFF0C\u8BF7\u68C0\u67E5\u6269\u5C55\u3001\u8FDE\u63A5 Token \u6216\u6D4F\u89C8\u5668\u767B\u5F55\u6001\u540E\u91CD\u8BD5\u3002" : normalizedResults.length > 0 ? `${successCount}/${normalizedResults.length} \u4E2A\u5E73\u53F0\u5DF2\u4FDD\u5B58\u4E3A\u8349\u7A3F\u3002\u6210\u529F\u7684\u5E73\u53F0\u53EF\u4EE5\u76F4\u63A5\u6253\u5F00\u8349\u7A3F\u68C0\u67E5\uFF0C\u5931\u8D25\u7684\u5E73\u53F0\u4FEE\u590D\u540E\u91CD\u65B0\u540C\u6B65\u3002` : "\u8BF7\u6C42\u5DF2\u53D1\u9001\u5230\u6D4F\u89C8\u5668\u6269\u5C55\u3002\u82E5\u8FD9\u91CC\u6CA1\u6709\u8FD4\u56DE\u5E73\u53F0\u660E\u7EC6\uFF0C\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u4E2D\u67E5\u770B\u7ED3\u679C\u3002"
     });
     const list = modal.contentEl.createDiv({ cls: "wechat-multiplatform-result-list" });
     if (fatalError) {
       const row = list.createDiv({ cls: "wechat-multiplatform-result-row is-error" });
       const body = row.createDiv({ cls: "wechat-multiplatform-result-body" });
-      body.createEl("div", { text: "Wechatsync \u6865\u63A5", cls: "wechat-multiplatform-result-name" });
+      body.createEl("div", { text: "\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u5E03\u6865", cls: "wechat-multiplatform-result-name" });
       body.createEl("div", {
-        text: fatalError.code === "SYNC_TIMEOUT" ? "\u540C\u6B65\u8BF7\u6C42\u5DF2\u8D85\u65F6\uFF0C\u65E0\u6CD5\u4ECE\u5F53\u524D MCP \u534F\u8BAE\u62FF\u5230\u9010\u5E73\u53F0\u8FDB\u5EA6\u3002\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u4FA7\u786E\u8BA4\u662F\u5426\u5DF2\u7ECF\u751F\u6210\u8349\u7A3F\u3002" : fatalError.message || "\u8FDE\u63A5\u4E0D\u53EF\u7528",
+        text: fatalError.code === "SYNC_TIMEOUT" ? "\u540C\u6B65\u8BF7\u6C42\u5DF2\u8D85\u65F6\uFF0C\u6682\u65F6\u65E0\u6CD5\u62FF\u5230\u9010\u5E73\u53F0\u8FDB\u5EA6\u3002\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u4FA7\u786E\u8BA4\u662F\u5426\u5DF2\u7ECF\u751F\u6210\u8349\u7A3F\u3002" : fatalError.message || "\u8FDE\u63A5\u4E0D\u53EF\u7528",
         cls: "wechat-multiplatform-result-detail"
       });
     } else if (normalizedResults.length === 0) {
@@ -16413,22 +16413,21 @@ var AppleStyleView = class extends ItemView {
     const intro = modal.contentEl.createDiv({ cls: "wechat-multiplatform-intro" });
     const introText = intro.createDiv({ cls: "wechat-multiplatform-intro-text" });
     introText.createEl("div", {
-      text: "\u5176\u4ED6\u5E73\u53F0\u7531 Wechatsync \u6269\u5C55\u63A5\u7BA1",
+      text: "\u5176\u4ED6\u5E73\u53F0\u7531\u6D4F\u89C8\u5668\u6269\u5C55\u63A5\u7BA1",
       cls: "wechat-multiplatform-kicker"
     });
     introText.createEl("p", {
       text: "\u5FAE\u4FE1\u4ECD\u4F7F\u7528\u672C\u63D2\u4EF6\u81EA\u5DF1\u7684\u516C\u4F17\u53F7 API\u3002\u77E5\u4E4E\u3001\u6398\u91D1\u3001CSDN \u7B49\u5E73\u53F0\u4F1A\u901A\u8FC7\u6D4F\u89C8\u5668\u767B\u5F55\u6001\u4FDD\u5B58\u4E3A\u8349\u7A3F\u3002"
     });
-    intro.createEl("div", { text: "Beta", cls: "wechat-multiplatform-badge" });
     if (!bridgeSettings.enabled) {
       const disabledHint = modal.contentEl.createDiv({ cls: "wechat-sync-empty-state" });
-      disabledHint.createEl("h3", { text: "\u5C1A\u672A\u542F\u7528\u591A\u5E73\u53F0\u5206\u53D1" });
-      disabledHint.createEl("p", { text: "\u8BF7\u5148\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u5F00\u542F Wechatsync \u591A\u5E73\u53F0\u5206\u53D1\uFF0C\u518D\u56DE\u5230\u8FD9\u91CC\u68C0\u6D4B\u5E73\u53F0\u3002" });
+      disabledHint.createEl("h3", { text: "\u5C1A\u672A\u542F\u7528\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u5E03\u6865" });
+      disabledHint.createEl("p", { text: "\u8BF7\u5148\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u5F00\u542F\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u5E03\u6865\uFF0C\u518D\u56DE\u5230\u8FD9\u91CC\u9009\u62E9\u5176\u4ED6\u53D1\u5E03\u5E73\u53F0\u3002" });
       const settingsBtn = disabledHint.createEl("button", { text: "\u53BB\u8BBE\u7F6E", cls: "mod-cta" });
       settingsBtn.onclick = () => {
         modal.close();
         if (!this.openPluginSettings()) {
-          new Notice("\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u6253\u5F00 Wechat Converter \u5E76\u5F00\u542F Wechatsync \u591A\u5E73\u53F0\u5206\u53D1");
+          new Notice("\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u6253\u5F00 Obsidian \u53D1\u5E03\u52A9\u624B\u5E76\u5F00\u542F\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u5E03\u6865");
         }
       };
       if (shouldOpenModal)
@@ -16542,7 +16541,7 @@ var AppleStyleView = class extends ItemView {
             selectedPlatforms.add(platform.id);
             setStatusVisible(true);
             if (authInfo.status === "login_required") {
-              new Notice(`${platform.name} \u4E0A\u6B21\u72B6\u6001\u4E3A\u9700\u767B\u5F55\u3002\u8BF7\u5148\u5728\u6D4F\u89C8\u5668\u63D2\u4EF6\u6253\u5F00\u5E73\u53F0\u767B\u5F55\u9875\uFF0C\u6216\u7EE7\u7EED\u5C1D\u8BD5\u7531\u6269\u5C55\u8FD4\u56DE\u5B9E\u9645\u7ED3\u679C\u3002`, 8e3);
+              new Notice(`${platform.name} \u4E0A\u6B21\u72B6\u6001\u4E3A\u9700\u767B\u5F55\u3002\u8BF7\u5148\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u6253\u5F00\u5E73\u53F0\u767B\u5F55\u9875\uFF0C\u6216\u7EE7\u7EED\u5C1D\u8BD5\u7531\u6269\u5C55\u8FD4\u56DE\u5B9E\u9645\u7ED3\u679C\u3002`, 8e3);
             }
             if (authInfo.status === "unknown") {
               new Notice(`${platform.name} \u6B64\u524D\u672A\u68C0\u6D4B\uFF0C\u53D1\u5E03\u7ED3\u679C\u4EE5\u6D4F\u89C8\u5668\u6269\u5C55\u5B9E\u9645\u6267\u884C\u4E3A\u51C6\u3002`, 6e3);
@@ -16567,14 +16566,14 @@ var AppleStyleView = class extends ItemView {
     } else if (cachedConnection.status === "failed") {
       statusEl.createEl("span", { text: "\u672A\u8FDE\u63A5", cls: "wechat-multiplatform-status-dot is-error" });
       statusEl.createEl("span", {
-        text: `\u4E0A\u6B21\u8FDE\u63A5\u5931\u8D25${cachedConnection.message ? `\uFF1A${cachedConnection.message}` : ""}\u3002\u8BF7\u5148\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u540E\u518D\u53D1\u5E03\u3002`,
+        text: `\u4E0A\u6B21\u8FDE\u63A5\u5931\u8D25${cachedConnection.message ? `\uFF1A${cachedConnection.message}` : ""}\u3002\u8BF7\u5148\u8FDE\u63A5\u6D4F\u89C8\u5668\u6269\u5C55\u540E\u518D\u53D1\u5E03\u3002`,
         cls: "wechat-multiplatform-status-text"
       });
       renderPlatforms(availablePlatforms);
     } else {
       statusEl.createEl("span", { text: "\u672A\u6D4B\u8BD5", cls: "wechat-multiplatform-status-dot" });
       statusEl.createEl("span", {
-        text: "\u5C1A\u672A\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u3002\u5E73\u53F0\u5217\u8868\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF0C\u8FDE\u63A5\u540E\u4F1A\u8BFB\u53D6\u6269\u5C55\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002",
+        text: "\u5C1A\u672A\u8FDE\u63A5\u6D4F\u89C8\u5668\u6269\u5C55\u3002\u5E73\u53F0\u5217\u8868\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF0C\u8FDE\u63A5\u540E\u4F1A\u8BFB\u53D6\u6269\u5C55\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002",
         cls: "wechat-multiplatform-status-text"
       });
       renderPlatforms(availablePlatforms);
@@ -16582,7 +16581,7 @@ var AppleStyleView = class extends ItemView {
     syncBtn.onclick = async () => {
       var _a2, _b;
       if (!isBridgeReady) {
-        new Notice("\u8BF7\u5148\u8FDE\u63A5 Wechatsync \u6D4F\u89C8\u5668\u63D2\u4EF6\uFF0C\u518D\u53D1\u9001\u591A\u5E73\u53F0\u53D1\u5E03\u4EFB\u52A1\u3002", 8e3);
+        new Notice("\u8BF7\u5148\u8FDE\u63A5\u6D4F\u89C8\u5668\u6269\u5C55\uFF0C\u518D\u53D1\u9001\u591A\u5E73\u53F0\u53D1\u5E03\u4EFB\u52A1\u3002", 8e3);
         return;
       }
       if (selectedPlatforms.size === 0) {
@@ -16594,7 +16593,7 @@ var AppleStyleView = class extends ItemView {
       const markdown = stripMarkdownFrontmatter(this.lastResolvedMarkdown || "");
       const exportHtml = this.getCurrentExportHtml() || this.currentHtml || "";
       const cover = this.sessionCoverBase64 || this.getFrontmatterPublishMeta(activeFile).coverSrc || this.getFirstImageFromArticle() || "";
-      const notice = new Notice("\u6B63\u5728\u51C6\u5907\u5E76\u53D1\u9001\u5230 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55...", 0);
+      const notice = new Notice("\u6B63\u5728\u51C6\u5907\u5E76\u53D1\u9001\u5230\u6D4F\u89C8\u5668\u6269\u5C55...", 0);
       syncBtn.disabled = true;
       (_a2 = syncBtn.addClass) == null ? void 0 : _a2.call(syncBtn, "apple-btn-disabled");
       const sendStartedAt = Date.now();
@@ -16705,13 +16704,13 @@ var AppleStyleView = class extends ItemView {
               ...currentMultiPlatformSettings.connection,
               status: "failed",
               checkedAt: Date.now(),
-              message: error.message || "Wechatsync \u8FDE\u63A5\u5931\u8D25"
+              message: error.message || "\u6D4F\u89C8\u5668\u6269\u5C55\u8FDE\u63A5\u5931\u8D25"
             }
           });
           await this.plugin.saveSettings();
         }
         modal.close();
-        new Notice(`\u274C \u53D1\u9001\u5230 Wechatsync \u6269\u5C55\u5931\u8D25\uFF1A${error.message}`, 1e4);
+        new Notice(`\u274C \u53D1\u9001\u5230\u6D4F\u89C8\u5668\u6269\u5C55\u5931\u8D25\uFF1A${error.message}`, 1e4);
         this.showMultiPlatformSyncResultModal({
           requestedPlatformIds,
           fatalError: error
@@ -16967,15 +16966,32 @@ var AppleStyleView = class extends ItemView {
     this.previewContainer.empty();
     this.previewContainer.removeClass("apple-has-content");
     const placeholder = this.previewContainer.createEl("div", { cls: "apple-placeholder" });
-    placeholder.createEl("div", { cls: "apple-placeholder-icon", text: "\u{1F4DD}" });
-    placeholder.createEl("h2", { text: "\u5FAE\u4FE1\u516C\u4F17\u53F7\u6392\u7248\u8F6C\u6362\u5668" });
-    placeholder.createEl("p", { text: "\u5C06 Markdown \u8F6C\u6362\u4E3A\u7CBE\u7F8E\u7684 HTML\uFF0C\u4E00\u952E\u540C\u6B65\u5230\u8349\u7A3F\u7BB1" });
+    const iconDiv = placeholder.createEl("div", { cls: "apple-placeholder-icon" });
+    try {
+      const path = require("path");
+      const fs = require("fs");
+      const vaultPath = this.app.vault.adapter.basePath;
+      const configDir = this.app.vault.configDir;
+      const imgPath = path.join(vaultPath, configDir, "plugins", "obsidian-wechat-converter", "images", "icon.png");
+      const imgBuffer = fs.readFileSync(imgPath);
+      const base64 = imgBuffer.toString("base64");
+      const img = iconDiv.createEl("img", { attr: { alt: "Obsidian \u53D1\u5E03\u52A9\u624B" } });
+      img.src = "data:image/png;base64," + base64;
+      img.style.width = "64px";
+      img.style.height = "64px";
+      img.style.display = "block";
+    } catch (e) {
+      iconDiv.textContent = "\u{1F4DD}";
+      console.error("Failed to load brand icon:", e);
+    }
+    placeholder.createEl("h2", { text: "Obsidian \u53D1\u5E03\u52A9\u624B" });
+    placeholder.createEl("p", { text: "\u5728 Obsidian \u5199\u4F5C\u3001\u9884\u89C8\u5E76\u9009\u62E9\u76EE\u6807\u5E73\u53F0\uFF0C\u6295\u9012\u5230\u5FAE\u4FE1\u6216\u6D4F\u89C8\u5668\u6269\u5C55\u8349\u7A3F\u7BB1" });
     const steps = placeholder.createEl("div", { cls: "apple-steps" });
-    steps.createEl("div", { text: "1\uFE0F\u20E3 \u6253\u5F00\u9700\u8981\u8F6C\u6362\u7684 Markdown \u6587\u4EF6" });
-    steps.createEl("div", { text: "2\uFE0F\u20E3 \u9884\u89C8\u533A\u4F1A\u81EA\u52A8\u663E\u793A\u8F6C\u6362\u6548\u679C" });
-    steps.createEl("div", { text: "3\uFE0F\u20E3 \u70B9\u51FB\u300C\u4E00\u952E\u540C\u6B65\u5230\u8349\u7A3F\u7BB1\u300D\u5373\u53EF\u53D1\u9001" });
+    steps.createEl("div", { text: "1\uFE0F\u20E3 \u6253\u5F00\u8981\u53D1\u5E03\u7684 Markdown \u6587\u4EF6" });
+    steps.createEl("div", { text: "2\uFE0F\u20E3 \u5728\u9884\u89C8\u4E2D\u786E\u8BA4\u6392\u7248\u3001\u5C01\u9762\u548C\u6458\u8981" });
+    steps.createEl("div", { text: "3\uFE0F\u20E3 \u70B9\u51FB\u300C\u53D1\u5E03\u4E0E\u5206\u53D1\u300D\u9009\u62E9\u5FAE\u4FE1\u6216\u5176\u4ED6\u5E73\u53F0" });
     const note = placeholder.createEl("p", {
-      text: "\u6CE8\u610F\uFF1A\u5982\u5F53\u524D\u5DF2\u6253\u5F00\u6587\u6863\u4F46\u672A\u663E\u793A\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u4E00\u4E0B\u6587\u6863\u5373\u53EF\u89E6\u53D1",
+      text: "\u63D0\u793A\uFF1A\u5982\u5F53\u524D\u5DF2\u6253\u5F00\u6587\u6863\u4F46\u672A\u663E\u793A\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u4E00\u4E0B\u6587\u6863\u5373\u53EF\u89E6\u53D1\u9884\u89C8",
       cls: "apple-placeholder-note"
     });
   }
@@ -17487,7 +17503,7 @@ var AppleStyleView = class extends ItemView {
       return;
     } catch (error) {
       console.error("\u590D\u5236\u5931\u8D25:", error);
-      new Notice("\u274C \u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u4F7F\u7528\u300C\u4E00\u952E\u540C\u6B65\u5230\u8349\u7A3F\u7BB1\u300D\u53D1\u9001\u6587\u7AE0");
+      new Notice("\u274C \u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u4F7F\u7528\u300C\u53D1\u5E03\u4E0E\u5206\u53D1\u300D\u53D1\u9001\u6587\u7AE0");
       if (this.copyBtn) {
         this.copyBtn.classList.remove("is-copying");
         this.setCopyButtonIcon("copy");
@@ -17613,7 +17629,7 @@ var AppleStyleView = class extends ItemView {
     if (this.mermaidImageCache) {
       this.mermaidImageCache.clear();
     }
-    console.log("\u{1F34E} \u8F6C\u6362\u5668\u9762\u677F\u5DF2\u5173\u95ED");
+    console.log("\u{1F34E} \u53D1\u5E03\u52A9\u624B\u9762\u677F\u5DF2\u5173\u95ED");
   }
   /**
    * 简单的字符串哈希函数 (DJB2算法)
@@ -17651,18 +17667,18 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
     var _a, _b;
     const { containerEl } = this;
     containerEl.empty();
-    new Setting(containerEl).setDesc("\u66F4\u591A\u6392\u7248\u6837\u5F0F\u9009\u9879\uFF08\u4E3B\u9898\u3001\u5B57\u53F7\u3001\u4EE3\u7801\u5757\u7B49\uFF09\u8BF7\u5728\u63D2\u4EF6\u4FA7\u8FB9\u680F\u9762\u677F\u4E2D\u8FDB\u884C\u8BBE\u7F6E\u3002");
+    new Setting(containerEl).setDesc("\u5728 Obsidian \u4E2D\u5B8C\u6210\u5199\u4F5C\u4E0E\u9884\u89C8\uFF1B\u5FAE\u4FE1\u8D26\u53F7\u3001\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u5E03\u6865\u548C\u9ED8\u8BA4\u53D1\u5E03\u9009\u9879\u5728\u8FD9\u91CC\u914D\u7F6E\u3002\u66F4\u591A\u6392\u7248\u6837\u5F0F\u8BF7\u5728\u4FA7\u8FB9\u680F\u9762\u677F\u4E2D\u8C03\u6574\u3002");
     new Setting(containerEl).setName("\u9884\u89C8\u6A21\u5F0F").setHeading();
     new Setting(containerEl).setName("\u4F7F\u7528\u624B\u673A\u4EFF\u771F\u6846").setDesc("\u5F00\u542F\u540E\uFF0C\u9884\u89C8\u533A\u57DF\u5C06\u663E\u793A\u4E3A iPhone X \u624B\u673A\u6846\u6837\u5F0F\uFF1B\u5173\u95ED\u5219\u6062\u590D\u4E3A\u7ECF\u5178\u5168\u5BBD\u9884\u89C8\u6A21\u5F0F\uFF08\u9700\u91CD\u542F\u63D2\u4EF6\u9762\u677F\u751F\u6548\uFF09").addToggle((toggle) => toggle.setValue(this.plugin.settings.usePhoneFrame).onChange(async (value) => {
       this.plugin.settings.usePhoneFrame = value;
       await this.plugin.saveSettings();
-      new Notice("\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u8BF7\u5173\u95ED\u5E76\u91CD\u65B0\u6253\u5F00\u8F6C\u6362\u5668\u9762\u677F\u4EE5\u751F\u6548");
+      new Notice("\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u8BF7\u5173\u95ED\u5E76\u91CD\u65B0\u6253\u5F00\u53D1\u5E03\u52A9\u624B\u9762\u677F\u4EE5\u751F\u6548");
     }));
     new Setting(containerEl).setName("\u56FE\u7247\u6C34\u5370").setHeading();
     new Setting(containerEl).setName("\u542F\u7528\u56FE\u7247\u6C34\u5370").setDesc("\u5728\u6BCF\u5F20\u56FE\u7247\u4E0A\u65B9\u663E\u793A\u5934\u50CF\uFF08\u9700\u91CD\u542F\u63D2\u4EF6\u9762\u677F\u751F\u6548\uFF09").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableWatermark).onChange(async (value) => {
       this.plugin.settings.enableWatermark = value;
       await this.plugin.saveSettings();
-      new Notice("\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u8BF7\u5173\u95ED\u5E76\u91CD\u65B0\u6253\u5F00\u8F6C\u6362\u5668\u9762\u677F\u4EE5\u751F\u6548");
+      new Notice("\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u8BF7\u5173\u95ED\u5E76\u91CD\u65B0\u6253\u5F00\u53D1\u5E03\u52A9\u624B\u9762\u677F\u4EE5\u751F\u6548");
     }));
     const uploadSetting = new Setting(containerEl).setName("\u4E0A\u4F20\u672C\u5730\u5934\u50CF").setDesc(this.plugin.settings.avatarBase64 ? "\u2705 \u5DF2\u4E0A\u4F20\u672C\u5730\u5934\u50CF\uFF08\u4F18\u5148\u4F7F\u7528\uFF09" : "\u9009\u62E9\u672C\u5730\u56FE\u7247\uFF0C\u8F6C\u6362\u4E3A Base64 \u5B58\u50A8\uFF0C\u65E0\u9700\u7F51\u7EDC\u8BF7\u6C42");
     uploadSetting.addButton((button) => button.setButtonText(this.plugin.settings.avatarBase64 ? "\u91CD\u65B0\u4E0A\u4F20" : "\u9009\u62E9\u56FE\u7247").onClick(() => {
@@ -17780,8 +17796,8 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
     }
     const multiPlatformSettings = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
     this.plugin.settings.multiPlatformSync = multiPlatformSettings;
-    new Setting(containerEl).setName("\u591A\u5E73\u53F0\u5206\u53D1\uFF08Beta\uFF09").setDesc("\u5FAE\u4FE1\u4ECD\u4F7F\u7528\u4E0A\u65B9\u516C\u4F17\u53F7\u8D26\u53F7\uFF1B\u77E5\u4E4E\u3001\u6398\u91D1\u3001CSDN \u7B49\u5176\u4ED6\u5E73\u53F0\u901A\u8FC7 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55\u540C\u6B65\u4E3A\u8349\u7A3F\u3002").setHeading();
-    new Setting(containerEl).setName("\u542F\u7528 Wechatsync \u5206\u53D1").setDesc("\u5F00\u542F\u540E\uFF0C\u8BF7\u540C\u65F6\u5728 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55\u8BBE\u7F6E\u4E2D\u6253\u5F00\u300CCLI / MCP \u8FDE\u63A5\u300D\u3002").addToggle((toggle) => toggle.setValue(multiPlatformSettings.enabled).onChange(async (value) => {
+    new Setting(containerEl).setName("\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u5E03\u6865").setDesc("Obsidian \u8D1F\u8D23\u5199\u4F5C\u3001\u9884\u89C8\u548C\u5E73\u53F0\u9009\u62E9\uFF1B\u6D4F\u89C8\u5668\u6269\u5C55\u4F7F\u7528\u5F53\u524D\u6D4F\u89C8\u5668\u767B\u5F55\u6001\uFF0C\u628A\u6587\u7AE0\u4FDD\u5B58\u5230\u77E5\u4E4E\u3001\u6398\u91D1\u3001CSDN \u7B49\u5E73\u53F0\u8349\u7A3F\u7BB1\u3002\u5FAE\u4FE1\u4ECD\u53EF\u4F7F\u7528\u4E0A\u65B9\u516C\u4F17\u53F7 API\u3002").setHeading();
+    new Setting(containerEl).setName("\u542F\u7528\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u5E03\u6865").setDesc("\u5F00\u542F\u540E\uFF0C\u8BF7\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u4E2D\u6253\u5F00\u672C\u5730\u6865\u63A5\u8FDE\u63A5\uFF0C\u5E76\u4FDD\u6301\u76EE\u6807\u5E73\u53F0\u5728\u6D4F\u89C8\u5668\u91CC\u5904\u4E8E\u53EF\u53D1\u5E03\u72B6\u6001\u3002").addToggle((toggle) => toggle.setValue(multiPlatformSettings.enabled).onChange(async (value) => {
       var _a2;
       this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
         ...this.plugin.settings.multiPlatformSync,
@@ -17792,13 +17808,13 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         this.plugin.startWechatSyncBridgeInBackground("settings-enabled");
       } else if ((_a2 = this.plugin._wechatSyncBridgeService) == null ? void 0 : _a2.stop) {
         await this.plugin._wechatSyncBridgeService.stop().catch((error) => {
-          console.warn("\u505C\u6B62 Wechatsync \u6865\u63A5\u5931\u8D25:", error);
+          console.warn("\u505C\u6B62\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u5E03\u6865\u5931\u8D25:", error);
         });
       }
       this.display();
     }));
     if (multiPlatformSettings.enabled) {
-      new Setting(containerEl).setName("\u6865\u63A5\u7AEF\u53E3").setDesc("\u9ED8\u8BA4 9527\u3002\u901A\u5E38\u4E0D\u9700\u8981\u4FEE\u6539\uFF1B\u53EA\u6709\u5F53 Wechatsync \u6269\u5C55\u91CC\u914D\u7F6E\u4E86\u5176\u4ED6\u670D\u52A1\u5668\u5730\u5740\u65F6\u624D\u8C03\u6574\u3002").addText((text) => text.setPlaceholder(String(DEFAULT_WECHATSYNC_PORT)).setValue(String(multiPlatformSettings.port)).onChange(async (value) => {
+      new Setting(containerEl).setName("\u672C\u5730\u6865\u63A5\u7AEF\u53E3").setDesc("\u9ED8\u8BA4 9527\u3002\u53EA\u6709\u5F53\u6D4F\u89C8\u5668\u6269\u5C55\u4E2D\u7684\u672C\u5730\u6865\u63A5\u5730\u5740\u4F7F\u7528\u4E86\u5176\u4ED6\u7AEF\u53E3\u65F6\u624D\u9700\u8981\u4FEE\u6539\u3002").addText((text) => text.setPlaceholder(String(DEFAULT_WECHATSYNC_PORT)).setValue(String(multiPlatformSettings.port)).onChange(async (value) => {
         const nextPort = Number(value);
         this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
           ...this.plugin.settings.multiPlatformSync,
@@ -17808,7 +17824,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         await this.plugin.saveSettings();
         this.plugin.startWechatSyncBridgeInBackground("settings-port-change");
       }));
-      new Setting(containerEl).setName("Wechatsync Token").setDesc("\u586B\u5165 Wechatsync \u6269\u5C55\u300CCLI / MCP \u8FDE\u63A5\u300D\u4E2D\u663E\u793A\u7684 Token\uFF0C\u7528\u4E8E\u786E\u8BA4 Obsidian \u4E0E\u6D4F\u89C8\u5668\u6269\u5C55\u662F\u540C\u4E00\u7EC4\u6865\u63A5\u8FDE\u63A5\u3002").addText((text) => text.setPlaceholder("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx").setValue(multiPlatformSettings.token).onChange(async (value) => {
+      new Setting(containerEl).setName("\u8FDE\u63A5 Token").setDesc("\u586B\u5165\u6D4F\u89C8\u5668\u6269\u5C55\u672C\u5730\u6865\u63A5\u4E2D\u663E\u793A\u7684\u8FDE\u63A5 Token\uFF0C\u7528\u4E8E\u786E\u8BA4 Obsidian \u4E0E\u6269\u5C55\u5C5E\u4E8E\u540C\u4E00\u7EC4\u8FDE\u63A5\u3002").addText((text) => text.setPlaceholder("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx").setValue(multiPlatformSettings.token).onChange(async (value) => {
         this.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
           ...this.plugin.settings.multiPlatformSync,
           token: value,
@@ -17856,9 +17872,9 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       const platformPicker = containerEl.createDiv({ cls: "wechat-platform-picker" });
       const platformPickerHeader = platformPicker.createDiv({ cls: "wechat-platform-picker-header" });
       const platformPickerTitle = platformPickerHeader.createDiv();
-      platformPickerTitle.createEl("div", { text: "\u540C\u6B65\u5E73\u53F0\uFF08Wechatsync \u652F\u6301\uFF09", cls: "wechat-platform-picker-title" });
+      platformPickerTitle.createEl("div", { text: "\u53D1\u5E03\u5E73\u53F0\uFF08\u6D4F\u89C8\u5668\u6269\u5C55\u652F\u6301\uFF09", cls: "wechat-platform-picker-title" });
       platformPickerTitle.createEl("div", {
-        text: hasCachedAuthState ? `\u767B\u5F55\u72B6\u6001\u4E3A\u4E0A\u6B21\u68C0\u6D4B\u7ED3\u679C${formatAuthCheckedAt((_b = multiPlatformSettings.connection) == null ? void 0 : _b.checkedAt) ? `\uFF08${formatAuthCheckedAt(multiPlatformSettings.connection.checkedAt)}\uFF09` : ""}\uFF1B\u53D1\u5E03\u65F6\u4ECD\u4EE5\u6D4F\u89C8\u5668\u6269\u5C55\u7ED3\u679C\u4E3A\u51C6\u3002` : hasExtensionPlatformList ? "\u6765\u81EA\u5F53\u524D\u8FDE\u63A5\u7684 Wechatsync \u6269\u5C55\uFF1B\u5FAE\u4FE1\u4ECD\u8D70\u672C\u63D2\u4EF6\u81EA\u5DF1\u7684\u516C\u4F17\u53F7\u94FE\u8DEF\u3002" : "\u672A\u8FDE\u63A5\u6269\u5C55\u524D\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF1B\u8FDE\u63A5\u6210\u529F\u540E\u4F1A\u5237\u65B0\u4E3A\u6269\u5C55\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002",
+        text: hasCachedAuthState ? `\u5DF2\u52FE\u9009\u5E73\u53F0\u4F1A\u663E\u793A\u4E0A\u6B21\u72B6\u6001${formatAuthCheckedAt((_b = multiPlatformSettings.connection) == null ? void 0 : _b.checkedAt) ? `\uFF08${formatAuthCheckedAt(multiPlatformSettings.connection.checkedAt)}\uFF09` : ""}\uFF1B\u672C\u6B21\u53D1\u5E03\u4ECD\u4EE5\u6D4F\u89C8\u5668\u6269\u5C55\u5B9E\u9645\u7ED3\u679C\u4E3A\u51C6\u3002` : hasExtensionPlatformList ? "\u5E73\u53F0\u6E05\u5355\u6765\u81EA\u5F53\u524D\u8FDE\u63A5\u7684\u6D4F\u89C8\u5668\u6269\u5C55\uFF1B\u4EC5\u52FE\u9009\u7684\u5E73\u53F0\u4F1A\u663E\u793A\u4E0A\u6B21\u72B6\u6001\u3002" : "\u672A\u8FDE\u63A5\u6269\u5C55\u524D\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF1B\u8FDE\u63A5\u6210\u529F\u540E\u4F1A\u5237\u65B0\u4E3A\u6269\u5C55\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002",
         cls: "wechat-platform-picker-desc"
       });
       const platformSummary = platformPickerHeader.createDiv({ cls: "wechat-platform-picker-summary" });
@@ -17921,7 +17937,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
             chip.addClass("is-selected");
             setStatusVisible(true);
             if (authBadge.status === "login_required") {
-              new Notice(`${platform.name} \u4E0A\u6B21\u72B6\u6001\u4E3A\u9700\u767B\u5F55\u3002\u8BF7\u5148\u5728\u6D4F\u89C8\u5668\u63D2\u4EF6\u6253\u5F00\u5E73\u53F0\u767B\u5F55\u9875\uFF0C\u6216\u7EE7\u7EED\u5C1D\u8BD5\u7531\u6269\u5C55\u8FD4\u56DE\u5B9E\u9645\u7ED3\u679C\u3002`, 8e3);
+              new Notice(`${platform.name} \u4E0A\u6B21\u72B6\u6001\u4E3A\u9700\u767B\u5F55\u3002\u8BF7\u5148\u5728\u6D4F\u89C8\u5668\u6269\u5C55\u6253\u5F00\u5E73\u53F0\u767B\u5F55\u9875\uFF0C\u6216\u7EE7\u7EED\u5C1D\u8BD5\u7531\u6269\u5C55\u8FD4\u56DE\u5B9E\u9645\u7ED3\u679C\u3002`, 8e3);
             }
           } else {
             selectedPlatformSet.delete(platform.id);
@@ -17932,7 +17948,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
           await saveSelectedPlatforms();
         };
       }
-      new Setting(containerEl).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u53EA\u6D4B\u8BD5 Obsidian \u548C Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55\u7684\u6865\u63A5\u662F\u5426\u8FDE\u901A\uFF0C\u4E0D\u4F1A\u9ED8\u8BA4\u626B\u63CF\u6240\u6709\u5E73\u53F0\u3002").addButton((button) => button.setButtonText("\u6D4B\u8BD5").onClick(async () => {
+      new Setting(containerEl).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u53EA\u9A8C\u8BC1 Obsidian\u3001\u6D4F\u89C8\u5668\u6269\u5C55\u548C\u8FDE\u63A5 Token \u662F\u5426\u8FDE\u901A\uFF0C\u5E76\u8BFB\u53D6\u5E73\u53F0\u6E05\u5355\uFF1B\u4E0D\u4F1A\u5B9E\u65F6\u68C0\u6D4B\u6240\u6709\u5E73\u53F0\u767B\u5F55\u72B6\u6001\u3002").addButton((button) => button.setButtonText("\u6D4B\u8BD5").onClick(async () => {
         var _a2, _b2, _c, _d, _e, _f, _g;
         button.setButtonText("\u7B49\u5F85\u6269\u5C55...");
         (_a2 = button.setDisabled) == null ? void 0 : _a2.call(button, true);
@@ -17963,12 +17979,12 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
               }
               const healthResult = await bridge.health({ timeoutMs: 5e3 });
               if ((healthResult == null ? void 0 : healthResult.tokenValid) === false) {
-                const authError = new Error("Wechatsync Token \u6821\u9A8C\u5931\u8D25\u3002\u8BF7\u786E\u8BA4 Obsidian \u4E0E\u6D4F\u89C8\u5668\u6269\u5C55\u4F7F\u7528\u540C\u4E00\u4E2A Token\u3002");
+                const authError = new Error("\u8FDE\u63A5 Token \u6821\u9A8C\u5931\u8D25\u3002\u8BF7\u786E\u8BA4 Obsidian \u4E0E\u6D4F\u89C8\u5668\u6269\u5C55\u4F7F\u7528\u540C\u4E00\u4E2A\u8FDE\u63A5 Token\u3002");
                 authError.code = "AUTH_FAILED";
                 throw authError;
               }
               if ((healthResult == null ? void 0 : healthResult.ok) === false) {
-                const healthError = new Error(healthResult.error || "Wechatsync health check failed");
+                const healthError = new Error(healthResult.error || "\u6D4F\u89C8\u5668\u6269\u5C55\u5065\u5EB7\u68C0\u67E5\u5931\u8D25");
                 healthError.code = "BRIDGE_REQUEST_TIMEOUT";
                 throw healthError;
               }
@@ -18039,12 +18055,12 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
               checkedAt: connectionCheckedAt,
               platforms: nextPlatforms,
               capabilities,
-              message: health ? ((_e = authSnapshot == null ? void 0 : authSnapshot.platforms) == null ? void 0 : _e.length) ? "\u6865\u63A5\u5DF2\u8FDE\u63A5\uFF0CToken \u5DF2\u901A\u8FC7\u6269\u5C55\u6821\u9A8C\uFF0C\u5E76\u8BFB\u53D6\u4E86\u5DF2\u9009\u5E73\u53F0\u7684\u4E0A\u6B21\u72B6\u6001\u3002" : "\u6865\u63A5\u5DF2\u8FDE\u63A5\uFF0CToken \u5DF2\u901A\u8FC7\u6269\u5C55\u6821\u9A8C\u3002\u672A\u68C0\u6D4B\u5E73\u53F0\u767B\u5F55\u72B6\u6001\u3002" : "\u6865\u63A5\u5DF2\u8FDE\u63A5\u3002\u5F53\u524D\u6269\u5C55\u7248\u672C\u672A\u63D0\u4F9B health \u6821\u9A8C\uFF0C\u5E73\u53F0\u767B\u5F55\u72B6\u6001\u672A\u81EA\u52A8\u68C0\u6D4B\u3002"
+              message: health ? ((_e = authSnapshot == null ? void 0 : authSnapshot.platforms) == null ? void 0 : _e.length) ? "\u6865\u63A5\u5DF2\u8FDE\u63A5\uFF0C\u8FDE\u63A5 Token \u5DF2\u901A\u8FC7\u6269\u5C55\u6821\u9A8C\uFF0C\u5E76\u8BFB\u53D6\u4E86\u5DF2\u9009\u5E73\u53F0\u7684\u4E0A\u6B21\u72B6\u6001\u3002" : "\u6865\u63A5\u5DF2\u8FDE\u63A5\uFF0C\u8FDE\u63A5 Token \u5DF2\u901A\u8FC7\u6269\u5C55\u6821\u9A8C\u3002\u672A\u68C0\u6D4B\u5E73\u53F0\u767B\u5F55\u72B6\u6001\u3002" : "\u6865\u63A5\u5DF2\u8FDE\u63A5\u3002\u5F53\u524D\u6269\u5C55\u7248\u672C\u672A\u63D0\u4F9B health \u6821\u9A8C\uFF0C\u5E73\u53F0\u767B\u5F55\u72B6\u6001\u672A\u81EA\u52A8\u68C0\u6D4B\u3002"
             }
           });
           await this.plugin.saveSettings();
           shouldRedisplay = supportedPlatforms.length > 0 || !!authSnapshot;
-          new Notice(health ? "\u2705 \u5DF2\u8FDE\u63A5 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55\uFF0CToken \u6821\u9A8C\u901A\u8FC7" : "\u2705 \u5DF2\u8FDE\u63A5 Wechatsync \u6D4F\u89C8\u5668\u6269\u5C55");
+          new Notice(health ? "\u2705 \u5DF2\u8FDE\u63A5\u6D4F\u89C8\u5668\u6269\u5C55\uFF0C\u8FDE\u63A5 Token \u6821\u9A8C\u901A\u8FC7" : "\u2705 \u5DF2\u8FDE\u63A5\u6D4F\u89C8\u5668\u6269\u5C55");
         } catch (error) {
           let bridgeStatusAfterFailure = null;
           try {
@@ -18067,12 +18083,12 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
               checkedAt: Date.now(),
               platforms: [],
               capabilities: {},
-              message: error.message || "Wechatsync \u8FDE\u63A5\u5931\u8D25"
+              message: error.message || "\u6D4F\u89C8\u5668\u6269\u5C55\u8FDE\u63A5\u5931\u8D25"
             }
           });
           await this.plugin.saveSettings();
-          const hint = ["EXTENSION_NOT_CONNECTED", "BRIDGE_UNAVAILABLE", "BRIDGE_REQUEST_TIMEOUT"].includes(error == null ? void 0 : error.code) ? "\u8BF7\u5230 Wechatsync \u6D4F\u89C8\u5668\u63D2\u4EF6\u91CC\u68C0\u67E5\u300CCLI / MCP \u8FDE\u63A5\u300D\u662F\u5426\u5DF2\u5F00\u542F\uFF0C\u5E76\u786E\u8BA4\u6D4F\u89C8\u5668\u6B63\u5728\u8FD0\u884C\u3001MCP Server \u5730\u5740/\u7AEF\u53E3\u548C Token \u4E0E\u8FD9\u91CC\u4E00\u81F4\u3002" : "";
-          new Notice(`\u274C Wechatsync \u8FDE\u63A5\u5931\u8D25\uFF1A${error.message}${hint ? ` ${hint}` : ""}`, 12e3);
+          const hint = ["EXTENSION_NOT_CONNECTED", "BRIDGE_UNAVAILABLE", "BRIDGE_REQUEST_TIMEOUT"].includes(error == null ? void 0 : error.code) ? "\u8BF7\u5230\u6D4F\u89C8\u5668\u6269\u5C55\u91CC\u68C0\u67E5\u672C\u5730\u6865\u63A5\u8FDE\u63A5\u662F\u5426\u5DF2\u5F00\u542F\uFF0C\u5E76\u786E\u8BA4\u6D4F\u89C8\u5668\u6B63\u5728\u8FD0\u884C\u3001\u5730\u5740\u3001\u7AEF\u53E3\u548C\u8FDE\u63A5 Token \u4E0E\u8FD9\u91CC\u4E00\u81F4\u3002" : "";
+          new Notice(`\u274C \u6D4F\u89C8\u5668\u6269\u5C55\u8FDE\u63A5\u5931\u8D25\uFF1A${error.message}${hint ? ` ${hint}` : ""}`, 12e3);
         } finally {
           (_g = button.setDisabled) == null ? void 0 : _g.call(button, false);
           button.setButtonText("\u6D4B\u8BD5");
@@ -18080,7 +18096,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
             this.display();
         }
       }));
-      new Setting(containerEl).setName("\u8BCA\u65AD\u5DF2\u9009\u5E73\u53F0\u767B\u5F55\u72B6\u6001").setDesc("\u53EF\u9009\u8BCA\u65AD\u3002\u53EA\u68C0\u6D4B\u4E0A\u65B9\u5DF2\u52FE\u9009\u7684\u5E73\u53F0\uFF0C\u7ED3\u679C\u4F5C\u4E3A\u4E0A\u6B21\u72B6\u6001\u63D0\u793A\uFF1B\u4E0D\u9700\u8981\u6BCF\u6B21\u53D1\u5E03\u524D\u624B\u52A8\u68C0\u6D4B\u3002").addButton((button) => button.setButtonText("\u8BCA\u65AD").onClick(async () => {
+      new Setting(containerEl).setName("\u8BCA\u65AD\u5DF2\u9009\u5E73\u53F0\u767B\u5F55\u72B6\u6001").setDesc("\u53EF\u9009\u8BCA\u65AD\u3002\u53EA\u68C0\u6D4B\u4E0A\u65B9\u5DF2\u52FE\u9009\u7684\u5E73\u53F0\uFF0C\u7ED3\u679C\u4F5C\u4E3A\u4E0A\u6B21\u72B6\u6001\u63D0\u793A\uFF1B\u53D1\u5E03\u65F6\u4ECD\u4EE5\u6D4F\u89C8\u5668\u6269\u5C55\u5B9E\u9645\u6267\u884C\u4E3A\u51C6\u3002").addButton((button) => button.setButtonText("\u8BCA\u65AD").onClick(async () => {
         var _a2, _b2;
         const current = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
         const platformById = new Map(
@@ -18088,7 +18104,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         );
         const candidates = parseWechatsyncPlatformIds(current.selectedPlatforms || []).map((id) => platformById.get(id) || { id, name: id }).filter((platform) => platform.id);
         if (!candidates.length) {
-          new Notice("\u8BF7\u5148\u52FE\u9009\u81F3\u5C11\u4E00\u4E2A\u540C\u6B65\u5E73\u53F0");
+          new Notice("\u8BF7\u5148\u52FE\u9009\u81F3\u5C11\u4E00\u4E2A\u53D1\u5E03\u5E73\u53F0");
           return;
         }
         button.setButtonText("\u8BCA\u65AD\u4E2D...");
@@ -18679,7 +18695,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
 };
 var AppleStylePlugin = class extends Plugin {
   async onload() {
-    console.log("\u{1F4DD} \u6B63\u5728\u52A0\u8F7D\u5FAE\u4FE1\u516C\u4F17\u53F7\u8F6C\u6362\u5668...");
+    console.log("\u{1F4DD} \u6B63\u5728\u52A0\u8F7D Obsidian \u53D1\u5E03\u52A9\u624B...");
     await this.loadSettings();
     this.registerView(
       APPLE_STYLE_VIEW,
@@ -18716,7 +18732,7 @@ var AppleStylePlugin = class extends Plugin {
       });
     });
     this.startWechatSyncBridgeInBackground("plugin-load");
-    console.log("\u2705 \u5FAE\u4FE1\u516C\u4F17\u53F7\u8F6C\u6362\u5668\u52A0\u8F7D\u5B8C\u6210");
+    console.log("\u2705 Obsidian \u53D1\u5E03\u52A9\u624B\u52A0\u8F7D\u5B8C\u6210");
   }
   insertImageSwipeCallout(editor, type = "image-swipe") {
     if (!editor || typeof editor.replaceSelection !== "function") {
@@ -18786,7 +18802,7 @@ var AppleStylePlugin = class extends Plugin {
     }
     if ((_a = this._wechatSyncBridgeService) == null ? void 0 : _a.stop) {
       this._wechatSyncBridgeService.stop().catch((error) => {
-        console.warn("\u505C\u6B62\u65E7 Wechatsync \u6865\u63A5\u5931\u8D25:", error);
+        console.warn("\u505C\u6B62\u65E7\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u5E03\u6865\u5931\u8D25:", error);
       });
     }
     const http = require("http");
@@ -19013,10 +19029,10 @@ var AppleStylePlugin = class extends Plugin {
     var _a;
     if ((_a = this._wechatSyncBridgeService) == null ? void 0 : _a.stop) {
       await this._wechatSyncBridgeService.stop().catch((error) => {
-        console.warn("\u505C\u6B62 Wechatsync \u6865\u63A5\u5931\u8D25:", error);
+        console.warn("\u505C\u6B62\u6D4F\u89C8\u5668\u6269\u5C55\u53D1\u5E03\u6865\u5931\u8D25:", error);
       });
     }
-    console.log("\u{1F4DD} \u5FAE\u4FE1\u516C\u4F17\u53F7\u8F6C\u6362\u5668\u5DF2\u5378\u8F7D");
+    console.log("\u{1F4DD} Obsidian \u53D1\u5E03\u52A9\u624B\u5DF2\u5378\u8F7D");
   }
 };
 module.exports = AppleStylePlugin;

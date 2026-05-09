@@ -68,7 +68,7 @@ const { stripMarkdownFrontmatter } = require('./services/markdown-utils');
 
 // 视图类型标识
 const APPLE_STYLE_VIEW = 'apple-style-converter';
-const APPLE_STYLE_VIEW_TITLE = '微信公众号转换器';
+const APPLE_STYLE_VIEW_TITLE = 'Obsidian 发布助手';
 
 function createDefaultMultiPlatformSyncSettings() {
   return {
@@ -784,7 +784,7 @@ class AppleStyleView extends ItemView {
   }
 
   async onOpen() {
-    console.log('🍎 转换器面板打开');
+    console.log('🍎 发布助手面板打开');
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass('apple-converter-container');
@@ -1196,7 +1196,7 @@ class AppleStyleView extends ItemView {
     }
 
     // [同步] 按钮（始终显示；未配置账号时点击后引导去设置）
-    createIconBtn('send', '一键同步到草稿箱', () => this.showSyncModal());
+    createIconBtn('send', '发布与分发', () => this.showSyncModal());
 
     // 2. 创建悬浮设置层 (初始隐藏)
     this.settingsOverlay = container.createEl('div', { cls: 'apple-settings-overlay' });
@@ -3852,7 +3852,7 @@ class AppleStyleView extends ItemView {
     const emptyState = modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' });
     emptyState.createEl('div', { cls: 'wechat-sync-empty-icon', text: '⚙️' });
     emptyState.createEl('h3', { text: '先配置公众号账号' });
-    emptyState.createEl('p', { text: '请先在插件设置中填写 AppID / AppSecret，再使用一键同步到草稿箱。' });
+    emptyState.createEl('p', { text: '请先在插件设置中填写 AppID / AppSecret，再发送到微信草稿箱。' });
 
     const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
     const cancelBtn = btnRow.createEl('button', { text: '取消' });
@@ -3862,7 +3862,7 @@ class AppleStyleView extends ItemView {
     configBtn.onclick = () => {
       modal.close();
       if (!this.openPluginSettings()) {
-        new Notice('请在设置中打开 Wechat Converter 并配置账号');
+        new Notice('请在设置中打开 Obsidian 发布助手并配置公众号账号');
       }
     };
 
@@ -3896,7 +3896,7 @@ class AppleStyleView extends ItemView {
     settingsBtn.onclick = () => {
       modal.close();
       if (!this.openPluginSettings()) {
-        new Notice('请在设置中打开 Wechat Converter 并配置账号');
+        new Notice('请在设置中打开 Obsidian 发布助手并配置公众号账号');
       }
     };
 
@@ -3972,7 +3972,7 @@ class AppleStyleView extends ItemView {
         multiPlatformTab.onclick = () => this.showMultiPlatformSyncModal({ modal });
         const empty = modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' });
         empty.createEl('h3', { text: '尚未配置微信公众号账号' });
-        empty.createEl('p', { text: '微信草稿箱需要先配置公众号 API。其他平台仍可通过 Wechatsync 扩展发送。' });
+        empty.createEl('p', { text: '微信草稿箱需要先配置公众号 API。其他平台仍可通过浏览器扩展发送。' });
         const settingsBtn = empty.createEl('button', { text: '去设置', cls: 'mod-cta' });
         settingsBtn.onclick = () => {
           modal.close();
@@ -4210,7 +4210,7 @@ class AppleStyleView extends ItemView {
         try {
           const result = await bridge.openSyncTask(taskId, { timeoutMs: 8000 });
           if (result?.opened !== false) {
-            new Notice('已打开 Wechatsync 任务窗口');
+            new Notice('已打开浏览器扩展任务窗口');
             return true;
           }
         } catch (error) {
@@ -4242,7 +4242,7 @@ class AppleStyleView extends ItemView {
         }
       }
 
-      new Notice(`请在 Wechatsync 浏览器扩展历史记录中查看任务：${taskId}`, 10000);
+      new Notice(`请在浏览器扩展历史记录中查看任务：${taskId}`, 10000);
       return false;
     } catch (error) {
       console.error('[Wechatsync] open task failed', {
@@ -4250,7 +4250,7 @@ class AppleStyleView extends ItemView {
         code: error?.code,
         message: error?.message || String(error),
       });
-      new Notice(`无法打开 Wechatsync 任务：${error.message || String(error)}`, 10000);
+      new Notice(`无法打开浏览器扩展任务：${error.message || String(error)}`, 10000);
       return false;
     }
   }
@@ -4288,12 +4288,12 @@ class AppleStyleView extends ItemView {
     if (typeof Modal !== 'function') {
       const syncIdText = taskId ? `（任务 ${taskId}）` : '';
       const fallbackText = usedFallbackSend ? '当前扩展未提供任务 ID，' : '';
-      new Notice(`✅ 已发送到 Wechatsync 扩展${syncIdText}。${fallbackText}请在浏览器扩展的历史或目标平台草稿箱查看结果。`, 10000);
+      new Notice(`✅ 已发送到浏览器扩展${syncIdText}。${fallbackText}请在浏览器扩展的历史或目标平台草稿箱查看结果。`, 10000);
       return;
     }
 
     const modal = new Modal(this.app);
-    modal.titleEl.setText('已发送到 Wechatsync');
+    modal.titleEl.setText('已发送到浏览器扩展');
     modal.titleEl.addClass?.('wechat-multiplatform-title');
     modal.contentEl.addClass('wechat-sync-modal');
     modal.contentEl.addClass('wechat-multiplatform-modal');
@@ -4308,8 +4308,8 @@ class AppleStyleView extends ItemView {
     });
     summary.createEl('p', {
       text: taskId
-        ? 'Obsidian 已完成投递，不会长时间等待所有平台完成。后续草稿链接、失败原因和重试请在 Wechatsync 扩展任务窗口里查看。'
-        : '当前扩展版本没有返回任务 ID。文章已发送，请在 Wechatsync 扩展历史记录中查看最近任务。',
+        ? 'Obsidian 已完成投递，不会长时间等待所有平台完成。后续草稿链接、失败原因和重试请在浏览器扩展任务窗口里查看。'
+        : '当前扩展版本没有返回任务 ID。文章已发送，请在浏览器扩展历史记录中查看最近任务。',
     });
 
     const list = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-result-list' });
@@ -4326,7 +4326,7 @@ class AppleStyleView extends ItemView {
       taskRow.createEl('div', { text: '任务', cls: 'wechat-multiplatform-result-pill is-success' });
       const taskBody = taskRow.createDiv({ cls: 'wechat-multiplatform-result-body' });
       taskBody.createEl('div', {
-        text: task?.found === false ? '扩展暂未返回任务详情' : (title || task?.title || '多平台同步任务'),
+        text: task?.found === false ? '扩展暂未返回任务详情' : (title || task?.title || '多平台发布任务'),
         cls: 'wechat-multiplatform-result-name',
       });
       taskBody.createEl('div', {
@@ -4377,8 +4377,8 @@ class AppleStyleView extends ItemView {
     const { Modal } = require('obsidian');
     if (typeof Modal !== 'function') {
       const message = fatalError
-        ? `Wechatsync 同步失败：${fatalError.message || fatalError}`
-        : 'Wechatsync 同步完成，请在浏览器扩展中查看结果';
+        ? `浏览器扩展同步失败：${fatalError.message || fatalError}`
+        : '同步完成，请在浏览器扩展中查看结果';
       new Notice(message, 10000);
       return;
     }
@@ -4428,11 +4428,11 @@ class AppleStyleView extends ItemView {
     summary.createEl('p', {
       text: fatalError
         ? (fatalError.code === 'SYNC_TIMEOUT'
-          ? 'Obsidian 没有等到浏览器扩展的最终回调。扩展可能仍在后台同步，请先查看 Wechatsync 历史或目标平台草稿箱；之后可以减少平台后重试。'
-          : (fatalError.message || 'Wechatsync 连接中断，请检查扩展、Token 或浏览器登录态后重试。'))
+          ? 'Obsidian 没有等到浏览器扩展的最终回调。扩展可能仍在后台同步，请先查看扩展历史或目标平台草稿箱；之后可以减少平台后重试。'
+          : (fatalError.message || '浏览器扩展连接中断，请检查扩展、连接 Token 或浏览器登录态后重试。'))
         : (normalizedResults.length > 0
           ? `${successCount}/${normalizedResults.length} 个平台已保存为草稿。成功的平台可以直接打开草稿检查，失败的平台修复后重新同步。`
-          : '请求已发送到 Wechatsync 扩展。若这里没有返回平台明细，请在浏览器扩展中查看结果。'),
+          : '请求已发送到浏览器扩展。若这里没有返回平台明细，请在浏览器扩展中查看结果。'),
     });
 
     const list = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-result-list' });
@@ -4440,10 +4440,10 @@ class AppleStyleView extends ItemView {
     if (fatalError) {
       const row = list.createDiv({ cls: 'wechat-multiplatform-result-row is-error' });
       const body = row.createDiv({ cls: 'wechat-multiplatform-result-body' });
-      body.createEl('div', { text: 'Wechatsync 桥接', cls: 'wechat-multiplatform-result-name' });
+      body.createEl('div', { text: '浏览器扩展发布桥', cls: 'wechat-multiplatform-result-name' });
       body.createEl('div', {
         text: fatalError.code === 'SYNC_TIMEOUT'
-          ? '同步请求已超时，无法从当前 MCP 协议拿到逐平台进度。请在浏览器扩展侧确认是否已经生成草稿。'
+          ? '同步请求已超时，暂时无法拿到逐平台进度。请在浏览器扩展侧确认是否已经生成草稿。'
           : (fatalError.message || '连接不可用'),
         cls: 'wechat-multiplatform-result-detail',
       });
@@ -4527,23 +4527,22 @@ class AppleStyleView extends ItemView {
     const intro = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-intro' });
     const introText = intro.createDiv({ cls: 'wechat-multiplatform-intro-text' });
     introText.createEl('div', {
-      text: '其他平台由 Wechatsync 扩展接管',
+      text: '其他平台由浏览器扩展接管',
       cls: 'wechat-multiplatform-kicker',
     });
     introText.createEl('p', {
       text: '微信仍使用本插件自己的公众号 API。知乎、掘金、CSDN 等平台会通过浏览器登录态保存为草稿。',
     });
-    intro.createEl('div', { text: 'Beta', cls: 'wechat-multiplatform-badge' });
 
     if (!bridgeSettings.enabled) {
       const disabledHint = modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' });
-      disabledHint.createEl('h3', { text: '尚未启用多平台分发' });
-      disabledHint.createEl('p', { text: '请先在插件设置中开启 Wechatsync 多平台分发，再回到这里检测平台。' });
+      disabledHint.createEl('h3', { text: '尚未启用浏览器扩展发布桥' });
+      disabledHint.createEl('p', { text: '请先在插件设置中开启浏览器扩展发布桥，再回到这里选择其他发布平台。' });
       const settingsBtn = disabledHint.createEl('button', { text: '去设置', cls: 'mod-cta' });
       settingsBtn.onclick = () => {
         modal.close();
         if (!this.openPluginSettings()) {
-          new Notice('请在设置中打开 Wechat Converter 并开启 Wechatsync 多平台分发');
+          new Notice('请在设置中打开 Obsidian 发布助手并开启浏览器扩展发布桥');
         }
       };
       if (shouldOpenModal) modal.open();
@@ -4661,7 +4660,7 @@ class AppleStyleView extends ItemView {
             selectedPlatforms.add(platform.id);
             setStatusVisible(true);
             if (authInfo.status === 'login_required') {
-              new Notice(`${platform.name} 上次状态为需登录。请先在浏览器插件打开平台登录页，或继续尝试由扩展返回实际结果。`, 8000);
+              new Notice(`${platform.name} 上次状态为需登录。请先在浏览器扩展打开平台登录页，或继续尝试由扩展返回实际结果。`, 8000);
             }
             if (authInfo.status === 'unknown') {
               new Notice(`${platform.name} 此前未检测，发布结果以浏览器扩展实际执行为准。`, 6000);
@@ -4689,14 +4688,14 @@ class AppleStyleView extends ItemView {
     } else if (cachedConnection.status === 'failed') {
       statusEl.createEl('span', { text: '未连接', cls: 'wechat-multiplatform-status-dot is-error' });
       statusEl.createEl('span', {
-        text: `上次连接失败${cachedConnection.message ? `：${cachedConnection.message}` : ''}。请先连接浏览器插件后再发布。`,
+        text: `上次连接失败${cachedConnection.message ? `：${cachedConnection.message}` : ''}。请先连接浏览器扩展后再发布。`,
         cls: 'wechat-multiplatform-status-text',
       });
       renderPlatforms(availablePlatforms);
     } else {
       statusEl.createEl('span', { text: '未测试', cls: 'wechat-multiplatform-status-dot' });
       statusEl.createEl('span', {
-        text: '尚未连接浏览器插件。平台列表先显示本地备用清单，连接后会读取扩展实际支持的平台。',
+        text: '尚未连接浏览器扩展。平台列表先显示本地备用清单，连接后会读取扩展实际支持的平台。',
         cls: 'wechat-multiplatform-status-text',
       });
       renderPlatforms(availablePlatforms);
@@ -4704,7 +4703,7 @@ class AppleStyleView extends ItemView {
 
     syncBtn.onclick = async () => {
       if (!isBridgeReady) {
-        new Notice('请先连接 Wechatsync 浏览器插件，再发送多平台发布任务。', 8000);
+        new Notice('请先连接浏览器扩展，再发送多平台发布任务。', 8000);
         return;
       }
       if (selectedPlatforms.size === 0) {
@@ -4716,7 +4715,7 @@ class AppleStyleView extends ItemView {
       const markdown = stripMarkdownFrontmatter(this.lastResolvedMarkdown || '');
       const exportHtml = this.getCurrentExportHtml() || this.currentHtml || '';
       const cover = this.sessionCoverBase64 || this.getFrontmatterPublishMeta(activeFile).coverSrc || this.getFirstImageFromArticle() || '';
-      const notice = new Notice('正在准备并发送到 Wechatsync 浏览器扩展...', 0);
+      const notice = new Notice('正在准备并发送到浏览器扩展...', 0);
       syncBtn.disabled = true;
       syncBtn.addClass?.('apple-btn-disabled');
       const sendStartedAt = Date.now();
@@ -4831,13 +4830,13 @@ class AppleStyleView extends ItemView {
               ...currentMultiPlatformSettings.connection,
               status: 'failed',
               checkedAt: Date.now(),
-              message: error.message || 'Wechatsync 连接失败',
+              message: error.message || '浏览器扩展连接失败',
             },
           });
           await this.plugin.saveSettings();
         }
         modal.close();
-        new Notice(`❌ 发送到 Wechatsync 扩展失败：${error.message}`, 10000);
+        new Notice(`❌ 发送到浏览器扩展失败：${error.message}`, 10000);
         this.showMultiPlatformSyncResultModal({
           requestedPlatformIds,
           fatalError: error,
@@ -5127,17 +5126,34 @@ class AppleStyleView extends ItemView {
     this.previewContainer.empty();
     this.previewContainer.removeClass('apple-has-content'); // 移除内容状态类
     const placeholder = this.previewContainer.createEl('div', { cls: 'apple-placeholder' });
-    placeholder.createEl('div', { cls: 'apple-placeholder-icon', text: '📝' });
-    placeholder.createEl('h2', { text: '微信公众号排版转换器' });
-    placeholder.createEl('p', { text: '将 Markdown 转换为精美的 HTML，一键同步到草稿箱' });
+    const iconDiv = placeholder.createEl('div', { cls: 'apple-placeholder-icon' });
+    try {
+      const path = require('path');
+      const fs = require('fs');
+      const vaultPath = this.app.vault.adapter.basePath;
+      const configDir = this.app.vault.configDir;
+      const imgPath = path.join(vaultPath, configDir, 'plugins', 'obsidian-wechat-converter', 'images', 'icon.png');
+      const imgBuffer = fs.readFileSync(imgPath);
+      const base64 = imgBuffer.toString('base64');
+      const img = iconDiv.createEl('img', { attr: { alt: 'Obsidian 发布助手' } });
+      img.src = 'data:image/png;base64,' + base64;
+      img.style.width = '64px';
+      img.style.height = '64px';
+      img.style.display = 'block';
+    } catch (e) {
+      iconDiv.textContent = '📝';
+      console.error('Failed to load brand icon:', e);
+    }
+    placeholder.createEl('h2', { text: 'Obsidian 发布助手' });
+    placeholder.createEl('p', { text: '在 Obsidian 写作、预览并选择目标平台，投递到微信或浏览器扩展草稿箱' });
     const steps = placeholder.createEl('div', { cls: 'apple-steps' });
-    steps.createEl('div', { text: '1️⃣ 打开需要转换的 Markdown 文件' });
-    steps.createEl('div', { text: '2️⃣ 预览区会自动显示转换效果' });
-    steps.createEl('div', { text: '3️⃣ 点击「一键同步到草稿箱」即可发送' });
+    steps.createEl('div', { text: '1️⃣ 打开要发布的 Markdown 文件' });
+    steps.createEl('div', { text: '2️⃣ 在预览中确认排版、封面和摘要' });
+    steps.createEl('div', { text: '3️⃣ 点击「发布与分发」选择微信或其他平台' });
 
     // 添加提示
     const note = placeholder.createEl('p', {
-      text: '注意：如当前已打开文档但未显示，请重新点击一下文档即可触发',
+      text: '提示：如当前已打开文档但未显示，请重新点击一下文档即可触发预览',
       cls: 'apple-placeholder-note'
     });
   }
@@ -5724,7 +5740,7 @@ class AppleStyleView extends ItemView {
 
     } catch (error) {
       console.error('复制失败:', error);
-      new Notice('❌ 复制失败，请使用「一键同步到草稿箱」发送文章');
+      new Notice('❌ 复制失败，请使用「发布与分发」发送文章');
       if (this.copyBtn) {
         this.copyBtn.classList.remove('is-copying');
         this.setCopyButtonIcon('copy');
@@ -5884,7 +5900,7 @@ class AppleStyleView extends ItemView {
       this.mermaidImageCache.clear();
     }
 
-    console.log('🍎 转换器面板已关闭');
+    console.log('🍎 发布助手面板已关闭');
   }
 
   /**
@@ -5900,7 +5916,7 @@ class AppleStyleView extends ItemView {
 }
 
 /**
- * 📝 微信公众号转换器设置面板
+ * 📝 Obsidian 发布助手设置面板
  */
 class AppleStyleSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
@@ -5932,7 +5948,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
     // 提示信息
     new Setting(containerEl)
-      .setDesc('更多排版样式选项（主题、字号、代码块等）请在插件侧边栏面板中进行设置。');
+      .setDesc('在 Obsidian 中完成写作与预览；微信账号、浏览器扩展发布桥和默认发布选项在这里配置。更多排版样式请在侧边栏面板中调整。');
 
     // 预览模式设置
     new Setting(containerEl)
@@ -5948,7 +5964,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
           this.plugin.settings.usePhoneFrame = value;
           await this.plugin.saveSettings();
           // 提示用户重启面板
-          new Notice('设置已保存，请关闭并重新打开转换器面板以生效');
+          new Notice('设置已保存，请关闭并重新打开发布助手面板以生效');
         }));
 
     // 图片水印设置
@@ -5964,7 +5980,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
         .onChange(async (value) => {
           this.plugin.settings.enableWatermark = value;
           await this.plugin.saveSettings();
-          new Notice('设置已保存，请关闭并重新打开转换器面板以生效');
+          new Notice('设置已保存，请关闭并重新打开发布助手面板以生效');
         }));
 
     // 本地头像上传
@@ -6122,17 +6138,17 @@ class AppleStyleSettingTab extends PluginSettingTab {
       });
     }
 
-    // Wechatsync 多平台分发
+    // 浏览器扩展发布桥
     const multiPlatformSettings = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
     this.plugin.settings.multiPlatformSync = multiPlatformSettings;
     new Setting(containerEl)
-      .setName('多平台分发（Beta）')
-      .setDesc('微信仍使用上方公众号账号；知乎、掘金、CSDN 等其他平台通过 Wechatsync 浏览器扩展同步为草稿。')
+      .setName('浏览器扩展发布桥')
+      .setDesc('Obsidian 负责写作、预览和平台选择；浏览器扩展使用当前浏览器登录态，把文章保存到知乎、掘金、CSDN 等平台草稿箱。微信仍可使用上方公众号 API。')
       .setHeading();
 
     new Setting(containerEl)
-      .setName('启用 Wechatsync 分发')
-      .setDesc('开启后，请同时在 Wechatsync 浏览器扩展设置中打开「CLI / MCP 连接」。')
+      .setName('启用浏览器扩展发布桥')
+      .setDesc('开启后，请在浏览器扩展中打开本地桥接连接，并保持目标平台在浏览器里处于可发布状态。')
       .addToggle(toggle => toggle
         .setValue(multiPlatformSettings.enabled)
         .onChange(async (value) => {
@@ -6145,7 +6161,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
             this.plugin.startWechatSyncBridgeInBackground('settings-enabled');
           } else if (this.plugin._wechatSyncBridgeService?.stop) {
             await this.plugin._wechatSyncBridgeService.stop().catch((error) => {
-              console.warn('停止 Wechatsync 桥接失败:', error);
+              console.warn('停止浏览器扩展发布桥失败:', error);
             });
           }
           this.display();
@@ -6153,8 +6169,8 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
     if (multiPlatformSettings.enabled) {
       new Setting(containerEl)
-        .setName('桥接端口')
-        .setDesc('默认 9527。通常不需要修改；只有当 Wechatsync 扩展里配置了其他服务器地址时才调整。')
+        .setName('本地桥接端口')
+        .setDesc('默认 9527。只有当浏览器扩展中的本地桥接地址使用了其他端口时才需要修改。')
         .addText(text => text
           .setPlaceholder(String(DEFAULT_WECHATSYNC_PORT))
           .setValue(String(multiPlatformSettings.port))
@@ -6170,8 +6186,8 @@ class AppleStyleSettingTab extends PluginSettingTab {
           }));
 
       new Setting(containerEl)
-        .setName('Wechatsync Token')
-        .setDesc('填入 Wechatsync 扩展「CLI / MCP 连接」中显示的 Token，用于确认 Obsidian 与浏览器扩展是同一组桥接连接。')
+        .setName('连接 Token')
+        .setDesc('填入浏览器扩展本地桥接中显示的连接 Token，用于确认 Obsidian 与扩展属于同一组连接。')
         .addText(text => text
           .setPlaceholder('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
           .setValue(multiPlatformSettings.token)
@@ -6224,12 +6240,12 @@ class AppleStyleSettingTab extends PluginSettingTab {
       const platformPicker = containerEl.createDiv({ cls: 'wechat-platform-picker' });
       const platformPickerHeader = platformPicker.createDiv({ cls: 'wechat-platform-picker-header' });
       const platformPickerTitle = platformPickerHeader.createDiv();
-      platformPickerTitle.createEl('div', { text: '同步平台（Wechatsync 支持）', cls: 'wechat-platform-picker-title' });
+      platformPickerTitle.createEl('div', { text: '发布平台（浏览器扩展支持）', cls: 'wechat-platform-picker-title' });
       platformPickerTitle.createEl('div', {
         text: hasCachedAuthState
-          ? `登录状态为上次检测结果${formatAuthCheckedAt(multiPlatformSettings.connection?.checkedAt) ? `（${formatAuthCheckedAt(multiPlatformSettings.connection.checkedAt)}）` : ''}；发布时仍以浏览器扩展结果为准。`
+          ? `已勾选平台会显示上次状态${formatAuthCheckedAt(multiPlatformSettings.connection?.checkedAt) ? `（${formatAuthCheckedAt(multiPlatformSettings.connection.checkedAt)}）` : ''}；本次发布仍以浏览器扩展实际结果为准。`
           : (hasExtensionPlatformList
-            ? '来自当前连接的 Wechatsync 扩展；微信仍走本插件自己的公众号链路。'
+            ? '平台清单来自当前连接的浏览器扩展；仅勾选的平台会显示上次状态。'
             : '未连接扩展前先显示本地备用清单；连接成功后会刷新为扩展实际支持的平台。'),
         cls: 'wechat-platform-picker-desc',
       });
@@ -6294,7 +6310,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
             chip.addClass('is-selected');
             setStatusVisible(true);
             if (authBadge.status === 'login_required') {
-              new Notice(`${platform.name} 上次状态为需登录。请先在浏览器插件打开平台登录页，或继续尝试由扩展返回实际结果。`, 8000);
+              new Notice(`${platform.name} 上次状态为需登录。请先在浏览器扩展打开平台登录页，或继续尝试由扩展返回实际结果。`, 8000);
             }
           } else {
             selectedPlatformSet.delete(platform.id);
@@ -6308,7 +6324,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
       new Setting(containerEl)
         .setName('测试连接')
-        .setDesc('只测试 Obsidian 和 Wechatsync 浏览器扩展的桥接是否连通，不会默认扫描所有平台。')
+        .setDesc('只验证 Obsidian、浏览器扩展和连接 Token 是否连通，并读取平台清单；不会实时检测所有平台登录状态。')
         .addButton(button => button
           .setButtonText('测试')
           .onClick(async () => {
@@ -6341,12 +6357,12 @@ class AppleStyleSettingTab extends PluginSettingTab {
                   }
                   const healthResult = await bridge.health({ timeoutMs: 5000 });
                   if (healthResult?.tokenValid === false) {
-                    const authError = new Error('Wechatsync Token 校验失败。请确认 Obsidian 与浏览器扩展使用同一个 Token。');
+                    const authError = new Error('连接 Token 校验失败。请确认 Obsidian 与浏览器扩展使用同一个连接 Token。');
                     authError.code = 'AUTH_FAILED';
                     throw authError;
                   }
                   if (healthResult?.ok === false) {
-                    const healthError = new Error(healthResult.error || 'Wechatsync health check failed');
+                    const healthError = new Error(healthResult.error || '浏览器扩展健康检查失败');
                     healthError.code = 'BRIDGE_REQUEST_TIMEOUT';
                     throw healthError;
                   }
@@ -6421,16 +6437,16 @@ class AppleStyleSettingTab extends PluginSettingTab {
                   capabilities,
                   message: health
                     ? (authSnapshot?.platforms?.length
-                      ? '桥接已连接，Token 已通过扩展校验，并读取了已选平台的上次状态。'
-                      : '桥接已连接，Token 已通过扩展校验。未检测平台登录状态。')
+                      ? '桥接已连接，连接 Token 已通过扩展校验，并读取了已选平台的上次状态。'
+                      : '桥接已连接，连接 Token 已通过扩展校验。未检测平台登录状态。')
                     : '桥接已连接。当前扩展版本未提供 health 校验，平台登录状态未自动检测。',
                 },
               });
               await this.plugin.saveSettings();
               shouldRedisplay = supportedPlatforms.length > 0 || !!authSnapshot;
               new Notice(health
-                ? '✅ 已连接 Wechatsync 浏览器扩展，Token 校验通过'
-                : '✅ 已连接 Wechatsync 浏览器扩展');
+                ? '✅ 已连接浏览器扩展，连接 Token 校验通过'
+                : '✅ 已连接浏览器扩展');
             } catch (error) {
               let bridgeStatusAfterFailure = null;
               try {
@@ -6453,14 +6469,14 @@ class AppleStyleSettingTab extends PluginSettingTab {
                   checkedAt: Date.now(),
                   platforms: [],
                   capabilities: {},
-                  message: error.message || 'Wechatsync 连接失败',
+                  message: error.message || '浏览器扩展连接失败',
                 },
               });
               await this.plugin.saveSettings();
               const hint = ['EXTENSION_NOT_CONNECTED', 'BRIDGE_UNAVAILABLE', 'BRIDGE_REQUEST_TIMEOUT'].includes(error?.code)
-                ? '请到 Wechatsync 浏览器插件里检查「CLI / MCP 连接」是否已开启，并确认浏览器正在运行、MCP Server 地址/端口和 Token 与这里一致。'
+                ? '请到浏览器扩展里检查本地桥接连接是否已开启，并确认浏览器正在运行、地址、端口和连接 Token 与这里一致。'
                 : '';
-              new Notice(`❌ Wechatsync 连接失败：${error.message}${hint ? ` ${hint}` : ''}`, 12000);
+              new Notice(`❌ 浏览器扩展连接失败：${error.message}${hint ? ` ${hint}` : ''}`, 12000);
             } finally {
               button.setDisabled?.(false);
               button.setButtonText('测试');
@@ -6470,7 +6486,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
       new Setting(containerEl)
         .setName('诊断已选平台登录状态')
-        .setDesc('可选诊断。只检测上方已勾选的平台，结果作为上次状态提示；不需要每次发布前手动检测。')
+        .setDesc('可选诊断。只检测上方已勾选的平台，结果作为上次状态提示；发布时仍以浏览器扩展实际执行为准。')
         .addButton(button => button
           .setButtonText('诊断')
           .onClick(async () => {
@@ -6482,7 +6498,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
               .map((id) => platformById.get(id) || { id, name: id })
               .filter((platform) => platform.id);
             if (!candidates.length) {
-              new Notice('请先勾选至少一个同步平台');
+              new Notice('请先勾选至少一个发布平台');
               return;
             }
 
@@ -7201,11 +7217,11 @@ class AppleStyleSettingTab extends PluginSettingTab {
 }
 
 /**
- * 📝 微信公众号转换器主插件
+ * 📝 Obsidian 发布助手主插件
  */
 class AppleStylePlugin extends Plugin {
   async onload() {
-    console.log('📝 正在加载微信公众号转换器...');
+    console.log('📝 正在加载 Obsidian 发布助手...');
 
     await this.loadSettings();
 
@@ -7255,7 +7271,7 @@ class AppleStylePlugin extends Plugin {
 
     this.startWechatSyncBridgeInBackground('plugin-load');
 
-    console.log('✅ 微信公众号转换器加载完成');
+    console.log('✅ Obsidian 发布助手加载完成');
   }
 
   insertImageSwipeCallout(editor, type = 'image-swipe') {
@@ -7335,7 +7351,7 @@ class AppleStylePlugin extends Plugin {
 
     if (this._wechatSyncBridgeService?.stop) {
       this._wechatSyncBridgeService.stop().catch((error) => {
-        console.warn('停止旧 Wechatsync 桥接失败:', error);
+        console.warn('停止旧浏览器扩展发布桥失败:', error);
       });
     }
 
@@ -7593,10 +7609,10 @@ class AppleStylePlugin extends Plugin {
   async onunload() {
     if (this._wechatSyncBridgeService?.stop) {
       await this._wechatSyncBridgeService.stop().catch((error) => {
-        console.warn('停止 Wechatsync 桥接失败:', error);
+        console.warn('停止浏览器扩展发布桥失败:', error);
       });
     }
-    console.log('📝 微信公众号转换器已卸载');
+    console.log('📝 Obsidian 发布助手已卸载');
   }
 }
 
