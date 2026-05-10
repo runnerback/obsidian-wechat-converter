@@ -6040,7 +6040,32 @@ class AppleStyleSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
-    // 微信公众号账号管理
+    // === Tab 导航 ===
+    const tabBar = containerEl.createDiv({ cls: 'apple-settings-tabs' });
+    const wechatTab = tabBar.createDiv({ cls: 'apple-settings-tab active', text: '微信' });
+    const multiTab = tabBar.createDiv({ cls: 'apple-settings-tab', text: '其他平台' });
+
+    const wechatContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
+    const multiContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
+    multiContent.style.display = 'none';
+
+    wechatTab.onclick = () => {
+      wechatTab.addClass('active');
+      multiTab.removeClass('active');
+      wechatContent.style.display = '';
+      multiContent.style.display = 'none';
+    };
+    multiTab.onclick = () => {
+      multiTab.addClass('active');
+      wechatTab.removeClass('active');
+      wechatContent.style.display = 'none';
+      multiContent.style.display = '';
+    };
+
+    // === 微信 Tab ===
+    {
+      const containerEl = wechatContent;
+
     new Setting(containerEl)
       .setName('微信公众号账号')
       .setDesc('请在微信公众号后台 [设置与开发] -> [基本配置] 中获取 AppID 和 AppSecret，并确保已将当前 IP 加入白名单。')
@@ -6137,8 +6162,12 @@ class AppleStyleSettingTab extends PluginSettingTab {
         attr: { style: 'color: var(--text-muted);' }
       });
     }
+    }
 
-    // 浏览器扩展发布桥
+    // === 其他平台 Tab ===
+    {
+      const containerEl = multiContent;
+
     const multiPlatformSettings = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
     this.plugin.settings.multiPlatformSync = multiPlatformSettings;
     new Setting(containerEl)
@@ -6559,6 +6588,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
             }
           }));
 
+    }
     }
 
     this.renderAiSettingsSection(containerEl);

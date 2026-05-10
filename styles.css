@@ -3424,3 +3424,37 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   border-color: var(--interactive-accent);
   color: var(--interactive-accent);
 }
+
+/* ========================================
+   设置面板 Tab 导航
+   ======================================== */
+.apple-settings-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin: 16px 0;
+}
+
+.apple-settings-tab {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  user-select: none;
+}
+
+.apple-settings-tab:hover {
+  color: var(--text-normal);
+}
+
+.apple-settings-tab.active {
+  color: var(--text-accent);
+  border-bottom-color: var(--text-accent);
+}
+
+.apple-settings-tab-content {
+  padding: 0;
+}
