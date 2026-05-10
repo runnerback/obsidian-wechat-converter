@@ -12443,6 +12443,94 @@ var require_markdown_utils = __commonJS({
   }
 });
 
+// views/connection-status-bar.js
+var require_connection_status_bar = __commonJS({
+  "views/connection-status-bar.js"(exports2, module2) {
+    function formatWechatsyncCheckedAt2(timestamp) {
+      if (!timestamp)
+        return "";
+      try {
+        return new Date(timestamp).toLocaleString("zh-CN", {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+      } catch (e) {
+        return "";
+      }
+    }
+    function describeWechatsyncConnectionState2(connection = {}, context = {}) {
+      const { variant = "modal" } = context;
+      const checkedAtText = formatWechatsyncCheckedAt2(connection.checkedAt);
+      if (connection.status === "connected") {
+        if (variant === "settings") {
+          return {
+            dotLabel: "\u5DF2\u8FDE\u63A5",
+            dotClass: "is-ok",
+            text: connection.message || (checkedAtText ? `\u5DF2\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u3002\u4E0A\u6B21\u68C0\u67E5 ${checkedAtText}\u3002` : "\u5DF2\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u3002")
+          };
+        }
+        return {
+          dotLabel: "\u5DF2\u8FDE\u63A5",
+          dotClass: "is-ok",
+          text: checkedAtText ? `\u5DF2\u8FDE\u63A5\u3002\u4F7F\u7528\u8BBE\u7F6E\u4E2D ${checkedAtText} \u7684\u6240\u9009\u5E73\u53F0\u914D\u7F6E\uFF0C\u5FAE\u4FE1\u4E0D\u4F1A\u51FA\u73B0\u5728\u8FD9\u91CC\u3002` : "\u5DF2\u8FDE\u63A5\u3002\u52FE\u9009\u672C\u6B21\u8981\u53D1\u9001\u7684\u5E73\u53F0\uFF0C\u5FAE\u4FE1\u4E0D\u4F1A\u51FA\u73B0\u5728\u8FD9\u91CC\u3002"
+        };
+      }
+      if (connection.status === "failed") {
+        return {
+          dotLabel: "\u672A\u8FDE\u63A5",
+          dotClass: "is-error",
+          text: variant === "settings" ? `\u4E0A\u6B21\u8FDE\u63A5\u5931\u8D25${connection.message ? `\uFF1A${connection.message}` : ""}\u3002\u8BF7\u68C0\u67E5\u7AEF\u53E3\u3001\u4EE4\u724C\u540E\u70B9\u51FB\u300C\u6D4B\u8BD5\u8FDE\u63A5\u300D\u3002` : `\u4E0A\u6B21\u8FDE\u63A5\u5931\u8D25${connection.message ? `\uFF1A${connection.message}` : ""}\u3002\u8BF7\u5148\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u540E\u518D\u53D1\u5E03\u3002`
+        };
+      }
+      return {
+        dotLabel: "\u672A\u6D4B\u8BD5",
+        dotClass: "",
+        text: variant === "settings" ? "\u5C1A\u672A\u6D4B\u8BD5\u4E0E\u6D4F\u89C8\u5668\u63D2\u4EF6\u7684\u8FDE\u63A5\u3002\u70B9\u51FB\u4E0B\u65B9\u300C\u6D4B\u8BD5\u8FDE\u63A5\u300D\u5F00\u59CB\u8BCA\u65AD\u3002" : "\u5C1A\u672A\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u3002\u5E73\u53F0\u5217\u8868\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF0C\u8FDE\u63A5\u540E\u4F1A\u8BFB\u53D6\u63D2\u4EF6\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002"
+      };
+    }
+    function renderWechatsyncConnectionStatusBar2(parentEl, options = {}) {
+      const {
+        dotLabel = "",
+        dotClass = "",
+        text = "",
+        action = null
+      } = options;
+      const bar = parentEl.createDiv({ cls: "wechat-multiplatform-status" });
+      if (dotLabel) {
+        bar.createEl("span", {
+          text: dotLabel,
+          cls: `wechat-multiplatform-status-dot ${dotClass}`.trim()
+        });
+      }
+      if (text) {
+        bar.createEl("span", { text, cls: "wechat-multiplatform-status-text" });
+      }
+      let actionButton = null;
+      if (action && typeof action === "object") {
+        actionButton = bar.createEl("button", {
+          text: action.label || "\u91CD\u8BD5",
+          cls: "wechat-multiplatform-status-action"
+        });
+        if (action.disabled)
+          actionButton.disabled = true;
+        if (typeof action.onClick === "function") {
+          actionButton.addEventListener("click", (event) => {
+            action.onClick(event, actionButton);
+          });
+        }
+      }
+      return { bar, actionButton };
+    }
+    module2.exports = {
+      formatWechatsyncCheckedAt: formatWechatsyncCheckedAt2,
+      describeWechatsyncConnectionState: describeWechatsyncConnectionState2,
+      renderWechatsyncConnectionStatusBar: renderWechatsyncConnectionStatusBar2
+    };
+  }
+});
+
 // input.js
 var { Plugin, MarkdownView, ItemView, Notice, Platform, requestUrl, request } = require("obsidian");
 var { PluginSettingTab, Setting } = require("obsidian");
@@ -12650,83 +12738,11 @@ function getAvailableWechatsyncPlatforms(settings = {}) {
     bridgeConnected: ((_b = normalizedSettings.connection) == null ? void 0 : _b.status) === "connected"
   });
 }
-function formatWechatsyncCheckedAt(timestamp) {
-  if (!timestamp)
-    return "";
-  try {
-    return new Date(timestamp).toLocaleString("zh-CN", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-  } catch (e) {
-    return "";
-  }
-}
-function renderWechatsyncConnectionStatusBar(parentEl, options = {}) {
-  const {
-    dotLabel = "",
-    dotClass = "",
-    text = "",
-    action = null
-  } = options;
-  const bar = parentEl.createDiv({ cls: "wechat-multiplatform-status" });
-  if (dotLabel) {
-    bar.createEl("span", {
-      text: dotLabel,
-      cls: `wechat-multiplatform-status-dot ${dotClass}`.trim()
-    });
-  }
-  if (text) {
-    bar.createEl("span", { text, cls: "wechat-multiplatform-status-text" });
-  }
-  let actionButton = null;
-  if (action && typeof action === "object") {
-    actionButton = bar.createEl("button", {
-      text: action.label || "\u91CD\u8BD5",
-      cls: "wechat-multiplatform-status-action"
-    });
-    if (action.disabled)
-      actionButton.disabled = true;
-    if (typeof action.onClick === "function") {
-      actionButton.addEventListener("click", (event) => {
-        action.onClick(event, actionButton);
-      });
-    }
-  }
-  return { bar, actionButton };
-}
-function describeWechatsyncConnectionState(connection = {}, context = {}) {
-  const { variant = "modal" } = context;
-  const checkedAtText = formatWechatsyncCheckedAt(connection.checkedAt);
-  if (connection.status === "connected") {
-    if (variant === "settings") {
-      return {
-        dotLabel: "\u5DF2\u8FDE\u63A5",
-        dotClass: "is-ok",
-        text: connection.message || (checkedAtText ? `\u5DF2\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u3002\u4E0A\u6B21\u68C0\u67E5 ${checkedAtText}\u3002` : "\u5DF2\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u3002")
-      };
-    }
-    return {
-      dotLabel: "\u5DF2\u8FDE\u63A5",
-      dotClass: "is-ok",
-      text: checkedAtText ? `\u5DF2\u8FDE\u63A5\u3002\u4F7F\u7528\u8BBE\u7F6E\u4E2D ${checkedAtText} \u7684\u6240\u9009\u5E73\u53F0\u914D\u7F6E\uFF0C\u5FAE\u4FE1\u4E0D\u4F1A\u51FA\u73B0\u5728\u8FD9\u91CC\u3002` : "\u5DF2\u8FDE\u63A5\u3002\u52FE\u9009\u672C\u6B21\u8981\u53D1\u9001\u7684\u5E73\u53F0\uFF0C\u5FAE\u4FE1\u4E0D\u4F1A\u51FA\u73B0\u5728\u8FD9\u91CC\u3002"
-    };
-  }
-  if (connection.status === "failed") {
-    return {
-      dotLabel: "\u672A\u8FDE\u63A5",
-      dotClass: "is-error",
-      text: variant === "settings" ? `\u4E0A\u6B21\u8FDE\u63A5\u5931\u8D25${connection.message ? `\uFF1A${connection.message}` : ""}\u3002\u8BF7\u68C0\u67E5\u7AEF\u53E3\u3001\u4EE4\u724C\u540E\u70B9\u51FB\u300C\u6D4B\u8BD5\u8FDE\u63A5\u300D\u3002` : `\u4E0A\u6B21\u8FDE\u63A5\u5931\u8D25${connection.message ? `\uFF1A${connection.message}` : ""}\u3002\u8BF7\u5148\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u540E\u518D\u53D1\u5E03\u3002`
-    };
-  }
-  return {
-    dotLabel: "\u672A\u6D4B\u8BD5",
-    dotClass: "",
-    text: variant === "settings" ? "\u5C1A\u672A\u6D4B\u8BD5\u4E0E\u6D4F\u89C8\u5668\u63D2\u4EF6\u7684\u8FDE\u63A5\u3002\u70B9\u51FB\u4E0B\u65B9\u300C\u6D4B\u8BD5\u8FDE\u63A5\u300D\u5F00\u59CB\u8BCA\u65AD\u3002" : "\u5C1A\u672A\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u3002\u5E73\u53F0\u5217\u8868\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF0C\u8FDE\u63A5\u540E\u4F1A\u8BFB\u53D6\u63D2\u4EF6\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002"
-  };
-}
+var {
+  formatWechatsyncCheckedAt,
+  describeWechatsyncConnectionState,
+  renderWechatsyncConnectionStatusBar
+} = require_connection_status_bar();
 var IMAGE_SWIPE_COMMAND_COPY = {
   "image-swipe": {
     zhName: "\u63D2\u5165\u56FE\u7247\u5757",
