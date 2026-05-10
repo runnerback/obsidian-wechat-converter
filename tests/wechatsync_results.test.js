@@ -107,6 +107,83 @@ describe('Wechatsync result helpers', () => {
     });
   });
 
+  // === getWechatsyncPlatformStatusBadge full contract ===
+  // These cases lock the user-visible status text + class. Changing them
+  // changes the chip / publish-modal status badges; review styles.css
+  // (.wechat-platform-chip-status / .wechat-multiplatform-platform-status)
+  // before adjusting.
+
+  it('returns "上次可用 · ${username}" badge for authenticated platform with username', () => {
+    const platform = normalizeWechatsyncPlatform({
+      id: 'zhihu',
+      name: '知乎',
+      isAuthenticated: true,
+      username: 'Lin',
+    });
+    expect(getWechatsyncPlatformStatusBadge(platform)).toEqual({
+      status: 'available',
+      text: '上次可用 · Lin',
+      cls: 'is-ok',
+    });
+  });
+
+  it('returns plain "上次可用" badge for authenticated platform without username', () => {
+    const platform = normalizeWechatsyncPlatform({
+      id: 'douyin',
+      name: '抖音图文',
+      isAuthenticated: true,
+    });
+    expect(getWechatsyncPlatformStatusBadge(platform)).toEqual({
+      status: 'available',
+      text: '上次可用',
+      cls: 'is-ok',
+    });
+  });
+
+  it('returns the original error text for login_required platforms', () => {
+    const platform = normalizeWechatsyncPlatform({
+      id: 'juejin',
+      name: '掘金',
+      authKnown: true,
+      authenticated: false,
+      error: '登录已失效',
+    });
+    expect(getWechatsyncPlatformStatusBadge(platform)).toEqual({
+      status: 'login_required',
+      text: '登录已失效',
+      cls: 'is-error',
+    });
+  });
+
+  it('falls back to "需登录" when login_required platform has no error message', () => {
+    const platform = normalizeWechatsyncPlatform({
+      id: 'juejin',
+      name: '掘金',
+      authKnown: true,
+      authenticated: false,
+    });
+    expect(getWechatsyncPlatformStatusBadge(platform)).toEqual({
+      status: 'login_required',
+      text: '需登录',
+      cls: 'is-error',
+    });
+  });
+
+  it('returns bridge_required badge when bridge is not connected', () => {
+    const platform = normalizeWechatsyncPlatform({
+      id: 'zhihu',
+      name: '知乎',
+      authKnown: true,
+      authenticated: true,
+      username: 'Lin',
+    });
+    expect(getWechatsyncPlatformStatusBadge(platform, { bridgeConnected: false })).toEqual({
+      status: 'bridge_required',
+      text: '需连接浏览器插件',
+      cls: 'is-bridge',
+    });
+  });
+
   it('normalizes single-platform checkAuth results with fallback metadata', () => {
     expect(normalizeWechatsyncCheckAuthResult(
       { id: 'zhihu', name: '知乎' },
