@@ -5153,7 +5153,7 @@ class AppleStyleView extends ItemView {
 
     // 添加提示
     placeholder.createEl('p', {
-      text: '提示：如预览空白，重新点击文档即可触发。',
+      text: '提示：点击要发布的文档即可在预览中查看排版效果。',
       cls: 'apple-placeholder-note'
     });
   }
