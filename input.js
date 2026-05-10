@@ -6202,6 +6202,52 @@ class AppleStyleSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
+    new Setting(containerEl)
+      .setName('使用系统回收站')
+      .setDesc('开启时优先移动到系统回收站；关闭时直接从 vault 删除。')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.cleanupUseSystemTrash !== false)
+        .onChange(async (value) => {
+          this.plugin.settings.cleanupUseSystemTrash = value;
+          await this.plugin.saveSettings();
+        }));
+
+    let hasWarnedInsecureProxy = false;
+    new Setting(containerEl)
+      .setName('API 代理地址')
+      .setDesc(createFragment(frag => {
+        const descDiv = frag.createDiv();
+        descDiv.appendText('如果你的网络 IP 经常变化，可配置代理服务。');
+        descDiv.createEl('a', {
+          text: '查看部署指南',
+          href: 'https://xiaoweibox.top/chats/wechat-proxy',
+          attr: { style: 'margin-left: 5px;' },
+        });
+
+        frag.createDiv({
+          cls: 'wechat-proxy-note',
+          attr: { style: 'margin-top: 6px; font-size: 12px; color: var(--text-muted); background: var(--background-secondary); padding: 8px; border-radius: 4px;' },
+        }, el => {
+          el.createSpan({ text: '🔒 安全提示：代理服务将中转您的请求。请确保使用受信任的代理（自建或可靠第三方），以保护 AppSecret 安全。' });
+        });
+      }))
+      .addText(text => text
+        .setPlaceholder('https://your-proxy.workers.dev')
+        .setValue(this.plugin.settings.proxyUrl || '')
+        .onChange(async (value) => {
+          const trimmedValue = value.trim();
+          if (trimmedValue && !trimmedValue.toLowerCase().startsWith('https://')) {
+            if (!hasWarnedInsecureProxy) {
+              new Notice('⚠️ 安全风险：代理地址必须使用 HTTPS 以保护您的 AppSecret。');
+              hasWarnedInsecureProxy = true;
+            }
+          } else {
+            hasWarnedInsecureProxy = false;
+          }
+          this.plugin.settings.proxyUrl = trimmedValue;
+          await this.plugin.saveSettings();
+        }));
+
     }
 
     // === 其他平台 Tab ===

@@ -17818,6 +17818,38 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         this.plugin.settings.cleanupDirTemplate = normalized;
         await this.plugin.saveSettings();
       }));
+      new Setting(containerEl2).setName("\u4F7F\u7528\u7CFB\u7EDF\u56DE\u6536\u7AD9").setDesc("\u5F00\u542F\u65F6\u4F18\u5148\u79FB\u52A8\u5230\u7CFB\u7EDF\u56DE\u6536\u7AD9\uFF1B\u5173\u95ED\u65F6\u76F4\u63A5\u4ECE vault \u5220\u9664\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.cleanupUseSystemTrash !== false).onChange(async (value) => {
+        this.plugin.settings.cleanupUseSystemTrash = value;
+        await this.plugin.saveSettings();
+      }));
+      let hasWarnedInsecureProxy = false;
+      new Setting(containerEl2).setName("API \u4EE3\u7406\u5730\u5740").setDesc(createFragment((frag) => {
+        const descDiv = frag.createDiv();
+        descDiv.appendText("\u5982\u679C\u4F60\u7684\u7F51\u7EDC IP \u7ECF\u5E38\u53D8\u5316\uFF0C\u53EF\u914D\u7F6E\u4EE3\u7406\u670D\u52A1\u3002");
+        descDiv.createEl("a", {
+          text: "\u67E5\u770B\u90E8\u7F72\u6307\u5357",
+          href: "https://xiaoweibox.top/chats/wechat-proxy",
+          attr: { style: "margin-left: 5px;" }
+        });
+        frag.createDiv({
+          cls: "wechat-proxy-note",
+          attr: { style: "margin-top: 6px; font-size: 12px; color: var(--text-muted); background: var(--background-secondary); padding: 8px; border-radius: 4px;" }
+        }, (el) => {
+          el.createSpan({ text: "\u{1F512} \u5B89\u5168\u63D0\u793A\uFF1A\u4EE3\u7406\u670D\u52A1\u5C06\u4E2D\u8F6C\u60A8\u7684\u8BF7\u6C42\u3002\u8BF7\u786E\u4FDD\u4F7F\u7528\u53D7\u4FE1\u4EFB\u7684\u4EE3\u7406\uFF08\u81EA\u5EFA\u6216\u53EF\u9760\u7B2C\u4E09\u65B9\uFF09\uFF0C\u4EE5\u4FDD\u62A4 AppSecret \u5B89\u5168\u3002" });
+        });
+      })).addText((text) => text.setPlaceholder("https://your-proxy.workers.dev").setValue(this.plugin.settings.proxyUrl || "").onChange(async (value) => {
+        const trimmedValue = value.trim();
+        if (trimmedValue && !trimmedValue.toLowerCase().startsWith("https://")) {
+          if (!hasWarnedInsecureProxy) {
+            new Notice("\u26A0\uFE0F \u5B89\u5168\u98CE\u9669\uFF1A\u4EE3\u7406\u5730\u5740\u5FC5\u987B\u4F7F\u7528 HTTPS \u4EE5\u4FDD\u62A4\u60A8\u7684 AppSecret\u3002");
+            hasWarnedInsecureProxy = true;
+          }
+        } else {
+          hasWarnedInsecureProxy = false;
+        }
+        this.plugin.settings.proxyUrl = trimmedValue;
+        await this.plugin.saveSettings();
+      }));
     }
     {
       const containerEl2 = multiContent;
