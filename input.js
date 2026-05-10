@@ -5145,19 +5145,15 @@ class AppleStyleView extends ItemView {
       console.error('Failed to load brand icon:', e);
     }
     placeholder.createEl('h2', { text: 'Obsidian 发布助手' });
-    placeholder.createEl('p', { text: '在 Obsidian 写作，预览确认微信公众号排版效果，也可直接发布到其他平台。' });
+    placeholder.createEl('p', { text: '在 Obsidian 写作，预览确认公众号排版，或直接以 Markdown 原文发布到其他平台。' });
     const steps = placeholder.createEl('div', { cls: 'apple-steps' });
     steps.createEl('div', { text: '1️⃣ 打开要发布的 Markdown 文件' });
     steps.createEl('div', { text: '2️⃣ 在预览中确认微信公众号排版' });
     steps.createEl('div', { text: '3️⃣ 点击「发布与分发」选择微信或其他平台' });
 
     // 添加提示
-    const note = placeholder.createEl('p', {
-      text: '提示：如当前已打开文档但未显示，请重新点击一下文档即可触发预览',
-      cls: 'apple-placeholder-note'
-    });
     placeholder.createEl('p', {
-      text: '提示：其他平台发布以 Obsidian 中的 Markdown 原文为准，不经过预览样式处理。',
+      text: '提示：如预览空白，重新点击文档即可触发。',
       cls: 'apple-placeholder-note'
     });
   }

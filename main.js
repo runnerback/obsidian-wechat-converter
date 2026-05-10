@@ -16985,17 +16985,13 @@ var AppleStyleView = class extends ItemView {
       console.error("Failed to load brand icon:", e);
     }
     placeholder.createEl("h2", { text: "Obsidian \u53D1\u5E03\u52A9\u624B" });
-    placeholder.createEl("p", { text: "\u5728 Obsidian \u5199\u4F5C\uFF0C\u9884\u89C8\u786E\u8BA4\u5FAE\u4FE1\u516C\u4F17\u53F7\u6392\u7248\u6548\u679C\uFF0C\u4E5F\u53EF\u76F4\u63A5\u53D1\u5E03\u5230\u5176\u4ED6\u5E73\u53F0\u3002" });
+    placeholder.createEl("p", { text: "\u5728 Obsidian \u5199\u4F5C\uFF0C\u9884\u89C8\u786E\u8BA4\u516C\u4F17\u53F7\u6392\u7248\uFF0C\u6216\u76F4\u63A5\u4EE5 Markdown \u539F\u6587\u53D1\u5E03\u5230\u5176\u4ED6\u5E73\u53F0\u3002" });
     const steps = placeholder.createEl("div", { cls: "apple-steps" });
     steps.createEl("div", { text: "1\uFE0F\u20E3 \u6253\u5F00\u8981\u53D1\u5E03\u7684 Markdown \u6587\u4EF6" });
     steps.createEl("div", { text: "2\uFE0F\u20E3 \u5728\u9884\u89C8\u4E2D\u786E\u8BA4\u5FAE\u4FE1\u516C\u4F17\u53F7\u6392\u7248" });
     steps.createEl("div", { text: "3\uFE0F\u20E3 \u70B9\u51FB\u300C\u53D1\u5E03\u4E0E\u5206\u53D1\u300D\u9009\u62E9\u5FAE\u4FE1\u6216\u5176\u4ED6\u5E73\u53F0" });
-    const note = placeholder.createEl("p", {
-      text: "\u63D0\u793A\uFF1A\u5982\u5F53\u524D\u5DF2\u6253\u5F00\u6587\u6863\u4F46\u672A\u663E\u793A\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u4E00\u4E0B\u6587\u6863\u5373\u53EF\u89E6\u53D1\u9884\u89C8",
-      cls: "apple-placeholder-note"
-    });
     placeholder.createEl("p", {
-      text: "\u63D0\u793A\uFF1A\u5176\u4ED6\u5E73\u53F0\u53D1\u5E03\u4EE5 Obsidian \u4E2D\u7684 Markdown \u539F\u6587\u4E3A\u51C6\uFF0C\u4E0D\u7ECF\u8FC7\u9884\u89C8\u6837\u5F0F\u5904\u7406\u3002",
+      text: "\u63D0\u793A\uFF1A\u5982\u9884\u89C8\u7A7A\u767D\uFF0C\u91CD\u65B0\u70B9\u51FB\u6587\u6863\u5373\u53EF\u89E6\u53D1\u3002",
       cls: "apple-placeholder-note"
     });
   }
