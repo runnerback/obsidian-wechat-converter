@@ -4622,14 +4622,7 @@ class AppleStyleView extends ItemView {
         if (isSelected) selectedPlatforms.add(platform.id);
         const label = row.createEl('label', { cls: 'wechat-multiplatform-platform-label' });
         label.createEl('span', { text: platform.name, cls: 'wechat-multiplatform-platform-name' });
-        const capabilityLabels = formatWechatsyncCapabilityLabels(platform.capabilities);
-        if (capabilityLabels.length) {
-          label.createEl('span', {
-            text: capabilityLabels.join(' · '),
-            cls: 'wechat-multiplatform-platform-capabilities',
-          });
-        }
-        const statusEl = label.createEl('span', {
+        const statusEl = row.createEl('span', {
           text: isSelected ? authInfo.text : '',
           cls: `wechat-multiplatform-platform-status ${isSelected ? authInfo.cls : ''}`,
         });
@@ -6347,13 +6340,6 @@ class AppleStyleSettingTab extends PluginSettingTab {
         checkbox.value = platform.id;
         const chipBody = chip.createEl('span', { cls: 'wechat-platform-chip-body' });
         chipBody.createEl('span', { text: platform.name, cls: 'wechat-platform-chip-name' });
-        const capabilityLabels = formatWechatsyncCapabilityLabels(platform.capabilities);
-        if (capabilityLabels.length) {
-          chipBody.createEl('span', {
-            text: capabilityLabels.join(' · '),
-            cls: 'wechat-platform-chip-capabilities',
-          });
-        }
         const statusEl = chipBody.createEl('span', {
           text: isSelected ? authBadge.text : '',
           cls: `wechat-platform-chip-status ${isSelected ? authBadge.cls : ''}`,

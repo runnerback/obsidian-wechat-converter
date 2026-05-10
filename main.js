@@ -12650,23 +12650,6 @@ function getAvailableWechatsyncPlatforms(settings = {}) {
     bridgeConnected: ((_b = normalizedSettings.connection) == null ? void 0 : _b.status) === "connected"
   });
 }
-function formatWechatsyncCapabilityLabels(capabilities = []) {
-  const labels = {
-    draft: "\u8349\u7A3F",
-    image_upload: "\u56FE\u7247",
-    cover: "\u5C01\u9762",
-    tags: "\u6807\u7B7E",
-    categories: "\u5206\u7C7B",
-    article: "\u6587\u7AE0"
-  };
-  const seen = /* @__PURE__ */ new Set();
-  return (Array.isArray(capabilities) ? capabilities : []).map((capability) => labels[capability] || "").filter((label) => {
-    if (!label || seen.has(label))
-      return false;
-    seen.add(label);
-    return true;
-  }).slice(0, 4);
-}
 var IMAGE_SWIPE_COMMAND_COPY = {
   "image-swipe": {
     zhName: "\u63D2\u5165\u56FE\u7247\u5757",
@@ -16500,14 +16483,7 @@ var AppleStyleView = class extends ItemView {
           selectedPlatforms.add(platform.id);
         const label = row.createEl("label", { cls: "wechat-multiplatform-platform-label" });
         label.createEl("span", { text: platform.name, cls: "wechat-multiplatform-platform-name" });
-        const capabilityLabels = formatWechatsyncCapabilityLabels(platform.capabilities);
-        if (capabilityLabels.length) {
-          label.createEl("span", {
-            text: capabilityLabels.join(" \xB7 "),
-            cls: "wechat-multiplatform-platform-capabilities"
-          });
-        }
-        const statusEl2 = label.createEl("span", {
+        const statusEl2 = row.createEl("span", {
           text: isSelected ? authInfo.text : "",
           cls: `wechat-multiplatform-platform-status ${isSelected ? authInfo.cls : ""}`
         });
@@ -17947,13 +17923,6 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
           checkbox.value = platform.id;
           const chipBody = chip.createEl("span", { cls: "wechat-platform-chip-body" });
           chipBody.createEl("span", { text: platform.name, cls: "wechat-platform-chip-name" });
-          const capabilityLabels = formatWechatsyncCapabilityLabels(platform.capabilities);
-          if (capabilityLabels.length) {
-            chipBody.createEl("span", {
-              text: capabilityLabels.join(" \xB7 "),
-              cls: "wechat-platform-chip-capabilities"
-            });
-          }
           const statusEl = chipBody.createEl("span", {
             text: isSelected ? authBadge.text : "",
             cls: `wechat-platform-chip-status ${isSelected ? authBadge.cls : ""}`

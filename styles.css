@@ -3190,7 +3190,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 
 .wechat-multiplatform-platform {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   min-height: 48px;
   padding: 9px 11px;
@@ -3204,8 +3204,6 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .wechat-multiplatform-platform-label {
-  display: grid;
-  gap: 3px;
   flex: 1;
   min-width: 0;
   color: var(--apple-primary);
@@ -3222,10 +3220,8 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .wechat-multiplatform-platform-status {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
   color: var(--apple-tertiary);
   font-size: 11px;
   font-weight: 600;
