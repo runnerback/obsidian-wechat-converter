@@ -4567,6 +4567,8 @@ class AppleStyleView extends ItemView {
     const defaultSelectedPlatforms = new Set(
       parseWechatsyncPlatformIds(bridgeSettings.selectedPlatforms || [])
     );
+    // 只显示插件设置中已勾选的平台
+    const displayedPlatforms = availablePlatforms.filter((p) => defaultSelectedPlatforms.has(p.id));
     const isBridgeReady = cachedConnection.status === 'connected';
 
     const statusEl = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-status' });
@@ -4684,21 +4686,21 @@ class AppleStyleView extends ItemView {
           : '已连接。勾选本次要发送的平台，微信不会出现在这里。',
         cls: 'wechat-multiplatform-status-text',
       });
-      renderPlatforms(availablePlatforms);
+      renderPlatforms(displayedPlatforms);
     } else if (cachedConnection.status === 'failed') {
       statusEl.createEl('span', { text: '未连接', cls: 'wechat-multiplatform-status-dot is-error' });
       statusEl.createEl('span', {
         text: `上次连接失败${cachedConnection.message ? `：${cachedConnection.message}` : ''}。请先连接浏览器插件后再发布。`,
         cls: 'wechat-multiplatform-status-text',
       });
-      renderPlatforms(availablePlatforms);
+      renderPlatforms(displayedPlatforms);
     } else {
       statusEl.createEl('span', { text: '未测试', cls: 'wechat-multiplatform-status-dot' });
       statusEl.createEl('span', {
         text: '尚未连接浏览器插件。平台列表先显示本地备用清单，连接后会读取插件实际支持的平台。',
         cls: 'wechat-multiplatform-status-text',
       });
-      renderPlatforms(availablePlatforms);
+      renderPlatforms(displayedPlatforms);
     }
 
     syncBtn.onclick = async () => {
@@ -5960,17 +5962,24 @@ class AppleStyleSettingTab extends PluginSettingTab {
     multiContent.style.display = 'none';
 
     wechatTab.onclick = () => {
+      this._activeSettingsTab = 'wechat';
       wechatTab.addClass('active');
       multiTab.removeClass('active');
       wechatContent.style.display = '';
       multiContent.style.display = 'none';
     };
     multiTab.onclick = () => {
+      this._activeSettingsTab = 'multi';
       multiTab.addClass('active');
       wechatTab.removeClass('active');
       wechatContent.style.display = 'none';
       multiContent.style.display = '';
     };
+
+    // 恢复上次激活的 Tab
+    if (this._activeSettingsTab === 'multi') {
+      multiTab.onclick();
+    }
 
     // === 微信 Tab ===
     {

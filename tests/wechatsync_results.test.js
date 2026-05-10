@@ -269,4 +269,24 @@ describe('Wechatsync result helpers', () => {
       expect.objectContaining({ id: 'csdn', name: 'CSDN', authKnown: true, authenticated: true, username: '', error: '' }),
     ]);
   });
+
+  it('filters catalog to only show platforms selected in plugin settings', () => {
+    const catalog = buildWechatsyncPlatformCatalog({
+      supportedPlatforms: [
+        { id: 'zhihu', name: '知乎' },
+        { id: 'juejin', name: '掘金' },
+        { id: 'csdn', name: 'CSDN' },
+        { id: 'weibo', name: '微博' },
+      ],
+      authSnapshotPlatforms: [],
+      bridgeConnected: true,
+    });
+
+    const selectedIds = new Set(['zhihu', 'csdn']);
+    const displayed = catalog.filter((p) => selectedIds.has(p.id));
+
+    expect(displayed).toHaveLength(2);
+    expect(displayed[0].id).toBe('zhihu');
+    expect(displayed[1].id).toBe('csdn');
+  });
 });

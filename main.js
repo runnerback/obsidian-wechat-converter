@@ -16452,6 +16452,7 @@ var AppleStyleView = class extends ItemView {
     const defaultSelectedPlatforms = new Set(
       parseWechatsyncPlatformIds(bridgeSettings.selectedPlatforms || [])
     );
+    const displayedPlatforms = availablePlatforms.filter((p) => defaultSelectedPlatforms.has(p.id));
     const isBridgeReady = cachedConnection.status === "connected";
     const statusEl = modal.contentEl.createDiv({ cls: "wechat-multiplatform-status" });
     const platformListEl = modal.contentEl.createDiv({ cls: "wechat-multiplatform-list" });
@@ -16562,21 +16563,21 @@ var AppleStyleView = class extends ItemView {
         text: checkedAtText ? `\u5DF2\u8FDE\u63A5\u3002\u4F7F\u7528\u8BBE\u7F6E\u4E2D ${checkedAtText} \u7684\u6240\u9009\u5E73\u53F0\u914D\u7F6E\uFF0C\u5FAE\u4FE1\u4E0D\u4F1A\u51FA\u73B0\u5728\u8FD9\u91CC\u3002` : "\u5DF2\u8FDE\u63A5\u3002\u52FE\u9009\u672C\u6B21\u8981\u53D1\u9001\u7684\u5E73\u53F0\uFF0C\u5FAE\u4FE1\u4E0D\u4F1A\u51FA\u73B0\u5728\u8FD9\u91CC\u3002",
         cls: "wechat-multiplatform-status-text"
       });
-      renderPlatforms(availablePlatforms);
+      renderPlatforms(displayedPlatforms);
     } else if (cachedConnection.status === "failed") {
       statusEl.createEl("span", { text: "\u672A\u8FDE\u63A5", cls: "wechat-multiplatform-status-dot is-error" });
       statusEl.createEl("span", {
         text: `\u4E0A\u6B21\u8FDE\u63A5\u5931\u8D25${cachedConnection.message ? `\uFF1A${cachedConnection.message}` : ""}\u3002\u8BF7\u5148\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u540E\u518D\u53D1\u5E03\u3002`,
         cls: "wechat-multiplatform-status-text"
       });
-      renderPlatforms(availablePlatforms);
+      renderPlatforms(displayedPlatforms);
     } else {
       statusEl.createEl("span", { text: "\u672A\u6D4B\u8BD5", cls: "wechat-multiplatform-status-dot" });
       statusEl.createEl("span", {
         text: "\u5C1A\u672A\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\u3002\u5E73\u53F0\u5217\u8868\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF0C\u8FDE\u63A5\u540E\u4F1A\u8BFB\u53D6\u63D2\u4EF6\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002",
         cls: "wechat-multiplatform-status-text"
       });
-      renderPlatforms(availablePlatforms);
+      renderPlatforms(displayedPlatforms);
     }
     syncBtn.onclick = async () => {
       var _a2, _b;
@@ -17675,17 +17676,22 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
     const multiContent = containerEl.createDiv({ cls: "apple-settings-tab-content" });
     multiContent.style.display = "none";
     wechatTab.onclick = () => {
+      this._activeSettingsTab = "wechat";
       wechatTab.addClass("active");
       multiTab.removeClass("active");
       wechatContent.style.display = "";
       multiContent.style.display = "none";
     };
     multiTab.onclick = () => {
+      this._activeSettingsTab = "multi";
       multiTab.addClass("active");
       wechatTab.removeClass("active");
       wechatContent.style.display = "none";
       multiContent.style.display = "";
     };
+    if (this._activeSettingsTab === "multi") {
+      multiTab.onclick();
+    }
     {
       const containerEl2 = wechatContent;
       new Setting(containerEl2).setName("\u9884\u89C8\u6A21\u5F0F").setHeading();
