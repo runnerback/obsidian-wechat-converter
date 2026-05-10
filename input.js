@@ -5967,6 +5967,32 @@ class AppleStyleSettingTab extends PluginSettingTab {
           new Notice('设置已保存，请关闭并重新打开发布助手面板以生效');
         }));
 
+    // === Tab 导航 ===
+    const tabBar = containerEl.createDiv({ cls: 'apple-settings-tabs' });
+    const wechatTab = tabBar.createDiv({ cls: 'apple-settings-tab active', text: '微信' });
+    const multiTab = tabBar.createDiv({ cls: 'apple-settings-tab', text: '其他平台' });
+
+    const wechatContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
+    const multiContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
+    multiContent.style.display = 'none';
+
+    wechatTab.onclick = () => {
+      wechatTab.addClass('active');
+      multiTab.removeClass('active');
+      wechatContent.style.display = '';
+      multiContent.style.display = 'none';
+    };
+    multiTab.onclick = () => {
+      multiTab.addClass('active');
+      wechatTab.removeClass('active');
+      wechatContent.style.display = 'none';
+      multiContent.style.display = '';
+    };
+
+    // === 微信 Tab ===
+    {
+      const containerEl = wechatContent;
+
     // 图片水印设置
     new Setting(containerEl)
       .setName('图片水印')
@@ -5998,7 +6024,6 @@ class AppleStyleSettingTab extends PluginSettingTab {
           const file = e.target.files[0];
           if (!file) return;
 
-          // 限制文件大小 (100KB)
           if (file.size > 100 * 1024) {
             new Notice('❌ 图片太大，请选择小于 100KB 的图片');
             return;
@@ -6009,14 +6034,13 @@ class AppleStyleSettingTab extends PluginSettingTab {
             this.plugin.settings.avatarBase64 = event.target.result;
             await this.plugin.saveSettings();
             new Notice('✅ 头像已上传');
-            this.display(); // 刷新设置页面
+            this.display();
           };
           reader.readAsDataURL(file);
         };
         input.click();
       }));
 
-    // 清除本地头像按钮
     if (this.plugin.settings.avatarBase64) {
       uploadSetting.addButton(button => button
         .setButtonText('清除')
@@ -6039,32 +6063,6 @@ class AppleStyleSettingTab extends PluginSettingTab {
           this.plugin.settings.avatarUrl = value;
           await this.plugin.saveSettings();
         }));
-
-    // === Tab 导航 ===
-    const tabBar = containerEl.createDiv({ cls: 'apple-settings-tabs' });
-    const wechatTab = tabBar.createDiv({ cls: 'apple-settings-tab active', text: '微信' });
-    const multiTab = tabBar.createDiv({ cls: 'apple-settings-tab', text: '其他平台' });
-
-    const wechatContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
-    const multiContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
-    multiContent.style.display = 'none';
-
-    wechatTab.onclick = () => {
-      wechatTab.addClass('active');
-      multiTab.removeClass('active');
-      wechatContent.style.display = '';
-      multiContent.style.display = 'none';
-    };
-    multiTab.onclick = () => {
-      multiTab.addClass('active');
-      wechatTab.removeClass('active');
-      wechatContent.style.display = 'none';
-      multiContent.style.display = '';
-    };
-
-    // === 微信 Tab ===
-    {
-      const containerEl = wechatContent;
 
     new Setting(containerEl)
       .setName('微信公众号账号')
@@ -6162,6 +6160,46 @@ class AppleStyleSettingTab extends PluginSettingTab {
         attr: { style: 'color: var(--text-muted);' }
       });
     }
+
+    this.renderAiSettingsSection(containerEl);
+
+    // 高级设置
+    new Setting(containerEl)
+      .setName('高级设置')
+      .setHeading();
+
+    new Setting(containerEl)
+      .setName('发送成功后自动清理资源')
+      .setDesc('默认关闭。开启后会在创建草稿成功后，删除你在下方配置的目录。')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.cleanupAfterSync)
+        .onChange(async (value) => {
+          this.plugin.settings.cleanupAfterSync = value;
+          await this.plugin.saveSettings();
+        }));
+
+    let hasWarnedAbsoluteCleanupPath = false;
+    new Setting(containerEl)
+      .setName('清理目录')
+      .setDesc('填写 vault 内相对路径（不要填 /Users/... 这类绝对路径），支持 {{note}} 占位符，例如 published/{{note}}_img。')
+      .addText(text => text
+        .setPlaceholder('published/{{note}}_img')
+        .setValue(this.plugin.settings.cleanupDirTemplate || '')
+        .onChange(async (value) => {
+          if (this.isAbsolutePathLike(value)) {
+            if (!hasWarnedAbsoluteCleanupPath) {
+              new Notice('⚠️ 清理目录请填写 vault 内相对路径，不要使用绝对路径（如 /Users/... 或 C:\...）');
+              hasWarnedAbsoluteCleanupPath = true;
+            }
+          } else {
+            hasWarnedAbsoluteCleanupPath = false;
+          }
+
+          const normalized = this.normalizeVaultPath(value);
+          this.plugin.settings.cleanupDirTemplate = normalized;
+          await this.plugin.saveSettings();
+        }));
+
     }
 
     // === 其他平台 Tab ===
@@ -6591,97 +6629,6 @@ class AppleStyleSettingTab extends PluginSettingTab {
     }
     }
 
-    this.renderAiSettingsSection(containerEl);
-
-
-
-    // 高级设置
-    new Setting(containerEl)
-      .setName('高级设置')
-      .setHeading();
-
-    new Setting(containerEl)
-      .setName('发送成功后自动清理资源')
-      .setDesc('默认关闭。开启后会在创建草稿成功后，删除你在下方配置的目录。')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.cleanupAfterSync)
-        .onChange(async (value) => {
-          this.plugin.settings.cleanupAfterSync = value;
-          await this.plugin.saveSettings();
-        }));
-
-    let hasWarnedAbsoluteCleanupPath = false;
-    new Setting(containerEl)
-      .setName('清理目录')
-      .setDesc('填写 vault 内相对路径（不要填 /Users/... 这类绝对路径），支持 {{note}} 占位符，例如 published/{{note}}_img。')
-      .addText(text => text
-        .setPlaceholder('published/{{note}}_img')
-        .setValue(this.plugin.settings.cleanupDirTemplate || '')
-        .onChange(async (value) => {
-          if (this.isAbsolutePathLike(value)) {
-            if (!hasWarnedAbsoluteCleanupPath) {
-              new Notice('⚠️ 清理目录请填写 vault 内相对路径，不要使用绝对路径（如 /Users/... 或 C:\\...）');
-              hasWarnedAbsoluteCleanupPath = true;
-            }
-          } else {
-            hasWarnedAbsoluteCleanupPath = false;
-          }
-
-          const normalized = this.normalizeVaultPath(value);
-          if (normalized.includes('..')) {
-            new Notice('❌ 清理目录不能包含 ..');
-            return;
-          }
-          this.plugin.settings.cleanupDirTemplate = normalized;
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('使用系统回收站')
-      .setDesc('开启时优先移动到系统回收站；关闭时直接从 vault 删除。')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.cleanupUseSystemTrash !== false)
-        .onChange(async (value) => {
-          this.plugin.settings.cleanupUseSystemTrash = value;
-          await this.plugin.saveSettings();
-        }));
-
-    let hasWarnedInsecureProxy = false;
-    new Setting(containerEl)
-      .setName('API 代理地址')
-      .setDesc(createFragment(frag => {
-        const descDiv = frag.createDiv();
-        descDiv.appendText('如果你的网络 IP 经常变化，可配置代理服务。');
-        descDiv.createEl('a', {
-          text: '查看部署指南',
-          href: 'https://xiaoweibox.top/chats/wechat-proxy',
-          style: 'margin-left: 5px;'
-        });
-
-        frag.createDiv({
-            cls: 'wechat-proxy-note',
-            style: 'margin-top: 6px; font-size: 12px; color: var(--text-muted); background: var(--background-secondary); padding: 8px; border-radius: 4px;'
-        }, el => {
-           el.createSpan({ text: '🔒 安全提示：代理服务将中转您的请求。请确保使用受信任的代理（自建或可靠第三方），以保护 AppSecret 安全。' });
-        });
-      }))
-      .addText(text => text
-        .setPlaceholder('https://your-proxy.workers.dev')
-        .setValue(this.plugin.settings.proxyUrl)
-        .onChange(async (value) => {
-          const trimmedValue = value.trim();
-          if (trimmedValue && !trimmedValue.startsWith('https://')) {
-            if (!hasWarnedInsecureProxy) {
-              new Notice('⚠️ 安全风险：代理地址必须使用 HTTPS 以保护您的 AppSecret。');
-              hasWarnedInsecureProxy = true;
-            }
-          } else {
-            hasWarnedInsecureProxy = false;
-          }
-          this.plugin.settings.proxyUrl = trimmedValue;
-          await this.plugin.saveSettings();
-        }));
-  }
 
   renderAiSettingsSection(containerEl) {
     new Setting(containerEl)

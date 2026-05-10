@@ -17674,48 +17674,6 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       await this.plugin.saveSettings();
       new Notice("\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u8BF7\u5173\u95ED\u5E76\u91CD\u65B0\u6253\u5F00\u53D1\u5E03\u52A9\u624B\u9762\u677F\u4EE5\u751F\u6548");
     }));
-    new Setting(containerEl).setName("\u56FE\u7247\u6C34\u5370").setHeading();
-    new Setting(containerEl).setName("\u542F\u7528\u56FE\u7247\u6C34\u5370").setDesc("\u5728\u6BCF\u5F20\u56FE\u7247\u4E0A\u65B9\u663E\u793A\u5934\u50CF\uFF08\u9700\u91CD\u542F\u63D2\u4EF6\u9762\u677F\u751F\u6548\uFF09").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableWatermark).onChange(async (value) => {
-      this.plugin.settings.enableWatermark = value;
-      await this.plugin.saveSettings();
-      new Notice("\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u8BF7\u5173\u95ED\u5E76\u91CD\u65B0\u6253\u5F00\u53D1\u5E03\u52A9\u624B\u9762\u677F\u4EE5\u751F\u6548");
-    }));
-    const uploadSetting = new Setting(containerEl).setName("\u4E0A\u4F20\u672C\u5730\u5934\u50CF").setDesc(this.plugin.settings.avatarBase64 ? "\u2705 \u5DF2\u4E0A\u4F20\u672C\u5730\u5934\u50CF\uFF08\u4F18\u5148\u4F7F\u7528\uFF09" : "\u9009\u62E9\u672C\u5730\u56FE\u7247\uFF0C\u8F6C\u6362\u4E3A Base64 \u5B58\u50A8\uFF0C\u65E0\u9700\u7F51\u7EDC\u8BF7\u6C42");
-    uploadSetting.addButton((button) => button.setButtonText(this.plugin.settings.avatarBase64 ? "\u91CD\u65B0\u4E0A\u4F20" : "\u9009\u62E9\u56FE\u7247").onClick(() => {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file)
-          return;
-        if (file.size > 100 * 1024) {
-          new Notice("\u274C \u56FE\u7247\u592A\u5927\uFF0C\u8BF7\u9009\u62E9\u5C0F\u4E8E 100KB \u7684\u56FE\u7247");
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          this.plugin.settings.avatarBase64 = event.target.result;
-          await this.plugin.saveSettings();
-          new Notice("\u2705 \u5934\u50CF\u5DF2\u4E0A\u4F20");
-          this.display();
-        };
-        reader.readAsDataURL(file);
-      };
-      input.click();
-    }));
-    if (this.plugin.settings.avatarBase64) {
-      uploadSetting.addButton((button) => button.setButtonText("\u6E05\u9664").setWarning().onClick(async () => {
-        this.plugin.settings.avatarBase64 = "";
-        await this.plugin.saveSettings();
-        new Notice("\u5DF2\u6E05\u9664\u672C\u5730\u5934\u50CF");
-        this.display();
-      }));
-    }
-    new Setting(containerEl).setName("\u5934\u50CF URL\uFF08\u5907\u7528\uFF09").setDesc("\u5982\u672A\u4E0A\u4F20\u672C\u5730\u5934\u50CF\uFF0C\u5C06\u4F7F\u7528\u6B64 URL").addText((text) => text.setPlaceholder("https://example.com/avatar.jpg").setValue(this.plugin.settings.avatarUrl).onChange(async (value) => {
-      this.plugin.settings.avatarUrl = value;
-      await this.plugin.saveSettings();
-    }));
     const tabBar = containerEl.createDiv({ cls: "apple-settings-tabs" });
     const wechatTab = tabBar.createDiv({ cls: "apple-settings-tab active", text: "\u5FAE\u4FE1" });
     const multiTab = tabBar.createDiv({ cls: "apple-settings-tab", text: "\u5176\u4ED6\u5E73\u53F0" });
@@ -17736,6 +17694,48 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
     };
     {
       const containerEl2 = wechatContent;
+      new Setting(containerEl2).setName("\u56FE\u7247\u6C34\u5370").setHeading();
+      new Setting(containerEl2).setName("\u542F\u7528\u56FE\u7247\u6C34\u5370").setDesc("\u5728\u6BCF\u5F20\u56FE\u7247\u4E0A\u65B9\u663E\u793A\u5934\u50CF\uFF08\u9700\u91CD\u542F\u63D2\u4EF6\u9762\u677F\u751F\u6548\uFF09").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableWatermark).onChange(async (value) => {
+        this.plugin.settings.enableWatermark = value;
+        await this.plugin.saveSettings();
+        new Notice("\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u8BF7\u5173\u95ED\u5E76\u91CD\u65B0\u6253\u5F00\u53D1\u5E03\u52A9\u624B\u9762\u677F\u4EE5\u751F\u6548");
+      }));
+      const uploadSetting = new Setting(containerEl2).setName("\u4E0A\u4F20\u672C\u5730\u5934\u50CF").setDesc(this.plugin.settings.avatarBase64 ? "\u2705 \u5DF2\u4E0A\u4F20\u672C\u5730\u5934\u50CF\uFF08\u4F18\u5148\u4F7F\u7528\uFF09" : "\u9009\u62E9\u672C\u5730\u56FE\u7247\uFF0C\u8F6C\u6362\u4E3A Base64 \u5B58\u50A8\uFF0C\u65E0\u9700\u7F51\u7EDC\u8BF7\u6C42");
+      uploadSetting.addButton((button) => button.setButtonText(this.plugin.settings.avatarBase64 ? "\u91CD\u65B0\u4E0A\u4F20" : "\u9009\u62E9\u56FE\u7247").onClick(() => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = async (e) => {
+          const file = e.target.files[0];
+          if (!file)
+            return;
+          if (file.size > 100 * 1024) {
+            new Notice("\u274C \u56FE\u7247\u592A\u5927\uFF0C\u8BF7\u9009\u62E9\u5C0F\u4E8E 100KB \u7684\u56FE\u7247");
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            this.plugin.settings.avatarBase64 = event.target.result;
+            await this.plugin.saveSettings();
+            new Notice("\u2705 \u5934\u50CF\u5DF2\u4E0A\u4F20");
+            this.display();
+          };
+          reader.readAsDataURL(file);
+        };
+        input.click();
+      }));
+      if (this.plugin.settings.avatarBase64) {
+        uploadSetting.addButton((button) => button.setButtonText("\u6E05\u9664").setWarning().onClick(async () => {
+          this.plugin.settings.avatarBase64 = "";
+          await this.plugin.saveSettings();
+          new Notice("\u5DF2\u6E05\u9664\u672C\u5730\u5934\u50CF");
+          this.display();
+        }));
+      }
+      new Setting(containerEl2).setName("\u5934\u50CF URL\uFF08\u5907\u7528\uFF09").setDesc("\u5982\u672A\u4E0A\u4F20\u672C\u5730\u5934\u50CF\uFF0C\u5C06\u4F7F\u7528\u6B64 URL").addText((text) => text.setPlaceholder("https://example.com/avatar.jpg").setValue(this.plugin.settings.avatarUrl).onChange(async (value) => {
+        this.plugin.settings.avatarUrl = value;
+        await this.plugin.saveSettings();
+      }));
       new Setting(containerEl2).setName("\u5FAE\u4FE1\u516C\u4F17\u53F7\u8D26\u53F7").setDesc("\u8BF7\u5728\u5FAE\u4FE1\u516C\u4F17\u53F7\u540E\u53F0 [\u8BBE\u7F6E\u4E0E\u5F00\u53D1] -> [\u57FA\u672C\u914D\u7F6E] \u4E2D\u83B7\u53D6 AppID \u548C AppSecret\uFF0C\u5E76\u786E\u4FDD\u5DF2\u5C06\u5F53\u524D IP \u52A0\u5165\u767D\u540D\u5355\u3002").setHeading();
       const accounts = this.plugin.settings.wechatAccounts || [];
       const defaultId = this.plugin.settings.defaultAccountId;
@@ -17814,6 +17814,26 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
           attr: { style: "color: var(--text-muted);" }
         });
       }
+      this.renderAiSettingsSection(containerEl2);
+      new Setting(containerEl2).setName("\u9AD8\u7EA7\u8BBE\u7F6E").setHeading();
+      new Setting(containerEl2).setName("\u53D1\u9001\u6210\u529F\u540E\u81EA\u52A8\u6E05\u7406\u8D44\u6E90").setDesc("\u9ED8\u8BA4\u5173\u95ED\u3002\u5F00\u542F\u540E\u4F1A\u5728\u521B\u5EFA\u8349\u7A3F\u6210\u529F\u540E\uFF0C\u5220\u9664\u4F60\u5728\u4E0B\u65B9\u914D\u7F6E\u7684\u76EE\u5F55\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.cleanupAfterSync).onChange(async (value) => {
+        this.plugin.settings.cleanupAfterSync = value;
+        await this.plugin.saveSettings();
+      }));
+      let hasWarnedAbsoluteCleanupPath2 = false;
+      new Setting(containerEl2).setName("\u6E05\u7406\u76EE\u5F55").setDesc("\u586B\u5199 vault \u5185\u76F8\u5BF9\u8DEF\u5F84\uFF08\u4E0D\u8981\u586B /Users/... \u8FD9\u7C7B\u7EDD\u5BF9\u8DEF\u5F84\uFF09\uFF0C\u652F\u6301 {{note}} \u5360\u4F4D\u7B26\uFF0C\u4F8B\u5982 published/{{note}}_img\u3002").addText((text) => text.setPlaceholder("published/{{note}}_img").setValue(this.plugin.settings.cleanupDirTemplate || "").onChange(async (value) => {
+        if (this.isAbsolutePathLike(value)) {
+          if (!hasWarnedAbsoluteCleanupPath2) {
+            new Notice("\u26A0\uFE0F \u6E05\u7406\u76EE\u5F55\u8BF7\u586B\u5199 vault \u5185\u76F8\u5BF9\u8DEF\u5F84\uFF0C\u4E0D\u8981\u4F7F\u7528\u7EDD\u5BF9\u8DEF\u5F84\uFF08\u5982 /Users/... \u6216 C:...\uFF09");
+            hasWarnedAbsoluteCleanupPath2 = true;
+          }
+        } else {
+          hasWarnedAbsoluteCleanupPath2 = false;
+        }
+        const normalized = this.normalizeVaultPath(value);
+        this.plugin.settings.cleanupDirTemplate = normalized;
+        await this.plugin.saveSettings();
+      }));
     }
     {
       const containerEl2 = multiContent;
