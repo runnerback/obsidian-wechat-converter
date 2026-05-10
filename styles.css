@@ -2371,7 +2371,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 
 .wechat-platform-chip {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 7px;
   min-height: 42px;
   padding: 7px 9px;
@@ -2397,17 +2397,18 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 
 .wechat-platform-chip input {
   flex: 0 0 auto;
-  margin: 3px 0 0;
 }
 
 .wechat-platform-chip-body {
-  display: grid;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
-  gap: 3px;
   line-height: 1.2;
 }
 
 .wechat-platform-chip-name {
+  flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2417,22 +2418,11 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .wechat-platform-chip-status {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
   white-space: nowrap;
   color: var(--text-faint);
   font-size: 10px;
   font-weight: 600;
-}
-
-.wechat-platform-chip-capabilities {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-muted);
-  font-size: 10px;
 }
 
 .wechat-platform-chip-status.is-ok {
@@ -3227,14 +3217,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   font-weight: 600;
 }
 
-.wechat-multiplatform-platform-capabilities {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--apple-tertiary);
-  font-size: 11px;
-}
+
 
 .wechat-multiplatform-platform-status.is-ok {
   color: var(--apple-success);
