@@ -3164,6 +3164,30 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   font-weight: 650;
 }
 
+.wechat-multiplatform-status-action {
+  margin-left: auto;
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--apple-border) 72%, transparent);
+  border-radius: 6px;
+  background: var(--apple-background);
+  color: var(--apple-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.wechat-multiplatform-status-action:hover {
+  border-color: color-mix(in srgb, var(--apple-accent) 50%, var(--apple-border));
+  background: color-mix(in srgb, var(--apple-accent) 6%, var(--apple-background));
+}
+
+.wechat-multiplatform-status-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .wechat-multiplatform-status-dot.is-ok {
   color: var(--apple-success);
 }

@@ -150,6 +150,49 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     expect(names).toContain('诊断已选平台登录状态');
   });
 
+  it('renders the Phase 2 connection status bar above the platform picker when bridge is enabled', () => {
+    const tab = renderTab(makePlugin({ multiPlatformSync: {
+      enabled: true,
+      port: 9527,
+      token: '',
+      supportedPlatforms: [],
+      selectedPlatforms: [],
+      connection: {
+        status: 'failed',
+        checkedAt: Date.now(),
+        platforms: [],
+        capabilities: {},
+        message: '连接令牌校验失败',
+      },
+      recentTasks: [],
+    } }));
+
+    const bar = tab.containerEl.querySelector('.wechat-multiplatform-status');
+    expect(bar).not.toBeNull();
+    const dot = bar.querySelector('.wechat-multiplatform-status-dot');
+    expect(dot.classList.contains('is-error')).toBe(true);
+    expect(bar.querySelector('.wechat-multiplatform-status-text').textContent)
+      .toContain('连接令牌校验失败');
+
+    // Bar must come before the platform picker.
+    const picker = tab.containerEl.querySelector('.wechat-platform-picker');
+    expect(picker).not.toBeNull();
+    expect(bar.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('does not render the connection status bar when bridge is disabled', () => {
+    const tab = renderTab(makePlugin({ multiPlatformSync: {
+      enabled: false,
+      port: 9527,
+      token: '',
+      supportedPlatforms: [],
+      selectedPlatforms: [],
+      connection: { status: 'untested', checkedAt: 0, platforms: [], capabilities: {}, message: '' },
+      recentTasks: [],
+    } }));
+    expect(tab.containerEl.querySelector('.wechat-multiplatform-status')).toBeNull();
+  });
+
   it('hides bridge-config fields and diagnostics when bridge is disabled', () => {
     renderTab(makePlugin({ multiPlatformSync: {
       enabled: false,

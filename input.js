@@ -235,6 +235,101 @@ function getAvailableWechatsyncPlatforms(settings = {}) {
   });
 }
 
+function formatWechatsyncCheckedAt(timestamp) {
+  if (!timestamp) return '';
+  try {
+    return new Date(timestamp).toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
+// Pure renderer for the bridge connection status bar shared between the
+// 「其他平台」settings tab and the publish modal. Caller computes the dot
+// label/class and the body text from `connection`; this only handles DOM
+// shape and the optional retry button. Returns the button element so the
+// caller can flip its disabled state during async work.
+function renderWechatsyncConnectionStatusBar(parentEl, options = {}) {
+  const {
+    dotLabel = '',
+    dotClass = '',
+    text = '',
+    action = null,
+  } = options;
+  const bar = parentEl.createDiv({ cls: 'wechat-multiplatform-status' });
+  if (dotLabel) {
+    bar.createEl('span', {
+      text: dotLabel,
+      cls: `wechat-multiplatform-status-dot ${dotClass}`.trim(),
+    });
+  }
+  if (text) {
+    bar.createEl('span', { text, cls: 'wechat-multiplatform-status-text' });
+  }
+  let actionButton = null;
+  if (action && typeof action === 'object') {
+    actionButton = bar.createEl('button', {
+      text: action.label || '重试',
+      cls: 'wechat-multiplatform-status-action',
+    });
+    if (action.disabled) actionButton.disabled = true;
+    if (typeof action.onClick === 'function') {
+      actionButton.addEventListener('click', (event) => {
+        action.onClick(event, actionButton);
+      });
+    }
+  }
+  return { bar, actionButton };
+}
+
+// Resolve a `{ dotLabel, dotClass, text }` triple for a given bridge
+// connection state. Centralized so both the publish modal and the settings
+// page render identical wording for identical connection states.
+function describeWechatsyncConnectionState(connection = {}, context = {}) {
+  const { variant = 'modal' } = context;
+  const checkedAtText = formatWechatsyncCheckedAt(connection.checkedAt);
+  if (connection.status === 'connected') {
+    if (variant === 'settings') {
+      return {
+        dotLabel: '已连接',
+        dotClass: 'is-ok',
+        text: connection.message
+          || (checkedAtText
+            ? `已连接浏览器插件。上次检查 ${checkedAtText}。`
+            : '已连接浏览器插件。'),
+      };
+    }
+    return {
+      dotLabel: '已连接',
+      dotClass: 'is-ok',
+      text: checkedAtText
+        ? `已连接。使用设置中 ${checkedAtText} 的所选平台配置，微信不会出现在这里。`
+        : '已连接。勾选本次要发送的平台，微信不会出现在这里。',
+    };
+  }
+  if (connection.status === 'failed') {
+    return {
+      dotLabel: '未连接',
+      dotClass: 'is-error',
+      text: variant === 'settings'
+        ? `上次连接失败${connection.message ? `：${connection.message}` : ''}。请检查端口、令牌后点击「测试连接」。`
+        : `上次连接失败${connection.message ? `：${connection.message}` : ''}。请先连接浏览器插件后再发布。`,
+    };
+  }
+  return {
+    dotLabel: '未测试',
+    dotClass: '',
+    text: variant === 'settings'
+      ? '尚未测试与浏览器插件的连接。点击下方「测试连接」开始诊断。'
+      : '尚未连接浏览器插件。平台列表先显示本地备用清单，连接后会读取插件实际支持的平台。',
+  };
+}
+
 function formatWechatsyncCapabilityLabels(capabilities = []) {
   const labels = {
     draft: '草稿',
@@ -4567,7 +4662,10 @@ class AppleStyleView extends ItemView {
     const displayedPlatforms = availablePlatforms.filter((p) => defaultSelectedPlatforms.has(p.id));
     const isBridgeReady = cachedConnection.status === 'connected';
 
-    const statusEl = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-status' });
+    {
+      const description = describeWechatsyncConnectionState(cachedConnection, { variant: 'modal' });
+      renderWechatsyncConnectionStatusBar(modal.contentEl, description);
+    }
     const platformListEl = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-list' });
     const selectedPlatforms = new Set();
     console.debug('[Wechatsync] render cached platform state', {
@@ -4671,31 +4769,7 @@ class AppleStyleView extends ItemView {
       updateSyncButtonState();
     };
 
-    if (cachedConnection.status === 'connected') {
-      const checkedAtText = formatCheckedAt(cachedConnection.checkedAt);
-      statusEl.createEl('span', { text: '已连接', cls: 'wechat-multiplatform-status-dot is-ok' });
-      statusEl.createEl('span', {
-        text: checkedAtText
-          ? `已连接。使用设置中 ${checkedAtText} 的所选平台配置，微信不会出现在这里。`
-          : '已连接。勾选本次要发送的平台，微信不会出现在这里。',
-        cls: 'wechat-multiplatform-status-text',
-      });
-      renderPlatforms(displayedPlatforms);
-    } else if (cachedConnection.status === 'failed') {
-      statusEl.createEl('span', { text: '未连接', cls: 'wechat-multiplatform-status-dot is-error' });
-      statusEl.createEl('span', {
-        text: `上次连接失败${cachedConnection.message ? `：${cachedConnection.message}` : ''}。请先连接浏览器插件后再发布。`,
-        cls: 'wechat-multiplatform-status-text',
-      });
-      renderPlatforms(displayedPlatforms);
-    } else {
-      statusEl.createEl('span', { text: '未测试', cls: 'wechat-multiplatform-status-dot' });
-      statusEl.createEl('span', {
-        text: '尚未连接浏览器插件。平台列表先显示本地备用清单，连接后会读取插件实际支持的平台。',
-        cls: 'wechat-multiplatform-status-text',
-      });
-      renderPlatforms(displayedPlatforms);
-    }
+    renderPlatforms(displayedPlatforms);
 
     syncBtn.onclick = async () => {
       if (!isBridgeReady) {
@@ -6352,6 +6426,19 @@ class AppleStyleSettingTab extends PluginSettingTab {
           bridgeConnected: multiPlatformSettings.connection?.status === 'connected',
         });
       };
+
+      // Persistent connection status bar above the platform picker. Replaces
+      // the previous flow where the only feedback for a failed 测试连接 was
+      // a Notice that disappeared after a few seconds. The bar reflects the
+      // latest cached connection state and stays visible across re-renders.
+      {
+        const description = describeWechatsyncConnectionState(
+          multiPlatformSettings.connection,
+          { variant: 'settings' }
+        );
+        renderWechatsyncConnectionStatusBar(containerEl, description);
+      }
+
       const platformPicker = containerEl.createDiv({ cls: 'wechat-platform-picker' });
       const platformPickerHeader = platformPicker.createDiv({ cls: 'wechat-platform-picker-header' });
       const platformPickerTitle = platformPickerHeader.createDiv();
@@ -6586,6 +6673,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
                 ? '请到浏览器插件里检查本地服务连接是否已开启，并确认浏览器正在运行、地址、端口和连接令牌与这里一致。'
                 : '';
               new Notice(`❌ 浏览器插件连接失败：${error.message}${hint ? ` ${hint}` : ''}`, 12000);
+              shouldRedisplay = true;
             } finally {
               button.setDisabled?.(false);
               button.setButtonText('测试');
@@ -7642,3 +7730,6 @@ module.exports.AppleStyleSettingTab = AppleStyleSettingTab;
 module.exports.createImageSwipeCalloutMarkdown = createImageSwipeCalloutMarkdown;
 module.exports.getImageSwipeCommandCopy = getImageSwipeCommandCopy;
 module.exports.stripMarkdownFrontmatter = stripMarkdownFrontmatter;
+module.exports.describeWechatsyncConnectionState = describeWechatsyncConnectionState;
+module.exports.renderWechatsyncConnectionStatusBar = renderWechatsyncConnectionStatusBar;
+module.exports.formatWechatsyncCheckedAt = formatWechatsyncCheckedAt;

@@ -154,4 +154,23 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     expect(title).toContain('知乎');
     expect(title).toContain('上次可用');
   });
+
+  it('renders exactly one connection status bar (Phase 2 helper) above the platform list', async () => {
+    const view = makeView({ selectedPlatforms: ['zhihu'] });
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+    const bars = modal.contentEl.querySelectorAll('.wechat-multiplatform-status');
+    expect(bars.length).toBe(1);
+
+    const bar = bars[0];
+    const dot = bar.querySelector('.wechat-multiplatform-status-dot');
+    expect(dot).not.toBeNull();
+    expect(dot.classList.contains('is-ok')).toBe(true);
+
+    // Bar must come before the platform list in DOM order.
+    const list = modal.contentEl.querySelector('.wechat-multiplatform-list');
+    expect(list).not.toBeNull();
+    const followers = bar.compareDocumentPosition(list);
+    expect(followers & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
