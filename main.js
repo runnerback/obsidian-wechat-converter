@@ -16248,7 +16248,7 @@ var AppleStyleView = class extends ItemView {
         cls: "wechat-multiplatform-result-name"
       });
       taskBody.createEl("div", {
-        text: (task == null ? void 0 : task.found) === false ? `syncId\uFF1A${taskId}\u3002\u8BF7\u6253\u5F00\u6269\u5C55\u5386\u53F2\u67E5\u770B\u3002` : `syncId\uFF1A${taskId}${(task == null ? void 0 : task.summary) ? ` \xB7 ${task.summary.success || 0} \u6210\u529F / ${task.summary.failed || 0} \u5931\u8D25 / ${task.summary.pending || 0} \u5904\u7406\u4E2D` : ""}`,
+        text: (task == null ? void 0 : task.found) === false ? `syncId\uFF1A${taskId}\u3002\u8BF7\u6253\u5F00\u63D2\u4EF6\u5386\u53F2\u67E5\u770B\u3002` : `syncId\uFF1A${taskId}${(task == null ? void 0 : task.summary) ? ` \xB7 ${task.summary.success || 0} \u6210\u529F / ${task.summary.failed || 0} \u5931\u8D25 / ${task.summary.pending || 0} \u5904\u7406\u4E2D` : ""}`,
         cls: "wechat-multiplatform-result-detail"
       });
     }
@@ -16343,7 +16343,7 @@ var AppleStyleView = class extends ItemView {
     } else if (normalizedResults.length === 0) {
       const row = list.createDiv({ cls: "wechat-multiplatform-result-row" });
       const body = row.createDiv({ cls: "wechat-multiplatform-result-body" });
-      body.createEl("div", { text: "\u7B49\u5F85\u6269\u5C55\u7ED3\u679C", cls: "wechat-multiplatform-result-name" });
+      body.createEl("div", { text: "\u7B49\u5F85\u63D2\u4EF6\u7ED3\u679C", cls: "wechat-multiplatform-result-name" });
       body.createEl("div", {
         text: "\u5F53\u524D\u8FDE\u63A5\u6CA1\u6709\u8FD4\u56DE\u5E73\u53F0\u660E\u7EC6\u3002\u8BF7\u5728\u6D4F\u89C8\u5668\u63D2\u4EF6\u4FA7\u786E\u8BA4\u8349\u7A3F\u662F\u5426\u5DF2\u751F\u6210\u3002",
         cls: "wechat-multiplatform-result-detail"
@@ -16644,7 +16644,7 @@ var AppleStyleView = class extends ItemView {
         });
         const currentMultiPlatformSettings = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
         if (result == null ? void 0 : result.syncId)
-          notice.setMessage("\u5DF2\u6295\u9012\uFF0C\u6B63\u5728\u8BFB\u53D6\u6269\u5C55\u4EFB\u52A1\u72B6\u6001...");
+          notice.setMessage("\u5DF2\u6295\u9012\uFF0C\u6B63\u5728\u8BFB\u53D6\u63D2\u4EF6\u4EFB\u52A1\u72B6\u6001...");
         const taskSnapshot = (result == null ? void 0 : result.syncId) ? await this.getWechatsyncTaskSnapshot(bridge, result.syncId) : null;
         const immediateResults = normalizeWechatSyncResponseResults(result);
         const taskResults = Array.isArray(taskSnapshot == null ? void 0 : taskSnapshot.platforms) ? taskSnapshot.platforms.map((item) => ({
@@ -17897,7 +17897,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         const platformPickerTitle = platformPickerHeader.createDiv();
         platformPickerTitle.createEl("div", { text: "\u53D1\u5E03\u5E73\u53F0\uFF08\u6D4F\u89C8\u5668\u63D2\u4EF6\u652F\u6301\uFF09", cls: "wechat-platform-picker-title" });
         platformPickerTitle.createEl("div", {
-          text: hasCachedAuthState ? `\u5DF2\u52FE\u9009\u5E73\u53F0\u4F1A\u663E\u793A\u4E0A\u6B21\u72B6\u6001${formatAuthCheckedAt((_b = multiPlatformSettings.connection) == null ? void 0 : _b.checkedAt) ? `\uFF08${formatAuthCheckedAt(multiPlatformSettings.connection.checkedAt)}\uFF09` : ""}\uFF1B\u672C\u6B21\u53D1\u5E03\u4ECD\u4EE5\u6D4F\u89C8\u5668\u6269\u5C55\u5B9E\u9645\u7ED3\u679C\u4E3A\u51C6\u3002` : hasExtensionPlatformList ? "\u5E73\u53F0\u6E05\u5355\u6765\u81EA\u5F53\u524D\u8FDE\u63A5\u7684\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF1B\u4EC5\u52FE\u9009\u7684\u5E73\u53F0\u4F1A\u663E\u793A\u4E0A\u6B21\u72B6\u6001\u3002" : "\u672A\u8FDE\u63A5\u63D2\u4EF6\u524D\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF1B\u8FDE\u63A5\u6210\u529F\u540E\u4F1A\u5237\u65B0\u4E3A\u63D2\u4EF6\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002",
+          text: hasCachedAuthState ? `\u5DF2\u52FE\u9009\u5E73\u53F0\u4F1A\u663E\u793A\u4E0A\u6B21\u72B6\u6001${formatAuthCheckedAt((_b = multiPlatformSettings.connection) == null ? void 0 : _b.checkedAt) ? `\uFF08${formatAuthCheckedAt(multiPlatformSettings.connection.checkedAt)}\uFF09` : ""}\uFF1B\u672C\u6B21\u53D1\u5E03\u4ECD\u4EE5\u6D4F\u89C8\u5668\u63D2\u4EF6\u5B9E\u9645\u7ED3\u679C\u4E3A\u51C6\u3002` : hasExtensionPlatformList ? "\u5E73\u53F0\u6E05\u5355\u6765\u81EA\u5F53\u524D\u8FDE\u63A5\u7684\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF1B\u4EC5\u52FE\u9009\u7684\u5E73\u53F0\u4F1A\u663E\u793A\u4E0A\u6B21\u72B6\u6001\u3002" : "\u672A\u8FDE\u63A5\u63D2\u4EF6\u524D\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF1B\u8FDE\u63A5\u6210\u529F\u540E\u4F1A\u5237\u65B0\u4E3A\u63D2\u4EF6\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002",
           cls: "wechat-platform-picker-desc"
         });
         const platformSummary = platformPickerHeader.createDiv({ cls: "wechat-platform-picker-summary" });
@@ -17973,7 +17973,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         }
         new Setting(containerEl2).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u53EA\u9A8C\u8BC1 Obsidian\u3001\u6D4F\u89C8\u5668\u63D2\u4EF6\u548C\u8FDE\u63A5\u4EE4\u724C\u662F\u5426\u8FDE\u901A\uFF0C\u5E76\u8BFB\u53D6\u5E73\u53F0\u6E05\u5355\uFF1B\u4E0D\u4F1A\u5B9E\u65F6\u68C0\u6D4B\u6240\u6709\u5E73\u53F0\u767B\u5F55\u72B6\u6001\u3002").addButton((button) => button.setButtonText("\u6D4B\u8BD5").onClick(async () => {
           var _a2, _b2, _c, _d, _e, _f, _g;
-          button.setButtonText("\u7B49\u5F85\u6269\u5C55...");
+          button.setButtonText("\u7B49\u5F85\u63D2\u4EF6...");
           (_a2 = button.setDisabled) == null ? void 0 : _a2.call(button, true);
           const startedAt = Date.now();
           let bridge = null;

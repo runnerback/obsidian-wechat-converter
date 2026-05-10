@@ -4331,7 +4331,7 @@ class AppleStyleView extends ItemView {
       });
       taskBody.createEl('div', {
         text: task?.found === false
-          ? `syncId：${taskId}。请打开扩展历史查看。`
+          ? `syncId：${taskId}。请打开插件历史查看。`
           : `syncId：${taskId}${task?.summary ? ` · ${task.summary.success || 0} 成功 / ${task.summary.failed || 0} 失败 / ${task.summary.pending || 0} 处理中` : ''}`,
         cls: 'wechat-multiplatform-result-detail',
       });
@@ -4450,7 +4450,7 @@ class AppleStyleView extends ItemView {
     } else if (normalizedResults.length === 0) {
       const row = list.createDiv({ cls: 'wechat-multiplatform-result-row' });
       const body = row.createDiv({ cls: 'wechat-multiplatform-result-body' });
-      body.createEl('div', { text: '等待扩展结果', cls: 'wechat-multiplatform-result-name' });
+      body.createEl('div', { text: '等待插件结果', cls: 'wechat-multiplatform-result-name' });
       body.createEl('div', {
         text: '当前连接没有返回平台明细。请在浏览器插件侧确认草稿是否已生成。',
         cls: 'wechat-multiplatform-result-detail',
@@ -4764,7 +4764,7 @@ class AppleStyleView extends ItemView {
           platformCount: requestedPlatformIds.length,
         });
         const currentMultiPlatformSettings = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
-        if (result?.syncId) notice.setMessage('已投递，正在读取扩展任务状态...');
+        if (result?.syncId) notice.setMessage('已投递，正在读取插件任务状态...');
         const taskSnapshot = result?.syncId
           ? await this.getWechatsyncTaskSnapshot(bridge, result.syncId)
           : null;
@@ -6272,7 +6272,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
       platformPickerTitle.createEl('div', { text: '发布平台（浏览器插件支持）', cls: 'wechat-platform-picker-title' });
       platformPickerTitle.createEl('div', {
         text: hasCachedAuthState
-          ? `已勾选平台会显示上次状态${formatAuthCheckedAt(multiPlatformSettings.connection?.checkedAt) ? `（${formatAuthCheckedAt(multiPlatformSettings.connection.checkedAt)}）` : ''}；本次发布仍以浏览器扩展实际结果为准。`
+          ? `已勾选平台会显示上次状态${formatAuthCheckedAt(multiPlatformSettings.connection?.checkedAt) ? `（${formatAuthCheckedAt(multiPlatformSettings.connection.checkedAt)}）` : ''}；本次发布仍以浏览器插件实际结果为准。`
           : (hasExtensionPlatformList
             ? '平台清单来自当前连接的浏览器插件；仅勾选的平台会显示上次状态。'
             : '未连接插件前先显示本地备用清单；连接成功后会刷新为插件实际支持的平台。'),
@@ -6357,7 +6357,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
         .addButton(button => button
           .setButtonText('测试')
           .onClick(async () => {
-            button.setButtonText('等待扩展...');
+            button.setButtonText('等待插件...');
             button.setDisabled?.(true);
             const startedAt = Date.now();
             let bridge = null;
