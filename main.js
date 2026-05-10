@@ -16994,6 +16994,10 @@ var AppleStyleView = class extends ItemView {
       text: "\u63D0\u793A\uFF1A\u5982\u5F53\u524D\u5DF2\u6253\u5F00\u6587\u6863\u4F46\u672A\u663E\u793A\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u4E00\u4E0B\u6587\u6863\u5373\u53EF\u89E6\u53D1\u9884\u89C8",
       cls: "apple-placeholder-note"
     });
+    placeholder.createEl("p", {
+      text: "\u63D0\u793A\uFF1A\u5176\u4ED6\u5E73\u53F0\u53D1\u5E03\u4EE5 Obsidian \u4E2D\u7684 Markdown \u539F\u6587\u4E3A\u51C6\uFF0C\u4E0D\u7ECF\u8FC7\u9884\u89C8\u6837\u5F0F\u5904\u7406\u3002",
+      cls: "apple-placeholder-note"
+    });
   }
   showRenderFailurePlaceholder(message = "") {
     if (!this.previewContainer || typeof this.previewContainer.createEl !== "function")

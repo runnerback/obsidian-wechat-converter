@@ -5156,6 +5156,10 @@ class AppleStyleView extends ItemView {
       text: '提示：如当前已打开文档但未显示，请重新点击一下文档即可触发预览',
       cls: 'apple-placeholder-note'
     });
+    placeholder.createEl('p', {
+      text: '提示：其他平台发布以 Obsidian 中的 Markdown 原文为准，不经过预览样式处理。',
+      cls: 'apple-placeholder-note'
+    });
   }
 
   showRenderFailurePlaceholder(message = '') {
