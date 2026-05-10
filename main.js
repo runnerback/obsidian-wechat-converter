@@ -16412,12 +16412,8 @@ var AppleStyleView = class extends ItemView {
     };
     const intro = modal.contentEl.createDiv({ cls: "wechat-multiplatform-intro" });
     const introText = intro.createDiv({ cls: "wechat-multiplatform-intro-text" });
-    introText.createEl("div", {
-      text: "\u5176\u4ED6\u5E73\u53F0\u7531\u6D4F\u89C8\u5668\u63D2\u4EF6\u63A5\u7BA1",
-      cls: "wechat-multiplatform-kicker"
-    });
     introText.createEl("p", {
-      text: "\u5FAE\u4FE1\u4ECD\u4F7F\u7528\u672C\u63D2\u4EF6\u81EA\u5DF1\u7684\u516C\u4F17\u53F7 API\u3002\u77E5\u4E4E\u3001\u6398\u91D1\u3001CSDN \u7B49\u5E73\u53F0\u4F1A\u901A\u8FC7\u6D4F\u89C8\u5668\u767B\u5F55\u6001\u4FDD\u5B58\u4E3A\u8349\u7A3F\u3002"
+      text: "\u9009\u62E9\u5E73\u53F0\u540E\u901A\u8FC7\u6D4F\u89C8\u5668\u63D2\u4EF6\u4FDD\u5B58\u4E3A\u8349\u7A3F\u3002"
     });
     if (!bridgeSettings.enabled) {
       const disabledHint = modal.contentEl.createDiv({ cls: "wechat-sync-empty-state" });

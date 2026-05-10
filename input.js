@@ -4526,12 +4526,8 @@ class AppleStyleView extends ItemView {
 
     const intro = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-intro' });
     const introText = intro.createDiv({ cls: 'wechat-multiplatform-intro-text' });
-    introText.createEl('div', {
-      text: '其他平台由浏览器插件接管',
-      cls: 'wechat-multiplatform-kicker',
-    });
     introText.createEl('p', {
-      text: '微信仍使用本插件自己的公众号 API。知乎、掘金、CSDN 等平台会通过浏览器登录态保存为草稿。',
+      text: '选择平台后通过浏览器插件保存为草稿。',
     });
 
     if (!bridgeSettings.enabled) {
