@@ -5950,23 +5950,6 @@ class AppleStyleSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setDesc('在 Obsidian 中完成写作与预览；微信账号、浏览器插件发布和默认发布选项在这里配置。更多排版样式请在侧边栏面板中调整。');
 
-    // 预览模式设置
-    new Setting(containerEl)
-      .setName('预览模式')
-      .setHeading();
-
-    new Setting(containerEl)
-      .setName('使用手机仿真框')
-      .setDesc('开启后，预览区域将显示为 iPhone X 手机框样式；关闭则恢复为经典全宽预览模式（需重启插件面板生效）')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.usePhoneFrame)
-        .onChange(async (value) => {
-          this.plugin.settings.usePhoneFrame = value;
-          await this.plugin.saveSettings();
-          // 提示用户重启面板
-          new Notice('设置已保存，请关闭并重新打开发布助手面板以生效');
-        }));
-
     // === Tab 导航 ===
     const tabBar = containerEl.createDiv({ cls: 'apple-settings-tabs' });
     const wechatTab = tabBar.createDiv({ cls: 'apple-settings-tab active', text: '微信' });
@@ -5992,6 +5975,22 @@ class AppleStyleSettingTab extends PluginSettingTab {
     // === 微信 Tab ===
     {
       const containerEl = wechatContent;
+
+    // 预览模式设置
+    new Setting(containerEl)
+      .setName('预览模式')
+      .setHeading();
+
+    new Setting(containerEl)
+      .setName('使用手机仿真框')
+      .setDesc('开启后，预览区域将显示为 iPhone X 手机框样式；关闭则恢复为经典全宽预览模式（需重启插件面板生效）')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.usePhoneFrame)
+        .onChange(async (value) => {
+          this.plugin.settings.usePhoneFrame = value;
+          await this.plugin.saveSettings();
+          new Notice('设置已保存，请关闭并重新打开发布助手面板以生效');
+        }));
 
     // 图片水印设置
     new Setting(containerEl)
