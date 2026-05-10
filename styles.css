@@ -2400,26 +2400,24 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .wechat-platform-chip-body {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  flex: 1;
   min-width: 0;
   line-height: 1.2;
 }
 
 .wechat-platform-chip-name {
-  flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   white-space: nowrap;
   font-size: 12px;
   font-weight: 600;
 }
 
 .wechat-platform-chip-status {
+  margin-left: auto;
   flex-shrink: 0;
-  white-space: nowrap;
   color: var(--text-faint);
   font-size: 10px;
   font-weight: 600;

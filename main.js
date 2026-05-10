@@ -17923,7 +17923,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
           checkbox.value = platform.id;
           const chipBody = chip.createEl("span", { cls: "wechat-platform-chip-body" });
           chipBody.createEl("span", { text: platform.name, cls: "wechat-platform-chip-name" });
-          const statusEl = chipBody.createEl("span", {
+          const statusEl = chip.createEl("span", {
             text: isSelected ? authBadge.text : "",
             cls: `wechat-platform-chip-status ${isSelected ? authBadge.cls : ""}`
           });
