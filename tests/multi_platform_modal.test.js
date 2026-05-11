@@ -260,4 +260,38 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     upgradeBtn.click();
     expect(view.openPublisherProPage).toHaveBeenCalled();
   });
+
+  it('does not render skipped platforms again as queued task rows', () => {
+    const view = makeView({ selectedPlatforms: ['zhihu', 'juejin'] });
+
+    view.showWechatsyncEnqueueAcceptedModal({
+      syncId: 'sync-1',
+      title: 'a',
+      platforms: ['zhihu', 'juejin'],
+      task: {
+        platforms: [
+          { id: 'zhihu', status: 'queued' },
+          { id: 'juejin', status: 'queued', message: '免费版每次最多 1 个平台' },
+        ],
+      },
+      quotaResult: {
+        accepted: true,
+        quotaBlocked: true,
+        maxPlatforms: 1,
+        publishedPlatforms: ['zhihu'],
+        skippedPlatforms: ['juejin'],
+      },
+    });
+
+    const modal = modalCapture.getLastModal();
+    const rows = Array.from(modal.contentEl.querySelectorAll('.wechat-multiplatform-result-row'));
+    const platformRows = rows.filter((row) => row.querySelector('.wechat-multiplatform-result-name')?.textContent !== 'a');
+    const zhihuRows = platformRows.filter((row) => row.querySelector('.wechat-multiplatform-result-name')?.textContent === '知乎');
+    const juejinRows = platformRows.filter((row) => row.querySelector('.wechat-multiplatform-result-name')?.textContent === '掘金');
+
+    expect(zhihuRows).toHaveLength(1);
+    expect(zhihuRows[0].querySelector('.wechat-multiplatform-result-pill')?.textContent).toBe('已投递');
+    expect(juejinRows).toHaveLength(1);
+    expect(juejinRows[0].querySelector('.wechat-multiplatform-result-pill')?.textContent).toBe('已跳过');
+  });
 });

@@ -17153,6 +17153,8 @@ var AppleStyleView = class extends ItemView {
     const publishedPlatformIds = parseWechatsyncPlatformIds(
       ((_a = quotaResult == null ? void 0 : quotaResult.publishedPlatforms) == null ? void 0 : _a.length) ? quotaResult.publishedPlatforms : (quotaResult == null ? void 0 : quotaResult.platforms) || platforms
     );
+    const skippedPlatformSet = new Set(skippedPlatformIds);
+    const publishedPlatformSet = new Set(publishedPlatformIds);
     if (typeof Modal !== "function") {
       const syncIdText = taskId ? `\uFF08\u4EFB\u52A1 ${taskId}\uFF09` : "";
       const fallbackText = usedFallbackSend ? "\u5F53\u524D\u63D2\u4EF6\u672A\u63D0\u4F9B\u4EFB\u52A1 ID\uFF0C" : "";
@@ -17189,7 +17191,18 @@ var AppleStyleView = class extends ItemView {
       text: skippedPlatformIds.length ? `\u5DF2\u53D1\u5E03\u5230\uFF1A${formatPlatformNames(publishedPlatformIds)}\u3002\u8DF3\u8FC7 ${skippedPlatformIds.length} \u4E2A\u8D85\u989D\u5E73\u53F0\uFF1A${formatPlatformNames(skippedPlatformIds)}\u3002\u5347\u7EA7 Pro \u53EF\u53D1\u5E03\u5230\u5168\u90E8\u5E73\u53F0\u3002` : taskId ? "Obsidian \u5DF2\u5B8C\u6210\u6295\u9012\uFF0C\u4E0D\u4F1A\u957F\u65F6\u95F4\u7B49\u5F85\u6240\u6709\u5E73\u53F0\u5B8C\u6210\u3002\u540E\u7EED\u8349\u7A3F\u94FE\u63A5\u3001\u5931\u8D25\u539F\u56E0\u548C\u91CD\u8BD5\u8BF7\u5728\u6D4F\u89C8\u5668\u63D2\u4EF6\u4EFB\u52A1\u7A97\u53E3\u91CC\u67E5\u770B\u3002" : "\u5F53\u524D\u63D2\u4EF6\u7248\u672C\u6CA1\u6709\u8FD4\u56DE\u4EFB\u52A1 ID\u3002\u6587\u7AE0\u5DF2\u53D1\u9001\uFF0C\u8BF7\u5728\u6D4F\u89C8\u5668\u63D2\u4EF6\u5386\u53F2\u8BB0\u5F55\u4E2D\u67E5\u770B\u6700\u8FD1\u4EFB\u52A1\u3002"
     });
     const list = modal.contentEl.createDiv({ cls: "wechat-multiplatform-result-list" });
-    const taskPlatforms = Array.isArray(task == null ? void 0 : task.platforms) && task.platforms.length ? task.platforms : (publishedPlatformIds.length ? publishedPlatformIds : platforms).map((id) => ({ id, status: "queued" }));
+    const rawTaskPlatforms = Array.isArray(task == null ? void 0 : task.platforms) && task.platforms.length ? task.platforms : (publishedPlatformIds.length ? publishedPlatformIds : platforms).map((id) => ({ id, status: "queued" }));
+    const taskPlatforms = rawTaskPlatforms.filter((item) => {
+      const platformId = parseWechatsyncPlatformIds([(item == null ? void 0 : item.id) || (item == null ? void 0 : item.platform) || item])[0] || "";
+      if (!platformId)
+        return false;
+      if (skippedPlatformSet.has(platformId))
+        return false;
+      if (skippedPlatformSet.size > 0 && publishedPlatformSet.size > 0) {
+        return publishedPlatformSet.has(platformId);
+      }
+      return true;
+    });
     if (taskId) {
       const taskRow = list.createDiv({ cls: "wechat-multiplatform-result-row" });
       taskRow.createEl("div", { text: "\u4EFB\u52A1", cls: "wechat-multiplatform-result-pill is-success" });

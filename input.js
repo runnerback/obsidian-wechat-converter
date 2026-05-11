@@ -4155,6 +4155,8 @@ class AppleStyleView extends ItemView {
     const publishedPlatformIds = parseWechatsyncPlatformIds(
       quotaResult?.publishedPlatforms?.length ? quotaResult.publishedPlatforms : (quotaResult?.platforms || platforms)
     );
+    const skippedPlatformSet = new Set(skippedPlatformIds);
+    const publishedPlatformSet = new Set(publishedPlatformIds);
     if (typeof Modal !== 'function') {
       const syncIdText = taskId ? `（任务 ${taskId}）` : '';
       const fallbackText = usedFallbackSend ? '当前插件未提供任务 ID，' : '';
@@ -4200,9 +4202,18 @@ class AppleStyleView extends ItemView {
     });
 
     const list = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-result-list' });
-    const taskPlatforms = Array.isArray(task?.platforms) && task.platforms.length
+    const rawTaskPlatforms = Array.isArray(task?.platforms) && task.platforms.length
       ? task.platforms
       : (publishedPlatformIds.length ? publishedPlatformIds : platforms).map((id) => ({ id, status: 'queued' }));
+    const taskPlatforms = rawTaskPlatforms.filter((item) => {
+      const platformId = parseWechatsyncPlatformIds([item?.id || item?.platform || item])[0] || '';
+      if (!platformId) return false;
+      if (skippedPlatformSet.has(platformId)) return false;
+      if (skippedPlatformSet.size > 0 && publishedPlatformSet.size > 0) {
+        return publishedPlatformSet.has(platformId);
+      }
+      return true;
+    });
 
     if (taskId) {
       const taskRow = list.createDiv({ cls: 'wechat-multiplatform-result-row' });
