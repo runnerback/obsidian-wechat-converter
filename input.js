@@ -4343,16 +4343,11 @@ class AppleStyleView extends ItemView {
     body.createEl('div', {
       text: skippedPlatformIds.length
         ? formatPlatformNames(skippedPlatformIds)
-        : '浏览器插件没有返回平台明细，请减少平台后重试。',
+        : '浏览器插件没有返回平台明细。',
       cls: 'wechat-multiplatform-result-detail',
     });
 
     const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
-    const retryBtn = btnRow.createEl('button', { text: '重新选择平台' });
-    retryBtn.onclick = () => {
-      modal.close();
-      this.showMultiPlatformSyncModal();
-    };
     const upgradeBtn = btnRow.createEl('button', { text: '升级 Pro', cls: 'mod-cta' });
     upgradeBtn.onclick = () => this.openPublisherProPage();
     const closeBtn = btnRow.createEl('button', { text: '关闭' });

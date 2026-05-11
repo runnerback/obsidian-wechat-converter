@@ -17317,15 +17317,10 @@ var AppleStyleView = class extends ItemView {
       cls: "wechat-multiplatform-result-name"
     });
     body.createEl("div", {
-      text: skippedPlatformIds.length ? formatPlatformNames(skippedPlatformIds) : "\u6D4F\u89C8\u5668\u63D2\u4EF6\u6CA1\u6709\u8FD4\u56DE\u5E73\u53F0\u660E\u7EC6\uFF0C\u8BF7\u51CF\u5C11\u5E73\u53F0\u540E\u91CD\u8BD5\u3002",
+      text: skippedPlatformIds.length ? formatPlatformNames(skippedPlatformIds) : "\u6D4F\u89C8\u5668\u63D2\u4EF6\u6CA1\u6709\u8FD4\u56DE\u5E73\u53F0\u660E\u7EC6\u3002",
       cls: "wechat-multiplatform-result-detail"
     });
     const btnRow = modal.contentEl.createDiv({ cls: "wechat-modal-buttons" });
-    const retryBtn = btnRow.createEl("button", { text: "\u91CD\u65B0\u9009\u62E9\u5E73\u53F0" });
-    retryBtn.onclick = () => {
-      modal.close();
-      this.showMultiPlatformSyncModal();
-    };
     const upgradeBtn = btnRow.createEl("button", { text: "\u5347\u7EA7 Pro", cls: "mod-cta" });
     upgradeBtn.onclick = () => this.openPublisherProPage();
     const closeBtn = btnRow.createEl("button", { text: "\u5173\u95ED" });

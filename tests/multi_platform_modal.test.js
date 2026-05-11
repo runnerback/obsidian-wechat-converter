@@ -316,5 +316,29 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     expect(modal.contentEl.textContent).toContain('免费版今日平台额度不足');
     expect(modal.contentEl.textContent).not.toContain('每次最多');
     expect(modal.contentEl.textContent).not.toContain('单次最多');
+    const buttonTexts = Array.from(modal.contentEl.querySelectorAll('button')).map((button) => button.textContent);
+    expect(buttonTexts).not.toContain('重新选择平台');
+  });
+
+  it('hides platform reselection when publish is quota blocked', () => {
+    const view = makeView({ selectedPlatforms: ['zhihu'] });
+    view.showMultiPlatformQuotaBlockedModal = AppleStyleView.prototype.showMultiPlatformQuotaBlockedModal.bind(view);
+
+    view.showMultiPlatformQuotaBlockedModal({
+      requestedPlatformIds: ['zhihu'],
+      quotaResult: {
+        accepted: false,
+        quotaBlocked: true,
+        reason: 'daily_limit',
+        skippedPlatforms: ['zhihu'],
+        message: '今日免费发布平台数已用完，明天 0:00 重置，或升级 Pro 解除限制',
+      },
+    });
+
+    const modal = modalCapture.getLastModal();
+    const buttonTexts = Array.from(modal.contentEl.querySelectorAll('button')).map((button) => button.textContent);
+    expect(buttonTexts).not.toContain('重新选择平台');
+    expect(buttonTexts).toContain('升级 Pro');
+    expect(buttonTexts).toContain('关闭');
   });
 });
