@@ -10958,10 +10958,10 @@ var require_wechatsync_bridge = __commonJS({
         const params = Array.isArray(platformOrPlatforms) ? { platforms: platformOrPlatforms, forceRefresh } : { platform: platformOrPlatforms, forceRefresh };
         return requestWithMethodFallback("checkAuth", "check_auth", params, { timeoutMs });
       }
-      function syncArticle({ platforms, title, markdown, content, cover, timeoutMs = DEFAULT_SYNC_REQUEST_TIMEOUT_MS }) {
+      function syncArticle({ platforms, title, markdown, content, cover, assets, timeoutMs = DEFAULT_SYNC_REQUEST_TIMEOUT_MS }) {
         return request2("syncArticle", {
           platforms,
-          article: { title, markdown, content, cover }
+          article: { title, markdown, content, cover, assets }
         }, { timeoutMs });
       }
       function enqueueSyncArticle({
@@ -10970,6 +10970,7 @@ var require_wechatsync_bridge = __commonJS({
         markdown,
         content,
         cover,
+        assets,
         source = "obsidian",
         quotaPolicy,
         timeoutMs = 1e4
@@ -10977,7 +10978,7 @@ var require_wechatsync_bridge = __commonJS({
         const params = {
           platforms,
           source,
-          article: { title, markdown, content, cover }
+          article: { title, markdown, content, cover, assets }
         };
         if (quotaPolicy === "block" || quotaPolicy === "truncate") {
           params.quotaPolicy = quotaPolicy;
@@ -11002,10 +11003,10 @@ var require_wechatsync_bridge = __commonJS({
           maxAgeMs
         }, { timeoutMs });
       }
-      function sendArticle({ platforms, title, markdown, content, cover }) {
+      function sendArticle({ platforms, title, markdown, content, cover, assets }) {
         return send("syncArticle", {
           platforms,
-          article: { title, markdown, content, cover }
+          article: { title, markdown, content, cover, assets }
         });
       }
       async function getStatus() {
@@ -13106,6 +13107,520 @@ var require_multi_platform_tab = __commonJS({
   }
 });
 
+// services/article-image-assets.js
+var require_article_image_assets = __commonJS({
+  "services/article-image-assets.js"(exports2, module2) {
+    var path = require("path");
+    var DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+    var DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
+    var SUPPORTED_IMAGE_MIME_BY_EXT = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      webp: "image/webp",
+      gif: "image/gif"
+    };
+    var RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT = {
+      svg: "image/svg+xml",
+      heic: "image/heic",
+      heif: "image/heif",
+      avif: "image/avif"
+    };
+    function normalizePath(value) {
+      return String(value || "").trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/{2,}/g, "/");
+    }
+    function getExtension(filename) {
+      const ext = String(filename || "").split("?")[0].split("#")[0].split(".").pop();
+      return ext && ext !== filename ? ext.toLowerCase() : "";
+    }
+    function isRemoteImageSrc(src) {
+      return /^https?:\/\//i.test(String(src || "").trim());
+    }
+    function isDataImageSrc(src) {
+      return /^data:image\//i.test(String(src || "").trim());
+    }
+    function isAssetImageSrc(src) {
+      return /^asset:\/\//i.test(String(src || "").trim());
+    }
+    function isFileUrl(src) {
+      return /^file:\/\//i.test(String(src || "").trim());
+    }
+    function getFilenameFromPath(src) {
+      const value = String(src || "").split("?")[0].split("#")[0].replace(/\\/g, "/");
+      const filename = value.split("/").filter(Boolean).pop();
+      return filename || "image";
+    }
+    function stripMarkdownDestination(rawDestination) {
+      const raw = String(rawDestination || "").trim();
+      if (raw.startsWith("<")) {
+        const end = raw.indexOf(">");
+        if (end > 0)
+          return raw.slice(1, end).trim();
+      }
+      return raw.replace(/\\([()])/g, "$1").trim();
+    }
+    function splitWikiEmbedTarget(rawTarget) {
+      const parts = String(rawTarget || "").split("|");
+      const src = (parts.shift() || "").trim();
+      const alias = parts.join("|").trim();
+      return { src, alias };
+    }
+    function createAltFromSrc(src, fallback = "\u56FE\u7247") {
+      const filename = getFilenameFromPath(src);
+      return filename.replace(/\.(png|jpe?g|gif|webp|svg|heic|heif|avif)$/i, "") || fallback;
+    }
+    function collectWikiImageEmbeds(markdown) {
+      const results = [];
+      const pattern = /!\[\[([^\]\n]+?)\]\]/g;
+      let match;
+      while ((match = pattern.exec(markdown)) !== null) {
+        const { src, alias } = splitWikiEmbedTarget(match[1]);
+        if (!src)
+          continue;
+        results.push({
+          type: "wiki",
+          start: match.index,
+          end: match.index + match[0].length,
+          raw: match[0],
+          src,
+          alt: alias || createAltFromSrc(src)
+        });
+      }
+      return results;
+    }
+    function collectMarkdownImages(markdown) {
+      const results = [];
+      let index = 0;
+      while (index < markdown.length) {
+        const start = markdown.indexOf("![", index);
+        if (start < 0)
+          break;
+        let cursor = start + 2;
+        let escaped = false;
+        let altEnd = -1;
+        while (cursor < markdown.length) {
+          const char = markdown[cursor];
+          if (escaped) {
+            escaped = false;
+          } else if (char === "\\") {
+            escaped = true;
+          } else if (char === "]") {
+            altEnd = cursor;
+            break;
+          }
+          cursor += 1;
+        }
+        if (altEnd < 0 || markdown[altEnd + 1] !== "(") {
+          index = start + 2;
+          continue;
+        }
+        const destinationStart = altEnd + 2;
+        cursor = destinationStart;
+        let depth = 0;
+        escaped = false;
+        let destinationEnd = -1;
+        while (cursor < markdown.length) {
+          const char = markdown[cursor];
+          if (escaped) {
+            escaped = false;
+          } else if (char === "\\") {
+            escaped = true;
+          } else if (char === "(") {
+            depth += 1;
+          } else if (char === ")") {
+            if (depth === 0) {
+              destinationEnd = cursor;
+              break;
+            }
+            depth -= 1;
+          }
+          cursor += 1;
+        }
+        if (destinationEnd < 0) {
+          index = start + 2;
+          continue;
+        }
+        const alt = markdown.slice(start + 2, altEnd);
+        const destination = stripMarkdownDestination(markdown.slice(destinationStart, destinationEnd));
+        if (destination) {
+          results.push({
+            type: "markdown",
+            start,
+            end: destinationEnd + 1,
+            raw: markdown.slice(start, destinationEnd + 1),
+            src: destination,
+            alt
+          });
+        }
+        index = destinationEnd + 1;
+      }
+      return results;
+    }
+    function collectFencedCodeRanges(markdown) {
+      const ranges = [];
+      const fencePattern = /^( {0,3})(`{3,}|~{3,})[^\n]*(?:\n|$)/gm;
+      let match;
+      let open = null;
+      while ((match = fencePattern.exec(markdown)) !== null) {
+        const marker = match[2][0];
+        const length = match[2].length;
+        if (!open) {
+          open = { start: match.index, marker, length };
+          continue;
+        }
+        if (open.marker === marker && length >= open.length) {
+          ranges.push({ start: open.start, end: match.index + match[0].length });
+          open = null;
+        }
+      }
+      if (open)
+        ranges.push({ start: open.start, end: markdown.length });
+      return ranges;
+    }
+    function isInsideRanges(index, ranges) {
+      return ranges.some((range) => index >= range.start && index < range.end);
+    }
+    function collectArticleImageReferences(markdown) {
+      const codeRanges = collectFencedCodeRanges(markdown);
+      return [
+        ...collectWikiImageEmbeds(markdown),
+        ...collectMarkdownImages(markdown)
+      ].filter((ref) => !isInsideRanges(ref.start, codeRanges)).sort((a, b) => a.start - b.start);
+    }
+    function bufferFromBinary(binary) {
+      if (Buffer.isBuffer(binary))
+        return binary;
+      if (binary instanceof ArrayBuffer)
+        return Buffer.from(binary);
+      if (ArrayBuffer.isView(binary)) {
+        return Buffer.from(binary.buffer, binary.byteOffset, binary.byteLength);
+      }
+      return Buffer.from(binary || []);
+    }
+    function inferMimeType(filename, buffer) {
+      const ext = getExtension(filename);
+      if (SUPPORTED_IMAGE_MIME_BY_EXT[ext])
+        return SUPPORTED_IMAGE_MIME_BY_EXT[ext];
+      if (RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext]) {
+        return RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext];
+      }
+      if ((buffer == null ? void 0 : buffer.length) >= 12) {
+        if (buffer[0] === 137 && buffer.slice(1, 4).toString("ascii") === "PNG")
+          return "image/png";
+        if (buffer[0] === 255 && buffer[1] === 216)
+          return "image/jpeg";
+        if (buffer.slice(0, 4).toString("ascii") === "GIF8")
+          return "image/gif";
+        if (buffer.slice(0, 4).toString("ascii") === "RIFF" && buffer.slice(8, 12).toString("ascii") === "WEBP")
+          return "image/webp";
+      }
+      return ext ? `image/${ext}` : "application/octet-stream";
+    }
+    function createWarning(code, message, details = {}) {
+      return {
+        code,
+        message,
+        severity: details.severity || "error",
+        src: details.src || "",
+        filename: details.filename || "",
+        size: details.size || 0
+      };
+    }
+    function isSupportedImageFile(filename) {
+      return !!SUPPORTED_IMAGE_MIME_BY_EXT[getExtension(filename)];
+    }
+    function isRecognizedUnsupportedImageFile(filename) {
+      return !!RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[getExtension(filename)];
+    }
+    function getNoteSourcePath(noteFile) {
+      return typeof (noteFile == null ? void 0 : noteFile.path) === "string" ? noteFile.path : "";
+    }
+    function resolveVaultFile(app, src, noteFile) {
+      var _a, _b;
+      if (!app || !src)
+        return null;
+      const decoded = (() => {
+        try {
+          return decodeURI(src);
+        } catch (e) {
+          return src;
+        }
+      })();
+      const sourcePath = getNoteSourcePath(noteFile);
+      const metadataCache = app.metadataCache;
+      const vault = app.vault;
+      try {
+        const linked = (_a = metadataCache == null ? void 0 : metadataCache.getFirstLinkpathDest) == null ? void 0 : _a.call(metadataCache, decoded, sourcePath);
+        if (linked == null ? void 0 : linked.extension)
+          return linked;
+      } catch (e) {
+      }
+      const candidates = [];
+      const normalized = normalizePath(decoded);
+      if (normalized)
+        candidates.push(normalized);
+      if (sourcePath && normalized && !normalized.startsWith("/")) {
+        const noteDir = path.posix.dirname(normalizePath(sourcePath));
+        candidates.push(normalizePath(path.posix.join(noteDir === "." ? "" : noteDir, normalized)));
+      }
+      for (const candidate of candidates) {
+        try {
+          const file = (_b = vault == null ? void 0 : vault.getAbstractFileByPath) == null ? void 0 : _b.call(vault, candidate);
+          if (file == null ? void 0 : file.extension)
+            return file;
+        } catch (e) {
+        }
+      }
+      return null;
+    }
+    async function readFileUrlAsset(src) {
+      const fs = require("fs/promises");
+      const { fileURLToPath } = require("url");
+      const filePath = fileURLToPath(src);
+      const buffer = await fs.readFile(filePath);
+      return {
+        buffer,
+        filename: getFilenameFromPath(filePath),
+        vaultRelativePath: "",
+        resourceSrc: ""
+      };
+    }
+    async function readVaultAsset(app, file) {
+      var _a, _b;
+      const binary = await app.vault.readBinary(file);
+      const buffer = bufferFromBinary(binary);
+      let resourceSrc = "";
+      try {
+        resourceSrc = ((_b = (_a = app.vault).getResourcePath) == null ? void 0 : _b.call(_a, file)) || "";
+      } catch (e) {
+        resourceSrc = "";
+      }
+      return {
+        buffer,
+        filename: file.name || getFilenameFromPath(file.path),
+        vaultRelativePath: file.path || "",
+        resourceSrc
+      };
+    }
+    function makeAssetId(index) {
+      return `image-${index}`;
+    }
+    function createMarkdownImage(alt, src) {
+      const safeAlt = String(alt || createAltFromSrc(src)).replace(/\]/g, "\\]");
+      return `![${safeAlt}](${src})`;
+    }
+    function replaceRanges(markdown, replacements) {
+      return replacements.slice().sort((a, b) => b.start - a.start).reduce((output, item) => output.slice(0, item.start) + item.value + output.slice(item.end), markdown);
+    }
+    function isLocalLikeSrc(src) {
+      if (!src)
+        return false;
+      if (isRemoteImageSrc(src) || isDataImageSrc(src) || isAssetImageSrc(src))
+        return false;
+      return true;
+    }
+    async function resolveLocalImageAsset({
+      app,
+      src,
+      noteFile,
+      assetIndex,
+      originalSrc = src,
+      existingByKey,
+      limits
+    }) {
+      let file = null;
+      let readResult = null;
+      let cacheKey = "";
+      if (isFileUrl(src)) {
+        cacheKey = `file:${src}`;
+      } else {
+        file = resolveVaultFile(app, src, noteFile);
+        if (!file) {
+          return {
+            warning: createWarning("image_local_missing", "\u672C\u5730\u56FE\u7247\u672A\u627E\u5230", { src: originalSrc })
+          };
+        }
+        cacheKey = `vault:${file.path || src}`;
+      }
+      if (existingByKey.has(cacheKey)) {
+        return { asset: existingByKey.get(cacheKey), reused: true };
+      }
+      try {
+        readResult = file ? await readVaultAsset(app, file) : await readFileUrlAsset(src);
+      } catch (error) {
+        return {
+          warning: createWarning("image_local_read_failed", `\u8BFB\u53D6\u672C\u5730\u56FE\u7247\u5931\u8D25\uFF1A${error.message || String(error)}`, {
+            src: originalSrc,
+            filename: (file == null ? void 0 : file.name) || getFilenameFromPath(src)
+          })
+        };
+      }
+      const { buffer, filename, vaultRelativePath, resourceSrc } = readResult;
+      const mimeType = inferMimeType(filename, buffer);
+      const size = buffer.length;
+      if (!isSupportedImageFile(filename)) {
+        const code = isRecognizedUnsupportedImageFile(filename) ? "image_invalid_mime" : "image_invalid_mime";
+        return {
+          warning: createWarning(code, `\u6682\u4E0D\u652F\u6301\u8BE5\u56FE\u7247\u683C\u5F0F\uFF1A${filename}`, {
+            src: originalSrc,
+            filename,
+            size
+          })
+        };
+      }
+      if (size > limits.maxImageSizeBytes) {
+        return {
+          warning: createWarning("image_too_large", `\u56FE\u7247\u8D85\u8FC7 ${Math.round(limits.maxImageSizeBytes / 1024 / 1024)} MB\uFF1A${filename}`, {
+            src: originalSrc,
+            filename,
+            size
+          })
+        };
+      }
+      const asset = {
+        id: makeAssetId(assetIndex),
+        filename,
+        mimeType,
+        size,
+        base64: buffer.toString("base64"),
+        source: {
+          kind: "obsidian-local",
+          originalSrc,
+          notePath: getNoteSourcePath(noteFile),
+          vaultRelativePath
+        }
+      };
+      if (resourceSrc)
+        asset.source.resourceSrc = resourceSrc;
+      existingByKey.set(cacheKey, asset);
+      return { asset };
+    }
+    function getFirstMarkdownImageSrc(markdown) {
+      const first = collectArticleImageReferences(markdown)[0];
+      return (first == null ? void 0 : first.src) || "";
+    }
+    function replaceArticleContentImageSources(html, assets = []) {
+      var _a, _b, _c;
+      let output = String(html || "");
+      for (const asset of assets) {
+        const assetSrc = `asset://${asset.id}`;
+        const candidates = [
+          (_a = asset == null ? void 0 : asset.source) == null ? void 0 : _a.resourceSrc,
+          (_b = asset == null ? void 0 : asset.source) == null ? void 0 : _b.originalSrc,
+          (_c = asset == null ? void 0 : asset.source) == null ? void 0 : _c.vaultRelativePath
+        ].filter(Boolean);
+        for (const candidate of candidates) {
+          output = output.replace(
+            new RegExp(`(<img\\b[^>]*\\bsrc=["'])${escapeRegExp(candidate)}(["'][^>]*>)`, "gi"),
+            `$1${assetSrc}$2`
+          );
+        }
+      }
+      return output;
+    }
+    function escapeRegExp(value) {
+      return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+    function formatArticleImageWarnings(warnings = []) {
+      const items = warnings.filter((warning) => (warning == null ? void 0 : warning.severity) !== "info");
+      if (!items.length)
+        return "";
+      const preview = items.slice(0, 3).map((warning) => {
+        const target = warning.filename || warning.src || "\u56FE\u7247";
+        return `${warning.message || "\u56FE\u7247\u5904\u7406\u5931\u8D25"}\uFF08${target}\uFF09`;
+      }).join("\uFF1B");
+      const suffix = items.length > 3 ? `\uFF0C\u53E6\u6709 ${items.length - 3} \u9879` : "";
+      return `${preview}${suffix}`;
+    }
+    async function resolveArticleImages(markdown, noteFile, options = {}) {
+      const app = options.app;
+      const limits = {
+        maxImageSizeBytes: options.maxImageSizeBytes || DEFAULT_MAX_IMAGE_SIZE_BYTES,
+        maxTotalImageSizeBytes: options.maxTotalImageSizeBytes || DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES
+      };
+      const sourceMarkdown = String(markdown || "");
+      const references = collectArticleImageReferences(sourceMarkdown);
+      const warnings = [];
+      const replacements = [];
+      const assets = [];
+      const existingByKey = /* @__PURE__ */ new Map();
+      const resolveSrc = async (src, originalSrc = src) => {
+        const trimmed = String(src || "").trim();
+        if (!trimmed)
+          return { src: trimmed };
+        if (!isLocalLikeSrc(trimmed))
+          return { src: trimmed };
+        if (!isFileUrl(trimmed) && /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+          return {
+            src: trimmed,
+            warning: createWarning("image_unsupported_protocol", "\u4E0D\u652F\u6301\u7684\u56FE\u7247\u5730\u5740", { src: originalSrc })
+          };
+        }
+        const result = await resolveLocalImageAsset({
+          app,
+          src: trimmed,
+          noteFile,
+          assetIndex: assets.length + 1,
+          originalSrc,
+          existingByKey,
+          limits
+        });
+        if (result.warning)
+          return { src: trimmed, warning: result.warning };
+        if (result.asset && !result.reused)
+          assets.push(result.asset);
+        return { src: `asset://${result.asset.id}`, asset: result.asset };
+      };
+      for (const ref of references) {
+        const result = await resolveSrc(ref.src, ref.src);
+        if (result.warning) {
+          warnings.push(result.warning);
+          continue;
+        }
+        if (result.src !== ref.src) {
+          replacements.push({
+            start: ref.start,
+            end: ref.end,
+            value: createMarkdownImage(ref.alt, result.src)
+          });
+        }
+      }
+      let cover = options.cover || "";
+      if (cover && isLocalLikeSrc(cover)) {
+        const coverResult = await resolveSrc(cover, cover);
+        if (coverResult.warning) {
+          warnings.push(coverResult.warning);
+        } else {
+          cover = coverResult.src;
+        }
+      }
+      const totalSize = assets.reduce((sum, asset) => sum + (asset.size || 0), 0);
+      if (totalSize > limits.maxTotalImageSizeBytes) {
+        warnings.push(createWarning("image_too_large", `\u6587\u7AE0\u56FE\u7247\u603B\u91CF\u8D85\u8FC7 ${Math.round(limits.maxTotalImageSizeBytes / 1024 / 1024)} MB`, {
+          size: totalSize
+        }));
+      }
+      const resolvedMarkdown = replaceRanges(sourceMarkdown, replacements);
+      return {
+        markdown: resolvedMarkdown,
+        assets,
+        warnings,
+        cover,
+        firstImageSrc: getFirstMarkdownImageSrc(resolvedMarkdown)
+      };
+    }
+    module2.exports = {
+      DEFAULT_MAX_IMAGE_SIZE_BYTES,
+      DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES,
+      collectArticleImageReferences,
+      formatArticleImageWarnings,
+      getFirstMarkdownImageSrc,
+      replaceArticleContentImageSources,
+      resolveArticleImages
+    };
+  }
+});
+
 // views/publish-modal/multi-platform.js
 var require_multi_platform = __commonJS({
   "views/publish-modal/multi-platform.js"(exports2, module2) {
@@ -13135,7 +13650,25 @@ var require_multi_platform = __commonJS({
       renderWechatsyncConnectionStatusBar: renderWechatsyncConnectionStatusBar2
     } = require_connection_status_bar();
     var { stripMarkdownFrontmatter: stripMarkdownFrontmatter2 } = require_markdown_utils();
+    var {
+      formatArticleImageWarnings,
+      replaceArticleContentImageSources,
+      resolveArticleImages
+    } = require_article_image_assets();
     var QUOTA_POLICY = "truncate";
+    var FREE_DAILY_PLATFORM_QUOTA = 3;
+    function getQuotaHintText(selectedCount = 0) {
+      if (selectedCount > FREE_DAILY_PLATFORM_QUOTA) {
+        return `\u5DF2\u9009 ${selectedCount} \u4E2A\u5E73\u53F0\uFF1B\u514D\u8D39\u7248\u6BCF\u5929 ${FREE_DAILY_PLATFORM_QUOTA} \u4E2A\u5E73\u53F0\u989D\u5EA6\uFF0C\u8D85\u51FA\u90E8\u5206\u4F1A\u81EA\u52A8\u8DF3\u8FC7\u3002`;
+      }
+      if (selectedCount === FREE_DAILY_PLATFORM_QUOTA) {
+        return `\u5DF2\u9009 ${selectedCount} \u4E2A\u5E73\u53F0\uFF0C\u521A\u597D\u8FBE\u5230\u514D\u8D39\u7248\u6BCF\u5929 ${FREE_DAILY_PLATFORM_QUOTA} \u4E2A\u5E73\u53F0\u989D\u5EA6\u3002`;
+      }
+      if (selectedCount > 0) {
+        return `\u5DF2\u9009 ${selectedCount} \u4E2A\u5E73\u53F0\uFF1B\u514D\u8D39\u7248\u6BCF\u5929 ${FREE_DAILY_PLATFORM_QUOTA} \u4E2A\u5E73\u53F0\u989D\u5EA6\u3002`;
+      }
+      return `\u514D\u8D39\u7248\u6BCF\u5929 ${FREE_DAILY_PLATFORM_QUOTA} \u4E2A\u5E73\u53F0\u989D\u5EA6\u3002`;
+    }
     function isMobileClient2(app) {
       if (typeof (Platform2 == null ? void 0 : Platform2.isMobile) === "boolean")
         return Platform2.isMobile;
@@ -13194,8 +13727,8 @@ var require_multi_platform = __commonJS({
         text: "\u9009\u62E9\u5E73\u53F0\u540E\u901A\u8FC7\u6D4F\u89C8\u5668\u63D2\u4EF6\u4FDD\u5B58\u4E3A\u8349\u7A3F\u3002"
       });
       const quotaHint = modal.contentEl.createDiv({ cls: "wechat-multiplatform-quota-hint" });
-      quotaHint.createEl("span", {
-        text: "\u514D\u8D39\u7248\u6BCF\u5929 3 \u4E2A\u5E73\u53F0\u989D\u5EA6\u3002"
+      const quotaText = quotaHint.createEl("span", {
+        text: getQuotaHintText(0)
       });
       const quotaUpgradeBtn = quotaHint.createEl("button", {
         text: "\u5347\u7EA7 Pro",
@@ -13241,6 +13774,9 @@ var require_multi_platform = __commonJS({
       syncBtn.disabled = true;
       (_a = syncBtn.addClass) == null ? void 0 : _a.call(syncBtn, "apple-btn-disabled");
       cancelBtn.onclick = () => modal.close();
+      const updateQuotaHintText = () => {
+        quotaText.textContent = getQuotaHintText(selectedPlatforms.size);
+      };
       const updateSyncButtonState = () => {
         var _a2, _b;
         syncBtn.disabled = !isBridgeReady || selectedPlatforms.size === 0;
@@ -13249,6 +13785,7 @@ var require_multi_platform = __commonJS({
         } else {
           (_b = syncBtn.removeClass) == null ? void 0 : _b.call(syncBtn, "apple-btn-disabled");
         }
+        updateQuotaHintText();
       };
       const renderPlatforms = (platforms = []) => {
         platformListEl.empty();
@@ -13329,7 +13866,7 @@ var require_multi_platform = __commonJS({
       };
       renderPlatforms(displayedPlatforms);
       syncBtn.onclick = async () => {
-        var _a2, _b, _c, _d;
+        var _a2, _b, _c, _d, _e;
         if (!isBridgeReady) {
           new Notice2("\u8BF7\u5148\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF0C\u518D\u53D1\u9001\u591A\u5E73\u53F0\u53D1\u5E03\u4EFB\u52A1\u3002", 8e3);
           return;
@@ -13340,23 +13877,37 @@ var require_multi_platform = __commonJS({
         }
         const activeFile = view.getPublishContextFile();
         const title = (activeFile == null ? void 0 : activeFile.basename) || "\u65E0\u6807\u9898\u6587\u7AE0";
-        const markdown = stripMarkdownFrontmatter2(view.lastResolvedMarkdown || "");
+        const rawMarkdown = stripMarkdownFrontmatter2(view.lastResolvedMarkdown || "");
         const exportHtml = view.getCurrentExportHtml() || view.currentHtml || "";
-        const cover = view.sessionCoverBase64 || view.getFrontmatterPublishMeta(activeFile).coverSrc || view.getFirstImageFromArticle() || "";
+        const rawCover = view.sessionCoverBase64 || "";
         const notice = new Notice2("\u6B63\u5728\u51C6\u5907\u5E76\u53D1\u9001\u5230\u6D4F\u89C8\u5668\u63D2\u4EF6...", 0);
         syncBtn.disabled = true;
         (_a2 = syncBtn.addClass) == null ? void 0 : _a2.call(syncBtn, "apple-btn-disabled");
         const sendStartedAt = Date.now();
         const requestedPlatformIds = Array.from(selectedPlatforms);
         try {
-          const content = await view.prepareHtmlForWechatsyncArticle(exportHtml);
+          const resolvedImages = await resolveArticleImages(rawMarkdown, activeFile, {
+            app: view.app,
+            cover: rawCover
+          });
+          if ((_b = resolvedImages.warnings) == null ? void 0 : _b.length) {
+            throw new Error(`\u672C\u5730\u56FE\u7247\u5904\u7406\u5931\u8D25\uFF1A${formatArticleImageWarnings(resolvedImages.warnings)}`);
+          }
+          const markdown = resolvedImages.markdown;
+          const assets = resolvedImages.assets;
+          const fallbackCover = view.getFirstImageFromArticle();
+          const cover = resolvedImages.cover || resolvedImages.firstImageSrc || (/^(https?:\/\/|data:image\/)/i.test(fallbackCover || "") ? fallbackCover : "") || "";
+          const preparedContent = await view.prepareHtmlForWechatsyncArticle(exportHtml);
+          const content = replaceArticleContentImageSources(preparedContent, assets);
           console.info("[Wechatsync] enqueueSyncArticle started", {
             platformCount: requestedPlatformIds.length,
             platforms: requestedPlatformIds,
             title,
             hasMarkdown: !!markdown,
             contentLength: content.length,
-            hasCover: !!cover
+            hasCover: !!cover,
+            assetCount: assets.length,
+            assetBytes: assets.reduce((sum, asset) => sum + (asset.size || 0), 0)
           });
           const bridge = view.plugin.getWechatSyncBridgeService();
           const detectedCapabilities = await detectQuotaPolicySupport(bridge, cachedConnection);
@@ -13369,6 +13920,7 @@ var require_multi_platform = __commonJS({
               markdown,
               content,
               cover,
+              assets,
               source: "obsidian",
               quotaPolicy: QUOTA_POLICY
             });
@@ -13382,7 +13934,8 @@ var require_multi_platform = __commonJS({
               title,
               markdown,
               content,
-              cover
+              cover,
+              assets
             });
           }
           console.info("[Wechatsync] enqueueSyncArticle accepted", {
@@ -13408,7 +13961,7 @@ var require_multi_platform = __commonJS({
                 status: "connected",
                 checkedAt: Date.now(),
                 capabilities: {
-                  ...((_b = currentMultiPlatformSettings.connection) == null ? void 0 : _b.capabilities) || {},
+                  ...((_c = currentMultiPlatformSettings.connection) == null ? void 0 : _c.capabilities) || {},
                   ...detectedCapabilities
                 },
                 message: (result == null ? void 0 : result.message) || "\u6D4F\u89C8\u5668\u63D2\u4EF6\u5DF2\u62D2\u7EDD\u672C\u6B21\u53D1\u5E03\u3002"
@@ -13432,7 +13985,7 @@ var require_multi_platform = __commonJS({
             error: (item == null ? void 0 : item.error) || (item == null ? void 0 : item.message) || ""
           })) : [];
           const cachedPlatformsAfterSync = updateCachedPlatformsAfterSync2(
-            ((_c = currentMultiPlatformSettings.connection) == null ? void 0 : _c.platforms) || [],
+            ((_d = currentMultiPlatformSettings.connection) == null ? void 0 : _d.platforms) || [],
             immediateResults.length ? immediateResults : taskResults
           );
           notice.hide();
@@ -13455,7 +14008,7 @@ var require_multi_platform = __commonJS({
               checkedAt: Date.now(),
               platforms: cachedPlatformsAfterSync,
               capabilities: {
-                ...((_d = currentMultiPlatformSettings.connection) == null ? void 0 : _d.capabilities) || {},
+                ...((_e = currentMultiPlatformSettings.connection) == null ? void 0 : _e.capabilities) || {},
                 ...detectedCapabilities
               },
               message: ""
@@ -17299,26 +17852,15 @@ var AppleStyleView = class extends ItemView {
     modal.contentEl.addClass("wechat-multiplatform-result-modal");
     (_d = modal.modalEl) == null ? void 0 : _d.addClass("wechat-publish-shell");
     (_e = modal.modalEl) == null ? void 0 : _e.addClass("wechat-multiplatform-shell");
-    const summary = modal.contentEl.createDiv({ cls: "wechat-multiplatform-result-summary is-warning" });
+    const summary = modal.contentEl.createDiv({ cls: "wechat-multiplatform-result-summary is-warning is-quota-blocked" });
     summary.createEl("div", {
       cls: "wechat-multiplatform-result-summary-title",
       text: reason === "daily_limit" ? "\u4ECA\u65E5\u5E73\u53F0\u989D\u5EA6\u4E0D\u8DB3" : "\u514D\u8D39\u7248\u5E73\u53F0\u989D\u5EA6\u4E0D\u8DB3"
     });
     summary.createEl("p", { text: summaryText });
-    const list = modal.contentEl.createDiv({ cls: "wechat-multiplatform-result-list" });
-    const row = list.createDiv({ cls: "wechat-multiplatform-result-row is-warning" });
-    row.createEl("div", {
-      text: "\u672A\u53D1\u5E03",
-      cls: "wechat-multiplatform-result-pill is-warning"
-    });
-    const body = row.createDiv({ cls: "wechat-multiplatform-result-body" });
-    body.createEl("div", {
-      text: reason === "daily_limit" ? "\u672C\u6B21\u53D1\u5E03\u672A\u5165\u961F" : "\u5DF2\u8DF3\u8FC7\u5E73\u53F0",
-      cls: "wechat-multiplatform-result-name"
-    });
-    body.createEl("div", {
-      text: skippedPlatformIds.length ? formatPlatformNames(skippedPlatformIds) : "\u6D4F\u89C8\u5668\u63D2\u4EF6\u6CA1\u6709\u8FD4\u56DE\u5E73\u53F0\u660E\u7EC6\u3002",
-      cls: "wechat-multiplatform-result-detail"
+    summary.createEl("div", {
+      text: skippedPlatformIds.length ? `\u672C\u6B21\u672A\u5165\u961F\uFF1A${formatPlatformNames(skippedPlatformIds)}` : "\u672C\u6B21\u672A\u5165\u961F\uFF1A\u6D4F\u89C8\u5668\u63D2\u4EF6\u6CA1\u6709\u8FD4\u56DE\u5E73\u53F0\u660E\u7EC6\u3002",
+      cls: "wechat-multiplatform-result-detail wechat-multiplatform-quota-platforms"
     });
     const btnRow = modal.contentEl.createDiv({ cls: "wechat-modal-buttons" });
     const upgradeBtn = btnRow.createEl("button", { text: "\u5347\u7EA7 Pro", cls: "mod-cta" });
