@@ -47,6 +47,20 @@ const {
 const { stripMarkdownFrontmatter } = require('../../services/markdown-utils');
 
 const QUOTA_POLICY = 'truncate';
+const FREE_DAILY_PLATFORM_QUOTA = 3;
+
+function getQuotaHintText(selectedCount = 0) {
+  if (selectedCount > FREE_DAILY_PLATFORM_QUOTA) {
+    return `已选 ${selectedCount} 个平台；免费版每天 ${FREE_DAILY_PLATFORM_QUOTA} 个平台额度，超出部分会自动跳过。`;
+  }
+  if (selectedCount === FREE_DAILY_PLATFORM_QUOTA) {
+    return `已选 ${selectedCount} 个平台，刚好达到免费版每天 ${FREE_DAILY_PLATFORM_QUOTA} 个平台额度。`;
+  }
+  if (selectedCount > 0) {
+    return `已选 ${selectedCount} 个平台；免费版每天 ${FREE_DAILY_PLATFORM_QUOTA} 个平台额度。`;
+  }
+  return `免费版每天 ${FREE_DAILY_PLATFORM_QUOTA} 个平台额度。`;
+}
 
 function isMobileClient(app) {
   if (typeof Platform?.isMobile === 'boolean') return Platform.isMobile;
@@ -106,8 +120,8 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     text: '选择平台后通过浏览器插件保存为草稿。',
   });
   const quotaHint = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-quota-hint' });
-  quotaHint.createEl('span', {
-    text: '免费版每天 3 个平台额度。',
+  const quotaText = quotaHint.createEl('span', {
+    text: getQuotaHintText(0),
   });
   const quotaUpgradeBtn = quotaHint.createEl('button', {
     text: '升级 Pro',
@@ -158,6 +172,10 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   syncBtn.addClass?.('apple-btn-disabled');
   cancelBtn.onclick = () => modal.close();
 
+  const updateQuotaHintText = () => {
+    quotaText.textContent = getQuotaHintText(selectedPlatforms.size);
+  };
+
   const updateSyncButtonState = () => {
     syncBtn.disabled = !isBridgeReady || selectedPlatforms.size === 0;
     if (syncBtn.disabled) {
@@ -165,6 +183,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     } else {
       syncBtn.removeClass?.('apple-btn-disabled');
     }
+    updateQuotaHintText();
   };
 
   const renderPlatforms = (platforms = []) => {

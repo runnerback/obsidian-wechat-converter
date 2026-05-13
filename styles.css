@@ -3133,11 +3133,10 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin: -2px 0 12px;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in srgb, var(--apple-border) 72%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--apple-warning) 5%, var(--apple-surface));
+  margin: -4px 2px 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--apple-secondary);
   font-size: 12px;
   line-height: 1.45;
@@ -3145,7 +3144,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 
 .wechat-multiplatform-quota-link {
   flex: 0 0 auto;
-  padding: 3px 8px;
+  padding: 3px 7px;
   border: 1px solid color-mix(in srgb, var(--apple-accent) 42%, var(--apple-border));
   border-radius: 6px;
   background: var(--apple-background);
@@ -3437,6 +3436,10 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   background: color-mix(in srgb, var(--apple-accent) 5%, var(--apple-surface));
 }
 
+.wechat-multiplatform-result-summary.is-quota-blocked {
+  background: var(--apple-surface);
+}
+
 .wechat-multiplatform-result-summary.is-error {
   background: color-mix(in srgb, var(--apple-error) 6%, var(--apple-surface));
 }
@@ -3519,6 +3522,10 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   font-size: 12px;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.wechat-multiplatform-quota-platforms {
+  margin-top: 10px;
 }
 
 .wechat-multiplatform-result-row .wechat-multiplatform-inline-btn {

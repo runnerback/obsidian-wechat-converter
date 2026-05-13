@@ -198,6 +198,42 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     expect(view.openPublisherProPage).toHaveBeenCalled();
   });
 
+  it('updates quota hint when the selected platforms exactly match the free quota', async () => {
+    const cachedPlatforms = [
+      { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true },
+      { id: 'juejin', name: '掘金', authKnown: true, authenticated: true },
+      { id: 'csdn', name: 'CSDN', authKnown: true, authenticated: true },
+      { id: 'bilibili', name: '哔哩哔哩', authKnown: true, authenticated: true },
+    ];
+    const view = makeView({ selectedPlatforms: ['zhihu', 'juejin', 'csdn'], cachedPlatforms });
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+    const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
+
+    expect(hint.textContent).toContain('已选 3 个平台');
+    expect(hint.textContent).toContain('刚好达到免费版每天 3 个平台额度');
+  });
+
+  it('updates quota hint when selected platforms exceed the free quota', async () => {
+    const cachedPlatforms = [
+      { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true },
+      { id: 'juejin', name: '掘金', authKnown: true, authenticated: true },
+      { id: 'csdn', name: 'CSDN', authKnown: true, authenticated: true },
+      { id: 'bilibili', name: '哔哩哔哩', authKnown: true, authenticated: true },
+      { id: 'xiaohongshu', name: '小红书', authKnown: true, authenticated: true },
+    ];
+    const view = makeView({
+      selectedPlatforms: ['zhihu', 'juejin', 'csdn', 'bilibili', 'xiaohongshu'],
+      cachedPlatforms,
+    });
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+    const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
+
+    expect(hint.textContent).toContain('已选 5 个平台');
+    expect(hint.textContent).toContain('超出部分会自动跳过');
+  });
+
   it('passes truncate quotaPolicy and shows quota modal when the extension blocks the task', async () => {
     const bridge = {
       health: vi.fn().mockResolvedValue({ ok: true, capabilities: { quotaPolicy: true } }),
@@ -316,6 +352,7 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     expect(modal.contentEl.textContent).toContain('免费版今日平台额度不足');
     expect(modal.contentEl.textContent).not.toContain('每次最多');
     expect(modal.contentEl.textContent).not.toContain('单次最多');
+    expect(modal.contentEl.querySelector('.wechat-multiplatform-result-row')).toBeNull();
     const buttonTexts = Array.from(modal.contentEl.querySelectorAll('button')).map((button) => button.textContent);
     expect(buttonTexts).not.toContain('重新选择平台');
   });

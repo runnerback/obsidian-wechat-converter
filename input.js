@@ -4322,29 +4322,17 @@ class AppleStyleView extends ItemView {
     modal.modalEl?.addClass('wechat-publish-shell');
     modal.modalEl?.addClass('wechat-multiplatform-shell');
 
-    const summary = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-result-summary is-warning' });
+    const summary = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-result-summary is-warning is-quota-blocked' });
     summary.createEl('div', {
       cls: 'wechat-multiplatform-result-summary-title',
       text: reason === 'daily_limit' ? '今日平台额度不足' : '免费版平台额度不足',
     });
     summary.createEl('p', { text: summaryText });
-
-    const list = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-result-list' });
-    const row = list.createDiv({ cls: 'wechat-multiplatform-result-row is-warning' });
-    row.createEl('div', {
-      text: '未发布',
-      cls: 'wechat-multiplatform-result-pill is-warning',
-    });
-    const body = row.createDiv({ cls: 'wechat-multiplatform-result-body' });
-    body.createEl('div', {
-      text: reason === 'daily_limit' ? '本次发布未入队' : '已跳过平台',
-      cls: 'wechat-multiplatform-result-name',
-    });
-    body.createEl('div', {
+    summary.createEl('div', {
       text: skippedPlatformIds.length
-        ? formatPlatformNames(skippedPlatformIds)
-        : '浏览器插件没有返回平台明细。',
-      cls: 'wechat-multiplatform-result-detail',
+        ? `本次未入队：${formatPlatformNames(skippedPlatformIds)}`
+        : '本次未入队：浏览器插件没有返回平台明细。',
+      cls: 'wechat-multiplatform-result-detail wechat-multiplatform-quota-platforms',
     });
 
     const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
