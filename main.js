@@ -13879,7 +13879,8 @@ var require_multi_platform = __commonJS({
         const title = (activeFile == null ? void 0 : activeFile.basename) || "\u65E0\u6807\u9898\u6587\u7AE0";
         const rawMarkdown = stripMarkdownFrontmatter2(view.lastResolvedMarkdown || "");
         const exportHtml = view.getCurrentExportHtml() || view.currentHtml || "";
-        const rawCover = view.sessionCoverBase64 || "";
+        const publishMeta = view.getFrontmatterPublishMeta(activeFile);
+        const rawCover = view.sessionCoverBase64 || publishMeta.cover || "";
         const notice = new Notice2("\u6B63\u5728\u51C6\u5907\u5E76\u53D1\u9001\u5230\u6D4F\u89C8\u5668\u63D2\u4EF6...", 0);
         syncBtn.disabled = true;
         (_a2 = syncBtn.addClass) == null ? void 0 : _a2.call(syncBtn, "apple-btn-disabled");

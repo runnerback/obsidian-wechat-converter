@@ -87,6 +87,53 @@ describe('article image asset resolver', () => {
     expect(result.markdown).toContain('![remote](https://cdn.example.com/a.png)');
   });
 
+  it('resolves a local cover and reuses the body asset when it points to the same file', async () => {
+    const imageFile = {
+      path: 'notes/assets/local.png',
+      name: 'local.png',
+      extension: 'png',
+      bytes: pngBytes(24),
+    };
+    const app = makeApp({
+      'assets/local.png': imageFile,
+      'notes/assets/local.png': imageFile,
+    });
+
+    const result = await resolveArticleImages('![正文图](assets/local.png)', { path: 'notes/post.md' }, {
+      app,
+      cover: 'assets/local.png',
+    });
+
+    expect(result.warnings).toEqual([]);
+    expect(result.assets).toHaveLength(1);
+    expect(result.markdown).toBe('![正文图](asset://image-1)');
+    expect(result.cover).toBe('asset://image-1');
+  });
+
+  it('adds a frontmatter-only local cover as an asset', async () => {
+    const coverFile = {
+      path: 'covers/post-cover.jpg',
+      name: 'post-cover.jpg',
+      extension: 'jpg',
+      bytes: Buffer.from([0xff, 0xd8, 0xff, 0x00]),
+    };
+    const app = makeApp({ 'covers/post-cover.jpg': coverFile });
+
+    const result = await resolveArticleImages('正文', { path: 'post.md' }, {
+      app,
+      cover: 'covers/post-cover.jpg',
+    });
+
+    expect(result.warnings).toEqual([]);
+    expect(result.cover).toBe('asset://image-1');
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0]).toMatchObject({
+      id: 'image-1',
+      filename: 'post-cover.jpg',
+      mimeType: 'image/jpeg',
+    });
+  });
+
   it('reports missing and oversized local images before bridge delivery', async () => {
     const imageFile = {
       path: 'big.png',

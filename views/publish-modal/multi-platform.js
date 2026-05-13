@@ -284,7 +284,8 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     const title = activeFile?.basename || '无标题文章';
     const rawMarkdown = stripMarkdownFrontmatter(view.lastResolvedMarkdown || '');
     const exportHtml = view.getCurrentExportHtml() || view.currentHtml || '';
-    const rawCover = view.sessionCoverBase64 || '';
+    const publishMeta = view.getFrontmatterPublishMeta(activeFile);
+    const rawCover = view.sessionCoverBase64 || publishMeta.cover || '';
     const notice = new Notice('正在准备并发送到浏览器插件...', 0);
     syncBtn.disabled = true;
     syncBtn.addClass?.('apple-btn-disabled');

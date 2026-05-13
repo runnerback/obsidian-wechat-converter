@@ -317,6 +317,54 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     }));
   });
 
+  it('uses frontmatter local cover as a bridge asset and reuses it for the first body image', async () => {
+    const imageFile = {
+      path: 'notes/assets/cover.png',
+      name: 'cover.png',
+      extension: 'png',
+      bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 5, 6, 7, 8]),
+    };
+    const app = {
+      isMobile: false,
+      metadataCache: {
+        getFirstLinkpathDest: vi.fn((linkpath) => (linkpath === 'assets/cover.png' ? imageFile : null)),
+      },
+      vault: {
+        readBinary: vi.fn(async () => imageFile.bytes),
+        getResourcePath: vi.fn(() => 'app://local/notes%2Fassets%2Fcover.png'),
+        getAbstractFileByPath: vi.fn(() => null),
+      },
+    };
+    const bridge = {
+      health: vi.fn().mockResolvedValue({ ok: true, capabilities: { quotaPolicy: true } }),
+      enqueueSyncArticle: vi.fn().mockResolvedValue({ accepted: true, syncId: 'sync-1' }),
+    };
+    const view = makeView({ selectedPlatforms: ['zhihu'], bridge, app });
+    view.lastResolvedMarkdown = '![封面](assets/cover.png)';
+    view.getFrontmatterPublishMeta = vi.fn(() => ({ cover: 'assets/cover.png', coverSrc: 'app://local/notes%2Fassets%2Fcover.png' }));
+    view.getCurrentExportHtml = vi.fn(() => '<p><img src="app://local/notes%2Fassets%2Fcover.png" alt="封面"></p>');
+    view.prepareHtmlForWechatsyncArticle = vi.fn(async (html) => html);
+    view.showWechatsyncEnqueueAcceptedModal = vi.fn();
+
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+    const syncBtn = modal.contentEl.querySelector('.wechat-modal-buttons .mod-cta');
+
+    await syncBtn.onclick();
+
+    expect(bridge.enqueueSyncArticle).toHaveBeenCalledWith(expect.objectContaining({
+      markdown: '![封面](asset://image-1)',
+      content: '<p><img src="asset://image-1" alt="封面"></p>',
+      cover: 'asset://image-1',
+      assets: [
+        expect.objectContaining({
+          id: 'image-1',
+          filename: 'cover.png',
+        }),
+      ],
+    }));
+  });
+
   it('shows skipped platforms in the accepted task modal when quota truncates the request', () => {
     const view = makeView({ selectedPlatforms: ['zhihu', 'juejin'] });
     view.openPublisherProPage = vi.fn();
