@@ -1466,3 +1466,102 @@ describe('§4.1 EADDRINUSE no longer silently downgrades', () => {
     });
   });
 });
+
+describe('§16 Phase 1 — connected clients registry', () => {
+  const cleanup = [];
+
+  afterEach(async () => {
+    while (cleanup.length) {
+      const item = cleanup.pop();
+      if (item?.stop) await item.stop();
+      if (item?.close) item.close();
+    }
+  });
+
+  async function makeService(opts = {}) {
+    const port = await getFreePort();
+    const received = [];
+    const service = createWechatSyncBridgeService({
+      WebSocketServer,
+      http,
+      port,
+      token: 'secret-token',
+      helloTimeoutMs: 2000,
+      onClientRegistryChange(clients) { received.push([...clients]); },
+      ...opts,
+    });
+    cleanup.push(service);
+    await service.start();
+    return { port, service, received };
+  }
+
+  it('adds a connected entry after successful extension_hello', async () => {
+    const { port, service } = await makeService();
+    const ws = await connectExtension(port, null, { token: 'secret-token' });
+    cleanup.push(ws);
+    // Give the debounce time to fire.
+    await new Promise((r) => setTimeout(r, 1200));
+    const status = await service.getStatus();
+    expect(status.connectedClients).toHaveLength(1);
+    expect(status.connectedClients[0]).toMatchObject({
+      extensionInstanceId: DEFAULT_TEST_HELLO.extensionInstanceId,
+      browserName: DEFAULT_TEST_HELLO.browserName,
+      profileLabel: DEFAULT_TEST_HELLO.profileLabel,
+      status: 'connected',
+    });
+    expect(status.connectedClients[0].firstConnectedAt).toBeGreaterThan(0);
+    expect(status.connectedClients[0].lastConnectedAt).toBe(status.connectedClients[0].firstConnectedAt);
+  });
+
+  it('preserves firstConnectedAt on reconnect and updates lastConnectedAt', async () => {
+    const { port, service } = await makeService();
+    const ws1 = await connectExtension(port, null, { token: 'secret-token' });
+    cleanup.push(ws1);
+    await new Promise((r) => setTimeout(r, 1200));
+    const firstStatus = await service.getStatus();
+    const firstConnected = firstStatus.connectedClients[0].firstConnectedAt;
+
+    ws1.close();
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Same extensionInstanceId reconnects.
+    const ws2 = await connectExtension(port, null, { token: 'secret-token' });
+    cleanup.push(ws2);
+    await new Promise((r) => setTimeout(r, 1200));
+    const secondStatus = await service.getStatus();
+    expect(secondStatus.connectedClients).toHaveLength(1);
+    expect(secondStatus.connectedClients[0].firstConnectedAt).toBe(firstConnected);
+    expect(secondStatus.connectedClients[0].lastConnectedAt).toBeGreaterThanOrEqual(firstConnected);
+    expect(secondStatus.connectedClients[0].status).toBe('connected');
+  });
+
+  it('refreshes lastSeenAt when a heartbeat arrives', async () => {
+    const { port, service } = await makeService();
+    const ws = await connectExtension(port, null, { token: 'secret-token' });
+    cleanup.push(ws);
+    await new Promise((r) => setTimeout(r, 1200));
+    const before = (await service.getStatus()).connectedClients[0].lastSeenAt;
+
+    await new Promise((r) => setTimeout(r, 50));
+    ws.send(JSON.stringify({ type: 'heartbeat', ts: Date.now() }));
+    await new Promise((r) => setTimeout(r, 1200));
+
+    const after = (await service.getStatus()).connectedClients[0].lastSeenAt;
+    expect(after).toBeGreaterThanOrEqual(before);
+  });
+
+  it('marks entry as disconnected (but keeps it) when WebSocket closes', async () => {
+    const { port, service } = await makeService();
+    const ws = await connectExtension(port, null, { token: 'secret-token' });
+    cleanup.push(ws);
+    await new Promise((r) => setTimeout(r, 1200));
+
+    ws.close();
+    await new Promise((r) => setTimeout(r, 1200));
+
+    const status = await service.getStatus();
+    expect(status.connectedClients).toHaveLength(1);
+    expect(status.connectedClients[0].status).toBe('disconnected');
+    expect(status.connectedClients[0].extensionInstanceId).toBe(DEFAULT_TEST_HELLO.extensionInstanceId);
+  });
+});

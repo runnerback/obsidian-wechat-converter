@@ -386,4 +386,52 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     expect(dot.classList.contains('is-ok')).toBe(true);
     expect(dot.textContent).toBe('已验证');
   });
+
+  it('§16 Phase 1: renders empty-state text when connectedClients is empty', () => {
+    const tab = renderTab(makePlugin({ multiPlatformSync: {
+      enabled: true,
+      port: 9527,
+      token: 'abc',
+      connectedClients: [],
+      supportedPlatforms: [],
+      selectedPlatforms: [],
+      connection: { status: 'untested', checkedAt: 0, platforms: [], capabilities: {}, message: '' },
+      recentTasks: [],
+    } }));
+    const empty = tab.containerEl.querySelector('.wechat-connected-clients-empty');
+    expect(empty).not.toBeNull();
+    expect(empty.textContent).toContain('尚未配对');
+  });
+
+  it('§16 Phase 1: renders a client card when connectedClients has one entry', () => {
+    const tab = renderTab(makePlugin({ multiPlatformSync: {
+      enabled: true,
+      port: 9527,
+      token: 'abc',
+      connectedClients: [{
+        extensionInstanceId: 'test-instance-id-001',
+        browserName: 'chrome',
+        profileLabel: '主号',
+        capabilities: {},
+        extensionVersion: '1.1.4',
+        status: 'connected',
+        lastSeenAt: Date.now(),
+        firstConnectedAt: Date.now() - 5000,
+        lastConnectedAt: Date.now(),
+      }],
+      supportedPlatforms: [],
+      selectedPlatforms: [],
+      connection: { status: 'connected', checkedAt: Date.now(), platforms: [], capabilities: {}, message: '' },
+      recentTasks: [],
+    } }));
+    const card = tab.containerEl.querySelector('.wechat-connected-client-card');
+    expect(card).not.toBeNull();
+    const dot = card.querySelector('.wechat-connected-client-dot');
+    expect(dot.classList.contains('is-ok')).toBe(true);
+    const name = card.querySelector('.wechat-connected-client-name');
+    expect(name.textContent).toContain('Chrome');
+    expect(name.textContent).toContain('主号');
+    const idEl = card.querySelector('.wechat-connected-client-id');
+    expect(idEl.textContent).toBe('test-ins…');
+  });
 });

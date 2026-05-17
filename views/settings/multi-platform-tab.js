@@ -188,6 +188,84 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
   // 全部保留：高级用户仍可直接编辑 data.json 让其生效，未来挂回 UI
   // 也只需恢复这块 toggle。
 
+  // §16 Phase 1: 已连接的浏览器卡片
+  // Sprint 4 只需把 .map(renderClientCard) 放进多 client 容器即可复用。
+  {
+    const BROWSER_EMOJI = {
+      chrome: '🌐',
+      edge: '🌐',
+      firefox: '🦊',
+      safari: '🧭',
+      arc: '🌈',
+    };
+
+    function formatRelativeTime(ts) {
+      if (!ts) return '';
+      const diffMs = Date.now() - ts;
+      if (diffMs < 60000) return '刚刚';
+      if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} 分钟前`;
+      if (diffMs < 86400000) return `${Math.floor(diffMs / 3600000)} 小时前`;
+      return `${Math.floor(diffMs / 86400000)} 天前`;
+    }
+
+    function formatBrowserName(name = '') {
+      const key = name.toLowerCase();
+      const emoji = BROWSER_EMOJI[key] || '🌐';
+      const label = name.charAt(0).toUpperCase() + name.slice(1);
+      return `${emoji} ${label || '浏览器'}`;
+    }
+
+    function renderClientCard(el, client) {
+      const card = el.createDiv({ cls: 'wechat-connected-client-card' });
+      card.createEl('span', {
+        cls: `wechat-connected-client-dot ${client.status === 'connected' ? 'is-ok' : 'is-disconnected'}`,
+        text: '●',
+      });
+      const info = card.createDiv({ cls: 'wechat-connected-client-info' });
+      const nameLine = info.createDiv({ cls: 'wechat-connected-client-name' });
+      nameLine.createEl('span', { text: formatBrowserName(client.browserName) });
+      if (client.profileLabel) {
+        nameLine.createEl('span', {
+          cls: 'wechat-connected-client-profile',
+          text: client.profileLabel,
+        });
+      }
+      const metaLine = info.createDiv({ cls: 'wechat-connected-client-meta' });
+      const shortId = client.extensionInstanceId.slice(0, 8) + '…';
+      const idEl = metaLine.createEl('span', {
+        cls: 'wechat-connected-client-id',
+        text: shortId,
+        title: `点击复制完整 ID：${client.extensionInstanceId}`,
+        attr: { style: 'cursor:pointer', 'aria-label': '点击复制完整 ID' },
+      });
+      idEl.onclick = () => {
+        navigator.clipboard?.writeText?.(client.extensionInstanceId).catch(() => {});
+        new Notice('已复制扩展实例 ID');
+      };
+      if (client.lastSeenAt) {
+        metaLine.createEl('span', {
+          cls: 'wechat-connected-client-lastseen',
+          text: `  ·  ${formatRelativeTime(client.lastSeenAt)}`,
+        });
+      }
+    }
+
+    const section = containerEl.createDiv({ cls: 'wechat-connected-clients-section' });
+    section.createEl('div', {
+      cls: 'wechat-connected-clients-heading',
+      text: '已连接的浏览器',
+    });
+    const clients = (multiPlatformSettings.connectedClients || []);
+    if (clients.length === 0) {
+      section.createEl('div', {
+        cls: 'wechat-connected-clients-empty',
+        text: '尚未配对浏览器扩展，请按上方提示完成配对。',
+      });
+    } else {
+      clients.forEach((client) => renderClientCard(section, client));
+    }
+  }
+
   const getSupportedPlatformsFromExtension = async (bridge) => {
     const response = await bridge.listSupportedPlatforms({ timeoutMs: 10000 });
     return normalizeWechatsyncPlatformList(response);

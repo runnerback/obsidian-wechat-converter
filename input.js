@@ -6629,12 +6629,21 @@ class AppleStylePlugin extends Plugin {
 
     const http = require('http');
     this._wechatSyncBridgeCacheKey = cacheKey;
+    const self = this;
     this._wechatSyncBridgeService = createWechatSyncBridgeService({
       http,
       port: settings.port,
       token: settings.token,
       allowRemote: settings.allowRemote,
       serverVersion: this.manifest?.version || '',
+      initialConnectedClients: settings.connectedClients || [],
+      async onClientRegistryChange(clients) {
+        self.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
+          ...self.settings.multiPlatformSync,
+          connectedClients: clients,
+        });
+        await self.saveSettings();
+      },
     });
     return this._wechatSyncBridgeService;
   }

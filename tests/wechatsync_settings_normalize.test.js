@@ -15,6 +15,8 @@ import { describe, it, expect } from 'vitest';
 
 const {
   createDefaultMultiPlatformSyncSettings,
+  normalizeConnectedClient,
+  normalizeConnectedClients,
   normalizeMultiPlatformSyncSettings,
 } = require('../services/wechatsync-settings');
 
@@ -125,5 +127,85 @@ describe('Sprint 1 §4.1 normalizeMultiPlatformSyncSettings — security default
     const twice = normalizeMultiPlatformSyncSettings(once);
     expect(twice).toEqual(once);
     expect(twice.token).toBe('trim-me');
+  });
+});
+
+describe('§16 Phase 1 normalizeConnectedClient / normalizeConnectedClients', () => {
+  const VALID_CLIENT = {
+    extensionInstanceId: 'abc-123',
+    browserName: 'chrome',
+    profileLabel: '主号',
+    capabilities: { enqueueSyncArticle: true },
+    extensionVersion: '1.1.4',
+    status: 'connected',
+    lastSeenAt: 1000000,
+    firstConnectedAt: 900000,
+    lastConnectedAt: 1000000,
+  };
+
+  it('createDefaultMultiPlatformSyncSettings includes connectedClients: []', () => {
+    const defaults = createDefaultMultiPlatformSyncSettings();
+    expect(defaults).toHaveProperty('connectedClients');
+    expect(defaults.connectedClients).toEqual([]);
+  });
+
+  it('normalizeMultiPlatformSyncSettings propagates connectedClients', () => {
+    const normalized = normalizeMultiPlatformSyncSettings({
+      connectedClients: [VALID_CLIENT],
+    });
+    expect(normalized.connectedClients).toHaveLength(1);
+    expect(normalized.connectedClients[0]).toMatchObject({
+      extensionInstanceId: 'abc-123',
+      browserName: 'chrome',
+      status: 'connected',
+    });
+  });
+
+  it('normalizeConnectedClient passes through all 9 valid fields', () => {
+    const result = normalizeConnectedClient(VALID_CLIENT);
+    expect(result).toMatchObject({
+      extensionInstanceId: 'abc-123',
+      browserName: 'chrome',
+      profileLabel: '主号',
+      extensionVersion: '1.1.4',
+      status: 'connected',
+      lastSeenAt: 1000000,
+      firstConnectedAt: 900000,
+      lastConnectedAt: 1000000,
+    });
+    expect(result.capabilities).toEqual({ enqueueSyncArticle: true });
+  });
+
+  it('normalizeConnectedClient returns null for entries missing extensionInstanceId', () => {
+    expect(normalizeConnectedClient({})).toBeNull();
+    expect(normalizeConnectedClient({ extensionInstanceId: '' })).toBeNull();
+    expect(normalizeConnectedClient(null)).toBeNull();
+    expect(normalizeConnectedClient('string')).toBeNull();
+  });
+
+  it('normalizeConnectedClients filters out invalid entries', () => {
+    const result = normalizeConnectedClients([
+      VALID_CLIENT,
+      { extensionInstanceId: '' },
+      null,
+      'bad',
+      { extensionInstanceId: 'good-2', browserName: 'firefox', status: 'disconnected' },
+    ]);
+    expect(result).toHaveLength(2);
+    expect(result[0].extensionInstanceId).toBe('abc-123');
+    expect(result[1].extensionInstanceId).toBe('good-2');
+    expect(result[1].status).toBe('disconnected');
+  });
+
+  it('normalizeConnectedClients returns [] for non-array input', () => {
+    expect(normalizeConnectedClients(undefined)).toEqual([]);
+    expect(normalizeConnectedClients(null)).toEqual([]);
+    expect(normalizeConnectedClients('bad')).toEqual([]);
+  });
+
+  it('normalizeMultiPlatformSyncSettings is idempotent with connectedClients', () => {
+    const once = normalizeMultiPlatformSyncSettings({ connectedClients: [VALID_CLIENT] });
+    const twice = normalizeMultiPlatformSyncSettings(once);
+    expect(twice.connectedClients).toEqual(once.connectedClients);
   });
 });

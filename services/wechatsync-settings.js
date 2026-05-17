@@ -21,6 +21,7 @@ function createDefaultMultiPlatformSyncSettings() {
     token: '',
     allowRemote: false,
     supportedPlatforms: [],
+    connectedClients: [],
     selectedPlatforms: [],
     recentTasks: [],
     connection: {
@@ -30,6 +31,32 @@ function createDefaultMultiPlatformSyncSettings() {
       message: '',
     },
   };
+}
+
+function normalizeConnectedClient(value) {
+  if (!value || typeof value !== 'object') return null;
+  const id = String(value.extensionInstanceId || '').trim();
+  if (!id) return null;
+  const status = value.status === 'connected' ? 'connected' : 'disconnected';
+  const now = Date.now();
+  return {
+    extensionInstanceId: id,
+    browserName: typeof value.browserName === 'string' ? value.browserName : '',
+    profileLabel: typeof value.profileLabel === 'string' ? value.profileLabel : '',
+    capabilities: value.capabilities && typeof value.capabilities === 'object'
+      ? { ...value.capabilities }
+      : {},
+    extensionVersion: typeof value.extensionVersion === 'string' ? value.extensionVersion : '',
+    status,
+    lastSeenAt: Number.isFinite(Number(value.lastSeenAt)) ? Number(value.lastSeenAt) : now,
+    firstConnectedAt: Number.isFinite(Number(value.firstConnectedAt)) ? Number(value.firstConnectedAt) : now,
+    lastConnectedAt: Number.isFinite(Number(value.lastConnectedAt)) ? Number(value.lastConnectedAt) : now,
+  };
+}
+
+function normalizeConnectedClients(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => normalizeConnectedClient(entry)).filter(Boolean);
 }
 
 function normalizeWechatsyncPlatformId(value = '') {
@@ -146,6 +173,7 @@ function normalizeMultiPlatformSyncSettings(value = {}) {
     selectedPlatforms,
     connection: normalizeMultiPlatformConnection(source.connection),
     recentTasks: normalizeWechatSyncRecentTasks(source.recentTasks),
+    connectedClients: normalizeConnectedClients(source.connectedClients),
   };
 }
 
@@ -184,6 +212,8 @@ function getAvailableWechatsyncPlatforms(settings = {}) {
 
 module.exports = {
   createDefaultMultiPlatformSyncSettings,
+  normalizeConnectedClient,
+  normalizeConnectedClients,
   normalizeWechatsyncPlatformId,
   parseWechatsyncPlatformIds,
   mergeWechatsyncPlatformLists,

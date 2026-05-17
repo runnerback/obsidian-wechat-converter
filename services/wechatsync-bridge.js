@@ -400,6 +400,8 @@ function createWechatSyncBridgeService(options = {}) {
     logger = console,
     idFactory = () => `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     connectionIdFactory = defaultConnectionIdFactory,
+    onClientRegistryChange = null,
+    initialConnectedClients = [],
   } = options;
 
   if (!http) {
@@ -407,6 +409,76 @@ function createWechatSyncBridgeService(options = {}) {
   }
 
   const bindHost = allowRemote ? REMOTE_BIND_HOST : LOCAL_BIND_HOST;
+
+  // §16 Phase 1: runtime connected-clients registry.
+  // Initialized from persisted settings so previously seen clients are
+  // visible immediately (status 'disconnected') even before reconnection.
+  let connectedClients = Array.isArray(initialConnectedClients)
+    ? initialConnectedClients.map((c) => ({ ...c }))
+    : [];
+  let _clientRegistryDebounceTimer = null;
+
+  function scheduleRegistryChange() {
+    if (!onClientRegistryChange) return;
+    clearTimeout(_clientRegistryDebounceTimer);
+    _clientRegistryDebounceTimer = setTimeout(() => {
+      onClientRegistryChange(connectedClients.map((c) => ({ ...c })));
+    }, 1000);
+  }
+
+  function upsertConnectedClient(hello, status) {
+    const now = Date.now();
+    const idx = connectedClients.findIndex(
+      (c) => c.extensionInstanceId === hello.extensionInstanceId
+    );
+    if (idx >= 0) {
+      const existing = connectedClients[idx];
+      connectedClients[idx] = {
+        ...existing,
+        browserName: hello.browserName || existing.browserName,
+        profileLabel: hello.profileLabel !== undefined ? hello.profileLabel : existing.profileLabel,
+        capabilities: hello.capabilities || existing.capabilities,
+        extensionVersion: hello.version || existing.extensionVersion,
+        status,
+        lastSeenAt: now,
+        lastConnectedAt: status === 'connected' ? now : existing.lastConnectedAt,
+      };
+    } else {
+      // Phase 1 single-client: replace array when a new client appears.
+      connectedClients = [{
+        extensionInstanceId: hello.extensionInstanceId,
+        browserName: hello.browserName || '',
+        profileLabel: hello.profileLabel || '',
+        capabilities: hello.capabilities || {},
+        extensionVersion: hello.version || '',
+        status,
+        lastSeenAt: now,
+        firstConnectedAt: now,
+        lastConnectedAt: now,
+      }];
+    }
+    scheduleRegistryChange();
+  }
+
+  function markClientDisconnected(extensionInstanceId) {
+    if (!extensionInstanceId) return;
+    const idx = connectedClients.findIndex(
+      (c) => c.extensionInstanceId === extensionInstanceId
+    );
+    if (idx < 0) return;
+    connectedClients[idx] = { ...connectedClients[idx], status: 'disconnected' };
+    scheduleRegistryChange();
+  }
+
+  function refreshClientSeen(extensionInstanceId) {
+    if (!extensionInstanceId) return;
+    const idx = connectedClients.findIndex(
+      (c) => c.extensionInstanceId === extensionInstanceId
+    );
+    if (idx < 0) return;
+    connectedClients[idx] = { ...connectedClients[idx], lastSeenAt: Date.now() };
+    scheduleRegistryChange();
+  }
 
   let wss = null;
   let httpServer = null;
@@ -536,6 +608,7 @@ function createWechatSyncBridgeService(options = {}) {
       browserName: next.browserName,
       version: next.version,
     });
+    upsertConnectedClient(hello, 'connected');
     notifyConnected();
   }
 
@@ -596,6 +669,11 @@ function createWechatSyncBridgeService(options = {}) {
 
     if (message?.type === 'extension_hello') {
       debug('Ignoring extension_hello on already-authenticated client');
+      return;
+    }
+
+    if (message?.type === 'heartbeat') {
+      if (activeClient) refreshClientSeen(activeClient.extensionInstanceId);
       return;
     }
 
@@ -665,6 +743,7 @@ function createWechatSyncBridgeService(options = {}) {
       removePendingConnection(connectionId);
       if (activeClient && activeClient.connectionId === connectionId) {
         debug('Active client disconnected', { connectionId });
+        markClientDisconnected(activeClient.extensionInstanceId);
         activeClient = null;
       }
     });
@@ -1054,6 +1133,7 @@ function createWechatSyncBridgeService(options = {}) {
       host: bindHost,
       allowRemote: !!allowRemote,
       port,
+      connectedClients: connectedClients.map((c) => ({ ...c })),
       diagnostics: getDiagnostics(),
     };
   }

@@ -93,6 +93,31 @@ function collectWikiImageEmbeds(markdown) {
   return results;
 }
 
+function isImageWikiTarget(src) {
+  const ext = getExtension(String(src || '').split('#')[0]);
+  return !!(SUPPORTED_IMAGE_MIME_BY_EXT[ext] || RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext]);
+}
+
+function collectPlainWikiImageLinks(markdown) {
+  const results = [];
+  const pattern = /\[\[([^\]\n]+?)\]\]/g;
+  let match;
+  while ((match = pattern.exec(markdown)) !== null) {
+    if (markdown[match.index - 1] === '!') continue;
+    const { src, alias } = splitWikiEmbedTarget(match[1]);
+    if (!src || !isImageWikiTarget(src)) continue;
+    results.push({
+      type: 'wiki-link',
+      start: match.index,
+      end: match.index + match[0].length,
+      raw: match[0],
+      src,
+      alt: alias || createAltFromSrc(src),
+    });
+  }
+  return results;
+}
+
 function collectMarkdownImages(markdown) {
   const results = [];
   let index = 0;
@@ -185,14 +210,49 @@ function collectFencedCodeRanges(markdown) {
   return ranges;
 }
 
+function collectInlineCodeRanges(markdown, blockedRanges = []) {
+  const ranges = [];
+  let index = 0;
+  while (index < markdown.length) {
+    const blocked = blockedRanges.find((range) => index >= range.start && index < range.end);
+    if (blocked) {
+      index = blocked.end;
+      continue;
+    }
+
+    if (markdown[index] !== '`') {
+      index += 1;
+      continue;
+    }
+
+    let runEnd = index + 1;
+    while (runEnd < markdown.length && markdown[runEnd] === '`') runEnd += 1;
+    const tickRun = markdown.slice(index, runEnd);
+    const closing = markdown.indexOf(tickRun, runEnd);
+    if (closing < 0) {
+      index = runEnd;
+      continue;
+    }
+
+    ranges.push({ start: index, end: closing + tickRun.length });
+    index = closing + tickRun.length;
+  }
+  return ranges;
+}
+
 function isInsideRanges(index, ranges) {
   return ranges.some((range) => index >= range.start && index < range.end);
 }
 
 function collectArticleImageReferences(markdown) {
-  const codeRanges = collectFencedCodeRanges(markdown);
+  const fencedCodeRanges = collectFencedCodeRanges(markdown);
+  const codeRanges = [
+    ...fencedCodeRanges,
+    ...collectInlineCodeRanges(markdown, fencedCodeRanges),
+  ];
   return [
     ...collectWikiImageEmbeds(markdown),
+    ...collectPlainWikiImageLinks(markdown),
     ...collectMarkdownImages(markdown),
   ]
     .filter((ref) => !isInsideRanges(ref.start, codeRanges))

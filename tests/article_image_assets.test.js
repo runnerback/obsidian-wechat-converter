@@ -29,10 +29,11 @@ function makeApp(files = {}) {
 
 describe('article image asset resolver', () => {
   it('collects markdown and wikilink image references', () => {
-    const refs = collectArticleImageReferences('a ![[img one.png|示例]] b ![alt](https://example.com/a.png)');
+    const refs = collectArticleImageReferences('a ![[img one.png|示例]] b [[plain.jpg|普通双链]] c [[note]] d ![alt](https://example.com/a.png)');
 
     expect(refs.map((ref) => ({ type: ref.type, src: ref.src, alt: ref.alt }))).toEqual([
       { type: 'wiki', src: 'img one.png', alt: '示例' },
+      { type: 'wiki-link', src: 'plain.jpg', alt: '普通双链' },
       { type: 'markdown', src: 'https://example.com/a.png', alt: 'alt' },
     ]);
   });
@@ -46,6 +47,14 @@ describe('article image asset resolver', () => {
       '',
       '![real](real.png)',
     ].join('\n'));
+
+    expect(refs.map((ref) => ref.src)).toEqual(['real.png']);
+  });
+
+  it('ignores image-looking markdown inside inline code spans', () => {
+    const refs = collectArticleImageReferences(
+      '流程 `![[本地图片.png]]` 和 `![remote](https://example.com/a.png)`，正文 ![[real.png]]'
+    );
 
     expect(refs.map((ref) => ref.src)).toEqual(['real.png']);
   });
@@ -85,6 +94,61 @@ describe('article image asset resolver', () => {
     expect(result.markdown).toContain('![图一](asset://image-1)');
     expect(result.markdown).toContain('![again](asset://image-1)');
     expect(result.markdown).toContain('![remote](https://cdn.example.com/a.png)');
+  });
+
+  it('turns Obsidian image wikilinks with Chinese paths and width hints into bridge assets', async () => {
+    const imageFile = {
+      path: 'Wechat/To-be-used/Project_Obsidian入门48_剪藏图片外链处理/attachments/6142f41a7643ed1da56cac43ad8d0359_MD5.png',
+      name: '6142f41a7643ed1da56cac43ad8d0359_MD5.png',
+      extension: 'png',
+      bytes: pngBytes(24),
+    };
+    const app = makeApp({
+      [imageFile.path]: imageFile,
+    });
+
+    const result = await resolveArticleImages(
+      `![[${imageFile.path}|400]]`,
+      { path: 'Wechat/To-be-used/post.md', basename: 'post' },
+      { app }
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0]).toMatchObject({
+      id: 'image-1',
+      filename: '6142f41a7643ed1da56cac43ad8d0359_MD5.png',
+      source: {
+        originalSrc: imageFile.path,
+        vaultRelativePath: imageFile.path,
+      },
+    });
+    expect(result.markdown).toBe('![400](asset://image-1)');
+  });
+
+  it('turns plain wikilinks that point to images into bridge assets', async () => {
+    const imageFile = {
+      path: 'notes/assets/plain local.png',
+      name: 'plain local.png',
+      extension: 'png',
+      bytes: pngBytes(24),
+    };
+    const app = makeApp({
+      'plain local.png': imageFile,
+      'assets/plain local.png': imageFile,
+      'notes/assets/plain local.png': imageFile,
+    });
+
+    const result = await resolveArticleImages(
+      '正文 [[assets/plain local.png|普通双链图片]] 和 [[普通笔记]]',
+      { path: 'notes/post.md', basename: 'post' },
+      { app }
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.assets).toHaveLength(1);
+    expect(result.markdown).toContain('![普通双链图片](asset://image-1)');
+    expect(result.markdown).toContain('[[普通笔记]]');
   });
 
   it('resolves a local cover and reuses the body asset when it points to the same file', async () => {
