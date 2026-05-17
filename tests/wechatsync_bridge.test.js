@@ -535,6 +535,77 @@ describe('Wechatsync bridge service', () => {
     });
   });
 
+  it('forwards coverThumbnail through enqueueSyncArticle when provided', async () => {
+    const port = await getFreePort();
+    const service = createWechatSyncBridgeService({
+      WebSocketServer,
+      http,
+      port,
+      token: 'secret-token',
+      requestTimeoutMs: 1000,
+      connectTimeoutMs: 1000,
+      idFactory: () => 'enqueue-thumb-1',
+    });
+    cleanup.push(service);
+    await service.start();
+
+    const sampleThumb = 'data:image/jpeg;base64,/9j/MOCK';
+    const extension = await connectExtension(port, (message) => {
+      expect(message).toMatchObject({
+        id: 'enqueue-thumb-1',
+        method: 'enqueueSyncArticle',
+        params: {
+          article: {
+            title: '封面文章',
+            coverThumbnail: sampleThumb,
+          },
+        },
+      });
+      return { result: { accepted: true, syncId: 'thumb-sync-1' } };
+    });
+    cleanup.push(extension);
+
+    await service.waitForConnection(1000);
+    await expect(service.enqueueSyncArticle({
+      platforms: ['zhihu'],
+      title: '封面文章',
+      markdown: '# 正文',
+      content: '<p>正文</p>',
+      cover: 'asset://image-1',
+      coverThumbnail: sampleThumb,
+    })).resolves.toMatchObject({ syncId: 'thumb-sync-1' });
+  });
+
+  it('omits coverThumbnail field entirely when not provided / empty', async () => {
+    const port = await getFreePort();
+    const service = createWechatSyncBridgeService({
+      WebSocketServer,
+      http,
+      port,
+      token: 'secret-token',
+      requestTimeoutMs: 1000,
+      connectTimeoutMs: 1000,
+      idFactory: () => 'enqueue-no-thumb-1',
+    });
+    cleanup.push(service);
+    await service.start();
+
+    const extension = await connectExtension(port, (message) => {
+      expect(message.params.article).not.toHaveProperty('coverThumbnail');
+      return { result: { accepted: true, syncId: 'no-thumb-sync-1' } };
+    });
+    cleanup.push(extension);
+
+    await service.waitForConnection(1000);
+    await expect(service.enqueueSyncArticle({
+      platforms: ['zhihu'],
+      title: '无封面缩略图',
+      markdown: '# 正文',
+      content: '<p>正文</p>',
+      coverThumbnail: '',
+    })).resolves.toMatchObject({ syncId: 'no-thumb-sync-1' });
+  });
+
   it('passes quotaPolicy through when enqueuing article sync', async () => {
     const port = await getFreePort();
     const service = createWechatSyncBridgeService({

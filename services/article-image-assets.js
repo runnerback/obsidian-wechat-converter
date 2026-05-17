@@ -564,6 +564,22 @@ function findAssetForRenderedSrc(renderedSrc, assets = []) {
   return null;
 }
 
+// Bridge publish flow helper: given a cover string ('asset://<id>',
+// 'https://...', 'data:...', or empty), return the matching asset entry
+// when the cover refers to a local asset, else null. Used to pull the
+// asset bytes for inline thumbnail generation.
+function findAssetForCover(coverString, assets = []) {
+  const cover = String(coverString || '').trim();
+  if (!cover.startsWith('asset://')) return null;
+  if (!Array.isArray(assets) || !assets.length) return null;
+  const id = cover.slice('asset://'.length);
+  if (!id) return null;
+  for (const asset of assets) {
+    if (asset && asset.id === id) return asset;
+  }
+  return null;
+}
+
 // Bridge publish flow: rewrite every <img src="app://..."> (or capacitor://)
 // in the rendered HTML back to asset://<id>, using the same assets[] that
 // resolveArticleImages produced. Remote https://, data:, and unmatched
@@ -681,6 +697,7 @@ module.exports = {
   DEFAULT_MAX_IMAGE_SIZE_BYTES,
   DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES,
   collectArticleImageReferences,
+  findAssetForCover,
   findAssetForRenderedSrc,
   formatArticleImageWarnings,
   getFirstMarkdownImageSrc,

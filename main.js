@@ -11340,11 +11340,11 @@ var require_wechatsync_bridge = __commonJS({
         const params = Array.isArray(platformOrPlatforms) ? { platforms: platformOrPlatforms, forceRefresh } : { platform: platformOrPlatforms, forceRefresh };
         return requestWithMethodFallback("checkAuth", "check_auth", params, { timeoutMs });
       }
-      function syncArticle({ platforms, title, markdown, content, cover, assets, timeoutMs = DEFAULT_SYNC_REQUEST_TIMEOUT_MS }) {
-        return request2("syncArticle", {
-          platforms,
-          article: { title, markdown, content, cover, assets }
-        }, { timeoutMs });
+      function syncArticle({ platforms, title, markdown, content, cover, coverThumbnail, assets, timeoutMs = DEFAULT_SYNC_REQUEST_TIMEOUT_MS }) {
+        const article = { title, markdown, content, cover, assets };
+        if (coverThumbnail)
+          article.coverThumbnail = coverThumbnail;
+        return request2("syncArticle", { platforms, article }, { timeoutMs });
       }
       function enqueueSyncArticle({
         platforms,
@@ -11352,16 +11352,16 @@ var require_wechatsync_bridge = __commonJS({
         markdown,
         content,
         cover,
+        coverThumbnail,
         assets,
         source = "obsidian",
         quotaPolicy,
         timeoutMs = 1e4
       }) {
-        const params = {
-          platforms,
-          source,
-          article: { title, markdown, content, cover, assets }
-        };
+        const article = { title, markdown, content, cover, assets };
+        if (coverThumbnail)
+          article.coverThumbnail = coverThumbnail;
+        const params = { platforms, source, article };
         if (quotaPolicy === "block" || quotaPolicy === "truncate") {
           params.quotaPolicy = quotaPolicy;
         }
@@ -11385,11 +11385,11 @@ var require_wechatsync_bridge = __commonJS({
           maxAgeMs
         }, { timeoutMs });
       }
-      function sendArticle({ platforms, title, markdown, content, cover, assets }) {
-        return send("syncArticle", {
-          platforms,
-          article: { title, markdown, content, cover, assets }
-        });
+      function sendArticle({ platforms, title, markdown, content, cover, coverThumbnail, assets }) {
+        const article = { title, markdown, content, cover, assets };
+        if (coverThumbnail)
+          article.coverThumbnail = coverThumbnail;
+        return send("syncArticle", { platforms, article });
       }
       async function getStatus() {
         return {
@@ -13466,6 +13466,21 @@ var require_article_image_assets = __commonJS({
       }
       return null;
     }
+    function findAssetForCover(coverString, assets = []) {
+      const cover = String(coverString || "").trim();
+      if (!cover.startsWith("asset://"))
+        return null;
+      if (!Array.isArray(assets) || !assets.length)
+        return null;
+      const id = cover.slice("asset://".length);
+      if (!id)
+        return null;
+      for (const asset of assets) {
+        if (asset && asset.id === id)
+          return asset;
+      }
+      return null;
+    }
     function mapAppUrlImagesToAssetUrls2(html, assets = []) {
       if (!html)
         return "";
@@ -13576,6 +13591,7 @@ var require_article_image_assets = __commonJS({
       DEFAULT_MAX_IMAGE_SIZE_BYTES,
       DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES,
       collectArticleImageReferences,
+      findAssetForCover,
       findAssetForRenderedSrc,
       formatArticleImageWarnings,
       getFirstMarkdownImageSrc,
@@ -14421,6 +14437,7 @@ var require_multi_platform = __commonJS({
     } = require_connection_status_bar();
     var { stripMarkdownFrontmatter: stripMarkdownFrontmatter2 } = require_markdown_utils();
     var {
+      findAssetForCover,
       formatArticleImageWarnings,
       resolveArticleImages
     } = require_article_image_assets();
@@ -14709,6 +14726,8 @@ var require_multi_platform = __commonJS({
               title
             });
           }
+          const coverAsset = findAssetForCover(cover, assets);
+          const coverThumbnail = coverAsset ? await view.generateCoverThumbnailFromAsset(coverAsset) : "";
           console.info("[Wechatsync] enqueueSyncArticle started", {
             platformCount: requestedPlatformIds.length,
             platforms: requestedPlatformIds,
@@ -14716,6 +14735,8 @@ var require_multi_platform = __commonJS({
             hasMarkdown: !!markdown,
             contentLength: content.length,
             hasCover: !!cover,
+            hasCoverThumbnail: !!coverThumbnail,
+            coverThumbnailBytes: coverThumbnail.length,
             assetCount: assets.length,
             assetBytes: assets.reduce((sum, asset) => sum + (asset.size || 0), 0)
           });
@@ -14730,6 +14751,7 @@ var require_multi_platform = __commonJS({
               markdown,
               content,
               cover,
+              coverThumbnail,
               assets,
               source: "obsidian",
               quotaPolicy: QUOTA_POLICY
@@ -14745,6 +14767,7 @@ var require_multi_platform = __commonJS({
               markdown,
               content,
               cover,
+              coverThumbnail,
               assets
             });
           }
@@ -19404,6 +19427,58 @@ var AppleStyleView = class extends ItemView {
     tempDiv.innerHTML = mapped;
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
+  }
+  // Bridge publish flow: produce a small inline JPEG data URL for the
+  // cover asset, suitable for direct <img src> use in the extension's
+  // popup History list (which cannot resolve asset:// URLs in plain DOM).
+  // Budget: longest edge ≤ COVER_THUMBNAIL_MAX_DIM (256px), JPEG quality
+  // tries 0.7 → 0.55 → 0.4 until size ≤ COVER_THUMBNAIL_MAX_BYTES (~8KB).
+  // Returns '' on any failure — the extension will fall back to its own
+  // local-thumbnail path. Never throws into the publish pipeline.
+  async generateCoverThumbnailFromAsset(asset) {
+    try {
+      if (!asset || typeof asset !== "object")
+        return "";
+      const base64 = typeof asset.base64 === "string" ? asset.base64 : "";
+      const mimeType = typeof asset.mimeType === "string" ? asset.mimeType : "";
+      if (!base64 || !mimeType)
+        return "";
+      if (mimeType === "image/gif")
+        return "";
+      const sourceDataUrl = `data:${mimeType};base64,${base64}`;
+      const image = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("image_decode_failed"));
+        img.src = sourceDataUrl;
+      });
+      const naturalW = image.naturalWidth || image.width || 0;
+      const naturalH = image.naturalHeight || image.height || 0;
+      if (!naturalW || !naturalH)
+        return "";
+      const MAX_DIM = 256;
+      const scale = Math.min(1, MAX_DIM / Math.max(naturalW, naturalH));
+      const targetW = Math.max(1, Math.round(naturalW * scale));
+      const targetH = Math.max(1, Math.round(naturalH * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext("2d");
+      if (!ctx)
+        return "";
+      ctx.drawImage(image, 0, 0, targetW, targetH);
+      const MAX_BYTES = 8 * 1024;
+      for (const quality of [0.7, 0.55, 0.4]) {
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        if (typeof dataUrl === "string" && dataUrl.length <= MAX_BYTES) {
+          return dataUrl;
+        }
+      }
+      return "";
+    } catch (err) {
+      console.warn("[Wechatsync] generateCoverThumbnailFromAsset failed", err);
+      return "";
+    }
   }
   extractCodeTextForWechatsync(block) {
     var _a;

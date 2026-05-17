@@ -1116,11 +1116,10 @@ function createWechatSyncBridgeService(options = {}) {
     return requestWithMethodFallback('checkAuth', 'check_auth', params, { timeoutMs });
   }
 
-  function syncArticle({ platforms, title, markdown, content, cover, assets, timeoutMs = DEFAULT_SYNC_REQUEST_TIMEOUT_MS }) {
-    return request('syncArticle', {
-      platforms,
-      article: { title, markdown, content, cover, assets },
-    }, { timeoutMs });
+  function syncArticle({ platforms, title, markdown, content, cover, coverThumbnail, assets, timeoutMs = DEFAULT_SYNC_REQUEST_TIMEOUT_MS }) {
+    const article = { title, markdown, content, cover, assets };
+    if (coverThumbnail) article.coverThumbnail = coverThumbnail;
+    return request('syncArticle', { platforms, article }, { timeoutMs });
   }
 
   function enqueueSyncArticle({
@@ -1129,16 +1128,15 @@ function createWechatSyncBridgeService(options = {}) {
     markdown,
     content,
     cover,
+    coverThumbnail,
     assets,
     source = 'obsidian',
     quotaPolicy,
     timeoutMs = 10000,
   }) {
-    const params = {
-      platforms,
-      source,
-      article: { title, markdown, content, cover, assets },
-    };
+    const article = { title, markdown, content, cover, assets };
+    if (coverThumbnail) article.coverThumbnail = coverThumbnail;
+    const params = { platforms, source, article };
     if (quotaPolicy === 'block' || quotaPolicy === 'truncate') {
       params.quotaPolicy = quotaPolicy;
     }
@@ -1173,11 +1171,10 @@ function createWechatSyncBridgeService(options = {}) {
     }, { timeoutMs });
   }
 
-  function sendArticle({ platforms, title, markdown, content, cover, assets }) {
-    return send('syncArticle', {
-      platforms,
-      article: { title, markdown, content, cover, assets },
-    });
+  function sendArticle({ platforms, title, markdown, content, cover, coverThumbnail, assets }) {
+    const article = { title, markdown, content, cover, assets };
+    if (coverThumbnail) article.coverThumbnail = coverThumbnail;
+    return send('syncArticle', { platforms, article });
   }
 
   async function getStatus() {

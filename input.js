@@ -5150,6 +5150,68 @@ class AppleStyleView extends ItemView {
     return tempDiv.innerHTML;
   }
 
+  // Bridge publish flow: produce a small inline JPEG data URL for the
+  // cover asset, suitable for direct <img src> use in the extension's
+  // popup History list (which cannot resolve asset:// URLs in plain DOM).
+  // Budget: longest edge ≤ COVER_THUMBNAIL_MAX_DIM (256px), JPEG quality
+  // tries 0.7 → 0.55 → 0.4 until size ≤ COVER_THUMBNAIL_MAX_BYTES (~8KB).
+  // Returns '' on any failure — the extension will fall back to its own
+  // local-thumbnail path. Never throws into the publish pipeline.
+  async generateCoverThumbnailFromAsset(asset) {
+    try {
+      if (!asset || typeof asset !== 'object') return '';
+      const base64 = typeof asset.base64 === 'string' ? asset.base64 : '';
+      const mimeType = typeof asset.mimeType === 'string' ? asset.mimeType : '';
+      if (!base64 || !mimeType) return '';
+      // GIFs would lose animation if we re-encode to JPEG; skip and let
+      // the extension fall back to its local-thumbnail path (which can
+      // keep the first frame). Plugin keeps the implementation small.
+      if (mimeType === 'image/gif') return '';
+
+      const sourceDataUrl = `data:${mimeType};base64,${base64}`;
+      const image = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('image_decode_failed'));
+        img.src = sourceDataUrl;
+      });
+
+      const naturalW = image.naturalWidth || image.width || 0;
+      const naturalH = image.naturalHeight || image.height || 0;
+      if (!naturalW || !naturalH) return '';
+
+      const MAX_DIM = 256;
+      const scale = Math.min(1, MAX_DIM / Math.max(naturalW, naturalH));
+      const targetW = Math.max(1, Math.round(naturalW * scale));
+      const targetH = Math.max(1, Math.round(naturalH * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return '';
+      ctx.drawImage(image, 0, 0, targetW, targetH);
+
+      const MAX_BYTES = 8 * 1024;
+      // The data URL prefix `data:image/jpeg;base64,` adds ~22 bytes; we
+      // compare the whole string length against MAX_BYTES, accepting
+      // that the prefix counts toward the budget (negligible).
+      for (const quality of [0.7, 0.55, 0.4]) {
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        if (typeof dataUrl === 'string' && dataUrl.length <= MAX_BYTES) {
+          return dataUrl;
+        }
+      }
+      // Even the lowest quality is too big; return empty so the
+      // extension does the local fallback instead of carrying a payload
+      // that bloats `chrome.storage.local`.
+      return '';
+    } catch (err) {
+      console.warn('[Wechatsync] generateCoverThumbnailFromAsset failed', err);
+      return '';
+    }
+  }
+
   extractCodeTextForWechatsync(block) {
     const codePre = block?.querySelector?.('pre');
     if (!codePre) return '';

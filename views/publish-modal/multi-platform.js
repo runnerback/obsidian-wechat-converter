@@ -46,6 +46,7 @@ const {
 
 const { stripMarkdownFrontmatter } = require('../../services/markdown-utils');
 const {
+  findAssetForCover,
   formatArticleImageWarnings,
   resolveArticleImages,
 } = require('../../services/article-image-assets');
@@ -363,6 +364,18 @@ async function showMultiPlatformPublishModal(view, options = {}) {
         });
       }
 
+      // Generate a small inline cover thumbnail when the resolved cover is
+      // a local asset. The extension popup History list cannot resolve
+      // asset:// URLs in plain <img src>; previously the only fallback was
+      // for the extension to re-decode + resize the full asset bytes at
+      // first paint. coverThumbnail short-circuits that: a ≤8KB JPEG data
+      // URL the extension can drop straight into <img src>. Purely
+      // additive — older extensions just ignore the field.
+      const coverAsset = findAssetForCover(cover, assets);
+      const coverThumbnail = coverAsset
+        ? await view.generateCoverThumbnailFromAsset(coverAsset)
+        : '';
+
       console.info('[Wechatsync] enqueueSyncArticle started', {
         platformCount: requestedPlatformIds.length,
         platforms: requestedPlatformIds,
@@ -370,6 +383,8 @@ async function showMultiPlatformPublishModal(view, options = {}) {
         hasMarkdown: !!markdown,
         contentLength: content.length,
         hasCover: !!cover,
+        hasCoverThumbnail: !!coverThumbnail,
+        coverThumbnailBytes: coverThumbnail.length,
         assetCount: assets.length,
         assetBytes: assets.reduce((sum, asset) => sum + (asset.size || 0), 0),
       });
@@ -384,6 +399,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
           markdown,
           content,
           cover,
+          coverThumbnail,
           assets,
           source: 'obsidian',
           quotaPolicy: QUOTA_POLICY,
@@ -398,6 +414,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
           markdown,
           content,
           cover,
+          coverThumbnail,
           assets,
         });
       }

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 const {
   collectArticleImageReferences,
+  findAssetForCover,
   findAssetForRenderedSrc,
   mapAppUrlImagesToAssetUrls,
   replaceArticleContentImageSources,
@@ -336,6 +337,27 @@ describe('article image asset resolver', () => {
       expect(mapAppUrlImagesToAssetUrls('', [sampleAsset])).toBe('');
       expect(mapAppUrlImagesToAssetUrls(null, [sampleAsset])).toBe('');
       expect(mapAppUrlImagesToAssetUrls('<img src="app://x/y.png">', [])).toContain('app://x/y.png');
+    });
+
+    it('findAssetForCover: returns matching asset for asset://<id> cover', () => {
+      expect(findAssetForCover('asset://image-7', [sampleAsset])).toBe(sampleAsset);
+    });
+
+    it('findAssetForCover: returns null for asset://<id> with no matching id', () => {
+      expect(findAssetForCover('asset://image-999', [sampleAsset])).toBeNull();
+    });
+
+    it('findAssetForCover: returns null for non-asset covers (https / data / empty)', () => {
+      expect(findAssetForCover('https://example.com/cover.jpg', [sampleAsset])).toBeNull();
+      expect(findAssetForCover('data:image/png;base64,iVBOR...', [sampleAsset])).toBeNull();
+      expect(findAssetForCover('', [sampleAsset])).toBeNull();
+      expect(findAssetForCover(null, [sampleAsset])).toBeNull();
+    });
+
+    it('findAssetForCover: returns null when assets list is empty / malformed', () => {
+      expect(findAssetForCover('asset://image-7', [])).toBeNull();
+      expect(findAssetForCover('asset://image-7', null)).toBeNull();
+      expect(findAssetForCover('asset://', [sampleAsset])).toBeNull();
     });
   });
 });

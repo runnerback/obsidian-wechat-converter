@@ -74,6 +74,7 @@ function makeView({ selectedPlatforms = ['zhihu'], cachedPlatforms = null, bridg
   view.getFrontmatterPublishMeta = vi.fn(() => ({ coverSrc: '' }));
   view.getFirstImageFromArticle = vi.fn(() => '');
   view.prepareHtmlForWechatsyncArticle = vi.fn(async (html) => html);
+  view.generateCoverThumbnailFromAsset = vi.fn(async () => '');
   view.getWechatsyncTaskSnapshot = vi.fn(async () => null);
   view.showMultiPlatformQuotaBlockedModal = vi.fn();
   return view;
