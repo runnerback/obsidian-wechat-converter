@@ -54,6 +54,23 @@ function applyExtensions(el) {
   el.createSpan = function createSpan(opts = {}, callback) {
     return this.createEl('span', opts, callback);
   };
+  el.createSvg = function createSvg(tag, opts = {}, callback) {
+    const child = applyExtensions(
+      document.createElementNS('http://www.w3.org/2000/svg', tag)
+    );
+    if (opts && typeof opts === 'object') {
+      if (opts.cls) child.setAttribute('class', opts.cls);
+      if (opts.attr && typeof opts.attr === 'object') {
+        Object.entries(opts.attr).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          child.setAttribute(key, String(value));
+        });
+      }
+    }
+    this.appendChild(child);
+    if (typeof callback === 'function') callback(child);
+    return child;
+  };
   return el;
 }
 

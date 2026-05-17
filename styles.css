@@ -2414,6 +2414,12 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   color: var(--text-muted, #666);
 }
 
+.wechat-bridge-browser-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
 .wechat-bridge-status-body {
   display: flex;
   align-items: center;
