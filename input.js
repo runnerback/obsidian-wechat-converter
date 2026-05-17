@@ -66,6 +66,7 @@ const { cleanHtmlForDraft: cleanHtmlForDraftService } = require('./services/wech
 const { rasterizeSvgToPngBlob } = require('./services/svg-rasterizer');
 const { createObsidianFetchAdapter } = require('./services/obsidian-fetch-adapter');
 const { stripMarkdownFrontmatter } = require('./services/markdown-utils');
+const { mapAppUrlImagesToAssetUrls } = require('./services/article-image-assets');
 
 // 视图类型标识
 const APPLE_STYLE_VIEW = 'apple-style-converter';
@@ -5127,6 +5128,24 @@ class AppleStyleView extends ItemView {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html || '';
     await this.processImagesToDataURL(tempDiv);
+    this.transformCodeBlocksForWechatsync(tempDiv);
+    return tempDiv.innerHTML;
+  }
+
+  // Bridge publish flow only. Unlike prepareHtmlForWechatsyncArticle (which
+  // inlines local images as data: URLs for the legacy WeChat clipboard
+  // flow), the bridge protocol carries image bytes via assets[] separately.
+  // Inlining base64 here would double-encode every local image: once into
+  // assets[] (correct), once into content[] (~33% inflated). The latter
+  // also breaks retry, because the extension has to redact base64 before
+  // persisting history (storage quota), and a redacted data: URL cannot be
+  // re-published. So: rewrite app:// img srcs back to asset://<id> using
+  // the assets[] metadata resolveArticleImages already produced. Do NOT
+  // call processImagesToDataURL.
+  async prepareHtmlForWechatsyncArticleViaBridge(html, assets = []) {
+    const mapped = mapAppUrlImagesToAssetUrls(html || '', assets);
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = mapped;
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
   }

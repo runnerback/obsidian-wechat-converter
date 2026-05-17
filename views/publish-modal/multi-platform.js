@@ -47,7 +47,6 @@ const {
 const { stripMarkdownFrontmatter } = require('../../services/markdown-utils');
 const {
   formatArticleImageWarnings,
-  replaceArticleContentImageSources,
   resolveArticleImages,
 } = require('../../services/article-image-assets');
 
@@ -340,8 +339,13 @@ async function showMultiPlatformPublishModal(view, options = {}) {
         || resolvedImages.firstImageSrc
         || (/^(https?:\/\/|data:image\/)/i.test(fallbackCover || '') ? fallbackCover : '')
         || '';
-      const preparedContent = await view.prepareHtmlForWechatsyncArticle(exportHtml);
-      const content = replaceArticleContentImageSources(preparedContent, assets);
+      // Bridge flow: do NOT inline base64 (assets[] carries bytes
+      // separately). The ViaBridge variant maps app:// img srcs to
+      // asset://<id> using the assets[] metadata directly. Sticking with
+      // the legacy prepareHtmlForWechatsyncArticle would double-encode
+      // every local image and break extension-side retry on redacted
+      // base64.
+      const content = await view.prepareHtmlForWechatsyncArticleViaBridge(exportHtml, assets);
       console.info('[Wechatsync] enqueueSyncArticle started', {
         platformCount: requestedPlatformIds.length,
         platforms: requestedPlatformIds,

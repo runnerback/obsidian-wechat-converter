@@ -12947,6 +12947,645 @@ var require_markdown_utils = __commonJS({
   }
 });
 
+// services/article-image-assets.js
+var require_article_image_assets = __commonJS({
+  "services/article-image-assets.js"(exports2, module2) {
+    var path = require("path");
+    var DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+    var DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
+    var SUPPORTED_IMAGE_MIME_BY_EXT = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      webp: "image/webp",
+      gif: "image/gif"
+    };
+    var RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT = {
+      svg: "image/svg+xml",
+      heic: "image/heic",
+      heif: "image/heif",
+      avif: "image/avif"
+    };
+    function normalizePath(value) {
+      return String(value || "").trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/{2,}/g, "/");
+    }
+    function getExtension(filename) {
+      const ext = String(filename || "").split("?")[0].split("#")[0].split(".").pop();
+      return ext && ext !== filename ? ext.toLowerCase() : "";
+    }
+    function isRemoteImageSrc(src) {
+      return /^https?:\/\//i.test(String(src || "").trim());
+    }
+    function isDataImageSrc(src) {
+      return /^data:image\//i.test(String(src || "").trim());
+    }
+    function isAssetImageSrc(src) {
+      return /^asset:\/\//i.test(String(src || "").trim());
+    }
+    function isFileUrl(src) {
+      return /^file:\/\//i.test(String(src || "").trim());
+    }
+    function getFilenameFromPath(src) {
+      const value = String(src || "").split("?")[0].split("#")[0].replace(/\\/g, "/");
+      const filename = value.split("/").filter(Boolean).pop();
+      return filename || "image";
+    }
+    function stripMarkdownDestination(rawDestination) {
+      const raw = String(rawDestination || "").trim();
+      if (raw.startsWith("<")) {
+        const end = raw.indexOf(">");
+        if (end > 0)
+          return raw.slice(1, end).trim();
+      }
+      return raw.replace(/\\([()])/g, "$1").trim();
+    }
+    function splitWikiEmbedTarget(rawTarget) {
+      const parts = String(rawTarget || "").split("|");
+      const src = (parts.shift() || "").trim();
+      const alias = parts.join("|").trim();
+      return { src, alias };
+    }
+    function createAltFromSrc(src, fallback = "\u56FE\u7247") {
+      const filename = getFilenameFromPath(src);
+      return filename.replace(/\.(png|jpe?g|gif|webp|svg|heic|heif|avif)$/i, "") || fallback;
+    }
+    function collectWikiImageEmbeds(markdown) {
+      const results = [];
+      const pattern = /!\[\[([^\]\n]+?)\]\]/g;
+      let match;
+      while ((match = pattern.exec(markdown)) !== null) {
+        const { src, alias } = splitWikiEmbedTarget(match[1]);
+        if (!src)
+          continue;
+        results.push({
+          type: "wiki",
+          start: match.index,
+          end: match.index + match[0].length,
+          raw: match[0],
+          src,
+          alt: alias || createAltFromSrc(src)
+        });
+      }
+      return results;
+    }
+    function isImageWikiTarget(src) {
+      const ext = getExtension(String(src || "").split("#")[0]);
+      return !!(SUPPORTED_IMAGE_MIME_BY_EXT[ext] || RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext]);
+    }
+    function collectPlainWikiImageLinks(markdown) {
+      const results = [];
+      const pattern = /\[\[([^\]\n]+?)\]\]/g;
+      let match;
+      while ((match = pattern.exec(markdown)) !== null) {
+        if (markdown[match.index - 1] === "!")
+          continue;
+        const { src, alias } = splitWikiEmbedTarget(match[1]);
+        if (!src || !isImageWikiTarget(src))
+          continue;
+        results.push({
+          type: "wiki-link",
+          start: match.index,
+          end: match.index + match[0].length,
+          raw: match[0],
+          src,
+          alt: alias || createAltFromSrc(src)
+        });
+      }
+      return results;
+    }
+    function collectMarkdownImages(markdown) {
+      const results = [];
+      let index = 0;
+      while (index < markdown.length) {
+        const start = markdown.indexOf("![", index);
+        if (start < 0)
+          break;
+        let cursor = start + 2;
+        let escaped = false;
+        let altEnd = -1;
+        while (cursor < markdown.length) {
+          const char = markdown[cursor];
+          if (escaped) {
+            escaped = false;
+          } else if (char === "\\") {
+            escaped = true;
+          } else if (char === "]") {
+            altEnd = cursor;
+            break;
+          }
+          cursor += 1;
+        }
+        if (altEnd < 0 || markdown[altEnd + 1] !== "(") {
+          index = start + 2;
+          continue;
+        }
+        const destinationStart = altEnd + 2;
+        cursor = destinationStart;
+        let depth = 0;
+        escaped = false;
+        let destinationEnd = -1;
+        while (cursor < markdown.length) {
+          const char = markdown[cursor];
+          if (escaped) {
+            escaped = false;
+          } else if (char === "\\") {
+            escaped = true;
+          } else if (char === "(") {
+            depth += 1;
+          } else if (char === ")") {
+            if (depth === 0) {
+              destinationEnd = cursor;
+              break;
+            }
+            depth -= 1;
+          }
+          cursor += 1;
+        }
+        if (destinationEnd < 0) {
+          index = start + 2;
+          continue;
+        }
+        const alt = markdown.slice(start + 2, altEnd);
+        const destination = stripMarkdownDestination(markdown.slice(destinationStart, destinationEnd));
+        if (destination) {
+          results.push({
+            type: "markdown",
+            start,
+            end: destinationEnd + 1,
+            raw: markdown.slice(start, destinationEnd + 1),
+            src: destination,
+            alt
+          });
+        }
+        index = destinationEnd + 1;
+      }
+      return results;
+    }
+    function collectFencedCodeRanges(markdown) {
+      const ranges = [];
+      const fencePattern = /^( {0,3})(`{3,}|~{3,})[^\n]*(?:\n|$)/gm;
+      let match;
+      let open = null;
+      while ((match = fencePattern.exec(markdown)) !== null) {
+        const marker = match[2][0];
+        const length = match[2].length;
+        if (!open) {
+          open = { start: match.index, marker, length };
+          continue;
+        }
+        if (open.marker === marker && length >= open.length) {
+          ranges.push({ start: open.start, end: match.index + match[0].length });
+          open = null;
+        }
+      }
+      if (open)
+        ranges.push({ start: open.start, end: markdown.length });
+      return ranges;
+    }
+    function collectInlineCodeRanges(markdown, blockedRanges = []) {
+      const ranges = [];
+      let index = 0;
+      while (index < markdown.length) {
+        const blocked = blockedRanges.find((range) => index >= range.start && index < range.end);
+        if (blocked) {
+          index = blocked.end;
+          continue;
+        }
+        if (markdown[index] !== "`") {
+          index += 1;
+          continue;
+        }
+        let runEnd = index + 1;
+        while (runEnd < markdown.length && markdown[runEnd] === "`")
+          runEnd += 1;
+        const tickRun = markdown.slice(index, runEnd);
+        const closing = markdown.indexOf(tickRun, runEnd);
+        if (closing < 0) {
+          index = runEnd;
+          continue;
+        }
+        ranges.push({ start: index, end: closing + tickRun.length });
+        index = closing + tickRun.length;
+      }
+      return ranges;
+    }
+    function isInsideRanges(index, ranges) {
+      return ranges.some((range) => index >= range.start && index < range.end);
+    }
+    function collectArticleImageReferences(markdown) {
+      const fencedCodeRanges = collectFencedCodeRanges(markdown);
+      const codeRanges = [
+        ...fencedCodeRanges,
+        ...collectInlineCodeRanges(markdown, fencedCodeRanges)
+      ];
+      return [
+        ...collectWikiImageEmbeds(markdown),
+        ...collectPlainWikiImageLinks(markdown),
+        ...collectMarkdownImages(markdown)
+      ].filter((ref) => !isInsideRanges(ref.start, codeRanges)).sort((a, b) => a.start - b.start);
+    }
+    function bufferFromBinary(binary) {
+      if (Buffer.isBuffer(binary))
+        return binary;
+      if (binary instanceof ArrayBuffer)
+        return Buffer.from(binary);
+      if (ArrayBuffer.isView(binary)) {
+        return Buffer.from(binary.buffer, binary.byteOffset, binary.byteLength);
+      }
+      return Buffer.from(binary || []);
+    }
+    function inferMimeType(filename, buffer) {
+      const ext = getExtension(filename);
+      if (SUPPORTED_IMAGE_MIME_BY_EXT[ext])
+        return SUPPORTED_IMAGE_MIME_BY_EXT[ext];
+      if (RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext]) {
+        return RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext];
+      }
+      if ((buffer == null ? void 0 : buffer.length) >= 12) {
+        if (buffer[0] === 137 && buffer.slice(1, 4).toString("ascii") === "PNG")
+          return "image/png";
+        if (buffer[0] === 255 && buffer[1] === 216)
+          return "image/jpeg";
+        if (buffer.slice(0, 4).toString("ascii") === "GIF8")
+          return "image/gif";
+        if (buffer.slice(0, 4).toString("ascii") === "RIFF" && buffer.slice(8, 12).toString("ascii") === "WEBP")
+          return "image/webp";
+      }
+      return ext ? `image/${ext}` : "application/octet-stream";
+    }
+    function createWarning(code, message, details = {}) {
+      return {
+        code,
+        message,
+        severity: details.severity || "error",
+        src: details.src || "",
+        filename: details.filename || "",
+        size: details.size || 0
+      };
+    }
+    function isSupportedImageFile(filename) {
+      return !!SUPPORTED_IMAGE_MIME_BY_EXT[getExtension(filename)];
+    }
+    function isRecognizedUnsupportedImageFile(filename) {
+      return !!RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[getExtension(filename)];
+    }
+    function getNoteSourcePath(noteFile) {
+      return typeof (noteFile == null ? void 0 : noteFile.path) === "string" ? noteFile.path : "";
+    }
+    function resolveVaultFile(app, src, noteFile) {
+      var _a, _b;
+      if (!app || !src)
+        return null;
+      const decoded = (() => {
+        try {
+          return decodeURI(src);
+        } catch (e) {
+          return src;
+        }
+      })();
+      const sourcePath = getNoteSourcePath(noteFile);
+      const metadataCache = app.metadataCache;
+      const vault = app.vault;
+      try {
+        const linked = (_a = metadataCache == null ? void 0 : metadataCache.getFirstLinkpathDest) == null ? void 0 : _a.call(metadataCache, decoded, sourcePath);
+        if (linked == null ? void 0 : linked.extension)
+          return linked;
+      } catch (e) {
+      }
+      const candidates = [];
+      const normalized = normalizePath(decoded);
+      if (normalized)
+        candidates.push(normalized);
+      if (sourcePath && normalized && !normalized.startsWith("/")) {
+        const noteDir = path.posix.dirname(normalizePath(sourcePath));
+        candidates.push(normalizePath(path.posix.join(noteDir === "." ? "" : noteDir, normalized)));
+      }
+      for (const candidate of candidates) {
+        try {
+          const file = (_b = vault == null ? void 0 : vault.getAbstractFileByPath) == null ? void 0 : _b.call(vault, candidate);
+          if (file == null ? void 0 : file.extension)
+            return file;
+        } catch (e) {
+        }
+      }
+      return null;
+    }
+    async function readFileUrlAsset(src) {
+      const fs = require("fs/promises");
+      const { fileURLToPath } = require("url");
+      const filePath = fileURLToPath(src);
+      const buffer = await fs.readFile(filePath);
+      return {
+        buffer,
+        filename: getFilenameFromPath(filePath),
+        vaultRelativePath: "",
+        resourceSrc: ""
+      };
+    }
+    async function readVaultAsset(app, file) {
+      var _a, _b;
+      const binary = await app.vault.readBinary(file);
+      const buffer = bufferFromBinary(binary);
+      let resourceSrc = "";
+      try {
+        resourceSrc = ((_b = (_a = app.vault).getResourcePath) == null ? void 0 : _b.call(_a, file)) || "";
+      } catch (e) {
+        resourceSrc = "";
+      }
+      return {
+        buffer,
+        filename: file.name || getFilenameFromPath(file.path),
+        vaultRelativePath: file.path || "",
+        resourceSrc
+      };
+    }
+    function makeAssetId(index) {
+      return `image-${index}`;
+    }
+    function createMarkdownImage(alt, src) {
+      const safeAlt = String(alt || createAltFromSrc(src)).replace(/\]/g, "\\]");
+      return `![${safeAlt}](${src})`;
+    }
+    function replaceRanges(markdown, replacements) {
+      return replacements.slice().sort((a, b) => b.start - a.start).reduce((output, item) => output.slice(0, item.start) + item.value + output.slice(item.end), markdown);
+    }
+    function isLocalLikeSrc(src) {
+      if (!src)
+        return false;
+      if (isRemoteImageSrc(src) || isDataImageSrc(src) || isAssetImageSrc(src))
+        return false;
+      return true;
+    }
+    async function resolveLocalImageAsset({
+      app,
+      src,
+      noteFile,
+      assetIndex,
+      originalSrc = src,
+      existingByKey,
+      limits
+    }) {
+      let file = null;
+      let readResult = null;
+      let cacheKey = "";
+      if (isFileUrl(src)) {
+        cacheKey = `file:${src}`;
+      } else {
+        file = resolveVaultFile(app, src, noteFile);
+        if (!file) {
+          return {
+            warning: createWarning("image_local_missing", "\u672C\u5730\u56FE\u7247\u672A\u627E\u5230", { src: originalSrc })
+          };
+        }
+        cacheKey = `vault:${file.path || src}`;
+      }
+      if (existingByKey.has(cacheKey)) {
+        return { asset: existingByKey.get(cacheKey), reused: true };
+      }
+      try {
+        readResult = file ? await readVaultAsset(app, file) : await readFileUrlAsset(src);
+      } catch (error) {
+        return {
+          warning: createWarning("image_local_read_failed", `\u8BFB\u53D6\u672C\u5730\u56FE\u7247\u5931\u8D25\uFF1A${error.message || String(error)}`, {
+            src: originalSrc,
+            filename: (file == null ? void 0 : file.name) || getFilenameFromPath(src)
+          })
+        };
+      }
+      const { buffer, filename, vaultRelativePath, resourceSrc } = readResult;
+      const mimeType = inferMimeType(filename, buffer);
+      const size = buffer.length;
+      if (!isSupportedImageFile(filename)) {
+        const code = isRecognizedUnsupportedImageFile(filename) ? "image_invalid_mime" : "image_invalid_mime";
+        return {
+          warning: createWarning(code, `\u6682\u4E0D\u652F\u6301\u8BE5\u56FE\u7247\u683C\u5F0F\uFF1A${filename}`, {
+            src: originalSrc,
+            filename,
+            size
+          })
+        };
+      }
+      if (size > limits.maxImageSizeBytes) {
+        return {
+          warning: createWarning("image_too_large", `\u56FE\u7247\u8D85\u8FC7 ${Math.round(limits.maxImageSizeBytes / 1024 / 1024)} MB\uFF1A${filename}`, {
+            src: originalSrc,
+            filename,
+            size
+          })
+        };
+      }
+      const asset = {
+        id: makeAssetId(assetIndex),
+        filename,
+        mimeType,
+        size,
+        base64: buffer.toString("base64"),
+        source: {
+          kind: "obsidian-local",
+          originalSrc,
+          notePath: getNoteSourcePath(noteFile),
+          vaultRelativePath
+        }
+      };
+      if (resourceSrc)
+        asset.source.resourceSrc = resourceSrc;
+      existingByKey.set(cacheKey, asset);
+      return { asset };
+    }
+    function getFirstMarkdownImageSrc(markdown) {
+      const first = collectArticleImageReferences(markdown)[0];
+      return (first == null ? void 0 : first.src) || "";
+    }
+    function replaceArticleContentImageSources(html, assets = []) {
+      var _a, _b, _c;
+      let output = String(html || "");
+      for (const asset of assets) {
+        const assetSrc = `asset://${asset.id}`;
+        const candidates = [
+          (_a = asset == null ? void 0 : asset.source) == null ? void 0 : _a.resourceSrc,
+          (_b = asset == null ? void 0 : asset.source) == null ? void 0 : _b.originalSrc,
+          (_c = asset == null ? void 0 : asset.source) == null ? void 0 : _c.vaultRelativePath
+        ].filter(Boolean);
+        for (const candidate of candidates) {
+          output = output.replace(
+            new RegExp(`(<img\\b[^>]*\\bsrc=["'])${escapeRegExp(candidate)}(["'][^>]*>)`, "gi"),
+            `$1${assetSrc}$2`
+          );
+        }
+      }
+      return output;
+    }
+    function stripUrlQueryHash(value) {
+      const raw = String(value || "");
+      if (!raw)
+        return "";
+      try {
+        const url = new URL(raw);
+        url.search = "";
+        url.hash = "";
+        return url.toString();
+      } catch (e) {
+        return raw.split("?")[0].split("#")[0];
+      }
+    }
+    function getRenderedSrcVaultPath(renderedSrc) {
+      try {
+        const url = new URL(String(renderedSrc || ""));
+        return decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+      } catch (e) {
+        return "";
+      }
+    }
+    function findAssetForRenderedSrc(renderedSrc, assets = []) {
+      var _a, _b, _c;
+      const src = String(renderedSrc || "");
+      if (!src || !Array.isArray(assets) || !assets.length)
+        return null;
+      const renderedKey = stripUrlQueryHash(src);
+      for (const asset of assets) {
+        const resourceSrc = ((_a = asset == null ? void 0 : asset.source) == null ? void 0 : _a.resourceSrc) || "";
+        if (!resourceSrc)
+          continue;
+        if (stripUrlQueryHash(resourceSrc) === renderedKey)
+          return asset;
+      }
+      const pathInRenderedSrc = getRenderedSrcVaultPath(src);
+      if (!pathInRenderedSrc)
+        return null;
+      for (const asset of assets) {
+        const candidates = [
+          (_b = asset == null ? void 0 : asset.source) == null ? void 0 : _b.vaultRelativePath,
+          (_c = asset == null ? void 0 : asset.source) == null ? void 0 : _c.originalSrc
+        ].filter(Boolean);
+        for (const candidate of candidates) {
+          if (pathInRenderedSrc === candidate)
+            return asset;
+          if (pathInRenderedSrc.endsWith(`/${candidate}`))
+            return asset;
+        }
+      }
+      return null;
+    }
+    function mapAppUrlImagesToAssetUrls2(html, assets = []) {
+      if (!html)
+        return "";
+      return String(html).replace(
+        /(<img\b[^>]*\bsrc=["'])([^"']+)(["'][^>]*>)/gi,
+        (match, prefix, src, suffix) => {
+          if (!/^(app|capacitor):\/\//i.test(src))
+            return match;
+          const asset = findAssetForRenderedSrc(src, assets);
+          if (!asset)
+            return match;
+          return `${prefix}asset://${asset.id}${suffix}`;
+        }
+      );
+    }
+    function escapeRegExp(value) {
+      return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+    function formatArticleImageWarnings(warnings = []) {
+      const items = warnings.filter((warning) => (warning == null ? void 0 : warning.severity) !== "info");
+      if (!items.length)
+        return "";
+      const preview = items.slice(0, 3).map((warning) => {
+        const target = warning.filename || warning.src || "\u56FE\u7247";
+        return `${warning.message || "\u56FE\u7247\u5904\u7406\u5931\u8D25"}\uFF08${target}\uFF09`;
+      }).join("\uFF1B");
+      const suffix = items.length > 3 ? `\uFF0C\u53E6\u6709 ${items.length - 3} \u9879` : "";
+      return `${preview}${suffix}`;
+    }
+    async function resolveArticleImages(markdown, noteFile, options = {}) {
+      const app = options.app;
+      const limits = {
+        maxImageSizeBytes: options.maxImageSizeBytes || DEFAULT_MAX_IMAGE_SIZE_BYTES,
+        maxTotalImageSizeBytes: options.maxTotalImageSizeBytes || DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES
+      };
+      const sourceMarkdown = String(markdown || "");
+      const references = collectArticleImageReferences(sourceMarkdown);
+      const warnings = [];
+      const replacements = [];
+      const assets = [];
+      const existingByKey = /* @__PURE__ */ new Map();
+      const resolveSrc = async (src, originalSrc = src) => {
+        const trimmed = String(src || "").trim();
+        if (!trimmed)
+          return { src: trimmed };
+        if (!isLocalLikeSrc(trimmed))
+          return { src: trimmed };
+        if (!isFileUrl(trimmed) && /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+          return {
+            src: trimmed,
+            warning: createWarning("image_unsupported_protocol", "\u4E0D\u652F\u6301\u7684\u56FE\u7247\u5730\u5740", { src: originalSrc })
+          };
+        }
+        const result = await resolveLocalImageAsset({
+          app,
+          src: trimmed,
+          noteFile,
+          assetIndex: assets.length + 1,
+          originalSrc,
+          existingByKey,
+          limits
+        });
+        if (result.warning)
+          return { src: trimmed, warning: result.warning };
+        if (result.asset && !result.reused)
+          assets.push(result.asset);
+        return { src: `asset://${result.asset.id}`, asset: result.asset };
+      };
+      for (const ref of references) {
+        const result = await resolveSrc(ref.src, ref.src);
+        if (result.warning) {
+          warnings.push(result.warning);
+          continue;
+        }
+        if (result.src !== ref.src) {
+          replacements.push({
+            start: ref.start,
+            end: ref.end,
+            value: createMarkdownImage(ref.alt, result.src)
+          });
+        }
+      }
+      let cover = options.cover || "";
+      if (cover && isLocalLikeSrc(cover)) {
+        const coverResult = await resolveSrc(cover, cover);
+        if (coverResult.warning) {
+          warnings.push(coverResult.warning);
+        } else {
+          cover = coverResult.src;
+        }
+      }
+      const totalSize = assets.reduce((sum, asset) => sum + (asset.size || 0), 0);
+      if (totalSize > limits.maxTotalImageSizeBytes) {
+        warnings.push(createWarning("image_too_large", `\u6587\u7AE0\u56FE\u7247\u603B\u91CF\u8D85\u8FC7 ${Math.round(limits.maxTotalImageSizeBytes / 1024 / 1024)} MB`, {
+          size: totalSize
+        }));
+      }
+      const resolvedMarkdown = replaceRanges(sourceMarkdown, replacements);
+      return {
+        markdown: resolvedMarkdown,
+        assets,
+        warnings,
+        cover,
+        firstImageSrc: getFirstMarkdownImageSrc(resolvedMarkdown)
+      };
+    }
+    module2.exports = {
+      DEFAULT_MAX_IMAGE_SIZE_BYTES,
+      DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES,
+      collectArticleImageReferences,
+      findAssetForRenderedSrc,
+      formatArticleImageWarnings,
+      getFirstMarkdownImageSrc,
+      mapAppUrlImagesToAssetUrls: mapAppUrlImagesToAssetUrls2,
+      replaceArticleContentImageSources,
+      resolveArticleImages
+    };
+  }
+});
+
 // services/wechatsync-settings.js
 var require_wechatsync_settings = __commonJS({
   "services/wechatsync-settings.js"(exports2, module2) {
@@ -13752,577 +14391,6 @@ var require_multi_platform_tab = __commonJS({
   }
 });
 
-// services/article-image-assets.js
-var require_article_image_assets = __commonJS({
-  "services/article-image-assets.js"(exports2, module2) {
-    var path = require("path");
-    var DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
-    var DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
-    var SUPPORTED_IMAGE_MIME_BY_EXT = {
-      png: "image/png",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      webp: "image/webp",
-      gif: "image/gif"
-    };
-    var RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT = {
-      svg: "image/svg+xml",
-      heic: "image/heic",
-      heif: "image/heif",
-      avif: "image/avif"
-    };
-    function normalizePath(value) {
-      return String(value || "").trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/{2,}/g, "/");
-    }
-    function getExtension(filename) {
-      const ext = String(filename || "").split("?")[0].split("#")[0].split(".").pop();
-      return ext && ext !== filename ? ext.toLowerCase() : "";
-    }
-    function isRemoteImageSrc(src) {
-      return /^https?:\/\//i.test(String(src || "").trim());
-    }
-    function isDataImageSrc(src) {
-      return /^data:image\//i.test(String(src || "").trim());
-    }
-    function isAssetImageSrc(src) {
-      return /^asset:\/\//i.test(String(src || "").trim());
-    }
-    function isFileUrl(src) {
-      return /^file:\/\//i.test(String(src || "").trim());
-    }
-    function getFilenameFromPath(src) {
-      const value = String(src || "").split("?")[0].split("#")[0].replace(/\\/g, "/");
-      const filename = value.split("/").filter(Boolean).pop();
-      return filename || "image";
-    }
-    function stripMarkdownDestination(rawDestination) {
-      const raw = String(rawDestination || "").trim();
-      if (raw.startsWith("<")) {
-        const end = raw.indexOf(">");
-        if (end > 0)
-          return raw.slice(1, end).trim();
-      }
-      return raw.replace(/\\([()])/g, "$1").trim();
-    }
-    function splitWikiEmbedTarget(rawTarget) {
-      const parts = String(rawTarget || "").split("|");
-      const src = (parts.shift() || "").trim();
-      const alias = parts.join("|").trim();
-      return { src, alias };
-    }
-    function createAltFromSrc(src, fallback = "\u56FE\u7247") {
-      const filename = getFilenameFromPath(src);
-      return filename.replace(/\.(png|jpe?g|gif|webp|svg|heic|heif|avif)$/i, "") || fallback;
-    }
-    function collectWikiImageEmbeds(markdown) {
-      const results = [];
-      const pattern = /!\[\[([^\]\n]+?)\]\]/g;
-      let match;
-      while ((match = pattern.exec(markdown)) !== null) {
-        const { src, alias } = splitWikiEmbedTarget(match[1]);
-        if (!src)
-          continue;
-        results.push({
-          type: "wiki",
-          start: match.index,
-          end: match.index + match[0].length,
-          raw: match[0],
-          src,
-          alt: alias || createAltFromSrc(src)
-        });
-      }
-      return results;
-    }
-    function isImageWikiTarget(src) {
-      const ext = getExtension(String(src || "").split("#")[0]);
-      return !!(SUPPORTED_IMAGE_MIME_BY_EXT[ext] || RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext]);
-    }
-    function collectPlainWikiImageLinks(markdown) {
-      const results = [];
-      const pattern = /\[\[([^\]\n]+?)\]\]/g;
-      let match;
-      while ((match = pattern.exec(markdown)) !== null) {
-        if (markdown[match.index - 1] === "!")
-          continue;
-        const { src, alias } = splitWikiEmbedTarget(match[1]);
-        if (!src || !isImageWikiTarget(src))
-          continue;
-        results.push({
-          type: "wiki-link",
-          start: match.index,
-          end: match.index + match[0].length,
-          raw: match[0],
-          src,
-          alt: alias || createAltFromSrc(src)
-        });
-      }
-      return results;
-    }
-    function collectMarkdownImages(markdown) {
-      const results = [];
-      let index = 0;
-      while (index < markdown.length) {
-        const start = markdown.indexOf("![", index);
-        if (start < 0)
-          break;
-        let cursor = start + 2;
-        let escaped = false;
-        let altEnd = -1;
-        while (cursor < markdown.length) {
-          const char = markdown[cursor];
-          if (escaped) {
-            escaped = false;
-          } else if (char === "\\") {
-            escaped = true;
-          } else if (char === "]") {
-            altEnd = cursor;
-            break;
-          }
-          cursor += 1;
-        }
-        if (altEnd < 0 || markdown[altEnd + 1] !== "(") {
-          index = start + 2;
-          continue;
-        }
-        const destinationStart = altEnd + 2;
-        cursor = destinationStart;
-        let depth = 0;
-        escaped = false;
-        let destinationEnd = -1;
-        while (cursor < markdown.length) {
-          const char = markdown[cursor];
-          if (escaped) {
-            escaped = false;
-          } else if (char === "\\") {
-            escaped = true;
-          } else if (char === "(") {
-            depth += 1;
-          } else if (char === ")") {
-            if (depth === 0) {
-              destinationEnd = cursor;
-              break;
-            }
-            depth -= 1;
-          }
-          cursor += 1;
-        }
-        if (destinationEnd < 0) {
-          index = start + 2;
-          continue;
-        }
-        const alt = markdown.slice(start + 2, altEnd);
-        const destination = stripMarkdownDestination(markdown.slice(destinationStart, destinationEnd));
-        if (destination) {
-          results.push({
-            type: "markdown",
-            start,
-            end: destinationEnd + 1,
-            raw: markdown.slice(start, destinationEnd + 1),
-            src: destination,
-            alt
-          });
-        }
-        index = destinationEnd + 1;
-      }
-      return results;
-    }
-    function collectFencedCodeRanges(markdown) {
-      const ranges = [];
-      const fencePattern = /^( {0,3})(`{3,}|~{3,})[^\n]*(?:\n|$)/gm;
-      let match;
-      let open = null;
-      while ((match = fencePattern.exec(markdown)) !== null) {
-        const marker = match[2][0];
-        const length = match[2].length;
-        if (!open) {
-          open = { start: match.index, marker, length };
-          continue;
-        }
-        if (open.marker === marker && length >= open.length) {
-          ranges.push({ start: open.start, end: match.index + match[0].length });
-          open = null;
-        }
-      }
-      if (open)
-        ranges.push({ start: open.start, end: markdown.length });
-      return ranges;
-    }
-    function collectInlineCodeRanges(markdown, blockedRanges = []) {
-      const ranges = [];
-      let index = 0;
-      while (index < markdown.length) {
-        const blocked = blockedRanges.find((range) => index >= range.start && index < range.end);
-        if (blocked) {
-          index = blocked.end;
-          continue;
-        }
-        if (markdown[index] !== "`") {
-          index += 1;
-          continue;
-        }
-        let runEnd = index + 1;
-        while (runEnd < markdown.length && markdown[runEnd] === "`")
-          runEnd += 1;
-        const tickRun = markdown.slice(index, runEnd);
-        const closing = markdown.indexOf(tickRun, runEnd);
-        if (closing < 0) {
-          index = runEnd;
-          continue;
-        }
-        ranges.push({ start: index, end: closing + tickRun.length });
-        index = closing + tickRun.length;
-      }
-      return ranges;
-    }
-    function isInsideRanges(index, ranges) {
-      return ranges.some((range) => index >= range.start && index < range.end);
-    }
-    function collectArticleImageReferences(markdown) {
-      const fencedCodeRanges = collectFencedCodeRanges(markdown);
-      const codeRanges = [
-        ...fencedCodeRanges,
-        ...collectInlineCodeRanges(markdown, fencedCodeRanges)
-      ];
-      return [
-        ...collectWikiImageEmbeds(markdown),
-        ...collectPlainWikiImageLinks(markdown),
-        ...collectMarkdownImages(markdown)
-      ].filter((ref) => !isInsideRanges(ref.start, codeRanges)).sort((a, b) => a.start - b.start);
-    }
-    function bufferFromBinary(binary) {
-      if (Buffer.isBuffer(binary))
-        return binary;
-      if (binary instanceof ArrayBuffer)
-        return Buffer.from(binary);
-      if (ArrayBuffer.isView(binary)) {
-        return Buffer.from(binary.buffer, binary.byteOffset, binary.byteLength);
-      }
-      return Buffer.from(binary || []);
-    }
-    function inferMimeType(filename, buffer) {
-      const ext = getExtension(filename);
-      if (SUPPORTED_IMAGE_MIME_BY_EXT[ext])
-        return SUPPORTED_IMAGE_MIME_BY_EXT[ext];
-      if (RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext]) {
-        return RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext];
-      }
-      if ((buffer == null ? void 0 : buffer.length) >= 12) {
-        if (buffer[0] === 137 && buffer.slice(1, 4).toString("ascii") === "PNG")
-          return "image/png";
-        if (buffer[0] === 255 && buffer[1] === 216)
-          return "image/jpeg";
-        if (buffer.slice(0, 4).toString("ascii") === "GIF8")
-          return "image/gif";
-        if (buffer.slice(0, 4).toString("ascii") === "RIFF" && buffer.slice(8, 12).toString("ascii") === "WEBP")
-          return "image/webp";
-      }
-      return ext ? `image/${ext}` : "application/octet-stream";
-    }
-    function createWarning(code, message, details = {}) {
-      return {
-        code,
-        message,
-        severity: details.severity || "error",
-        src: details.src || "",
-        filename: details.filename || "",
-        size: details.size || 0
-      };
-    }
-    function isSupportedImageFile(filename) {
-      return !!SUPPORTED_IMAGE_MIME_BY_EXT[getExtension(filename)];
-    }
-    function isRecognizedUnsupportedImageFile(filename) {
-      return !!RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[getExtension(filename)];
-    }
-    function getNoteSourcePath(noteFile) {
-      return typeof (noteFile == null ? void 0 : noteFile.path) === "string" ? noteFile.path : "";
-    }
-    function resolveVaultFile(app, src, noteFile) {
-      var _a, _b;
-      if (!app || !src)
-        return null;
-      const decoded = (() => {
-        try {
-          return decodeURI(src);
-        } catch (e) {
-          return src;
-        }
-      })();
-      const sourcePath = getNoteSourcePath(noteFile);
-      const metadataCache = app.metadataCache;
-      const vault = app.vault;
-      try {
-        const linked = (_a = metadataCache == null ? void 0 : metadataCache.getFirstLinkpathDest) == null ? void 0 : _a.call(metadataCache, decoded, sourcePath);
-        if (linked == null ? void 0 : linked.extension)
-          return linked;
-      } catch (e) {
-      }
-      const candidates = [];
-      const normalized = normalizePath(decoded);
-      if (normalized)
-        candidates.push(normalized);
-      if (sourcePath && normalized && !normalized.startsWith("/")) {
-        const noteDir = path.posix.dirname(normalizePath(sourcePath));
-        candidates.push(normalizePath(path.posix.join(noteDir === "." ? "" : noteDir, normalized)));
-      }
-      for (const candidate of candidates) {
-        try {
-          const file = (_b = vault == null ? void 0 : vault.getAbstractFileByPath) == null ? void 0 : _b.call(vault, candidate);
-          if (file == null ? void 0 : file.extension)
-            return file;
-        } catch (e) {
-        }
-      }
-      return null;
-    }
-    async function readFileUrlAsset(src) {
-      const fs = require("fs/promises");
-      const { fileURLToPath } = require("url");
-      const filePath = fileURLToPath(src);
-      const buffer = await fs.readFile(filePath);
-      return {
-        buffer,
-        filename: getFilenameFromPath(filePath),
-        vaultRelativePath: "",
-        resourceSrc: ""
-      };
-    }
-    async function readVaultAsset(app, file) {
-      var _a, _b;
-      const binary = await app.vault.readBinary(file);
-      const buffer = bufferFromBinary(binary);
-      let resourceSrc = "";
-      try {
-        resourceSrc = ((_b = (_a = app.vault).getResourcePath) == null ? void 0 : _b.call(_a, file)) || "";
-      } catch (e) {
-        resourceSrc = "";
-      }
-      return {
-        buffer,
-        filename: file.name || getFilenameFromPath(file.path),
-        vaultRelativePath: file.path || "",
-        resourceSrc
-      };
-    }
-    function makeAssetId(index) {
-      return `image-${index}`;
-    }
-    function createMarkdownImage(alt, src) {
-      const safeAlt = String(alt || createAltFromSrc(src)).replace(/\]/g, "\\]");
-      return `![${safeAlt}](${src})`;
-    }
-    function replaceRanges(markdown, replacements) {
-      return replacements.slice().sort((a, b) => b.start - a.start).reduce((output, item) => output.slice(0, item.start) + item.value + output.slice(item.end), markdown);
-    }
-    function isLocalLikeSrc(src) {
-      if (!src)
-        return false;
-      if (isRemoteImageSrc(src) || isDataImageSrc(src) || isAssetImageSrc(src))
-        return false;
-      return true;
-    }
-    async function resolveLocalImageAsset({
-      app,
-      src,
-      noteFile,
-      assetIndex,
-      originalSrc = src,
-      existingByKey,
-      limits
-    }) {
-      let file = null;
-      let readResult = null;
-      let cacheKey = "";
-      if (isFileUrl(src)) {
-        cacheKey = `file:${src}`;
-      } else {
-        file = resolveVaultFile(app, src, noteFile);
-        if (!file) {
-          return {
-            warning: createWarning("image_local_missing", "\u672C\u5730\u56FE\u7247\u672A\u627E\u5230", { src: originalSrc })
-          };
-        }
-        cacheKey = `vault:${file.path || src}`;
-      }
-      if (existingByKey.has(cacheKey)) {
-        return { asset: existingByKey.get(cacheKey), reused: true };
-      }
-      try {
-        readResult = file ? await readVaultAsset(app, file) : await readFileUrlAsset(src);
-      } catch (error) {
-        return {
-          warning: createWarning("image_local_read_failed", `\u8BFB\u53D6\u672C\u5730\u56FE\u7247\u5931\u8D25\uFF1A${error.message || String(error)}`, {
-            src: originalSrc,
-            filename: (file == null ? void 0 : file.name) || getFilenameFromPath(src)
-          })
-        };
-      }
-      const { buffer, filename, vaultRelativePath, resourceSrc } = readResult;
-      const mimeType = inferMimeType(filename, buffer);
-      const size = buffer.length;
-      if (!isSupportedImageFile(filename)) {
-        const code = isRecognizedUnsupportedImageFile(filename) ? "image_invalid_mime" : "image_invalid_mime";
-        return {
-          warning: createWarning(code, `\u6682\u4E0D\u652F\u6301\u8BE5\u56FE\u7247\u683C\u5F0F\uFF1A${filename}`, {
-            src: originalSrc,
-            filename,
-            size
-          })
-        };
-      }
-      if (size > limits.maxImageSizeBytes) {
-        return {
-          warning: createWarning("image_too_large", `\u56FE\u7247\u8D85\u8FC7 ${Math.round(limits.maxImageSizeBytes / 1024 / 1024)} MB\uFF1A${filename}`, {
-            src: originalSrc,
-            filename,
-            size
-          })
-        };
-      }
-      const asset = {
-        id: makeAssetId(assetIndex),
-        filename,
-        mimeType,
-        size,
-        base64: buffer.toString("base64"),
-        source: {
-          kind: "obsidian-local",
-          originalSrc,
-          notePath: getNoteSourcePath(noteFile),
-          vaultRelativePath
-        }
-      };
-      if (resourceSrc)
-        asset.source.resourceSrc = resourceSrc;
-      existingByKey.set(cacheKey, asset);
-      return { asset };
-    }
-    function getFirstMarkdownImageSrc(markdown) {
-      const first = collectArticleImageReferences(markdown)[0];
-      return (first == null ? void 0 : first.src) || "";
-    }
-    function replaceArticleContentImageSources(html, assets = []) {
-      var _a, _b, _c;
-      let output = String(html || "");
-      for (const asset of assets) {
-        const assetSrc = `asset://${asset.id}`;
-        const candidates = [
-          (_a = asset == null ? void 0 : asset.source) == null ? void 0 : _a.resourceSrc,
-          (_b = asset == null ? void 0 : asset.source) == null ? void 0 : _b.originalSrc,
-          (_c = asset == null ? void 0 : asset.source) == null ? void 0 : _c.vaultRelativePath
-        ].filter(Boolean);
-        for (const candidate of candidates) {
-          output = output.replace(
-            new RegExp(`(<img\\b[^>]*\\bsrc=["'])${escapeRegExp(candidate)}(["'][^>]*>)`, "gi"),
-            `$1${assetSrc}$2`
-          );
-        }
-      }
-      return output;
-    }
-    function escapeRegExp(value) {
-      return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    }
-    function formatArticleImageWarnings(warnings = []) {
-      const items = warnings.filter((warning) => (warning == null ? void 0 : warning.severity) !== "info");
-      if (!items.length)
-        return "";
-      const preview = items.slice(0, 3).map((warning) => {
-        const target = warning.filename || warning.src || "\u56FE\u7247";
-        return `${warning.message || "\u56FE\u7247\u5904\u7406\u5931\u8D25"}\uFF08${target}\uFF09`;
-      }).join("\uFF1B");
-      const suffix = items.length > 3 ? `\uFF0C\u53E6\u6709 ${items.length - 3} \u9879` : "";
-      return `${preview}${suffix}`;
-    }
-    async function resolveArticleImages(markdown, noteFile, options = {}) {
-      const app = options.app;
-      const limits = {
-        maxImageSizeBytes: options.maxImageSizeBytes || DEFAULT_MAX_IMAGE_SIZE_BYTES,
-        maxTotalImageSizeBytes: options.maxTotalImageSizeBytes || DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES
-      };
-      const sourceMarkdown = String(markdown || "");
-      const references = collectArticleImageReferences(sourceMarkdown);
-      const warnings = [];
-      const replacements = [];
-      const assets = [];
-      const existingByKey = /* @__PURE__ */ new Map();
-      const resolveSrc = async (src, originalSrc = src) => {
-        const trimmed = String(src || "").trim();
-        if (!trimmed)
-          return { src: trimmed };
-        if (!isLocalLikeSrc(trimmed))
-          return { src: trimmed };
-        if (!isFileUrl(trimmed) && /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
-          return {
-            src: trimmed,
-            warning: createWarning("image_unsupported_protocol", "\u4E0D\u652F\u6301\u7684\u56FE\u7247\u5730\u5740", { src: originalSrc })
-          };
-        }
-        const result = await resolveLocalImageAsset({
-          app,
-          src: trimmed,
-          noteFile,
-          assetIndex: assets.length + 1,
-          originalSrc,
-          existingByKey,
-          limits
-        });
-        if (result.warning)
-          return { src: trimmed, warning: result.warning };
-        if (result.asset && !result.reused)
-          assets.push(result.asset);
-        return { src: `asset://${result.asset.id}`, asset: result.asset };
-      };
-      for (const ref of references) {
-        const result = await resolveSrc(ref.src, ref.src);
-        if (result.warning) {
-          warnings.push(result.warning);
-          continue;
-        }
-        if (result.src !== ref.src) {
-          replacements.push({
-            start: ref.start,
-            end: ref.end,
-            value: createMarkdownImage(ref.alt, result.src)
-          });
-        }
-      }
-      let cover = options.cover || "";
-      if (cover && isLocalLikeSrc(cover)) {
-        const coverResult = await resolveSrc(cover, cover);
-        if (coverResult.warning) {
-          warnings.push(coverResult.warning);
-        } else {
-          cover = coverResult.src;
-        }
-      }
-      const totalSize = assets.reduce((sum, asset) => sum + (asset.size || 0), 0);
-      if (totalSize > limits.maxTotalImageSizeBytes) {
-        warnings.push(createWarning("image_too_large", `\u6587\u7AE0\u56FE\u7247\u603B\u91CF\u8D85\u8FC7 ${Math.round(limits.maxTotalImageSizeBytes / 1024 / 1024)} MB`, {
-          size: totalSize
-        }));
-      }
-      const resolvedMarkdown = replaceRanges(sourceMarkdown, replacements);
-      return {
-        markdown: resolvedMarkdown,
-        assets,
-        warnings,
-        cover,
-        firstImageSrc: getFirstMarkdownImageSrc(resolvedMarkdown)
-      };
-    }
-    module2.exports = {
-      DEFAULT_MAX_IMAGE_SIZE_BYTES,
-      DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES,
-      collectArticleImageReferences,
-      formatArticleImageWarnings,
-      getFirstMarkdownImageSrc,
-      replaceArticleContentImageSources,
-      resolveArticleImages
-    };
-  }
-});
-
 // views/publish-modal/multi-platform.js
 var require_multi_platform = __commonJS({
   "views/publish-modal/multi-platform.js"(exports2, module2) {
@@ -14354,7 +14422,6 @@ var require_multi_platform = __commonJS({
     var { stripMarkdownFrontmatter: stripMarkdownFrontmatter2 } = require_markdown_utils();
     var {
       formatArticleImageWarnings,
-      replaceArticleContentImageSources,
       resolveArticleImages
     } = require_article_image_assets();
     var QUOTA_POLICY = "truncate";
@@ -14632,8 +14699,7 @@ var require_multi_platform = __commonJS({
           const assets = resolvedImages.assets;
           const fallbackCover = view.getFirstImageFromArticle();
           const cover = resolvedImages.cover || resolvedImages.firstImageSrc || (/^(https?:\/\/|data:image\/)/i.test(fallbackCover || "") ? fallbackCover : "") || "";
-          const preparedContent = await view.prepareHtmlForWechatsyncArticle(exportHtml);
-          const content = replaceArticleContentImageSources(preparedContent, assets);
+          const content = await view.prepareHtmlForWechatsyncArticleViaBridge(exportHtml, assets);
           console.info("[Wechatsync] enqueueSyncArticle started", {
             platformCount: requestedPlatformIds.length,
             platforms: requestedPlatformIds,
@@ -14867,6 +14933,7 @@ var { cleanHtmlForDraft: cleanHtmlForDraftService } = require_wechat_html_cleane
 var { rasterizeSvgToPngBlob } = require_svg_rasterizer();
 var { createObsidianFetchAdapter } = require_obsidian_fetch_adapter();
 var { stripMarkdownFrontmatter } = require_markdown_utils();
+var { mapAppUrlImagesToAssetUrls } = require_article_image_assets();
 var APPLE_STYLE_VIEW = "apple-style-converter";
 var APPLE_STYLE_VIEW_TITLE = "Obsidian \u53D1\u5E03\u52A9\u624B";
 var OBSIDIAN_PUBLISHER_PRO_URL = "https://xiaoweibox.top/obsidian-publisher/pro/";
@@ -19309,6 +19376,23 @@ var AppleStyleView = class extends ItemView {
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = html || "";
     await this.processImagesToDataURL(tempDiv);
+    this.transformCodeBlocksForWechatsync(tempDiv);
+    return tempDiv.innerHTML;
+  }
+  // Bridge publish flow only. Unlike prepareHtmlForWechatsyncArticle (which
+  // inlines local images as data: URLs for the legacy WeChat clipboard
+  // flow), the bridge protocol carries image bytes via assets[] separately.
+  // Inlining base64 here would double-encode every local image: once into
+  // assets[] (correct), once into content[] (~33% inflated). The latter
+  // also breaks retry, because the extension has to redact base64 before
+  // persisting history (storage quota), and a redacted data: URL cannot be
+  // re-published. So: rewrite app:// img srcs back to asset://<id> using
+  // the assets[] metadata resolveArticleImages already produced. Do NOT
+  // call processImagesToDataURL.
+  async prepareHtmlForWechatsyncArticleViaBridge(html, assets = []) {
+    const mapped = mapAppUrlImagesToAssetUrls(html || "", assets);
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = mapped;
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
   }

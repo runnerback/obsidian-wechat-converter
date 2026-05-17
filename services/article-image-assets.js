@@ -507,6 +507,81 @@ function replaceArticleContentImageSources(html, assets = []) {
   return output;
 }
 
+function stripUrlQueryHash(value) {
+  const raw = String(value || '');
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return raw.split('?')[0].split('#')[0];
+  }
+}
+
+function getRenderedSrcVaultPath(renderedSrc) {
+  // Obsidian renders local images as `app://<vault-id>/<vault-relative-path>?<hash>`.
+  // The pathname (after URL-decode + leading-slash strip) recovers the vault path.
+  try {
+    const url = new URL(String(renderedSrc || ''));
+    return decodeURIComponent(url.pathname.replace(/^\/+/, ''));
+  } catch {
+    return '';
+  }
+}
+
+function findAssetForRenderedSrc(renderedSrc, assets = []) {
+  const src = String(renderedSrc || '');
+  if (!src || !Array.isArray(assets) || !assets.length) return null;
+
+  // 1) Exact resourceSrc match (ignoring query/hash) — most reliable since
+  //    both Obsidian's renderer and resolveArticleImages call getResourcePath.
+  const renderedKey = stripUrlQueryHash(src);
+  for (const asset of assets) {
+    const resourceSrc = asset?.source?.resourceSrc || '';
+    if (!resourceSrc) continue;
+    if (stripUrlQueryHash(resourceSrc) === renderedKey) return asset;
+  }
+
+  // 2) URL pathname suffix match against vaultRelativePath / originalSrc.
+  //    Use exact equality or '/' + candidate suffix to avoid filename-only
+  //    false positives across different folders.
+  const pathInRenderedSrc = getRenderedSrcVaultPath(src);
+  if (!pathInRenderedSrc) return null;
+
+  for (const asset of assets) {
+    const candidates = [
+      asset?.source?.vaultRelativePath,
+      asset?.source?.originalSrc,
+    ].filter(Boolean);
+    for (const candidate of candidates) {
+      if (pathInRenderedSrc === candidate) return asset;
+      if (pathInRenderedSrc.endsWith(`/${candidate}`)) return asset;
+    }
+  }
+
+  return null;
+}
+
+// Bridge publish flow: rewrite every <img src="app://..."> (or capacitor://)
+// in the rendered HTML back to asset://<id>, using the same assets[] that
+// resolveArticleImages produced. Remote https://, data:, and unmatched
+// app:// urls are left untouched (the latter become a downstream warning,
+// which is preferable to silently inlining base64).
+function mapAppUrlImagesToAssetUrls(html, assets = []) {
+  if (!html) return '';
+  return String(html).replace(
+    /(<img\b[^>]*\bsrc=["'])([^"']+)(["'][^>]*>)/gi,
+    (match, prefix, src, suffix) => {
+      if (!/^(app|capacitor):\/\//i.test(src)) return match;
+      const asset = findAssetForRenderedSrc(src, assets);
+      if (!asset) return match;
+      return `${prefix}asset://${asset.id}${suffix}`;
+    }
+  );
+}
+
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -606,8 +681,10 @@ module.exports = {
   DEFAULT_MAX_IMAGE_SIZE_BYTES,
   DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES,
   collectArticleImageReferences,
+  findAssetForRenderedSrc,
   formatArticleImageWarnings,
   getFirstMarkdownImageSrc,
+  mapAppUrlImagesToAssetUrls,
   replaceArticleContentImageSources,
   resolveArticleImages,
 };

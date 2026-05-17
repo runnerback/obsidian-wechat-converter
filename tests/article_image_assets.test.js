@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 
 const {
   collectArticleImageReferences,
+  findAssetForRenderedSrc,
+  mapAppUrlImagesToAssetUrls,
   replaceArticleContentImageSources,
   resolveArticleImages,
 } = require('../services/article-image-assets');
@@ -231,5 +233,109 @@ describe('article image asset resolver', () => {
     }]);
 
     expect(output).toContain('src="asset://image-1"');
+  });
+
+  describe('bridge flow helpers (findAssetForRenderedSrc / mapAppUrlImagesToAssetUrls)', () => {
+    const sampleAsset = {
+      id: 'image-7',
+      source: {
+        originalSrc: 'Wechat/img/cover.png',
+        resourceSrc: 'app://abc/Wechat/img/cover.png',
+        vaultRelativePath: 'Wechat/img/cover.png',
+      },
+    };
+
+    it('findAssetForRenderedSrc: exact resourceSrc match', () => {
+      const found = findAssetForRenderedSrc('app://abc/Wechat/img/cover.png', [sampleAsset]);
+      expect(found).toBe(sampleAsset);
+    });
+
+    it('findAssetForRenderedSrc: ignores cache-buster query / hash on resourceSrc', () => {
+      const renderedWithQuery = 'app://abc/Wechat/img/cover.png?1700000000000';
+      expect(findAssetForRenderedSrc(renderedWithQuery, [sampleAsset])).toBe(sampleAsset);
+    });
+
+    it('findAssetForRenderedSrc: vaultRelativePath suffix match when resourceSrc differs', () => {
+      const asset = {
+        id: 'image-9',
+        source: {
+          originalSrc: 'attachments/photo.jpg',
+          // resourceSrc was generated with a different vault id
+          resourceSrc: 'app://OLD/attachments/photo.jpg',
+          vaultRelativePath: 'attachments/photo.jpg',
+        },
+      };
+      const found = findAssetForRenderedSrc('app://NEW/attachments/photo.jpg', [asset]);
+      expect(found).toBe(asset);
+    });
+
+    it('findAssetForRenderedSrc: returns null when no asset matches', () => {
+      expect(findAssetForRenderedSrc('app://abc/totally/unrelated.png', [sampleAsset])).toBeNull();
+    });
+
+    it('findAssetForRenderedSrc: handles URL-encoded vault paths', () => {
+      const asset = {
+        id: 'image-10',
+        source: {
+          originalSrc: 'Wechat/中文图.png',
+          resourceSrc: 'app://abc/Wechat/%E4%B8%AD%E6%96%87%E5%9B%BE.png',
+          vaultRelativePath: 'Wechat/中文图.png',
+        },
+      };
+      const found = findAssetForRenderedSrc(
+        'app://abc/Wechat/%E4%B8%AD%E6%96%87%E5%9B%BE.png?42',
+        [asset],
+      );
+      expect(found).toBe(asset);
+    });
+
+    it('mapAppUrlImagesToAssetUrls: rewrites app:// to asset://<id>', () => {
+      const html = '<p><img src="app://abc/Wechat/img/cover.png" alt="cover"></p>';
+      const out = mapAppUrlImagesToAssetUrls(html, [sampleAsset]);
+      expect(out).toContain('src="asset://image-7"');
+      expect(out).not.toContain('app://');
+    });
+
+    it('mapAppUrlImagesToAssetUrls: NEVER produces data:image base64 (regression for double-encoding bug)', () => {
+      const html = '<p><img src="app://abc/Wechat/img/cover.png"><img src="app://abc/another/x.jpg"></p>';
+      const out = mapAppUrlImagesToAssetUrls(html, [sampleAsset]);
+      expect(out).not.toMatch(/data:image\/[a-z]+;base64,/i);
+    });
+
+    it('mapAppUrlImagesToAssetUrls: leaves https:// and data: srcs untouched', () => {
+      const html = [
+        '<img src="https://example.com/remote.jpg">',
+        '<img src="data:image/png;base64,iVBOR...">',
+      ].join('');
+      const out = mapAppUrlImagesToAssetUrls(html, [sampleAsset]);
+      expect(out).toContain('src="https://example.com/remote.jpg"');
+      expect(out).toContain('src="data:image/png;base64,iVBOR..."');
+    });
+
+    it('mapAppUrlImagesToAssetUrls: keeps unmatched app:// src as-is (no silent base64 inlining)', () => {
+      const html = '<p><img src="app://abc/totally/unknown.png" alt="orphan"></p>';
+      const out = mapAppUrlImagesToAssetUrls(html, [sampleAsset]);
+      expect(out).toContain('src="app://abc/totally/unknown.png"');
+      expect(out).not.toContain('asset://');
+    });
+
+    it('mapAppUrlImagesToAssetUrls: handles capacitor:// (mobile) the same way as app://', () => {
+      const html = '<img src="capacitor://localhost/Wechat/img/cover.png">';
+      const out = mapAppUrlImagesToAssetUrls(html, [{
+        id: 'image-mob',
+        source: {
+          originalSrc: 'Wechat/img/cover.png',
+          resourceSrc: 'capacitor://localhost/Wechat/img/cover.png',
+          vaultRelativePath: 'Wechat/img/cover.png',
+        },
+      }]);
+      expect(out).toContain('src="asset://image-mob"');
+    });
+
+    it('mapAppUrlImagesToAssetUrls: empty / null input is safe', () => {
+      expect(mapAppUrlImagesToAssetUrls('', [sampleAsset])).toBe('');
+      expect(mapAppUrlImagesToAssetUrls(null, [sampleAsset])).toBe('');
+      expect(mapAppUrlImagesToAssetUrls('<img src="app://x/y.png">', [])).toContain('app://x/y.png');
+    });
   });
 });
