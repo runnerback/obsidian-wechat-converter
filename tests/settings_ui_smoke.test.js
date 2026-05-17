@@ -313,14 +313,17 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     expect(names).not.toContain('读取已选平台状态');
   });
 
-  // Sprint 1 §4.1 introduced three visible affordances; Sprint 3 removed
-  // the "兼容旧版浏览器插件（过渡）" toggle entirely. What remains:
-  //   1. token state badge (未填 / 已填 / 已验证)
-  //   2. "允许远程访问（高级）" toggle controlling bind host
-  // These tests pin the names + state badge so future refactors can't silently
-  // drop them, and explicitly assert the legacy toggle has been removed.
+  // Sprint 1 §4.1 introduced three visible affordances; later cleanup
+  // pruned two of them, leaving the user-facing surface as just the
+  // token state badge:
+  //   1. "兼容旧版浏览器插件（过渡）" — removed in Sprint 3 (hello is
+  //      now the only auth path)
+  //   2. "允许远程访问（高级）" — hidden post-Sprint-3 because普通用户
+  //      用不上；底层 settings.allowRemote / bridge bind host / cache
+  //      key 全部保留，可通过手动编辑 data.json 启用
+  //   3. token state badge (未填 / 已填 / 已验证) — kept
 
-  it('renders the Sprint 1 §3.5 advanced allowRemote toggle when bridge is enabled', () => {
+  it('does not expose the advanced allowRemote / legacy-compat toggles to ordinary users', () => {
     renderTab(makePlugin({ multiPlatformSync: {
       enabled: true,
       port: 9527,
@@ -332,9 +335,7 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
       recentTasks: [],
     } }));
     const names = globalThis.__obsidianSettingNamesRegistry;
-    expect(names).toContain('允许远程访问（高级）');
-    // Sprint 3: hello handshake is the only authentication path, so the
-    // legacy compat toggle must no longer be rendered.
+    expect(names).not.toContain('允许远程访问（高级）');
     expect(names).not.toContain('兼容旧版浏览器插件（过渡）');
   });
 

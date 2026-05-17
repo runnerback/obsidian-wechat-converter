@@ -182,34 +182,11 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
     }
   }
 
-  // §3.5 + §4.1: 「允许远程访问」高级开关（默认关闭，开启时显示红色警告）
-  {
-    const remoteSetting = new Setting(containerEl)
-      .setName('允许远程访问（高级）')
-      .setDesc(multiPlatformSettings.allowRemote
-        ? '当前监听 0.0.0.0：同网络下的其他设备也能尝试连接，请务必使用强随机连接令牌并保持网络可信。'
-        : '默认仅监听 127.0.0.1（本机回环），其他设备无法连接。仅在你完全理解风险时开启。')
-      .addToggle(toggle => toggle
-        .setValue(multiPlatformSettings.allowRemote)
-        .onChange(async (value) => {
-          plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-            ...plugin.settings.multiPlatformSync,
-            allowRemote: value,
-            connection: { status: 'untested' },
-          });
-          await plugin.saveSettings();
-          if (plugin._wechatSyncBridgeService?.stop) {
-            await plugin._wechatSyncBridgeService.stop().catch(() => {});
-          }
-          plugin._wechatSyncBridgeService = null;
-          plugin._wechatSyncBridgeCacheKey = null;
-          plugin.startWechatSyncBridgeInBackground('settings-allow-remote-change');
-          tab.display();
-        }));
-    if (multiPlatformSettings.allowRemote) {
-      remoteSetting.descEl?.classList?.add?.('wechat-multiplatform-warning');
-    }
-  }
+  // §3.5 + §4.1: allowRemote 是高级功能（127.0.0.1 ↔ 0.0.0.0 切换），
+  // 99% 普通用户用不上且开启会扩大攻击面，因此默认不在设置 UI 暴露。
+  // 底层数据通路（settings.allowRemote / bridge bind host / cache key）
+  // 全部保留：高级用户仍可直接编辑 data.json 让其生效，未来挂回 UI
+  // 也只需恢复这块 toggle。
 
   const getSupportedPlatformsFromExtension = async (bridge) => {
     const response = await bridge.listSupportedPlatforms({ timeoutMs: 10000 });
