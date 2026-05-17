@@ -253,11 +253,12 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     expect(plugin.settings.multiPlatformSync.connection.message).toContain('已读取所选平台的上次登录状态');
   });
 
-  it('renders the Phase 2 connection status bar above the platform picker when bridge is enabled', () => {
+  it('unified status bar shows 「连接失败」 and error message when connection.status is failed', () => {
     const tab = renderTab(makePlugin({ multiPlatformSync: {
       enabled: true,
       port: 9527,
-      token: '',
+      token: 'abc',
+      connectedClients: [],
       supportedPlatforms: [],
       selectedPlatforms: [],
       connection: {
@@ -270,20 +271,21 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
       recentTasks: [],
     } }));
 
-    const bar = tab.containerEl.querySelector('.wechat-multiplatform-status');
-    expect(bar).not.toBeNull();
-    const dot = bar.querySelector('.wechat-multiplatform-status-dot');
+    const dot = tab.containerEl.querySelector('.wechat-multiplatform-token-status-dot');
+    expect(dot).not.toBeNull();
     expect(dot.classList.contains('is-error')).toBe(true);
-    expect(bar.querySelector('.wechat-multiplatform-status-text').textContent)
-      .toContain('连接令牌校验失败');
+    expect(dot.textContent).toBe('连接失败');
+    const body = tab.containerEl.querySelector('.wechat-bridge-status-body');
+    expect(body.textContent).toContain('连接令牌校验失败');
 
-    // Bar must come before the platform picker.
+    // Unified bar must come before the platform picker.
+    const unifiedBar = tab.containerEl.querySelector('.wechat-multiplatform-token-status');
     const picker = tab.containerEl.querySelector('.wechat-platform-picker');
     expect(picker).not.toBeNull();
-    expect(bar.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(unifiedBar.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('does not render the connection status bar when bridge is disabled', () => {
+  it('does not render the unified status bar or platform section when bridge is disabled', () => {
     const tab = renderTab(makePlugin({ multiPlatformSync: {
       enabled: false,
       port: 9527,
@@ -293,7 +295,8 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
       connection: { status: 'untested', checkedAt: 0, platforms: [], capabilities: {}, message: '' },
       recentTasks: [],
     } }));
-    expect(tab.containerEl.querySelector('.wechat-multiplatform-status')).toBeNull();
+    expect(tab.containerEl.querySelector('.wechat-multiplatform-token-status')).toBeNull();
+    expect(tab.containerEl.querySelector('.wechat-platform-picker')).toBeNull();
   });
 
   it('hides bridge-config fields and diagnostics when bridge is disabled', () => {
@@ -352,7 +355,7 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     const dot = tab.containerEl.querySelector('.wechat-multiplatform-token-status-dot');
     expect(dot).not.toBeNull();
     expect(dot.classList.contains('is-error')).toBe(true);
-    expect(dot.textContent).toBe('未填');
+    expect(dot.textContent).toBe('未填写');
   });
 
   it('renders the Sprint 1 §4.1 token-state badge in the "已填" state when token is set but unverified', () => {
@@ -368,7 +371,7 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     const dot = tab.containerEl.querySelector('.wechat-multiplatform-token-status-dot');
     expect(dot).not.toBeNull();
     expect(dot.classList.contains('is-unknown')).toBe(true);
-    expect(dot.textContent).toBe('已填');
+    expect(dot.textContent).toBe('等待连接');
   });
 
   it('renders the Sprint 1 §4.1 token-state badge in the "已验证" state when bridge handshake succeeded', () => {
@@ -384,10 +387,10 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     const dot = tab.containerEl.querySelector('.wechat-multiplatform-token-status-dot');
     expect(dot).not.toBeNull();
     expect(dot.classList.contains('is-ok')).toBe(true);
-    expect(dot.textContent).toBe('已验证');
+    expect(dot.textContent).toBe('已就绪');
   });
 
-  it('§16 Phase 1: renders empty-state text when connectedClients is empty', () => {
+  it('§16 Phase 1: 无 connectedClients 且未测试时显示「等待连接」', () => {
     const tab = renderTab(makePlugin({ multiPlatformSync: {
       enabled: true,
       port: 9527,
@@ -398,12 +401,13 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
       connection: { status: 'untested', checkedAt: 0, platforms: [], capabilities: {}, message: '' },
       recentTasks: [],
     } }));
-    const empty = tab.containerEl.querySelector('.wechat-connected-clients-empty');
-    expect(empty).not.toBeNull();
-    expect(empty.textContent).toContain('尚未配对');
+    const dot = tab.containerEl.querySelector('.wechat-multiplatform-token-status-dot');
+    expect(dot).not.toBeNull();
+    expect(dot.classList.contains('is-unknown')).toBe(true);
+    expect(dot.textContent).toBe('等待连接');
   });
 
-  it('§16 Phase 1: renders a client card when connectedClients has one entry', () => {
+  it('§16 Phase 1: 有 connected client 时显示「已就绪」且内联浏览器名 + profileLabel', () => {
     const tab = renderTab(makePlugin({ multiPlatformSync: {
       enabled: true,
       port: 9527,
@@ -424,14 +428,16 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
       connection: { status: 'connected', checkedAt: Date.now(), platforms: [], capabilities: {}, message: '' },
       recentTasks: [],
     } }));
-    const card = tab.containerEl.querySelector('.wechat-connected-client-card');
-    expect(card).not.toBeNull();
-    const dot = card.querySelector('.wechat-connected-client-dot');
+    const dot = tab.containerEl.querySelector('.wechat-multiplatform-token-status-dot');
+    expect(dot).not.toBeNull();
     expect(dot.classList.contains('is-ok')).toBe(true);
-    const name = card.querySelector('.wechat-connected-client-name');
-    expect(name.textContent).toContain('Chrome');
-    expect(name.textContent).toContain('主号');
-    const idEl = card.querySelector('.wechat-connected-client-id');
-    expect(idEl.textContent).toBe('test-ins…');
+    expect(dot.textContent).toBe('已就绪');
+    const body = tab.containerEl.querySelector('.wechat-bridge-status-body');
+    expect(body).not.toBeNull();
+    expect(body.textContent).toContain('Chrome');
+    expect(body.textContent).toContain('主号');
+    const idEl = body.querySelector('.wechat-bridge-status-id');
+    expect(idEl).not.toBeNull();
+    expect(idEl.textContent).toBe('test-ins');
   });
 });

@@ -2414,6 +2414,43 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   color: var(--text-muted, #666);
 }
 
+.wechat-bridge-status-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  color: var(--text-muted, #666);
+}
+
+.wechat-bridge-status-profile {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--background-modifier-border, #ddd);
+  font-size: 11px;
+  color: var(--text-muted, #666);
+}
+
+.wechat-bridge-status-time {
+  margin-left: auto;
+  color: var(--text-faint, #aaa);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.wechat-bridge-status-id {
+  font-family: var(--font-monospace, monospace);
+  font-size: 10px;
+  color: var(--text-faint, #aaa);
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid var(--background-modifier-border, #ddd);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .wechat-platform-picker-header {
   display: flex;
   align-items: flex-start;

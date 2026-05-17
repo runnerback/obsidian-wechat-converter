@@ -162,23 +162,79 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
         plugin.startWechatSyncBridgeInBackground('settings-token-change');
       }));
 
-  // §4.1: token 状态指示 — 未填 / 已填 / 已验证
+  // §4.1 + §16: 统一连接状态栏 — 对普通用户只呈现一个信号
   {
-    const tokenStatusBar = containerEl.createDiv({ cls: 'wechat-multiplatform-token-status' });
-    const dot = tokenStatusBar.createEl('span', { cls: 'wechat-multiplatform-token-status-dot' });
-    const text = tokenStatusBar.createEl('span', { cls: 'wechat-multiplatform-token-status-text' });
+    const clients = multiPlatformSettings.connectedClients || [];
+    const liveClient = clients.find((c) => c.status === 'connected');
+    const lastClient = clients[clients.length - 1];
+
+    const BROWSER_EMOJI = { chrome: '🌐', edge: '🌐', firefox: '🦊', safari: '🧭', arc: '🌈' };
+
+    function fmtRelativeTime(ts) {
+      if (!ts) return '';
+      const d = Date.now() - ts;
+      if (d < 60000) return '刚刚';
+      if (d < 3600000) return `${Math.floor(d / 60000)} 分钟前`;
+      if (d < 86400000) return `${Math.floor(d / 3600000)} 小时前`;
+      return `${Math.floor(d / 86400000)} 天前`;
+    }
+
+    function fmtBrowserLabel(name = '') {
+      const emoji = BROWSER_EMOJI[name.toLowerCase()] || '🌐';
+      return `${emoji} ${name ? name.charAt(0).toUpperCase() + name.slice(1) : '浏览器'}`;
+    }
+
+    const bar = containerEl.createDiv({ cls: 'wechat-multiplatform-token-status' });
+    const dot = bar.createEl('span', { cls: 'wechat-multiplatform-token-status-dot' });
+    const body = bar.createDiv({ cls: 'wechat-bridge-status-body' });
+
     if (!multiPlatformSettings.token) {
       dot.classList?.add?.('is-error');
-      dot.textContent = '未填';
-      text.textContent = '连接令牌尚未填写。请到浏览器插件弹窗复制令牌。';
+      dot.textContent = '未填写';
+      body.createEl('span', { text: '连接令牌尚未填写。请到浏览器扩展弹窗复制令牌。' });
+    } else if (liveClient) {
+      dot.classList?.add?.('is-ok');
+      dot.textContent = '已就绪';
+      body.createEl('span', { text: fmtBrowserLabel(liveClient.browserName) });
+      if (liveClient.profileLabel) {
+        body.createEl('span', { cls: 'wechat-bridge-status-profile', text: liveClient.profileLabel });
+      }
+      body.createEl('span', { cls: 'wechat-bridge-status-time', text: fmtRelativeTime(liveClient.lastSeenAt) });
+      const idEl = body.createEl('span', {
+        cls: 'wechat-bridge-status-id',
+        text: liveClient.extensionInstanceId.slice(0, 8),
+        title: `点击复制完整 ID：${liveClient.extensionInstanceId}`,
+      });
+      idEl.onclick = () => {
+        navigator.clipboard?.writeText?.(liveClient.extensionInstanceId).catch(() => {});
+        new Notice('已复制扩展实例 ID');
+      };
+    } else if (lastClient) {
+      dot.classList?.add?.('is-unknown');
+      dot.textContent = '已断开';
+      body.createEl('span', { text: `${fmtBrowserLabel(lastClient.browserName)} 已断开，请重启浏览器扩展重新连接。` });
+      body.createEl('span', { cls: 'wechat-bridge-status-time', text: fmtRelativeTime(lastClient.lastSeenAt) });
     } else if (multiPlatformSettings.connection?.status === 'connected') {
       dot.classList?.add?.('is-ok');
-      dot.textContent = '已验证';
-      text.textContent = '连接令牌已通过浏览器插件握手验证。';
+      dot.textContent = '已就绪';
+      const checkedAt = formatWechatsyncCheckedAt(multiPlatformSettings.connection.checkedAt);
+      body.createEl('span', {
+        text: checkedAt
+          ? `浏览器扩展已连接，可以发布。上次检查 ${checkedAt}。`
+          : '浏览器扩展已连接，可以发布。',
+      });
+    } else if (multiPlatformSettings.connection?.status === 'failed') {
+      dot.classList?.add?.('is-error');
+      dot.textContent = '连接失败';
+      body.createEl('span', {
+        text: multiPlatformSettings.connection.message
+          ? `${multiPlatformSettings.connection.message}。请检查端口和令牌后点击「测试连接」。`
+          : '请检查端口和令牌后点击「测试连接」。',
+      });
     } else {
       dot.classList?.add?.('is-unknown');
-      dot.textContent = '已填';
-      text.textContent = '连接令牌已填写但尚未通过握手验证。请点击下方「测试连接」。';
+      dot.textContent = '等待连接';
+      body.createEl('span', { text: '令牌已填写，请点击下方「测试连接」确认连接。' });
     }
   }
 
@@ -187,84 +243,7 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
   // 底层数据通路（settings.allowRemote / bridge bind host / cache key）
   // 全部保留：高级用户仍可直接编辑 data.json 让其生效，未来挂回 UI
   // 也只需恢复这块 toggle。
-
-  // §16 Phase 1: 已连接的浏览器卡片
-  // Sprint 4 只需把 .map(renderClientCard) 放进多 client 容器即可复用。
-  {
-    const BROWSER_EMOJI = {
-      chrome: '🌐',
-      edge: '🌐',
-      firefox: '🦊',
-      safari: '🧭',
-      arc: '🌈',
-    };
-
-    function formatRelativeTime(ts) {
-      if (!ts) return '';
-      const diffMs = Date.now() - ts;
-      if (diffMs < 60000) return '刚刚';
-      if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} 分钟前`;
-      if (diffMs < 86400000) return `${Math.floor(diffMs / 3600000)} 小时前`;
-      return `${Math.floor(diffMs / 86400000)} 天前`;
-    }
-
-    function formatBrowserName(name = '') {
-      const key = name.toLowerCase();
-      const emoji = BROWSER_EMOJI[key] || '🌐';
-      const label = name.charAt(0).toUpperCase() + name.slice(1);
-      return `${emoji} ${label || '浏览器'}`;
-    }
-
-    function renderClientCard(el, client) {
-      const card = el.createDiv({ cls: 'wechat-connected-client-card' });
-      card.createEl('span', {
-        cls: `wechat-connected-client-dot ${client.status === 'connected' ? 'is-ok' : 'is-disconnected'}`,
-        text: '●',
-      });
-      const info = card.createDiv({ cls: 'wechat-connected-client-info' });
-      const nameLine = info.createDiv({ cls: 'wechat-connected-client-name' });
-      nameLine.createEl('span', { text: formatBrowserName(client.browserName) });
-      if (client.profileLabel) {
-        nameLine.createEl('span', {
-          cls: 'wechat-connected-client-profile',
-          text: client.profileLabel,
-        });
-      }
-      const metaLine = info.createDiv({ cls: 'wechat-connected-client-meta' });
-      const shortId = client.extensionInstanceId.slice(0, 8) + '…';
-      const idEl = metaLine.createEl('span', {
-        cls: 'wechat-connected-client-id',
-        text: shortId,
-        title: `点击复制完整 ID：${client.extensionInstanceId}`,
-        attr: { style: 'cursor:pointer', 'aria-label': '点击复制完整 ID' },
-      });
-      idEl.onclick = () => {
-        navigator.clipboard?.writeText?.(client.extensionInstanceId).catch(() => {});
-        new Notice('已复制扩展实例 ID');
-      };
-      if (client.lastSeenAt) {
-        metaLine.createEl('span', {
-          cls: 'wechat-connected-client-lastseen',
-          text: `  ·  ${formatRelativeTime(client.lastSeenAt)}`,
-        });
-      }
-    }
-
-    const section = containerEl.createDiv({ cls: 'wechat-connected-clients-section' });
-    section.createEl('div', {
-      cls: 'wechat-connected-clients-heading',
-      text: '已连接的浏览器',
-    });
-    const clients = (multiPlatformSettings.connectedClients || []);
-    if (clients.length === 0) {
-      section.createEl('div', {
-        cls: 'wechat-connected-clients-empty',
-        text: '尚未配对浏览器扩展，请按上方提示完成配对。',
-      });
-    } else {
-      clients.forEach((client) => renderClientCard(section, client));
-    }
-  }
+  // §16 连接状态已合并进上方统一状态栏。
 
   const getSupportedPlatformsFromExtension = async (bridge) => {
     const response = await bridge.listSupportedPlatforms({ timeoutMs: 10000 });
@@ -290,17 +269,7 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
     bridgeConnected: multiPlatformSettings.connection?.status === 'connected',
   });
 
-  // Persistent connection status bar above the platform picker. Replaces
-  // the previous flow where the only feedback for a failed 测试连接 was
-  // a Notice that disappeared after a few seconds. The bar reflects the
-  // latest cached connection state and stays visible across re-renders.
-  {
-    const description = describeWechatsyncConnectionState(
-      multiPlatformSettings.connection,
-      { variant: 'settings' }
-    );
-    renderWechatsyncConnectionStatusBar(containerEl, description);
-  }
+  // 连接状态栏已合并进令牌行统一状态栏（见上方 §4.1+§16 unified block）。
 
   const platformPicker = containerEl.createDiv({ cls: 'wechat-platform-picker' });
   const platformPickerHeader = platformPicker.createDiv({ cls: 'wechat-platform-picker-header' });

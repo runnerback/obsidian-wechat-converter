@@ -13221,7 +13221,7 @@ var require_multi_platform_tab = __commonJS({
       return false;
     }
     function renderMultiPlatformSettingsTab2(tab, containerEl) {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s;
       const { plugin } = tab;
       const multiPlatformSettings = normalizeMultiPlatformSyncSettings2(plugin.settings.multiPlatformSync);
       plugin.settings.multiPlatformSync = multiPlatformSettings;
@@ -13284,97 +13284,74 @@ var require_multi_platform_tab = __commonJS({
         plugin.startWechatSyncBridgeInBackground("settings-token-change");
       }));
       {
-        const tokenStatusBar = containerEl.createDiv({ cls: "wechat-multiplatform-token-status" });
-        const dot = tokenStatusBar.createEl("span", { cls: "wechat-multiplatform-token-status-dot" });
-        const text = tokenStatusBar.createEl("span", { cls: "wechat-multiplatform-token-status-text" });
-        if (!multiPlatformSettings.token) {
-          (_e = (_d = dot.classList) == null ? void 0 : _d.add) == null ? void 0 : _e.call(_d, "is-error");
-          dot.textContent = "\u672A\u586B";
-          text.textContent = "\u8FDE\u63A5\u4EE4\u724C\u5C1A\u672A\u586B\u5199\u3002\u8BF7\u5230\u6D4F\u89C8\u5668\u63D2\u4EF6\u5F39\u7A97\u590D\u5236\u4EE4\u724C\u3002";
-        } else if (((_f = multiPlatformSettings.connection) == null ? void 0 : _f.status) === "connected") {
-          (_h = (_g = dot.classList) == null ? void 0 : _g.add) == null ? void 0 : _h.call(_g, "is-ok");
-          dot.textContent = "\u5DF2\u9A8C\u8BC1";
-          text.textContent = "\u8FDE\u63A5\u4EE4\u724C\u5DF2\u901A\u8FC7\u6D4F\u89C8\u5668\u63D2\u4EF6\u63E1\u624B\u9A8C\u8BC1\u3002";
-        } else {
-          (_j = (_i = dot.classList) == null ? void 0 : _i.add) == null ? void 0 : _j.call(_i, "is-unknown");
-          dot.textContent = "\u5DF2\u586B";
-          text.textContent = "\u8FDE\u63A5\u4EE4\u724C\u5DF2\u586B\u5199\u4F46\u5C1A\u672A\u901A\u8FC7\u63E1\u624B\u9A8C\u8BC1\u3002\u8BF7\u70B9\u51FB\u4E0B\u65B9\u300C\u6D4B\u8BD5\u8FDE\u63A5\u300D\u3002";
-        }
-      }
-      {
-        let formatRelativeTime2 = function(ts) {
+        let fmtRelativeTime2 = function(ts) {
           if (!ts)
             return "";
-          const diffMs = Date.now() - ts;
-          if (diffMs < 6e4)
+          const d = Date.now() - ts;
+          if (d < 6e4)
             return "\u521A\u521A";
-          if (diffMs < 36e5)
-            return `${Math.floor(diffMs / 6e4)} \u5206\u949F\u524D`;
-          if (diffMs < 864e5)
-            return `${Math.floor(diffMs / 36e5)} \u5C0F\u65F6\u524D`;
-          return `${Math.floor(diffMs / 864e5)} \u5929\u524D`;
-        }, formatBrowserName2 = function(name = "") {
-          const key = name.toLowerCase();
-          const emoji = BROWSER_EMOJI[key] || "\u{1F310}";
-          const label = name.charAt(0).toUpperCase() + name.slice(1);
-          return `${emoji} ${label || "\u6D4F\u89C8\u5668"}`;
-        }, renderClientCard2 = function(el, client) {
-          const card = el.createDiv({ cls: "wechat-connected-client-card" });
-          card.createEl("span", {
-            cls: `wechat-connected-client-dot ${client.status === "connected" ? "is-ok" : "is-disconnected"}`,
-            text: "\u25CF"
-          });
-          const info = card.createDiv({ cls: "wechat-connected-client-info" });
-          const nameLine = info.createDiv({ cls: "wechat-connected-client-name" });
-          nameLine.createEl("span", { text: formatBrowserName2(client.browserName) });
-          if (client.profileLabel) {
-            nameLine.createEl("span", {
-              cls: "wechat-connected-client-profile",
-              text: client.profileLabel
-            });
+          if (d < 36e5)
+            return `${Math.floor(d / 6e4)} \u5206\u949F\u524D`;
+          if (d < 864e5)
+            return `${Math.floor(d / 36e5)} \u5C0F\u65F6\u524D`;
+          return `${Math.floor(d / 864e5)} \u5929\u524D`;
+        }, fmtBrowserLabel2 = function(name = "") {
+          const emoji = BROWSER_EMOJI[name.toLowerCase()] || "\u{1F310}";
+          return `${emoji} ${name ? name.charAt(0).toUpperCase() + name.slice(1) : "\u6D4F\u89C8\u5668"}`;
+        };
+        var fmtRelativeTime = fmtRelativeTime2, fmtBrowserLabel = fmtBrowserLabel2;
+        const clients = multiPlatformSettings.connectedClients || [];
+        const liveClient = clients.find((c) => c.status === "connected");
+        const lastClient = clients[clients.length - 1];
+        const BROWSER_EMOJI = { chrome: "\u{1F310}", edge: "\u{1F310}", firefox: "\u{1F98A}", safari: "\u{1F9ED}", arc: "\u{1F308}" };
+        const bar = containerEl.createDiv({ cls: "wechat-multiplatform-token-status" });
+        const dot = bar.createEl("span", { cls: "wechat-multiplatform-token-status-dot" });
+        const body = bar.createDiv({ cls: "wechat-bridge-status-body" });
+        if (!multiPlatformSettings.token) {
+          (_e = (_d = dot.classList) == null ? void 0 : _d.add) == null ? void 0 : _e.call(_d, "is-error");
+          dot.textContent = "\u672A\u586B\u5199";
+          body.createEl("span", { text: "\u8FDE\u63A5\u4EE4\u724C\u5C1A\u672A\u586B\u5199\u3002\u8BF7\u5230\u6D4F\u89C8\u5668\u6269\u5C55\u5F39\u7A97\u590D\u5236\u4EE4\u724C\u3002" });
+        } else if (liveClient) {
+          (_g = (_f = dot.classList) == null ? void 0 : _f.add) == null ? void 0 : _g.call(_f, "is-ok");
+          dot.textContent = "\u5DF2\u5C31\u7EEA";
+          body.createEl("span", { text: fmtBrowserLabel2(liveClient.browserName) });
+          if (liveClient.profileLabel) {
+            body.createEl("span", { cls: "wechat-bridge-status-profile", text: liveClient.profileLabel });
           }
-          const metaLine = info.createDiv({ cls: "wechat-connected-client-meta" });
-          const shortId = client.extensionInstanceId.slice(0, 8) + "\u2026";
-          const idEl = metaLine.createEl("span", {
-            cls: "wechat-connected-client-id",
-            text: shortId,
-            title: `\u70B9\u51FB\u590D\u5236\u5B8C\u6574 ID\uFF1A${client.extensionInstanceId}`,
-            attr: { style: "cursor:pointer", "aria-label": "\u70B9\u51FB\u590D\u5236\u5B8C\u6574 ID" }
+          body.createEl("span", { cls: "wechat-bridge-status-time", text: fmtRelativeTime2(liveClient.lastSeenAt) });
+          const idEl = body.createEl("span", {
+            cls: "wechat-bridge-status-id",
+            text: liveClient.extensionInstanceId.slice(0, 8),
+            title: `\u70B9\u51FB\u590D\u5236\u5B8C\u6574 ID\uFF1A${liveClient.extensionInstanceId}`
           });
           idEl.onclick = () => {
             var _a2, _b2;
-            (_b2 = (_a2 = navigator.clipboard) == null ? void 0 : _a2.writeText) == null ? void 0 : _b2.call(_a2, client.extensionInstanceId).catch(() => {
+            (_b2 = (_a2 = navigator.clipboard) == null ? void 0 : _a2.writeText) == null ? void 0 : _b2.call(_a2, liveClient.extensionInstanceId).catch(() => {
             });
             new Notice2("\u5DF2\u590D\u5236\u6269\u5C55\u5B9E\u4F8B ID");
           };
-          if (client.lastSeenAt) {
-            metaLine.createEl("span", {
-              cls: "wechat-connected-client-lastseen",
-              text: `  \xB7  ${formatRelativeTime2(client.lastSeenAt)}`
-            });
-          }
-        };
-        var formatRelativeTime = formatRelativeTime2, formatBrowserName = formatBrowserName2, renderClientCard = renderClientCard2;
-        const BROWSER_EMOJI = {
-          chrome: "\u{1F310}",
-          edge: "\u{1F310}",
-          firefox: "\u{1F98A}",
-          safari: "\u{1F9ED}",
-          arc: "\u{1F308}"
-        };
-        const section = containerEl.createDiv({ cls: "wechat-connected-clients-section" });
-        section.createEl("div", {
-          cls: "wechat-connected-clients-heading",
-          text: "\u5DF2\u8FDE\u63A5\u7684\u6D4F\u89C8\u5668"
-        });
-        const clients = multiPlatformSettings.connectedClients || [];
-        if (clients.length === 0) {
-          section.createEl("div", {
-            cls: "wechat-connected-clients-empty",
-            text: "\u5C1A\u672A\u914D\u5BF9\u6D4F\u89C8\u5668\u6269\u5C55\uFF0C\u8BF7\u6309\u4E0A\u65B9\u63D0\u793A\u5B8C\u6210\u914D\u5BF9\u3002"
+        } else if (lastClient) {
+          (_i = (_h = dot.classList) == null ? void 0 : _h.add) == null ? void 0 : _i.call(_h, "is-unknown");
+          dot.textContent = "\u5DF2\u65AD\u5F00";
+          body.createEl("span", { text: `${fmtBrowserLabel2(lastClient.browserName)} \u5DF2\u65AD\u5F00\uFF0C\u8BF7\u91CD\u542F\u6D4F\u89C8\u5668\u6269\u5C55\u91CD\u65B0\u8FDE\u63A5\u3002` });
+          body.createEl("span", { cls: "wechat-bridge-status-time", text: fmtRelativeTime2(lastClient.lastSeenAt) });
+        } else if (((_j = multiPlatformSettings.connection) == null ? void 0 : _j.status) === "connected") {
+          (_l = (_k = dot.classList) == null ? void 0 : _k.add) == null ? void 0 : _l.call(_k, "is-ok");
+          dot.textContent = "\u5DF2\u5C31\u7EEA";
+          const checkedAt = formatWechatsyncCheckedAt2(multiPlatformSettings.connection.checkedAt);
+          body.createEl("span", {
+            text: checkedAt ? `\u6D4F\u89C8\u5668\u6269\u5C55\u5DF2\u8FDE\u63A5\uFF0C\u53EF\u4EE5\u53D1\u5E03\u3002\u4E0A\u6B21\u68C0\u67E5 ${checkedAt}\u3002` : "\u6D4F\u89C8\u5668\u6269\u5C55\u5DF2\u8FDE\u63A5\uFF0C\u53EF\u4EE5\u53D1\u5E03\u3002"
+          });
+        } else if (((_m = multiPlatformSettings.connection) == null ? void 0 : _m.status) === "failed") {
+          (_o = (_n = dot.classList) == null ? void 0 : _n.add) == null ? void 0 : _o.call(_n, "is-error");
+          dot.textContent = "\u8FDE\u63A5\u5931\u8D25";
+          body.createEl("span", {
+            text: multiPlatformSettings.connection.message ? `${multiPlatformSettings.connection.message}\u3002\u8BF7\u68C0\u67E5\u7AEF\u53E3\u548C\u4EE4\u724C\u540E\u70B9\u51FB\u300C\u6D4B\u8BD5\u8FDE\u63A5\u300D\u3002` : "\u8BF7\u68C0\u67E5\u7AEF\u53E3\u548C\u4EE4\u724C\u540E\u70B9\u51FB\u300C\u6D4B\u8BD5\u8FDE\u63A5\u300D\u3002"
           });
         } else {
-          clients.forEach((client) => renderClientCard2(section, client));
+          (_q = (_p = dot.classList) == null ? void 0 : _p.add) == null ? void 0 : _q.call(_p, "is-unknown");
+          dot.textContent = "\u7B49\u5F85\u8FDE\u63A5";
+          body.createEl("span", { text: "\u4EE4\u724C\u5DF2\u586B\u5199\uFF0C\u8BF7\u70B9\u51FB\u4E0B\u65B9\u300C\u6D4B\u8BD5\u8FDE\u63A5\u300D\u786E\u8BA4\u8FDE\u63A5\u3002" });
         }
       }
       const getSupportedPlatformsFromExtension = async (bridge) => {
@@ -13389,7 +13366,7 @@ var require_multi_platform_tab = __commonJS({
         });
         return normalizeWechatsyncAuthSnapshot2(response, fallbackPlatforms);
       };
-      const hasExtensionPlatformList = Array.isArray(multiPlatformSettings.supportedPlatforms) && multiPlatformSettings.supportedPlatforms.length > 0 && ((_k = multiPlatformSettings.connection) == null ? void 0 : _k.status) === "connected";
+      const hasExtensionPlatformList = Array.isArray(multiPlatformSettings.supportedPlatforms) && multiPlatformSettings.supportedPlatforms.length > 0 && ((_r = multiPlatformSettings.connection) == null ? void 0 : _r.status) === "connected";
       const availablePlatforms = getAvailableWechatsyncPlatforms2(multiPlatformSettings);
       const selectedPlatformSet = new Set(multiPlatformSettings.selectedPlatforms || []);
       const hasCachedAuthState = availablePlatforms.some(
@@ -13401,18 +13378,11 @@ var require_multi_platform_tab = __commonJS({
           bridgeConnected: ((_a2 = multiPlatformSettings.connection) == null ? void 0 : _a2.status) === "connected"
         });
       };
-      {
-        const description = describeWechatsyncConnectionState2(
-          multiPlatformSettings.connection,
-          { variant: "settings" }
-        );
-        renderWechatsyncConnectionStatusBar2(containerEl, description);
-      }
       const platformPicker = containerEl.createDiv({ cls: "wechat-platform-picker" });
       const platformPickerHeader = platformPicker.createDiv({ cls: "wechat-platform-picker-header" });
       const platformPickerTitle = platformPickerHeader.createDiv();
       platformPickerTitle.createEl("div", { text: "\u53D1\u5E03\u5E73\u53F0\uFF08\u6D4F\u89C8\u5668\u63D2\u4EF6\u652F\u6301\uFF09", cls: "wechat-platform-picker-title" });
-      const checkedAtText = formatWechatsyncCheckedAt2((_l = multiPlatformSettings.connection) == null ? void 0 : _l.checkedAt);
+      const checkedAtText = formatWechatsyncCheckedAt2((_s = multiPlatformSettings.connection) == null ? void 0 : _s.checkedAt);
       platformPickerTitle.createEl("div", {
         text: hasCachedAuthState ? `\u5DF2\u52FE\u9009\u5E73\u53F0\u4F1A\u663E\u793A\u4E0A\u6B21\u72B6\u6001${checkedAtText ? `\uFF08${checkedAtText}\uFF09` : ""}\uFF1B\u672C\u6B21\u53D1\u5E03\u4ECD\u4EE5\u6D4F\u89C8\u5668\u63D2\u4EF6\u5B9E\u9645\u7ED3\u679C\u4E3A\u51C6\u3002` : hasExtensionPlatformList ? "\u5E73\u53F0\u6E05\u5355\u6765\u81EA\u5F53\u524D\u8FDE\u63A5\u7684\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF1B\u4EC5\u52FE\u9009\u7684\u5E73\u53F0\u4F1A\u663E\u793A\u4E0A\u6B21\u72B6\u6001\u3002" : "\u672A\u8FDE\u63A5\u63D2\u4EF6\u524D\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF1B\u8FDE\u63A5\u6210\u529F\u540E\u4F1A\u5237\u65B0\u4E3A\u63D2\u4EF6\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002",
         cls: "wechat-platform-picker-desc"
@@ -20458,11 +20428,13 @@ var AppleStylePlugin = class extends Plugin {
       serverVersion: ((_b = this.manifest) == null ? void 0 : _b.version) || "",
       initialConnectedClients: settings.connectedClients || [],
       async onClientRegistryChange(clients) {
+        var _a2, _b2, _c, _d;
         self.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
           ...self.settings.multiPlatformSync,
           connectedClients: clients
         });
         await self.saveSettings();
+        (_d = (_c = (_b2 = (_a2 = self.app) == null ? void 0 : _a2.setting) == null ? void 0 : _b2.activeTab) == null ? void 0 : _c.display) == null ? void 0 : _d.call(_c);
       }
     });
     return this._wechatSyncBridgeService;

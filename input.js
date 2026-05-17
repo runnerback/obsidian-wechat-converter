@@ -6643,6 +6643,7 @@ class AppleStylePlugin extends Plugin {
           connectedClients: clients,
         });
         await self.saveSettings();
+        self.app?.setting?.activeTab?.display?.();
       },
     });
     return this._wechatSyncBridgeService;
