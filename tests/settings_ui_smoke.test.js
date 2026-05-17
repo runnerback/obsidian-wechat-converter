@@ -436,8 +436,6 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     expect(body).not.toBeNull();
     expect(body.textContent).toContain('Chrome');
     expect(body.textContent).toContain('主号');
-    const idEl = body.querySelector('.wechat-bridge-status-id');
-    expect(idEl).not.toBeNull();
-    expect(idEl.textContent).toBe('test-ins');
+    expect(body.querySelector('.wechat-bridge-status-id')).toBeNull();
   });
 });

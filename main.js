@@ -13319,17 +13319,6 @@ var require_multi_platform_tab = __commonJS({
             body.createEl("span", { cls: "wechat-bridge-status-profile", text: liveClient.profileLabel });
           }
           body.createEl("span", { cls: "wechat-bridge-status-time", text: fmtRelativeTime2(liveClient.lastSeenAt) });
-          const idEl = body.createEl("span", {
-            cls: "wechat-bridge-status-id",
-            text: liveClient.extensionInstanceId.slice(0, 8),
-            title: `\u70B9\u51FB\u590D\u5236\u5B8C\u6574 ID\uFF1A${liveClient.extensionInstanceId}`
-          });
-          idEl.onclick = () => {
-            var _a2, _b2;
-            (_b2 = (_a2 = navigator.clipboard) == null ? void 0 : _a2.writeText) == null ? void 0 : _b2.call(_a2, liveClient.extensionInstanceId).catch(() => {
-            });
-            new Notice2("\u5DF2\u590D\u5236\u6269\u5C55\u5B9E\u4F8B ID");
-          };
         } else if (lastClient) {
           (_i = (_h = dot.classList) == null ? void 0 : _h.add) == null ? void 0 : _i.call(_h, "is-unknown");
           dot.textContent = "\u5DF2\u65AD\u5F00";

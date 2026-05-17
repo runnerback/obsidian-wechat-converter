@@ -200,15 +200,6 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
         body.createEl('span', { cls: 'wechat-bridge-status-profile', text: liveClient.profileLabel });
       }
       body.createEl('span', { cls: 'wechat-bridge-status-time', text: fmtRelativeTime(liveClient.lastSeenAt) });
-      const idEl = body.createEl('span', {
-        cls: 'wechat-bridge-status-id',
-        text: liveClient.extensionInstanceId.slice(0, 8),
-        title: `点击复制完整 ID：${liveClient.extensionInstanceId}`,
-      });
-      idEl.onclick = () => {
-        navigator.clipboard?.writeText?.(liveClient.extensionInstanceId).catch(() => {});
-        new Notice('已复制扩展实例 ID');
-      };
     } else if (lastClient) {
       dot.classList?.add?.('is-unknown');
       dot.textContent = '已断开';
