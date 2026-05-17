@@ -14700,6 +14700,15 @@ var require_multi_platform = __commonJS({
           const fallbackCover = view.getFirstImageFromArticle();
           const cover = resolvedImages.cover || resolvedImages.firstImageSrc || (/^(https?:\/\/|data:image\/)/i.test(fallbackCover || "") ? fallbackCover : "") || "";
           const content = await view.prepareHtmlForWechatsyncArticleViaBridge(exportHtml, assets);
+          const base64Matches = String(content || "").match(/data:image\/[a-z]+;base64,/gi);
+          if (base64Matches && base64Matches.length) {
+            console.error("[Wechatsync] bridge content contains inline base64 images \u2014 this should never happen on bridge flow. Likely a regression in prepareHtmlForWechatsyncArticleViaBridge or a forgotten callsite using the legacy preparator.", {
+              inlineBase64ImageCount: base64Matches.length,
+              contentLength: content.length,
+              assetCount: assets.length,
+              title
+            });
+          }
           console.info("[Wechatsync] enqueueSyncArticle started", {
             platformCount: requestedPlatformIds.length,
             platforms: requestedPlatformIds,

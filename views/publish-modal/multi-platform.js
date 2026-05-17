@@ -346,6 +346,23 @@ async function showMultiPlatformPublishModal(view, options = {}) {
       // every local image and break extension-side retry on redacted
       // base64.
       const content = await view.prepareHtmlForWechatsyncArticleViaBridge(exportHtml, assets);
+
+      // Invariant guard (handover §3.2): bridge content[] must never carry
+      // inline base64 image bytes — assets[] is the single source of truth
+      // for image bytes, and the extension has to redact base64 from
+      // history to fit chrome.storage.local quota. A leak here would break
+      // the extension's retry path. Warn loud (do not abort) so an
+      // unrelated regression surfaces in dev while users can still publish.
+      const base64Matches = String(content || '').match(/data:image\/[a-z]+;base64,/gi);
+      if (base64Matches && base64Matches.length) {
+        console.error('[Wechatsync] bridge content contains inline base64 images — this should never happen on bridge flow. Likely a regression in prepareHtmlForWechatsyncArticleViaBridge or a forgotten callsite using the legacy preparator.', {
+          inlineBase64ImageCount: base64Matches.length,
+          contentLength: content.length,
+          assetCount: assets.length,
+          title,
+        });
+      }
+
       console.info('[Wechatsync] enqueueSyncArticle started', {
         platformCount: requestedPlatformIds.length,
         platforms: requestedPlatformIds,
