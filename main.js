@@ -10682,7 +10682,6 @@ var require_wechatsync_bridge = __commonJS({
         connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
         helloTimeoutMs = DEFAULT_HELLO_TIMEOUT_MS,
         allowRemote = false,
-        allowLegacyUnauthenticated = false,
         originAllowlist = null,
         serverVersion = "",
         logger = console,
@@ -10812,8 +10811,7 @@ var require_wechatsync_bridge = __commonJS({
           extensionInstanceId: next.extensionInstanceId,
           profileLabel: next.profileLabel,
           browserName: next.browserName,
-          version: next.version,
-          legacy: !hello
+          version: next.version
         });
         notifyConnected();
       }
@@ -10917,16 +10915,11 @@ var require_wechatsync_bridge = __commonJS({
         };
         pendingConnections.set(connectionId, pending);
         debug("Extension connected (pending hello)", { connectionId, origin });
-        if (allowLegacyUnauthenticated) {
-          audit("legacy_unauthenticated_promotion", { connectionId, origin });
-          promoteToActive(pending, null, origin);
-        } else {
-          pending.helloTimeout = setTimeout(() => {
-            if (!pendingConnections.has(connectionId))
-              return;
-            rejectHello(pending, HELLO_ERROR_TIMEOUT, { timeoutMs: helloTimeoutMs });
-          }, helloTimeoutMs);
-        }
+        pending.helloTimeout = setTimeout(() => {
+          if (!pendingConnections.has(connectionId))
+            return;
+          rejectHello(pending, HELLO_ERROR_TIMEOUT, { timeoutMs: helloTimeoutMs });
+        }, helloTimeoutMs);
         ws.on("message", (data) => {
           const raw = data.toString();
           const stillPending = pendingConnections.get(connectionId);
@@ -10996,8 +10989,7 @@ var require_wechatsync_bridge = __commonJS({
               authenticated: isAuthenticatedConnected(),
               pendingConnections: pendingConnections.size,
               host: bindHost,
-              allowRemote: !!allowRemote,
-              allowLegacyUnauthenticated: !!allowLegacyUnauthenticated
+              allowRemote: !!allowRemote
             }));
             return;
           }
@@ -11075,8 +11067,7 @@ var require_wechatsync_bridge = __commonJS({
             port,
             httpPort: port + 1,
             host: bindHost,
-            allowRemote,
-            allowLegacyUnauthenticated
+            allowRemote
           });
         } catch (error) {
           throw createReadableBridgeError(error);
@@ -11282,7 +11273,6 @@ var require_wechatsync_bridge = __commonJS({
           pendingConnections: pendingConnections.size,
           host: bindHost,
           allowRemote: !!allowRemote,
-          allowLegacyUnauthenticated: !!allowLegacyUnauthenticated,
           port,
           diagnostics: getDiagnostics()
         };
@@ -12839,7 +12829,6 @@ var require_wechatsync_settings = __commonJS({
         port: DEFAULT_WECHATSYNC_PORT2,
         token: "",
         allowRemote: false,
-        allowLegacyUnauthenticated: false,
         supportedPlatforms: [],
         selectedPlatforms: [],
         recentTasks: [],
@@ -12945,7 +12934,6 @@ var require_wechatsync_settings = __commonJS({
         port: Number.isInteger(portNumber) && portNumber > 0 && portNumber < 65536 ? portNumber : defaults.port,
         token: typeof source.token === "string" ? source.token.trim() : "",
         allowRemote: source.allowRemote === true,
-        allowLegacyUnauthenticated: source.allowLegacyUnauthenticated === true,
         supportedPlatforms,
         selectedPlatforms,
         connection: normalizeMultiPlatformConnection2(source.connection),
@@ -13130,7 +13118,7 @@ var require_multi_platform_tab = __commonJS({
       return false;
     }
     function renderMultiPlatformSettingsTab2(tab, containerEl) {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
       const { plugin } = tab;
       const multiPlatformSettings = normalizeMultiPlatformSyncSettings2(plugin.settings.multiPlatformSync);
       plugin.settings.multiPlatformSync = multiPlatformSettings;
@@ -13232,28 +13220,6 @@ var require_multi_platform_tab = __commonJS({
           (_m = (_l = (_k = remoteSetting.descEl) == null ? void 0 : _k.classList) == null ? void 0 : _l.add) == null ? void 0 : _m.call(_l, "wechat-multiplatform-warning");
         }
       }
-      {
-        const legacySetting = new Setting2(containerEl).setName("\u517C\u5BB9\u65E7\u7248\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF08\u8FC7\u6E21\uFF09").setDesc(multiPlatformSettings.allowLegacyUnauthenticated ? "\u5DF2\u5141\u8BB8\u672A\u7ECF\u63E1\u624B\u7684\u65E7\u7248\u6D4F\u89C8\u5668\u63D2\u4EF6\u8FDE\u63A5\u3002\u6CE8\u610F\uFF1A\u6B64\u6A21\u5F0F\u6CA1\u6709 extension_hello \u5B89\u5168\u9A8C\u8BC1\uFF0C\u76F8\u5F53\u4E8E\u56DE\u5230 Sprint 1 \u4E4B\u524D\u7684\u884C\u4E3A\uFF0C\u6D4F\u89C8\u5668\u63D2\u4EF6\u5347\u7EA7\u540E\u8BF7\u7ACB\u5373\u5173\u95ED\u3002" : "\u9ED8\u8BA4\u5173\u95ED\u3002\u4EC5\u5728\u6D4F\u89C8\u5668\u63D2\u4EF6\u5C1A\u672A\u5347\u7EA7\u5230\u652F\u6301\u5B89\u5168\u63E1\u624B\u7248\u672C\u65F6\u4E34\u65F6\u5F00\u542F\u3002Sprint 3 \u6D4F\u89C8\u5668\u63D2\u4EF6\u4E0A\u7EBF\u540E\u6B64\u5F00\u5173\u4F1A\u88AB\u79FB\u9664\u3002").addToggle((toggle) => toggle.setValue(multiPlatformSettings.allowLegacyUnauthenticated).onChange(async (value) => {
-          var _a2;
-          plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings2({
-            ...plugin.settings.multiPlatformSync,
-            allowLegacyUnauthenticated: value,
-            connection: { status: "untested" }
-          });
-          await plugin.saveSettings();
-          if ((_a2 = plugin._wechatSyncBridgeService) == null ? void 0 : _a2.stop) {
-            await plugin._wechatSyncBridgeService.stop().catch(() => {
-            });
-          }
-          plugin._wechatSyncBridgeService = null;
-          plugin._wechatSyncBridgeCacheKey = null;
-          plugin.startWechatSyncBridgeInBackground("settings-allow-legacy-change");
-          tab.display();
-        }));
-        if (multiPlatformSettings.allowLegacyUnauthenticated) {
-          (_p = (_o = (_n = legacySetting.descEl) == null ? void 0 : _n.classList) == null ? void 0 : _o.add) == null ? void 0 : _p.call(_o, "wechat-multiplatform-warning");
-        }
-      }
       const getSupportedPlatformsFromExtension = async (bridge) => {
         const response = await bridge.listSupportedPlatforms({ timeoutMs: 1e4 });
         return normalizeWechatsyncPlatformList2(response);
@@ -13266,7 +13232,7 @@ var require_multi_platform_tab = __commonJS({
         });
         return normalizeWechatsyncAuthSnapshot2(response, fallbackPlatforms);
       };
-      const hasExtensionPlatformList = Array.isArray(multiPlatformSettings.supportedPlatforms) && multiPlatformSettings.supportedPlatforms.length > 0 && ((_q = multiPlatformSettings.connection) == null ? void 0 : _q.status) === "connected";
+      const hasExtensionPlatformList = Array.isArray(multiPlatformSettings.supportedPlatforms) && multiPlatformSettings.supportedPlatforms.length > 0 && ((_n = multiPlatformSettings.connection) == null ? void 0 : _n.status) === "connected";
       const availablePlatforms = getAvailableWechatsyncPlatforms2(multiPlatformSettings);
       const selectedPlatformSet = new Set(multiPlatformSettings.selectedPlatforms || []);
       const hasCachedAuthState = availablePlatforms.some(
@@ -13289,7 +13255,7 @@ var require_multi_platform_tab = __commonJS({
       const platformPickerHeader = platformPicker.createDiv({ cls: "wechat-platform-picker-header" });
       const platformPickerTitle = platformPickerHeader.createDiv();
       platformPickerTitle.createEl("div", { text: "\u53D1\u5E03\u5E73\u53F0\uFF08\u6D4F\u89C8\u5668\u63D2\u4EF6\u652F\u6301\uFF09", cls: "wechat-platform-picker-title" });
-      const checkedAtText = formatWechatsyncCheckedAt2((_r = multiPlatformSettings.connection) == null ? void 0 : _r.checkedAt);
+      const checkedAtText = formatWechatsyncCheckedAt2((_o = multiPlatformSettings.connection) == null ? void 0 : _o.checkedAt);
       platformPickerTitle.createEl("div", {
         text: hasCachedAuthState ? `\u5DF2\u52FE\u9009\u5E73\u53F0\u4F1A\u663E\u793A\u4E0A\u6B21\u72B6\u6001${checkedAtText ? `\uFF08${checkedAtText}\uFF09` : ""}\uFF1B\u672C\u6B21\u53D1\u5E03\u4ECD\u4EE5\u6D4F\u89C8\u5668\u63D2\u4EF6\u5B9E\u9645\u7ED3\u679C\u4E3A\u51C6\u3002` : hasExtensionPlatformList ? "\u5E73\u53F0\u6E05\u5355\u6765\u81EA\u5F53\u524D\u8FDE\u63A5\u7684\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF1B\u4EC5\u52FE\u9009\u7684\u5E73\u53F0\u4F1A\u663E\u793A\u4E0A\u6B21\u72B6\u6001\u3002" : "\u672A\u8FDE\u63A5\u63D2\u4EF6\u524D\u5148\u663E\u793A\u672C\u5730\u5907\u7528\u6E05\u5355\uFF1B\u8FDE\u63A5\u6210\u529F\u540E\u4F1A\u5237\u65B0\u4E3A\u63D2\u4EF6\u5B9E\u9645\u652F\u6301\u7684\u5E73\u53F0\u3002",
         cls: "wechat-platform-picker-desc"
@@ -20257,8 +20223,7 @@ var AppleStylePlugin = class extends Plugin {
     const cacheKey = [
       settings.port,
       settings.token,
-      settings.allowRemote ? 1 : 0,
-      settings.allowLegacyUnauthenticated ? 1 : 0
+      settings.allowRemote ? 1 : 0
     ].join(":");
     if (this._wechatSyncBridgeService && this._wechatSyncBridgeCacheKey === cacheKey) {
       return this._wechatSyncBridgeService;
@@ -20275,7 +20240,6 @@ var AppleStylePlugin = class extends Plugin {
       port: settings.port,
       token: settings.token,
       allowRemote: settings.allowRemote,
-      allowLegacyUnauthenticated: settings.allowLegacyUnauthenticated,
       serverVersion: ((_b = this.manifest) == null ? void 0 : _b.version) || ""
     });
     return this._wechatSyncBridgeService;

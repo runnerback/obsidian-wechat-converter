@@ -313,20 +313,19 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     expect(names).not.toContain('读取已选平台状态');
   });
 
-  // Sprint 1 §4.1: settings UI introduces three new visible affordances:
+  // Sprint 1 §4.1 introduced three visible affordances; Sprint 3 removed
+  // the "兼容旧版浏览器插件（过渡）" toggle entirely. What remains:
   //   1. token state badge (未填 / 已填 / 已验证)
   //   2. "允许远程访问（高级）" toggle controlling bind host
-  //   3. "兼容旧版浏览器插件（过渡）" toggle for the Sprint 1 → Sprint 3 window
   // These tests pin the names + state badge so future refactors can't silently
-  // drop them.
+  // drop them, and explicitly assert the legacy toggle has been removed.
 
-  it('renders Sprint 1 §3.5 / §3.1 advanced toggles when bridge is enabled', () => {
+  it('renders the Sprint 1 §3.5 advanced allowRemote toggle when bridge is enabled', () => {
     renderTab(makePlugin({ multiPlatformSync: {
       enabled: true,
       port: 9527,
       token: 'abc',
       allowRemote: false,
-      allowLegacyUnauthenticated: false,
       supportedPlatforms: [],
       selectedPlatforms: [],
       connection: { status: 'untested', checkedAt: 0, platforms: [], capabilities: {}, message: '' },
@@ -334,7 +333,9 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     } }));
     const names = globalThis.__obsidianSettingNamesRegistry;
     expect(names).toContain('允许远程访问（高级）');
-    expect(names).toContain('兼容旧版浏览器插件（过渡）');
+    // Sprint 3: hello handshake is the only authentication path, so the
+    // legacy compat toggle must no longer be rendered.
+    expect(names).not.toContain('兼容旧版浏览器插件（过渡）');
   });
 
   it('renders the Sprint 1 §4.1 token-state badge in the "未填" state when token is empty', () => {

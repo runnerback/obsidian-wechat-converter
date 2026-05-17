@@ -395,7 +395,6 @@ function createWechatSyncBridgeService(options = {}) {
     connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
     helloTimeoutMs = DEFAULT_HELLO_TIMEOUT_MS,
     allowRemote = false,
-    allowLegacyUnauthenticated = false,
     originAllowlist = null,
     serverVersion = '',
     logger = console,
@@ -536,7 +535,6 @@ function createWechatSyncBridgeService(options = {}) {
       profileLabel: next.profileLabel,
       browserName: next.browserName,
       version: next.version,
-      legacy: !hello,
     });
     notifyConnected();
   }
@@ -647,16 +645,10 @@ function createWechatSyncBridgeService(options = {}) {
     pendingConnections.set(connectionId, pending);
     debug('Extension connected (pending hello)', { connectionId, origin });
 
-    if (allowLegacyUnauthenticated) {
-      // Backwards compatibility: legacy extension without hello support.
-      audit('legacy_unauthenticated_promotion', { connectionId, origin });
-      promoteToActive(pending, null, origin);
-    } else {
-      pending.helloTimeout = setTimeout(() => {
-        if (!pendingConnections.has(connectionId)) return;
-        rejectHello(pending, HELLO_ERROR_TIMEOUT, { timeoutMs: helloTimeoutMs });
-      }, helloTimeoutMs);
-    }
+    pending.helloTimeout = setTimeout(() => {
+      if (!pendingConnections.has(connectionId)) return;
+      rejectHello(pending, HELLO_ERROR_TIMEOUT, { timeoutMs: helloTimeoutMs });
+    }, helloTimeoutMs);
 
     ws.on('message', (data) => {
       const raw = data.toString();
@@ -734,7 +726,6 @@ function createWechatSyncBridgeService(options = {}) {
           pendingConnections: pendingConnections.size,
           host: bindHost,
           allowRemote: !!allowRemote,
-          allowLegacyUnauthenticated: !!allowLegacyUnauthenticated,
         }));
         return;
       }
@@ -823,7 +814,6 @@ function createWechatSyncBridgeService(options = {}) {
         httpPort: port + 1,
         host: bindHost,
         allowRemote,
-        allowLegacyUnauthenticated,
       });
     } catch (error) {
       // §4.1: EADDRINUSE no longer silently degrades into SECONDARY mode.
@@ -1063,7 +1053,6 @@ function createWechatSyncBridgeService(options = {}) {
       pendingConnections: pendingConnections.size,
       host: bindHost,
       allowRemote: !!allowRemote,
-      allowLegacyUnauthenticated: !!allowLegacyUnauthenticated,
       port,
       diagnostics: getDiagnostics(),
     };

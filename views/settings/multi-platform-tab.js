@@ -211,36 +211,6 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
     }
   }
 
-  // §3.1 兼容策略：旧版浏览器插件不发 extension_hello 时的过渡开关。
-  // 计划文档 §4.3 Sprint 3 完成后会移除此开关。
-  {
-    const legacySetting = new Setting(containerEl)
-      .setName('兼容旧版浏览器插件（过渡）')
-      .setDesc(multiPlatformSettings.allowLegacyUnauthenticated
-        ? '已允许未经握手的旧版浏览器插件连接。注意：此模式没有 extension_hello 安全验证，相当于回到 Sprint 1 之前的行为，浏览器插件升级后请立即关闭。'
-        : '默认关闭。仅在浏览器插件尚未升级到支持安全握手版本时临时开启。Sprint 3 浏览器插件上线后此开关会被移除。')
-      .addToggle(toggle => toggle
-        .setValue(multiPlatformSettings.allowLegacyUnauthenticated)
-        .onChange(async (value) => {
-          plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-            ...plugin.settings.multiPlatformSync,
-            allowLegacyUnauthenticated: value,
-            connection: { status: 'untested' },
-          });
-          await plugin.saveSettings();
-          if (plugin._wechatSyncBridgeService?.stop) {
-            await plugin._wechatSyncBridgeService.stop().catch(() => {});
-          }
-          plugin._wechatSyncBridgeService = null;
-          plugin._wechatSyncBridgeCacheKey = null;
-          plugin.startWechatSyncBridgeInBackground('settings-allow-legacy-change');
-          tab.display();
-        }));
-    if (multiPlatformSettings.allowLegacyUnauthenticated) {
-      legacySetting.descEl?.classList?.add?.('wechat-multiplatform-warning');
-    }
-  }
-
   const getSupportedPlatformsFromExtension = async (bridge) => {
     const response = await bridge.listSupportedPlatforms({ timeoutMs: 10000 });
     return normalizeWechatsyncPlatformList(response);

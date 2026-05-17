@@ -6616,7 +6616,6 @@ class AppleStylePlugin extends Plugin {
       settings.port,
       settings.token,
       settings.allowRemote ? 1 : 0,
-      settings.allowLegacyUnauthenticated ? 1 : 0,
     ].join(':');
     if (this._wechatSyncBridgeService && this._wechatSyncBridgeCacheKey === cacheKey) {
       return this._wechatSyncBridgeService;
@@ -6635,7 +6634,6 @@ class AppleStylePlugin extends Plugin {
       port: settings.port,
       token: settings.token,
       allowRemote: settings.allowRemote,
-      allowLegacyUnauthenticated: settings.allowLegacyUnauthenticated,
       serverVersion: this.manifest?.version || '',
     });
     return this._wechatSyncBridgeService;

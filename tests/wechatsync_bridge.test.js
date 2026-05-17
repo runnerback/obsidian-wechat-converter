@@ -6,6 +6,7 @@ import {
   HELLO_ERROR_INVALID_PAYLOAD,
   HELLO_ERROR_TIMEOUT,
   HELLO_ERROR_TOKEN_MISMATCH,
+  HELLO_ERROR_VERSION_UNSUPPORTED,
   createReadableBridgeError,
   createWechatSyncBridgeService,
   isOriginAllowedForWebSocket,
@@ -1130,29 +1131,18 @@ describe('§3.1 / §3.2 extension_hello handshake', () => {
     });
   });
 
-  it('still authenticates without hello when allowLegacyUnauthenticated is true', async () => {
-    const port = await getFreePort();
-    const service = createWechatSyncBridgeService({
-      WebSocketServer,
-      http,
-      port,
-      token: 'secret-token',
-      allowLegacyUnauthenticated: true,
-      helloTimeoutMs: 1000,
-    });
-    cleanup.push(service);
-    await service.start();
+});
 
-    const ws = await openSocket(port);
-    cleanup.push(ws);
-    ws.on('message', (data) => {
-      const message = JSON.parse(data.toString());
-      if (message?.type) return;
-      ws.send(JSON.stringify({ id: message.id, result: { ok: true, legacy: true } }));
-    });
-
-    await service.waitForConnection(1000);
-    await expect(service.health({ timeoutMs: 500 })).resolves.toMatchObject({ ok: true, legacy: true });
+// Plan §11.2 documents the four error codes that may appear inside a
+// `extension_hello_ack` ok:false reply. The browser extension's
+// `parseHelloAck` matches them as literal strings, so renaming any of
+// them is a wire-format break. This describe block pins the contract.
+describe('§11.2 hello rejection wire format (extension_hello_ack errors)', () => {
+  it('exports the four error codes the browser extension parses', () => {
+    expect(HELLO_ERROR_TOKEN_MISMATCH).toBe('token_mismatch');
+    expect(HELLO_ERROR_INVALID_PAYLOAD).toBe('invalid_payload');
+    expect(HELLO_ERROR_TIMEOUT).toBe('hello_timeout');
+    expect(HELLO_ERROR_VERSION_UNSUPPORTED).toBe('version_unsupported');
   });
 });
 
