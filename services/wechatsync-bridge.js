@@ -14,6 +14,13 @@ const HELLO_ERROR_VERSION_UNSUPPORTED = 'version_unsupported';
 const HELLO_ERROR_DUPLICATE_SESSION = 'duplicate_session';
 const HELLO_ERROR_TOO_MANY_CLIENTS = 'too_many_clients';
 const DEFAULT_MAX_CLIENTS = 4;
+// Cap on the persisted connected-clients registry (distinct from the
+// concurrent-session cap above). A misbehaving extension that mints a
+// fresh extensionInstanceId on every reconnect would otherwise grow the
+// registry — and the persisted settings file — unboundedly. 20 leaves
+// generous headroom for users with multiple browsers × profiles while
+// keeping the array O(small).
+const MAX_CONNECTED_CLIENT_REGISTRY = 20;
 
 function isUnsupportedBridgeMethodError(error = {}) {
   const message = String(error?.message || error || '');
@@ -421,6 +428,11 @@ function createWechatSyncBridgeService(options = {}) {
     ? initialConnectedClients.map((c) => ({ ...c }))
     : [];
   let _clientRegistryDebounceTimer = null;
+  // Defensive: if a previous version persisted >MAX entries (e.g., before
+  // this cap shipped, or due to extension misbehavior), trim once at
+  // construction so the in-memory state and the next persist write are
+  // within budget. trimClientRegistry is hoisted within the closure.
+  trimClientRegistry();
 
   function scheduleRegistryChange() {
     if (!onClientRegistryChange) return;
@@ -428,6 +440,24 @@ function createWechatSyncBridgeService(options = {}) {
     _clientRegistryDebounceTimer = setTimeout(() => {
       onClientRegistryChange(connectedClients.map((c) => ({ ...c })));
     }, 1000);
+  }
+
+  // Trim the registry to at most MAX_CONNECTED_CLIENT_REGISTRY entries.
+  // Eviction policy: never drop a 'connected' session (those are live and
+  // visible in the UI); among 'disconnected' entries, keep the most
+  // recently seen. Returns the number of entries dropped.
+  function trimClientRegistry() {
+    if (connectedClients.length <= MAX_CONNECTED_CLIENT_REGISTRY) return 0;
+    const connected = connectedClients.filter((c) => c && c.status === 'connected');
+    const disconnected = connectedClients
+      .filter((c) => c && c.status !== 'connected')
+      .sort((a, b) => (b.lastSeenAt || 0) - (a.lastSeenAt || 0));
+    const budgetForDisconnected = Math.max(0, MAX_CONNECTED_CLIENT_REGISTRY - connected.length);
+    const keptDisconnected = disconnected.slice(0, budgetForDisconnected);
+    const next = [...connected, ...keptDisconnected];
+    const dropped = connectedClients.length - next.length;
+    connectedClients = next;
+    return dropped;
   }
 
   function upsertConnectedClient(hello, status) {
@@ -459,6 +489,10 @@ function createWechatSyncBridgeService(options = {}) {
         firstConnectedAt: now,
         lastConnectedAt: now,
       });
+    }
+    const dropped = trimClientRegistry();
+    if (dropped > 0) {
+      logger.debug?.('Wechatsync bridge: trimmed', dropped, 'stale client registry entries');
     }
     scheduleRegistryChange();
   }

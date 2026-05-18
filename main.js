@@ -10320,6 +10320,7 @@ var require_wechatsync_bridge = __commonJS({
     var HELLO_ERROR_DUPLICATE_SESSION = "duplicate_session";
     var HELLO_ERROR_TOO_MANY_CLIENTS = "too_many_clients";
     var DEFAULT_MAX_CLIENTS = 4;
+    var MAX_CONNECTED_CLIENT_REGISTRY = 20;
     function isUnsupportedBridgeMethodError(error = {}) {
       const message = String((error == null ? void 0 : error.message) || error || "");
       return /unknown method|unknown tool|method not found|not supported|unsupported/i.test(message);
@@ -10700,6 +10701,7 @@ var require_wechatsync_bridge = __commonJS({
       const bindHost = allowRemote ? REMOTE_BIND_HOST : LOCAL_BIND_HOST;
       let connectedClients = Array.isArray(initialConnectedClients) ? initialConnectedClients.map((c) => ({ ...c })) : [];
       let _clientRegistryDebounceTimer = null;
+      trimClientRegistry();
       function scheduleRegistryChange() {
         if (!onClientRegistryChange)
           return;
@@ -10708,7 +10710,20 @@ var require_wechatsync_bridge = __commonJS({
           onClientRegistryChange(connectedClients.map((c) => ({ ...c })));
         }, 1e3);
       }
+      function trimClientRegistry() {
+        if (connectedClients.length <= MAX_CONNECTED_CLIENT_REGISTRY)
+          return 0;
+        const connected = connectedClients.filter((c) => c && c.status === "connected");
+        const disconnected = connectedClients.filter((c) => c && c.status !== "connected").sort((a, b) => (b.lastSeenAt || 0) - (a.lastSeenAt || 0));
+        const budgetForDisconnected = Math.max(0, MAX_CONNECTED_CLIENT_REGISTRY - connected.length);
+        const keptDisconnected = disconnected.slice(0, budgetForDisconnected);
+        const next = [...connected, ...keptDisconnected];
+        const dropped = connectedClients.length - next.length;
+        connectedClients = next;
+        return dropped;
+      }
       function upsertConnectedClient(hello, status) {
+        var _a;
         const now = Date.now();
         const idx = connectedClients.findIndex(
           (c) => c.extensionInstanceId === hello.extensionInstanceId
@@ -10737,6 +10752,10 @@ var require_wechatsync_bridge = __commonJS({
             firstConnectedAt: now,
             lastConnectedAt: now
           });
+        }
+        const dropped = trimClientRegistry();
+        if (dropped > 0) {
+          (_a = logger.debug) == null ? void 0 : _a.call(logger, "Wechatsync bridge: trimmed", dropped, "stale client registry entries");
         }
         scheduleRegistryChange();
       }

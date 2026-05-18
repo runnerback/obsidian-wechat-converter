@@ -1820,4 +1820,102 @@ describe('§16 Phase 1 — connected clients registry', () => {
     expect(status.connectedClients[0].status).toBe('disconnected');
     expect(status.connectedClients[0].extensionInstanceId).toBe(DEFAULT_TEST_HELLO.extensionInstanceId);
   });
+
+  it('caps the persisted registry at 20 entries on construction, keeping the most recently seen disconnected clients', async () => {
+    // Seed 25 stale disconnected entries with monotonically increasing lastSeenAt
+    // (id-25 is the most recent, id-1 is the oldest).
+    const stale = [];
+    for (let i = 1; i <= 25; i += 1) {
+      stale.push({
+        extensionInstanceId: `stale-${i}`,
+        browserName: 'Chrome',
+        profileLabel: '',
+        capabilities: {},
+        extensionVersion: '0.0.0',
+        status: 'disconnected',
+        lastSeenAt: 1_000_000 + i, // older → smaller
+        firstConnectedAt: 1_000_000 + i,
+        lastConnectedAt: 1_000_000 + i,
+      });
+    }
+    const { service } = await makeService({ initialConnectedClients: stale });
+
+    const status = await service.getStatus();
+    expect(status.connectedClients).toHaveLength(20);
+    // The 5 oldest (stale-1..stale-5) must be evicted.
+    const keptIds = status.connectedClients.map((c) => c.extensionInstanceId).sort();
+    for (let i = 1; i <= 5; i += 1) {
+      expect(keptIds).not.toContain(`stale-${i}`);
+    }
+    // The 20 newest must all be kept.
+    for (let i = 6; i <= 25; i += 1) {
+      expect(keptIds).toContain(`stale-${i}`);
+    }
+  });
+
+  it('never evicts currently connected entries even when the registry is over cap', async () => {
+    // 20 disconnected entries (already at cap) + 5 live ones → total 25, but
+    // the cap can be exceeded by *connected* entries because we refuse to
+    // drop a live session.
+    const initial = [];
+    for (let i = 1; i <= 20; i += 1) {
+      initial.push({
+        extensionInstanceId: `disc-${i}`,
+        status: 'disconnected',
+        lastSeenAt: 1_000_000 + i,
+        firstConnectedAt: 1_000_000 + i,
+        lastConnectedAt: 1_000_000 + i,
+        browserName: 'Chrome',
+        profileLabel: '',
+        capabilities: {},
+        extensionVersion: '0.0.0',
+      });
+    }
+    for (let i = 1; i <= 5; i += 1) {
+      initial.push({
+        extensionInstanceId: `live-${i}`,
+        status: 'connected',
+        lastSeenAt: 2_000_000 + i,
+        firstConnectedAt: 2_000_000 + i,
+        lastConnectedAt: 2_000_000 + i,
+        browserName: 'Chrome',
+        profileLabel: '',
+        capabilities: {},
+        extensionVersion: '0.0.0',
+      });
+    }
+    const { service } = await makeService({ initialConnectedClients: initial });
+
+    const status = await service.getStatus();
+    const keptIds = status.connectedClients.map((c) => c.extensionInstanceId);
+    // All 5 live entries must be kept.
+    for (let i = 1; i <= 5; i += 1) {
+      expect(keptIds).toContain(`live-${i}`);
+    }
+    // Remaining 15 slots (20 cap − 5 connected) go to most-recent disconnected.
+    const keptDisc = keptIds.filter((id) => id.startsWith('disc-'));
+    expect(keptDisc).toHaveLength(15);
+    expect(keptDisc).toContain('disc-20'); // newest disconnected kept
+    expect(keptDisc).not.toContain('disc-1'); // oldest disconnected evicted
+  });
+
+  it('does not modify the registry when it is at or below cap', async () => {
+    const initial = [];
+    for (let i = 1; i <= 18; i += 1) {
+      initial.push({
+        extensionInstanceId: `small-${i}`,
+        status: 'disconnected',
+        lastSeenAt: 1_000_000 + i,
+        firstConnectedAt: 1_000_000 + i,
+        lastConnectedAt: 1_000_000 + i,
+        browserName: 'Chrome',
+        profileLabel: '',
+        capabilities: {},
+        extensionVersion: '0.0.0',
+      });
+    }
+    const { service } = await makeService({ initialConnectedClients: initial });
+    const status = await service.getStatus();
+    expect(status.connectedClients).toHaveLength(18);
+  });
 });
