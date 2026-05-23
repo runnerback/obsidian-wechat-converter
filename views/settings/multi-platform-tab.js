@@ -97,15 +97,11 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
   const proGuideBtn = guideActions.createEl('button', { text: '了解 Pro' });
   proGuideBtn.onclick = () => openExternalUrl(OBSIDIAN_PUBLISHER_PRO_URL);
 
-  const tokenIsEmpty = !multiPlatformSettings.token;
-  const enableSetting = new Setting(containerEl)
+  new Setting(containerEl)
     .setName('启用浏览器插件发布')
-    .setDesc(tokenIsEmpty
-      ? '请先在下方填入「连接令牌」，否则无法启用浏览器插件发布。'
-      : '开启后，Obsidian 会把文章发送给浏览器插件，由插件使用浏览器登录态保存到各平台草稿箱。')
+    .setDesc('开启后，Obsidian 会把文章发送给浏览器插件，由插件使用浏览器登录态保存到各平台草稿箱。在下方填入「连接令牌」即可完成配对。')
     .addToggle(toggle => toggle
       .setValue(multiPlatformSettings.enabled)
-      .setDisabled(tokenIsEmpty)
       .onChange(async (value) => {
         plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
           ...plugin.settings.multiPlatformSync,
@@ -121,10 +117,6 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
         }
         tab.display();
       }));
-  if (tokenIsEmpty) {
-    enableSetting.descEl?.classList?.add?.('wechat-multiplatform-warning');
-  }
-
   if (!multiPlatformSettings.enabled) {
     return;
   }
