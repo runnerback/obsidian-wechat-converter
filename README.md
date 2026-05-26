@@ -28,6 +28,19 @@
 - **轻量状态提示**：设置页和发布窗口会显示桥接连接状态、已选平台和上次检测到的登录状态，最终结果以浏览器插件任务窗口为准。
 - **适合多渠道创作者**：同一篇 Obsidian 笔记可以先发公众号，再同步到多个内容平台草稿箱，最后分别检查排版并手动发布。
 
+<table>
+  <tr>
+    <th align="center">发布弹窗：选择目标平台</th>
+    <th align="center">浏览器插件：平台列表</th>
+    <th align="center">发布任务结果</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/multiplatform_publish_modal.png" height="420"/></td>
+    <td align="center"><img src="images/multiplatform_platform_list.png" height="420"/></td>
+    <td align="center"><img src="images/multiplatform_task_center.png" height="420"/></td>
+  </tr>
+</table>
+
 
 ## 💡 核心升级点 (Key Highlights)
 
@@ -168,6 +181,11 @@
    - 回到转换器，点击 **发布与分发**，切换到 **其他平台**。
    - 勾选知乎、掘金、CSDN 等目标平台后，点击 **发送到浏览器插件**。
    - Obsidian 会把当前文章投递给 Obsidian 发布助手；后续草稿链接、失败原因和单平台重试请在浏览器插件任务窗口中查看。
+
+   <p align="center">
+     <img src="images/multiplatform_extension_setup.png" alt="浏览器插件连接设置" height="420" /><br/>
+     <sub>浏览器插件连接设置页（配对令牌 + Obsidian Bridge 已认证）</sub>
+   </p>
 
 ### 横向滑动内容
 
