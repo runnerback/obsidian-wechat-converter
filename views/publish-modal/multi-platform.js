@@ -243,7 +243,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
       const authInfo = getWechatsyncPlatformStatusBadge(platform, { bridgeConnected: isBridgeReady });
       const isSelected = isBridgeReady && modalSelectedPlatforms.has(platform.id);
       const row = platformListEl.createDiv({
-        cls: `wechat-multiplatform-platform ${isSelected ? `${authInfo.cls} is-selected` : ''}`,
+        cls: `wechat-multiplatform-platform ${isSelected ? `${authInfo.cls} is-selected` : ''} ${!isBridgeReady ? 'is-disabled' : ''}`.trim(),
       });
       row.setAttribute('title', isSelected ? `${platform.name} · ${authInfo.text}` : platform.name);
       const checkbox = row.createEl('input');

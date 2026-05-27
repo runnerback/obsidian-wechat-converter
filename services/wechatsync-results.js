@@ -43,9 +43,6 @@ const FALLBACK_WECHATSYNC_PLATFORMS = [
   { id: 'x', name: 'X (Twitter)', homepage: 'https://x.com/compose/articles', capabilities: ['article', 'draft', 'image_upload'] },
   { id: 'eastmoney', name: '东方财富', homepage: 'https://mp.eastmoney.com', capabilities: ['article', 'draft', 'image_upload', 'cover'] },
   { id: 'netease', name: '网易号', homepage: 'https://mp.163.com/#/article-publish', capabilities: ['article', 'draft', 'image_upload'] },
-  { id: 'wordpress', name: 'WordPress', homepage: '', capabilities: ['article', 'draft', 'image_upload'] },
-  { id: 'typecho', name: 'Typecho', homepage: '', capabilities: ['article', 'draft', 'image_upload'] },
-  { id: 'zip-download', name: 'Markdown 压缩包', homepage: '', capabilities: ['article'] },
 ];
 
 function getFallbackWechatsyncPlatforms() {

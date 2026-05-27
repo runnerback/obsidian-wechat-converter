@@ -243,7 +243,9 @@ describe('Wechatsync result helpers', () => {
     expect(platformIds).toContain('xiaohongshu');
     expect(platformIds).toContain('toutiao');
     expect(platformIds).toContain('smzdm');
-    expect(platformIds).toContain('zip-download');
+    expect(platformIds).not.toContain('wordpress');
+    expect(platformIds).not.toContain('typecho');
+    expect(platformIds).not.toContain('zip-download');
     expect(platformIds).not.toContain('weixin');
     expect(platformIds).not.toContain('twitter');
     expect(platforms.every((platform) => Object.prototype.hasOwnProperty.call(platform, 'homepage'))).toBe(true);

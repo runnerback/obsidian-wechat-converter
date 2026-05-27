@@ -13,16 +13,25 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Chrome Companion](https://img.shields.io/badge/Chrome%20%E5%8D%8F%E5%90%8C%E6%89%A9%E5%B1%95-Obsidian%20%E5%8F%91%E5%B8%83%E5%8A%A9%E6%89%8B%E2%80%A2%E5%8D%B3%E5%B0%86%E4%B8%8A%E6%9E%B6-7c3aed)
 
+## English overview
+
+WeChat Converter is an Obsidian plugin for writers who publish Markdown notes to WeChat Official Accounts and other Chinese content platforms. It provides live preview, WeChat-ready HTML conversion, rich HTML copy, WeChat draft sync, local image processing, math and diagram export, AI-assisted layout, and optional multi-platform draft delivery through the Obsidian Publisher companion browser extension.
+
+Full English documentation is available in [README.en.md](./README.en.md).
+
+### Privacy and permissions
+
+The plugin does not include client-side telemetry and does not automatically upload your notes. The following capabilities are used only when you explicitly run the related feature:
+
+- **Network access and `fetch()` calls**: WeChat draft sync calls the official WeChat API, custom API proxy settings call the proxy URL you configure, AI layout calls the AI Provider you configure, and multi-platform delivery connects to the local companion browser extension service.
+- **Local filesystem access**: The plugin reads local vault files only when processing images, covers, Mermaid exports, LaTeX exports, and other assets referenced by the current note.
+- **Clipboard access**: Copy actions write the current rendered article to the system clipboard so you can paste it into the WeChat editor or another publishing surface.
+- **Third-party accounts**: WeChat sync requires your own AppID and AppSecret. Other platforms are handled by the companion browser extension using the login state already present in your browser.
+- **Companion browser extension**: Multi-platform publishing and Pro licensing are coordinated with Obsidian Publisher. The Obsidian plugin keeps the writing, rendering, platform selection, and task handoff inside your vault.
 
 > 本项目基于开源项目 [ai-writing-plugins](https://github.com/Ceeon/ai-writing-plugins) 进行深度重构与迭代开发。我们致力于打造 Obsidian 生态中体验最好的公众号排版工具。
 
 如果这个插件帮你节省了公众号排版、复制或同步草稿箱的时间，欢迎[支持项目继续维护](./docs/support.md)。
-
-## English summary
-
-WeChat Converter is an Obsidian plugin for Chinese creators who publish Markdown notes to WeChat Official Accounts and other Chinese content platforms. It converts Markdown into WeChat-ready HTML, supports live preview, rich copy, WeChat draft sync, local image handling, LaTeX / Mermaid export, and optional multi-platform draft delivery through the companion browser extension.
-
-Privacy and permissions: the plugin has no client-side telemetry. Network access, local file reads, and clipboard writes are only used when you explicitly run the related publishing, preview, copy, AI, or multi-platform delivery features.
 
 ## 🔐 隐私与权限说明
 

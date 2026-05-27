@@ -274,8 +274,6 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(120, 120, 128, 0.5) transparent;
   opacity: 0;
   visibility: hidden;
   transform: translateY(-20px);
@@ -1040,7 +1038,7 @@
   line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-monospace), SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 .apple-converter-container.apple-converter-mobile .apple-ai-layout-area {
@@ -1086,8 +1084,6 @@
   /* 保持滚动可感知（移动端也允许惯性滚动） */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(120, 120, 128, 0.5) transparent;
 
   /* 初始状态：向上隐去 (收起) */
   opacity: 0;
@@ -1267,7 +1263,7 @@
 
 /* 移除旧的设置面板样式，避免冲突 */
 .apple-settings-panel {
-  display: contents; /* 让子元素直接参与布局 */
+  display: block;
 }
 
 /* === 设置变更处理 === */
@@ -3154,8 +3150,6 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   height: min(72vh, 720px);
   min-height: 560px;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--apple-tertiary) 45%, transparent) transparent;
 }
 
 .wechat-publish-shell .modal-content::-webkit-scrollbar {
@@ -3377,8 +3371,6 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   margin-top: 10px;
   overflow-y: auto;
   padding-right: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--apple-tertiary) 45%, transparent) transparent;
 }
 
 .wechat-multiplatform-list::-webkit-scrollbar {
@@ -3497,7 +3489,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 .wechat-multiplatform-platform.is-unknown.is-selected::before { background: var(--apple-tertiary); }
 
 .wechat-multiplatform-platform input:disabled + label,
-.wechat-multiplatform-platform:has(input:disabled) label {
+.wechat-multiplatform-platform.is-disabled label {
   color: var(--apple-tertiary);
   cursor: default;
 }

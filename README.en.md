@@ -15,6 +15,16 @@ This plugin is built for writers who publish from Obsidian to WeChat Official Ac
 
 If this plugin saves you time when formatting, copying, or syncing WeChat articles, you can [support ongoing maintenance](./docs/support.md).
 
+## Privacy and permissions
+
+Wechat Converter does not include client-side telemetry and does not automatically upload your notes. Network access, local filesystem reads, and clipboard writes are used only when you explicitly run the related feature.
+
+- **Network access and `fetch()` calls**: WeChat draft sync calls the official WeChat API, custom API proxy settings call the proxy URL you configure, AI layout calls the AI Provider you configure, and multi-platform delivery connects to the local companion browser extension service.
+- **Local filesystem access**: The plugin reads local vault files only when processing images, covers, Mermaid exports, LaTeX exports, and other assets referenced by the current note.
+- **Clipboard access**: Copy actions write the current rendered article to the system clipboard so you can paste it into the WeChat editor or another publishing surface.
+- **Third-party accounts**: WeChat sync requires your own AppID and AppSecret. Other platforms are handled by the companion browser extension using the login state already present in your browser.
+- **Companion browser extension**: Multi-platform publishing and Pro licensing are coordinated with Obsidian Publisher. The Obsidian plugin keeps the writing, rendering, platform selection, and task handoff inside your vault.
+
 ## Big Update: Multi-platform Publishing
 
 Wechat Converter is no longer limited to WeChat Official Accounts. From the same `Publish & Distribute` window, you can send the current article to platforms such as Zhihu, Juejin, CSDN, Yuque, Xiaohongshu, and other targets supported by Obsidian Publisher.
