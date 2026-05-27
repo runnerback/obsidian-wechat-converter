@@ -6169,12 +6169,12 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
     new Setting(advancedArea)
       .setName('AI 请求超时（秒）')
-      .setDesc('较快模型可设 15 到 45 秒；较慢模型建议设 60 到 120 秒。')
+      .setDesc('默认 120 秒；较快模型可设 15 到 45 秒，较慢或本地模型建议保持 60 到 120 秒。')
       .addText(text => text
-        .setPlaceholder('45')
-        .setValue(String(Math.round((this.plugin.settings.ai.requestTimeoutMs || 45000) / 1000)))
+        .setPlaceholder('120')
+        .setValue(String(Math.round((this.plugin.settings.ai.requestTimeoutMs || 120000) / 1000)))
         .onChange(async (value) => {
-          const seconds = Math.min(180, Math.max(5, parseInt(value || '45', 10) || 45));
+          const seconds = Math.min(180, Math.max(5, parseInt(value || '120', 10) || 120));
           this.plugin.settings.ai.requestTimeoutMs = seconds * 1000;
           await this.plugin.saveSettings();
           this.refreshOpenConverterAiState();
@@ -6245,7 +6245,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
     baseUrlGroup.createEl('label', { text: 'Base URL' });
     const baseUrlInput = baseUrlGroup.createEl('input', {
       type: 'text',
-      placeholder: 'https://api.openai.com/v1',
+      placeholder: 'https://api.openai.com/v1 或 http://localhost:11434/v1',
       value: provider?.baseUrl || 'https://api.openai.com/v1'
     });
 
@@ -6285,7 +6285,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
         }
         return;
       }
-      baseUrlInput.placeholder = 'https://api.openai.com/v1';
+      baseUrlInput.placeholder = 'https://api.openai.com/v1 或 http://localhost:11434/v1';
       modelInput.placeholder = 'gpt-4.1-mini';
       if (!provider || provider.kind !== kind) {
         if (!baseUrlInput.value.trim()) baseUrlInput.value = 'https://api.openai.com/v1';

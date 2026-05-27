@@ -7169,6 +7169,7 @@ var require_ai_layout = __commonJS({
     var MAX_CASE_BLOCK_BULLETS = 6;
     var MAX_CASE_BLOCK_IMAGE_IDS = 4;
     var ANTHROPIC_LAYOUT_MAX_TOKENS = 8192;
+    var DEFAULT_AI_REQUEST_TIMEOUT_MS = 12e4;
     var AI_LAYOUT_DEFAULT_FAMILY = "source-first";
     var AI_LAYOUT_DEFAULT_COLOR_PALETTE = "tech-green";
     var AI_LAYOUT_IMPLEMENTED_FAMILIES = new Set(AI_LAYOUT_FAMILIES);
@@ -7228,7 +7229,7 @@ var require_ai_layout = __commonJS({
         defaultColorPalette: AI_LAYOUT_SELECTION_AUTO2,
         customColor: "#7c3aed",
         includeImagesInLayout: true,
-        requestTimeoutMs: 45e3,
+        requestTimeoutMs: DEFAULT_AI_REQUEST_TIMEOUT_MS,
         providers: [],
         articleLayoutsByPath: {}
       };
@@ -7471,6 +7472,30 @@ var require_ai_layout = __commonJS({
         enabled: raw.enabled !== false
       };
     }
+    function isAllowedAiProviderBaseUrl(baseUrl) {
+      try {
+        const parsed = new URL(baseUrl);
+        if (parsed.protocol === "https:")
+          return true;
+        if (parsed.protocol !== "http:")
+          return false;
+        const hostname = parsed.hostname.toLowerCase();
+        if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1")
+          return true;
+        if (/^10\./.test(hostname))
+          return true;
+        if (/^192\.168\./.test(hostname))
+          return true;
+        const private172 = hostname.match(/^172\.(\d+)\./);
+        if (private172) {
+          const secondOctet = Number(private172[1]);
+          return secondOctet >= 16 && secondOctet <= 31;
+        }
+        return false;
+      } catch (e) {
+        return false;
+      }
+    }
     function getAiProviderIssues2(provider = {}) {
       const issues = [];
       const baseUrl = coerceString(provider.baseUrl);
@@ -7478,7 +7503,7 @@ var require_ai_layout = __commonJS({
       const model = coerceString(provider.model);
       if (!baseUrl) {
         issues.push("missing-base-url");
-      } else if (!/^https:\/\//i.test(baseUrl)) {
+      } else if (!isAllowedAiProviderBaseUrl(baseUrl)) {
         issues.push("invalid-base-url");
       }
       if (!apiKey)
@@ -7499,7 +7524,7 @@ var require_ai_layout = __commonJS({
         return "\u914D\u7F6E\u5B8C\u6574";
       const labels = {
         "missing-base-url": "\u7F3A\u5C11 Base URL",
-        "invalid-base-url": "Base URL \u5FC5\u987B\u662F HTTPS",
+        "invalid-base-url": "Base URL \u5FC5\u987B\u662F HTTPS\uFF0C\u6216\u6307\u5411\u672C\u673A/\u5C40\u57DF\u7F51\u7684 HTTP \u5730\u5740",
         "missing-api-key": "\u7F3A\u5C11 API Key",
         "missing-model": "\u7F3A\u5C11\u6A21\u578B\u540D",
         disabled: "\u5DF2\u505C\u7528"
@@ -9556,7 +9581,7 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
         colorPalette: AI_LAYOUT_SELECTION_AUTO2
       },
       imageRefs = [],
-      timeoutMs = 45e3,
+      timeoutMs = DEFAULT_AI_REQUEST_TIMEOUT_MS,
       fetchImpl = globalThis.fetch
     }) {
       if (!markdown || !String(markdown).trim())
@@ -10138,6 +10163,7 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
       createDefaultAiSettings: createDefaultAiSettings2,
       normalizeAiSettings: normalizeAiSettings2,
       normalizeAiProvider: normalizeAiProvider2,
+      isAllowedAiProviderBaseUrl,
       getAiProviderIssues: getAiProviderIssues2,
       isAiProviderRunnable: isAiProviderRunnable2,
       summarizeAiProviderIssues: summarizeAiProviderIssues2,
@@ -20238,8 +20264,8 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       await this.plugin.saveSettings();
       this.refreshOpenConverterAiState();
     }));
-    new Setting(advancedArea).setName("AI \u8BF7\u6C42\u8D85\u65F6\uFF08\u79D2\uFF09").setDesc("\u8F83\u5FEB\u6A21\u578B\u53EF\u8BBE 15 \u5230 45 \u79D2\uFF1B\u8F83\u6162\u6A21\u578B\u5EFA\u8BAE\u8BBE 60 \u5230 120 \u79D2\u3002").addText((text) => text.setPlaceholder("45").setValue(String(Math.round((this.plugin.settings.ai.requestTimeoutMs || 45e3) / 1e3))).onChange(async (value) => {
-      const seconds = Math.min(180, Math.max(5, parseInt(value || "45", 10) || 45));
+    new Setting(advancedArea).setName("AI \u8BF7\u6C42\u8D85\u65F6\uFF08\u79D2\uFF09").setDesc("\u9ED8\u8BA4 120 \u79D2\uFF1B\u8F83\u5FEB\u6A21\u578B\u53EF\u8BBE 15 \u5230 45 \u79D2\uFF0C\u8F83\u6162\u6216\u672C\u5730\u6A21\u578B\u5EFA\u8BAE\u4FDD\u6301 60 \u5230 120 \u79D2\u3002").addText((text) => text.setPlaceholder("120").setValue(String(Math.round((this.plugin.settings.ai.requestTimeoutMs || 12e4) / 1e3))).onChange(async (value) => {
+      const seconds = Math.min(180, Math.max(5, parseInt(value || "120", 10) || 120));
       this.plugin.settings.ai.requestTimeoutMs = seconds * 1e3;
       await this.plugin.saveSettings();
       this.refreshOpenConverterAiState();
@@ -20298,7 +20324,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
     baseUrlGroup.createEl("label", { text: "Base URL" });
     const baseUrlInput = baseUrlGroup.createEl("input", {
       type: "text",
-      placeholder: "https://api.openai.com/v1",
+      placeholder: "https://api.openai.com/v1 \u6216 http://localhost:11434/v1",
       value: (provider == null ? void 0 : provider.baseUrl) || "https://api.openai.com/v1"
     });
     const apiKeyGroup = form.createDiv({ cls: "wechat-form-group" });
@@ -20339,7 +20365,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         }
         return;
       }
-      baseUrlInput.placeholder = "https://api.openai.com/v1";
+      baseUrlInput.placeholder = "https://api.openai.com/v1 \u6216 http://localhost:11434/v1";
       modelInput.placeholder = "gpt-4.1-mini";
       if (!provider || provider.kind !== kind) {
         if (!baseUrlInput.value.trim())
