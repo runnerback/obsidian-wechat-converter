@@ -13752,7 +13752,10 @@ var require_wechatsync_settings = __commonJS({
         "getSyncTaskLink",
         "openSyncTask",
         "getAuthSnapshot",
-        "quotaPolicy"
+        "quotaPolicy",
+        // Set by Obsidian Publisher >= 0.2.6 when LicenseManager reports an
+        // active Pro tier; the publish modal hides upgrade affordances when true.
+        "proLicensed"
       ];
       return knownKeys.reduce((result, key) => {
         if (Object.prototype.hasOwnProperty.call(source, key))
@@ -14497,7 +14500,10 @@ var require_multi_platform = __commonJS({
     var QUOTA_POLICY = "truncate";
     var FREE_DAILY_PLATFORM_QUOTA = 3;
     var MODAL_SELECTED_PLATFORM_IDS = "__wechatMultiPlatformSelectedPlatformIds";
-    function getQuotaHintText(selectedCount = 0) {
+    function getQuotaHintText(selectedCount = 0, { proLicensed = false } = {}) {
+      if (proLicensed) {
+        return selectedCount > 0 ? `\u5DF2\u9009 ${selectedCount} \u4E2A\u5E73\u53F0\u3002Pro \u5DF2\u6FC0\u6D3B\uFF0C\u65E0\u6BCF\u65E5\u5E73\u53F0\u6570\u91CF\u9650\u5236\u3002` : "Pro \u5DF2\u6FC0\u6D3B\uFF0C\u65E0\u6BCF\u65E5\u5E73\u53F0\u6570\u91CF\u9650\u5236\u3002";
+      }
       if (selectedCount > FREE_DAILY_PLATFORM_QUOTA) {
         return `\u5DF2\u9009 ${selectedCount} \u4E2A\u5E73\u53F0\uFF1B\u514D\u8D39\u7248\u6BCF\u5929 ${FREE_DAILY_PLATFORM_QUOTA} \u4E2A\u5E73\u53F0\u989D\u5EA6\uFF0C\u8D85\u51FA\u90E8\u5206\u4F1A\u81EA\u52A8\u8DF3\u8FC7\u3002`;
       }
@@ -14573,7 +14579,7 @@ var require_multi_platform = __commonJS({
       }
     }
     async function showMultiPlatformPublishModal2(view, options = {}) {
-      var _a;
+      var _a, _b;
       if (!view.currentHtml) {
         new Notice2(view.getMissingRenderNotice());
         return;
@@ -14593,15 +14599,18 @@ var require_multi_platform = __commonJS({
       introText.createEl("p", {
         text: "\u9009\u62E9\u5E73\u53F0\u540E\u901A\u8FC7\u6D4F\u89C8\u5668\u63D2\u4EF6\u4FDD\u5B58\u4E3A\u8349\u7A3F\u3002"
       });
+      const isProLicensed = ((_a = cachedConnection.capabilities) == null ? void 0 : _a.proLicensed) === true;
       const quotaHint = modal.contentEl.createDiv({ cls: "wechat-multiplatform-quota-hint" });
       const quotaText = quotaHint.createEl("span", {
-        text: getQuotaHintText(0)
+        text: getQuotaHintText(0, { proLicensed: isProLicensed })
       });
-      const quotaUpgradeBtn = quotaHint.createEl("button", {
-        text: "\u5347\u7EA7 Pro",
-        cls: "wechat-multiplatform-quota-link"
-      });
-      quotaUpgradeBtn.onclick = () => openPublisherProPage(view);
+      if (!isProLicensed) {
+        const quotaUpgradeBtn = quotaHint.createEl("button", {
+          text: "\u5347\u7EA7 Pro",
+          cls: "wechat-multiplatform-quota-link"
+        });
+        quotaUpgradeBtn.onclick = () => openPublisherProPage(view);
+      }
       if (!bridgeSettings.enabled) {
         const disabledHint = modal.contentEl.createDiv({ cls: "wechat-sync-empty-state" });
         disabledHint.createEl("h3", { text: "\u5C1A\u672A\u542F\u7528\u6D4F\u89C8\u5668\u63D2\u4EF6\u53D1\u5E03" });
@@ -14642,18 +14651,18 @@ var require_multi_platform = __commonJS({
       const cancelBtn = btnRow.createEl("button", { text: "\u53D6\u6D88" });
       const syncBtn = btnRow.createEl("button", { text: "\u53D1\u9001\u5230\u6D4F\u89C8\u5668\u63D2\u4EF6", cls: "mod-cta" });
       syncBtn.disabled = true;
-      (_a = syncBtn.addClass) == null ? void 0 : _a.call(syncBtn, "apple-btn-disabled");
+      (_b = syncBtn.addClass) == null ? void 0 : _b.call(syncBtn, "apple-btn-disabled");
       cancelBtn.onclick = () => modal.close();
       const updateQuotaHintText = () => {
-        quotaText.textContent = getQuotaHintText(selectedPlatforms.size);
+        quotaText.textContent = getQuotaHintText(selectedPlatforms.size, { proLicensed: isProLicensed });
       };
       const updateSyncButtonState = () => {
-        var _a2, _b;
+        var _a2, _b2;
         syncBtn.disabled = !isBridgeReady || selectedPlatforms.size === 0;
         if (syncBtn.disabled) {
           (_a2 = syncBtn.addClass) == null ? void 0 : _a2.call(syncBtn, "apple-btn-disabled");
         } else {
-          (_b = syncBtn.removeClass) == null ? void 0 : _b.call(syncBtn, "apple-btn-disabled");
+          (_b2 = syncBtn.removeClass) == null ? void 0 : _b2.call(syncBtn, "apple-btn-disabled");
         }
         updateQuotaHintText();
       };
@@ -14690,10 +14699,10 @@ var require_multi_platform = __commonJS({
           });
           statusEl.setAttribute("title", authInfo.text);
           const setStatusVisible = (visible) => {
-            var _a2, _b, _c, _d, _e, _f, _g, _h;
+            var _a2, _b2, _c, _d, _e, _f, _g, _h;
             for (const cls of ["is-ok", "is-error", "is-unknown", "is-bridge"]) {
               (_a2 = row.removeClass) == null ? void 0 : _a2.call(row, cls);
-              (_b = row.classList) == null ? void 0 : _b.remove(cls);
+              (_b2 = row.classList) == null ? void 0 : _b2.remove(cls);
               (_c = statusEl.removeClass) == null ? void 0 : _c.call(statusEl, cls);
               (_d = statusEl.classList) == null ? void 0 : _d.remove(cls);
             }
@@ -14711,11 +14720,11 @@ var require_multi_platform = __commonJS({
               checkbox.click();
           };
           checkbox.onchange = () => {
-            var _a2, _b, _c, _d;
+            var _a2, _b2, _c, _d;
             if (checkbox.checked) {
               selectedPlatforms.add(platform.id);
               (_a2 = row.addClass) == null ? void 0 : _a2.call(row, "is-selected");
-              (_b = row.classList) == null ? void 0 : _b.add("is-selected");
+              (_b2 = row.classList) == null ? void 0 : _b2.add("is-selected");
               setStatusVisible(true);
               if (authInfo.status === "login_required") {
                 new Notice2(`${platform.name} \u4E0A\u6B21\u72B6\u6001\u4E3A\u9700\u767B\u5F55\u3002\u8BF7\u5148\u5728\u6D4F\u89C8\u5668\u63D2\u4EF6\u6253\u5F00\u5E73\u53F0\u767B\u5F55\u9875\uFF0C\u6216\u7EE7\u7EED\u5C1D\u8BD5\u7531\u63D2\u4EF6\u8FD4\u56DE\u5B9E\u9645\u7ED3\u679C\u3002`, 8e3);
@@ -14737,7 +14746,7 @@ var require_multi_platform = __commonJS({
       };
       renderPlatforms(displayedPlatforms);
       syncBtn.onclick = async () => {
-        var _a2, _b, _c, _d, _e;
+        var _a2, _b2, _c, _d, _e;
         if (!isBridgeReady) {
           new Notice2("\u8BF7\u5148\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF0C\u518D\u53D1\u9001\u591A\u5E73\u53F0\u53D1\u5E03\u4EFB\u52A1\u3002", 8e3);
           return;
@@ -14762,7 +14771,7 @@ var require_multi_platform = __commonJS({
             app: view.app,
             cover: rawCover
           });
-          if ((_b = resolvedImages.warnings) == null ? void 0 : _b.length) {
+          if ((_b2 = resolvedImages.warnings) == null ? void 0 : _b2.length) {
             throw new Error(`\u672C\u5730\u56FE\u7247\u5904\u7406\u5931\u8D25\uFF1A${formatArticleImageWarnings(resolvedImages.warnings)}`);
           }
           const markdown = resolvedImages.markdown;

@@ -263,6 +263,21 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     expect(view.openPublisherProPage).toHaveBeenCalled();
   });
 
+  it('hides the Pro upgrade button and shows a Pro-specific quota hint when the bridge reports proLicensed', async () => {
+    const view = makeView({ selectedPlatforms: ['zhihu'] });
+    view.plugin.settings.multiPlatformSync.connection.capabilities = { proLicensed: true };
+    view.openPublisherProPage = vi.fn();
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+
+    const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
+    expect(hint).not.toBeNull();
+    expect(hint.textContent).toContain('Pro 已激活');
+    expect(hint.textContent).not.toContain('免费版每天');
+    expect(hint.querySelector('button')).toBeNull();
+    expect(view.openPublisherProPage).not.toHaveBeenCalled();
+  });
+
   it('updates quota hint when the selected platforms exactly match the free quota', async () => {
     const cachedPlatforms = [
       { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true },

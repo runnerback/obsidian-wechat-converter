@@ -105,6 +105,9 @@ function normalizeWechatSyncCapabilities(value = {}) {
     'openSyncTask',
     'getAuthSnapshot',
     'quotaPolicy',
+    // Set by Obsidian Publisher >= 0.2.6 when LicenseManager reports an
+    // active Pro tier; the publish modal hides upgrade affordances when true.
+    'proLicensed',
   ];
   return knownKeys.reduce((result, key) => {
     if (Object.prototype.hasOwnProperty.call(source, key)) result[key] = source[key] === true;

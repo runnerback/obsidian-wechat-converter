@@ -55,7 +55,12 @@ const QUOTA_POLICY = 'truncate';
 const FREE_DAILY_PLATFORM_QUOTA = 3;
 const MODAL_SELECTED_PLATFORM_IDS = '__wechatMultiPlatformSelectedPlatformIds';
 
-function getQuotaHintText(selectedCount = 0) {
+function getQuotaHintText(selectedCount = 0, { proLicensed = false } = {}) {
+  if (proLicensed) {
+    return selectedCount > 0
+      ? `已选 ${selectedCount} 个平台。Pro 已激活，无每日平台数量限制。`
+      : 'Pro 已激活，无每日平台数量限制。';
+  }
   if (selectedCount > FREE_DAILY_PLATFORM_QUOTA) {
     return `已选 ${selectedCount} 个平台；免费版每天 ${FREE_DAILY_PLATFORM_QUOTA} 个平台额度，超出部分会自动跳过。`;
   }
@@ -154,15 +159,19 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   introText.createEl('p', {
     text: '选择平台后通过浏览器插件保存为草稿。',
   });
+  // Pro 状态来自浏览器扩展 hello capabilities；未连接或扩展版本旧时，缺省 false。
+  const isProLicensed = cachedConnection.capabilities?.proLicensed === true;
   const quotaHint = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-quota-hint' });
   const quotaText = quotaHint.createEl('span', {
-    text: getQuotaHintText(0),
+    text: getQuotaHintText(0, { proLicensed: isProLicensed }),
   });
-  const quotaUpgradeBtn = quotaHint.createEl('button', {
-    text: '升级 Pro',
-    cls: 'wechat-multiplatform-quota-link',
-  });
-  quotaUpgradeBtn.onclick = () => openPublisherProPage(view);
+  if (!isProLicensed) {
+    const quotaUpgradeBtn = quotaHint.createEl('button', {
+      text: '升级 Pro',
+      cls: 'wechat-multiplatform-quota-link',
+    });
+    quotaUpgradeBtn.onclick = () => openPublisherProPage(view);
+  }
 
   if (!bridgeSettings.enabled) {
     const disabledHint = modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' });
@@ -211,7 +220,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   cancelBtn.onclick = () => modal.close();
 
   const updateQuotaHintText = () => {
-    quotaText.textContent = getQuotaHintText(selectedPlatforms.size);
+    quotaText.textContent = getQuotaHintText(selectedPlatforms.size, { proLicensed: isProLicensed });
   };
 
   const updateSyncButtonState = () => {

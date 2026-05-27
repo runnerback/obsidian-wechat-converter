@@ -18,6 +18,7 @@ const {
   normalizeConnectedClient,
   normalizeConnectedClients,
   normalizeMultiPlatformSyncSettings,
+  normalizeWechatSyncCapabilities,
 } = require('../services/wechatsync-settings');
 
 describe('Sprint 1 §4.1 normalizeMultiPlatformSyncSettings — security defaults', () => {
@@ -201,6 +202,20 @@ describe('§16 Phase 1 normalizeConnectedClient / normalizeConnectedClients', ()
     expect(normalizeConnectedClients(undefined)).toEqual([]);
     expect(normalizeConnectedClients(null)).toEqual([]);
     expect(normalizeConnectedClients('bad')).toEqual([]);
+  });
+
+  it('normalizeMultiPlatformSyncSettings recognises proLicensed capability so the publish modal can hide upgrade affordances', () => {
+    const normalized = normalizeMultiPlatformSyncSettings({
+      connection: { capabilities: { proLicensed: true } },
+    });
+    expect(normalized.connection.capabilities.proLicensed).toBe(true);
+  });
+
+  it('normalizeWechatSyncCapabilities coerces non-boolean proLicensed inputs to false (strict === true)', () => {
+    expect(normalizeWechatSyncCapabilities({ proLicensed: true }).proLicensed).toBe(true);
+    expect(normalizeWechatSyncCapabilities({ proLicensed: 'true' }).proLicensed).toBe(false);
+    expect(normalizeWechatSyncCapabilities({ proLicensed: 1 }).proLicensed).toBe(false);
+    expect(normalizeWechatSyncCapabilities({})).not.toHaveProperty('proLicensed');
   });
 
   it('normalizeMultiPlatformSyncSettings is idempotent with connectedClients', () => {
