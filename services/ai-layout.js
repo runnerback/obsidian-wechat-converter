@@ -26,6 +26,7 @@ const MAX_PART_NAV_ITEMS = 6;
 const MAX_CASE_BLOCK_BULLETS = 6;
 const MAX_CASE_BLOCK_IMAGE_IDS = 4;
 const ANTHROPIC_LAYOUT_MAX_TOKENS = 8192;
+const DEFAULT_AI_REQUEST_TIMEOUT_MS = 120000;
 const AI_LAYOUT_DEFAULT_FAMILY = 'source-first';
 const AI_LAYOUT_DEFAULT_COLOR_PALETTE = 'tech-green';
 const AI_LAYOUT_IMPLEMENTED_FAMILIES = new Set(AI_LAYOUT_FAMILIES);
@@ -89,7 +90,7 @@ function createDefaultAiSettings() {
     defaultColorPalette: AI_LAYOUT_SELECTION_AUTO,
     customColor: '#7c3aed',
     includeImagesInLayout: true,
-    requestTimeoutMs: 45000,
+    requestTimeoutMs: DEFAULT_AI_REQUEST_TIMEOUT_MS,
     providers: [],
     articleLayoutsByPath: {},
   };
@@ -363,6 +364,29 @@ function normalizeAiProvider(raw = {}) {
   };
 }
 
+function isAllowedAiProviderBaseUrl(baseUrl) {
+  try {
+    const parsed = new URL(baseUrl);
+    if (parsed.protocol === 'https:') return true;
+    if (parsed.protocol !== 'http:') return false;
+
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;
+    if (/^10\./.test(hostname)) return true;
+    if (/^192\.168\./.test(hostname)) return true;
+
+    const private172 = hostname.match(/^172\.(\d+)\./);
+    if (private172) {
+      const secondOctet = Number(private172[1]);
+      return secondOctet >= 16 && secondOctet <= 31;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function getAiProviderIssues(provider = {}) {
   const issues = [];
   const baseUrl = coerceString(provider.baseUrl);
@@ -371,7 +395,7 @@ function getAiProviderIssues(provider = {}) {
 
   if (!baseUrl) {
     issues.push('missing-base-url');
-  } else if (!/^https:\/\//i.test(baseUrl)) {
+  } else if (!isAllowedAiProviderBaseUrl(baseUrl)) {
     issues.push('invalid-base-url');
   }
 
@@ -393,7 +417,7 @@ function summarizeAiProviderIssues(provider = {}) {
 
   const labels = {
     'missing-base-url': '缺少 Base URL',
-    'invalid-base-url': 'Base URL 必须是 HTTPS',
+    'invalid-base-url': 'Base URL 必须是 HTTPS，或指向本机/局域网的 HTTP 地址',
     'missing-api-key': '缺少 API Key',
     'missing-model': '缺少模型名',
     disabled: '已停用',
@@ -2641,7 +2665,7 @@ async function generateArticleLayout({
     colorPalette: AI_LAYOUT_SELECTION_AUTO,
   },
   imageRefs = [],
-  timeoutMs = 45000,
+  timeoutMs = DEFAULT_AI_REQUEST_TIMEOUT_MS,
   fetchImpl = globalThis.fetch,
 }) {
   if (!markdown || !String(markdown).trim()) throw new Error('文章内容为空，无法进行 AI 编排');
@@ -3338,6 +3362,7 @@ module.exports = {
   createDefaultAiSettings,
   normalizeAiSettings,
   normalizeAiProvider,
+  isAllowedAiProviderBaseUrl,
   getAiProviderIssues,
   isAiProviderRunnable,
   summarizeAiProviderIssues,

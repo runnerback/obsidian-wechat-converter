@@ -39,6 +39,7 @@ describe('ai-layout service', () => {
     expect(normalized.providers).toHaveLength(1);
     expect(normalized.providers[0].model).toBe('gpt-4.1-mini');
     expect(normalized.articleLayoutsByPath).toEqual({});
+    expect(normalized.requestTimeoutMs).toBe(120000);
   });
 
   it('should normalize gemini and anthropic providers with kind-specific defaults', () => {
@@ -75,19 +76,33 @@ describe('ai-layout service', () => {
     expect(summarizeAiProviderIssues(incompleteProvider)).toContain('缺少 Base URL');
   });
 
-  it('should require https for runnable providers', () => {
-    const provider = {
+  it('should allow local http provider urls while rejecting public http urls', () => {
+    const localProvider = {
       id: 'provider-1',
-      name: '测试 Provider',
-      baseUrl: 'http://example.com/v1',
+      name: '本地 Provider',
+      baseUrl: 'http://localhost:11434/v1',
       apiKey: 'secret',
       model: 'test-model',
       enabled: true,
     };
+    const lanProvider = {
+      ...localProvider,
+      id: 'provider-2',
+      baseUrl: 'http://192.168.1.20:11434/v1',
+    };
+    const publicHttpProvider = {
+      ...localProvider,
+      id: 'provider-3',
+      baseUrl: 'http://example.com/v1',
+    };
 
-    expect(getAiProviderIssues(provider)).toContain('invalid-base-url');
-    expect(isAiProviderRunnable(provider)).toBe(false);
-    expect(summarizeAiProviderIssues(provider)).toContain('HTTPS');
+    expect(getAiProviderIssues(localProvider)).not.toContain('invalid-base-url');
+    expect(isAiProviderRunnable(localProvider)).toBe(true);
+    expect(getAiProviderIssues(lanProvider)).not.toContain('invalid-base-url');
+    expect(isAiProviderRunnable(lanProvider)).toBe(true);
+    expect(getAiProviderIssues(publicHttpProvider)).toContain('invalid-base-url');
+    expect(isAiProviderRunnable(publicHttpProvider)).toBe(false);
+    expect(summarizeAiProviderIssues(publicHttpProvider)).toContain('本机/局域网');
   });
 
   it('should extract image refs from rendered figures', () => {
