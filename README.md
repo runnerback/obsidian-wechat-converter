@@ -18,6 +18,23 @@
 
 如果这个插件帮你节省了公众号排版、复制或同步草稿箱的时间，欢迎[支持项目继续维护](./docs/support.md)。
 
+## English summary
+
+WeChat Converter is an Obsidian plugin for Chinese creators who publish Markdown notes to WeChat Official Accounts and other Chinese content platforms. It converts Markdown into WeChat-ready HTML, supports live preview, rich copy, WeChat draft sync, local image handling, LaTeX / Mermaid export, and optional multi-platform draft delivery through the companion browser extension.
+
+Privacy and permissions: the plugin has no client-side telemetry. Network access, local file reads, and clipboard writes are only used when you explicitly run the related publishing, preview, copy, AI, or multi-platform delivery features.
+
+## 🔐 隐私与权限说明
+
+插件默认在你的 Obsidian 本地运行，不包含客户端遥测，也不会自动上传你的笔记内容。以下能力只会在你主动使用对应功能时触发：
+
+- **网络请求**：同步微信公众号草稿时会访问微信官方 API；配置 API 代理时会访问你填写的代理地址；使用 AI 编排时会访问你配置的 AI Provider；使用多平台发布时会连接本机浏览器插件服务。
+- **本地文件读取**：处理当前笔记引用的本地图片、封面和 Mermaid / LaTeX 导出资源时，会读取必要的 vault 内文件。
+- **剪贴板**：点击复制按钮时，插件会把当前预览内容写入系统剪贴板，便于粘贴到微信公众号后台。
+- **第三方账号**：微信公众号同步需要你自行配置 AppID / AppSecret；其他平台发布由「Obsidian 发布助手」浏览器插件使用你浏览器中已有的登录态保存草稿。
+- **Pro / 浏览器插件**：多平台发布和 Pro 授权能力由配套浏览器插件处理；Obsidian 插件侧负责写作、排版、平台选择和任务投递。
+
+
 ## 🚀 v2.8.0 新功能：多平台一键分发
 
 现在，插件不再只服务于微信公众号。你可以在同一个"发布与分发"窗口里，把同一篇文章继续投递到知乎、掘金、CSDN、小红书、头条号等 20+ 内容平台的草稿箱，由配套的「Obsidian 发布助手」浏览器插件驱动。

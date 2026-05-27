@@ -50,26 +50,6 @@ function listZipEntries(zipPath) {
   }
 }
 
-function hasPrefix(entries, prefix) {
-  return entries.some((entry) => entry.startsWith(prefix));
-}
-
-function extractReferencedImages(markdownPath) {
-  if (!fs.existsSync(markdownPath)) return [];
-  const markdown = fs.readFileSync(markdownPath, "utf8");
-  const refs = new Set();
-  const htmlImagePattern = /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
-  const markdownImagePattern = /!\[[^\]]*]\(([^)]+)\)/g;
-  let match;
-  while ((match = htmlImagePattern.exec(markdown)) !== null) {
-    refs.add(match[1].trim());
-  }
-  while ((match = markdownImagePattern.exec(markdown)) !== null) {
-    refs.add(match[1].trim());
-  }
-  return Array.from(refs).filter((ref) => ref.startsWith("images/"));
-}
-
 function main() {
   const manifest = readJson(path.join(ROOT, "manifest.json"));
   const versions = readJson(path.join(ROOT, "versions.json"));
@@ -87,33 +67,19 @@ function main() {
   assert(fs.existsSync(zipPath), `Missing release zip: ${zipPath}. Run npm run release:pack first.`);
 
   const entries = listZipEntries(zipPath);
-  const requiredFiles = ["main.js", "manifest.json", "styles.css", "README.md", "README.zh-CN.md", "LICENSE"];
+  const requiredFiles = ["main.js", "manifest.json", "styles.css"];
   for (const file of requiredFiles) {
     assert(entries.includes(file), `Zip missing required file: ${file}`);
   }
-  assert(hasPrefix(entries, "images/"), "Zip missing README image assets");
-  assert(hasPrefix(entries, "ai-layout-skills/"), "Zip missing ai-layout-skills runtime resources");
 
-  const referencedImages = [
-    ...extractReferencedImages(path.join(ROOT, "README.md")),
-    ...extractReferencedImages(path.join(ROOT, "README.zh-CN.md")),
-  ];
-  for (const imagePath of Array.from(new Set(referencedImages))) {
-    assert(entries.includes(imagePath), `Zip missing README image asset: ${imagePath}`);
-  }
-
-  const disallowedEntries = ["converter.js"];
-  for (const file of disallowedEntries) {
-    assert(!entries.includes(file), `Zip should not include runtime dependency file anymore: ${file}`);
-  }
-
-  const disallowedPrefixes = ["lib/", "themes/"];
-  for (const prefix of disallowedPrefixes) {
-    assert(!hasPrefix(entries, prefix), `Zip should not include runtime dependency directory anymore: ${prefix}`);
-  }
+  const sortedEntries = [...entries].sort();
+  assert(
+    sortedEntries.length === requiredFiles.length && requiredFiles.every((file) => sortedEntries.includes(file)),
+    `Zip must contain only official Obsidian plugin assets: ${requiredFiles.join(", ")}. Found: ${entries.join(", ")}`
+  );
 
   assert(!entries.some((entry) => entry.startsWith("/") || entry.includes("..")), "Zip contains unsafe paths");
-  ok(`Zip artifact validated: ${path.basename(zipPath)} (${entries.length} entries)`);
+  ok(`Zip artifact validated as official three-file package: ${path.basename(zipPath)} (${entries.length} entries)`);
 
   console.log("Release artifact validation passed.");
 }
