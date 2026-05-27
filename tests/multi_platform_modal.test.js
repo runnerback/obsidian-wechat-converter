@@ -119,6 +119,19 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     expect(row.classList.contains('is-ok')).toBe(true);
   });
 
+  it('marks platform rows disabled when the browser bridge is not ready', async () => {
+    const view = makeView({ selectedPlatforms: ['zhihu'] });
+    view.plugin.settings.multiPlatformSync.connection.status = 'disconnected';
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+    const row = findRow(modal, 'zhihu');
+    const checkbox = row.querySelector('input[type="checkbox"]');
+
+    expect(row.classList.contains('is-disabled')).toBe(true);
+    expect(row.classList.contains('is-selected')).toBe(false);
+    expect(checkbox.disabled).toBe(true);
+  });
+
   it('orders displayed platforms by authenticated state and featured platform order', async () => {
     const view = makeView({
       selectedPlatforms: ['xiaohongshu', 'zhihu', 'weibo', 'douban'],

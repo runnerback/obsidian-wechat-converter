@@ -11584,10 +11584,7 @@ var require_wechatsync_results = __commonJS({
       { id: "sohufocus", name: "\u641C\u72D0\u7126\u70B9", homepage: "https://mp.focus.cn/fe/index.html#/info/draft", capabilities: ["article", "draft", "image_upload"] },
       { id: "x", name: "X (Twitter)", homepage: "https://x.com/compose/articles", capabilities: ["article", "draft", "image_upload"] },
       { id: "eastmoney", name: "\u4E1C\u65B9\u8D22\u5BCC", homepage: "https://mp.eastmoney.com", capabilities: ["article", "draft", "image_upload", "cover"] },
-      { id: "netease", name: "\u7F51\u6613\u53F7", homepage: "https://mp.163.com/#/article-publish", capabilities: ["article", "draft", "image_upload"] },
-      { id: "wordpress", name: "WordPress", homepage: "", capabilities: ["article", "draft", "image_upload"] },
-      { id: "typecho", name: "Typecho", homepage: "", capabilities: ["article", "draft", "image_upload"] },
-      { id: "zip-download", name: "Markdown \u538B\u7F29\u5305", homepage: "", capabilities: ["article"] }
+      { id: "netease", name: "\u7F51\u6613\u53F7", homepage: "https://mp.163.com/#/article-publish", capabilities: ["article", "draft", "image_upload"] }
     ];
     function getFallbackWechatsyncPlatforms2() {
       return FALLBACK_WECHATSYNC_PLATFORMS.map((platform) => ({ ...platform }));
@@ -14675,7 +14672,7 @@ var require_multi_platform = __commonJS({
           const authInfo = getWechatsyncPlatformStatusBadge2(platform, { bridgeConnected: isBridgeReady });
           const isSelected = isBridgeReady && modalSelectedPlatforms.has(platform.id);
           const row = platformListEl.createDiv({
-            cls: `wechat-multiplatform-platform ${isSelected ? `${authInfo.cls} is-selected` : ""}`
+            cls: `wechat-multiplatform-platform ${isSelected ? `${authInfo.cls} is-selected` : ""} ${!isBridgeReady ? "is-disabled" : ""}`.trim()
           });
           row.setAttribute("title", isSelected ? `${platform.name} \xB7 ${authInfo.text}` : platform.name);
           const checkbox = row.createEl("input");

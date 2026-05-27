@@ -151,6 +151,24 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     expect(names).toContain('读取已选平台状态');
   });
 
+  it('does not expose hidden fallback-only platforms in the settings picker', () => {
+    const tab = renderTab(makePlugin({ multiPlatformSync: {
+      enabled: true,
+      port: 9527,
+      token: 'token',
+      supportedPlatforms: [],
+      selectedPlatforms: [],
+      connection: { status: 'failed', checkedAt: 123, platforms: [], capabilities: {}, message: '浏览器插件连接失败' },
+      recentTasks: [],
+    } }));
+    const platformIds = Array.from(tab.containerEl.querySelectorAll('.wechat-platform-chip input'))
+      .map((input) => input.value);
+
+    expect(platformIds).not.toContain('wordpress');
+    expect(platformIds).not.toContain('typecho');
+    expect(platformIds).not.toContain('zip-download');
+  });
+
   it('testing the bridge connection does not read or refresh platform auth state', async () => {
     const bridge = {
       start: vi.fn().mockResolvedValue({}),
