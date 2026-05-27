@@ -20308,7 +20308,8 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
     });
     const kindGroup = form.createDiv({ cls: "wechat-form-group" });
     kindGroup.createEl("label", { text: "\u7C7B\u578B" });
-    const kindSelect = kindGroup.createEl("select", { cls: "wechat-form-select" });
+    const kindSelectWrap = kindGroup.createDiv({ cls: "wechat-form-select-wrap" });
+    const kindSelect = kindSelectWrap.createEl("select", { cls: "wechat-form-select" });
     const providerKinds = [
       { value: AI_PROVIDER_KINDS.OPENAI_COMPATIBLE, label: "OpenAI \u517C\u5BB9\u63A5\u53E3" },
       { value: AI_PROVIDER_KINDS.GEMINI, label: "Gemini \u517C\u5BB9\u683C\u5F0F" },

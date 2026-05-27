@@ -6228,7 +6228,8 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
     const kindGroup = form.createDiv({ cls: 'wechat-form-group' });
     kindGroup.createEl('label', { text: '类型' });
-    const kindSelect = kindGroup.createEl('select', { cls: 'wechat-form-select' });
+    const kindSelectWrap = kindGroup.createDiv({ cls: 'wechat-form-select-wrap' });
+    const kindSelect = kindSelectWrap.createEl('select', { cls: 'wechat-form-select' });
     const providerKinds = [
       { value: AI_PROVIDER_KINDS.OPENAI_COMPATIBLE, label: 'OpenAI 兼容接口' },
       { value: AI_PROVIDER_KINDS.GEMINI, label: 'Gemini 兼容格式' },
