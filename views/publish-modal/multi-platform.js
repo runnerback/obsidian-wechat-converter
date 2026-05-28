@@ -136,6 +136,29 @@ async function detectQuotaPolicySupport(bridge, cachedConnection = {}) {
   }
 }
 
+function resolvePublishModalCapabilities(view, cachedConnection = {}) {
+  const cachedCapabilities = normalizeWechatSyncCapabilities(cachedConnection.capabilities || {});
+  const bridge = view?.plugin?.getWechatSyncBridgeService?.();
+  const activeClient = typeof bridge?.getActiveClientDescriptor === 'function'
+    ? bridge.getActiveClientDescriptor()
+    : null;
+  if (activeClient?.capabilities) {
+    return {
+      ...cachedCapabilities,
+      ...normalizeWechatSyncCapabilities(activeClient.capabilities),
+    };
+  }
+
+  const status = typeof bridge?.getStatus === 'function' ? bridge.getStatus() : null;
+  const liveClient = Array.isArray(status?.connectedClients)
+    ? status.connectedClients.find((client) => client?.status === 'connected' && client.capabilities)
+    : null;
+  return {
+    ...cachedCapabilities,
+    ...normalizeWechatSyncCapabilities(liveClient?.capabilities || {}),
+  };
+}
+
 async function showMultiPlatformPublishModal(view, options = {}) {
   if (!view.currentHtml) {
     new Notice(view.getMissingRenderNotice());
@@ -159,8 +182,8 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   introText.createEl('p', {
     text: '选择平台后通过浏览器插件保存为草稿。',
   });
-  // Pro 状态来自浏览器扩展 hello capabilities；未连接或扩展版本旧时，缺省 false。
-  const isProLicensed = cachedConnection.capabilities?.proLicensed === true;
+  const publishModalCapabilities = resolvePublishModalCapabilities(view, cachedConnection);
+  const isProLicensed = publishModalCapabilities.proLicensed === true;
   const quotaHint = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-quota-hint' });
   const quotaText = quotaHint.createEl('span', {
     text: getQuotaHintText(0, { proLicensed: isProLicensed }),

@@ -278,6 +278,40 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     expect(view.openPublisherProPage).not.toHaveBeenCalled();
   });
 
+  it('uses live active client capabilities to hide the Pro upgrade button even when cached connection capabilities are stale', async () => {
+    const bridge = {
+      getActiveClientDescriptor: vi.fn(() => ({
+        capabilities: { proLicensed: true },
+      })),
+    };
+    const view = makeView({ selectedPlatforms: ['zhihu'], bridge });
+    view.plugin.settings.multiPlatformSync.connection.capabilities = {};
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+
+    const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
+    expect(hint.textContent).toContain('Pro 已激活');
+    expect(hint.querySelector('button')).toBeNull();
+  });
+
+  it('falls back to live connectedClients capabilities when no active client descriptor is available', async () => {
+    const bridge = {
+      getStatus: vi.fn(() => ({
+        connectedClients: [
+          { status: 'connected', capabilities: { proLicensed: true } },
+        ],
+      })),
+    };
+    const view = makeView({ selectedPlatforms: ['zhihu'], bridge });
+    view.plugin.settings.multiPlatformSync.connection.capabilities = {};
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+
+    const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
+    expect(hint.textContent).toContain('Pro 已激活');
+    expect(hint.querySelector('button')).toBeNull();
+  });
+
   it('updates quota hint when the selected platforms exactly match the free quota', async () => {
     const cachedPlatforms = [
       { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true },
