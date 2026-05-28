@@ -1205,8 +1205,8 @@
 
 /* 统一 Obsidian 原生 Setting Toggle 颜色，避免出现宿主题紫色 */
 .apple-settings-overlay .setting-item .checkbox-container.is-enabled {
-  background-color: var(--apple-accent) !important;
-  border-color: var(--apple-accent) !important;
+  background-color: var(--apple-accent);
+  border-color: var(--apple-accent);
 }
 
 .apple-settings-overlay::-webkit-scrollbar {
@@ -1540,7 +1540,7 @@
 }
 
 .apple-settings-details .setting-item {
-  display: flex !important;
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
@@ -1576,7 +1576,7 @@
 }
 
 .apple-settings-details .setting-item-control {
-  margin-left: auto !important;
+  margin-left: auto;
   flex: 0 0 auto;
   justify-self: end;
   align-self: center;
@@ -1588,7 +1588,7 @@
 }
 
 .apple-settings-details .setting-item-control > * {
-  margin-left: 0 !important;
+  margin-left: 0;
 }
 
 .apple-settings-details .apple-select {
@@ -1604,12 +1604,12 @@
 
 @media (max-width: 900px) {
   .apple-settings-details .setting-item {
-    display: block !important;
+    display: block;
     gap: 10px;
   }
 
   .apple-settings-details .setting-item-control {
-    margin-left: 0 !important;
+    margin-left: 0;
     margin-top: 10px;
   }
 }
@@ -1697,14 +1697,14 @@
 
 body.theme-dark .apple-toggle-slider,
 .theme-dark .apple-toggle-slider {
-  background-color: #2e2e2e !important;
-  border: 1px solid #555 !important;
+  background-color: #2e2e2e;
+  border: 1px solid #555;
 }
 
 body.theme-dark .apple-toggle-input:checked+.apple-toggle-slider,
 .theme-dark .apple-toggle-input:checked+.apple-toggle-slider {
-  background-color: var(--apple-accent) !important;
-  border-color: var(--apple-accent) !important;
+  background-color: var(--apple-accent);
+  border-color: var(--apple-accent);
 }
 
 .apple-toggle-slider:before {
@@ -1721,7 +1721,7 @@ body.theme-dark .apple-toggle-input:checked+.apple-toggle-slider,
 }
 
 .apple-toggle-input:checked+.apple-toggle-slider {
-  background-color: var(--apple-accent) !important;
+  background-color: var(--apple-accent);
 }
 
 .apple-toggle-input:checked+.apple-toggle-slider:before {
@@ -1878,10 +1878,10 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 
 .apple-phone-frame {
   /* === 核心修复：严格锁定尺寸，禁止变形 === */
-  width: 375px !important;
-  height: 812px !important;
-  min-width: 375px !important;
-  min-height: 812px !important;
+  width: 375px;
+  height: 812px;
+  min-width: 375px;
+  min-height: 812px;
   flex: 0 0 auto; /* 禁止 Flex 压缩或拉伸 */
   margin: auto; /* 在 flex 容器中自动居中 */
 
@@ -1964,12 +1964,12 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px 16px !important; /* 恢复边距 */
-  background: #ffffff !important;
-  margin: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  color: #1d1d1f !important;
+  padding: 20px 16px; /* 恢复边距 */
+  background: #ffffff;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: #1d1d1f;
 
   /* === 移除整体缩放，恢复清晰度 === */
   /* zoom: 0.85;  用户反馈太小，移除 */
@@ -2016,7 +2016,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 
 /* 处理表格：优先换行，仅在极个别长单词情况下滚动 */
 .apple-converter-preview table {
-  width: 100% !important;
+  width: 100%;
   table-layout: auto; /* 自动宽度 */
   border-collapse: collapse;
   margin: 16px 0;
@@ -2026,8 +2026,8 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 /* 单元格内容自动换行 */
 .apple-converter-preview td,
 .apple-converter-preview th {
-  white-space: normal !important; /* 强制换行 */
-  word-wrap: break-word !important;
+  white-space: normal; /* 强制换行 */
+  word-wrap: break-word;
   word-break: break-all; /* 允许在单词内换行，防止长链接撑破 */
   max-width: 300px; /* 限制最大宽度，触发换行 */
 }
@@ -2041,9 +2041,9 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
    占位符 (调整以适应手机框)
    ======================================== */
 .apple-placeholder-note {
-  font-size: 12px !important;
+  font-size: 12px;
   color: #86868b;
-  margin-top: 24px !important;
+  margin-top: 24px;
   opacity: 0.8;
 }
 
@@ -2108,43 +2108,43 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
    Classic Mode (No Phone Frame)
    ======================================== */
 .apple-preview-wrapper.mode-classic {
-  padding: 0 !important;
-  background: var(--apple-background) !important;
-  overflow: hidden !important;
-  align-items: stretch !important;
+  padding: 0;
+  background: var(--apple-background);
+  overflow: hidden;
+  align-items: stretch;
 }
 
 .apple-preview-wrapper.mode-classic .apple-converter-preview {
-  width: 100% !important;
-  height: 100% !important;
+  width: 100%;
+  height: 100%;
   /* max-width: 1000px;  Removed to match legacy behavior perfectly */
-  margin: 0 !important; /* Reset margin */
-  padding: 32px 40px !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+  margin: 0; /* Reset margin */
+  padding: 32px 40px;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .apple-preview-wrapper.mode-classic.apple-ai-preview-active .apple-converter-preview,
 .apple-preview-wrapper.mode-classic .apple-converter-preview.apple-ai-preview-active {
-  padding: 0 !important;
+  padding: 0;
 }
 
 .apple-converter-container.apple-converter-mobile .apple-preview-wrapper.mode-classic {
-  padding: 0 !important;
-  overflow: auto !important;
+  padding: 0;
+  overflow: auto;
 }
 
 .apple-converter-container.apple-converter-mobile .apple-preview-wrapper.mode-classic .apple-converter-preview {
-  padding: 10px 8px calc(14px + env(safe-area-inset-bottom)) !important;
+  padding: 10px 8px calc(14px + env(safe-area-inset-bottom));
 }
 
 .apple-converter-container.apple-converter-mobile .apple-preview-wrapper.mode-classic.apple-ai-preview-active .apple-converter-preview,
 .apple-converter-container.apple-converter-mobile .apple-preview-wrapper.mode-classic .apple-converter-preview.apple-ai-preview-active {
-  padding: 0 0 calc(8px + env(safe-area-inset-bottom)) 0 !important;
+  padding: 0 0 calc(8px + env(safe-area-inset-bottom)) 0;
 }
 
 .theme-dark .apple-preview-wrapper.mode-classic {
-  background: var(--apple-background) !important;
+  background: var(--apple-background);
 }
 
 /* 统一使用 Obsidian 界面字体 */
@@ -2813,12 +2813,12 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .wechat-sync-shell-mobile {
-  width: 100vw !important;
-  max-width: 100vw !important;
-  height: 100vh !important;
-  max-height: 100vh !important;
-  margin: 0 !important;
-  border-radius: 0 !important;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  margin: 0;
+  border-radius: 0;
 }
 
 .wechat-sync-shell-mobile .modal-content {
@@ -3092,7 +3092,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .wechat-modal-buttons .mod-cta:hover {
-  background: var(--interactive-accent) !important;
+  background: var(--interactive-accent);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
@@ -3196,12 +3196,12 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 .wechat-sync-modal button.wechat-publish-mode-tab {
   position: relative;
   min-height: 34px;
-  border: none !important;
-  box-shadow: none !important;
+  border: none;
+  box-shadow: none;
   border-radius: 0;
   padding: 0 0 10px;
   color: var(--apple-secondary);
-  background: transparent !important;
+  background: transparent;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -3214,8 +3214,8 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 
 .wechat-sync-modal button.wechat-publish-mode-tab.is-active {
   color: var(--apple-primary);
-  background: transparent !important;
-  box-shadow: none !important;
+  background: transparent;
+  box-shadow: none;
 }
 
 .wechat-sync-modal button.wechat-publish-mode-tab.is-active::after {
