@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
+const path = require('path');
+const { pathToFileURL } = require('url');
 
 const {
   collectArticleImageReferences,
@@ -16,13 +18,16 @@ function pngBytes(size = 16) {
   return bytes;
 }
 
-function makeApp(files = {}) {
+function makeApp(files = {}, options = {}) {
   const byPath = new Map(Object.entries(files));
   return {
     metadataCache: {
       getFirstLinkpathDest: vi.fn((linkpath) => byPath.get(linkpath) || null),
     },
     vault: {
+      adapter: {
+        basePath: options.basePath || '',
+      },
       getAbstractFileByPath: vi.fn((filePath) => byPath.get(filePath) || null),
       getResourcePath: vi.fn((file) => `app://local/${encodeURIComponent(file.path)}`),
       readBinary: vi.fn(async (file) => file.bytes),
@@ -97,6 +102,44 @@ describe('article image asset resolver', () => {
     expect(result.markdown).toContain('![图一](asset://image-1)');
     expect(result.markdown).toContain('![again](asset://image-1)');
     expect(result.markdown).toContain('![remote](https://cdn.example.com/a.png)');
+  });
+
+  it('resolves file URLs only when they point inside the current vault', async () => {
+    const basePath = path.resolve('/tmp/owc-vault');
+    const imageFile = {
+      path: 'assets/local.png',
+      name: 'local.png',
+      extension: 'png',
+      bytes: pngBytes(24),
+    };
+    const app = makeApp({ 'assets/local.png': imageFile }, { basePath });
+    const fileUrl = pathToFileURL(path.join(basePath, 'assets/local.png')).toString();
+
+    const result = await resolveArticleImages(
+      `![from file url](${fileUrl})`,
+      { path: 'post.md', basename: 'post' },
+      { app }
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0].source.vaultRelativePath).toBe('assets/local.png');
+    expect(result.markdown).toContain('![from file url](asset://image-1)');
+  });
+
+  it('rejects file URLs outside the current vault', async () => {
+    const basePath = path.resolve('/tmp/owc-vault');
+    const app = makeApp({}, { basePath });
+    const fileUrl = pathToFileURL(path.resolve('/tmp/outside/local.png')).toString();
+
+    const result = await resolveArticleImages(
+      `![outside](${fileUrl})`,
+      { path: 'post.md', basename: 'post' },
+      { app }
+    );
+
+    expect(result.assets).toHaveLength(0);
+    expect(result.warnings.map((warning) => warning.code)).toEqual(['image_outside_vault_unsupported']);
   });
 
   it('turns Obsidian image wikilinks with Chinese paths and width hints into bridge assets', async () => {

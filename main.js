@@ -13008,6 +13008,7 @@ var require_markdown_utils = __commonJS({
 var require_article_image_assets = __commonJS({
   "services/article-image-assets.js"(exports2, module2) {
     var path = require("path");
+    var { fileURLToPath } = require("url");
     var DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
     var DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
     var SUPPORTED_IMAGE_MIME_BY_EXT = {
@@ -13041,6 +13042,34 @@ var require_article_image_assets = __commonJS({
     }
     function isFileUrl(src) {
       return /^file:\/\//i.test(String(src || "").trim());
+    }
+    function decodeLocalPath(value) {
+      try {
+        return decodeURI(String(value || "").trim());
+      } catch (e) {
+        return String(value || "").trim();
+      }
+    }
+    function getFileUrlPath(src) {
+      try {
+        return fileURLToPath(src);
+      } catch (e) {
+        return "";
+      }
+    }
+    function getVaultRelativePathFromLocalPath(app, localPath) {
+      var _a, _b;
+      const basePath = (_b = (_a = app == null ? void 0 : app.vault) == null ? void 0 : _a.adapter) == null ? void 0 : _b.basePath;
+      if (!basePath || !localPath)
+        return "";
+      try {
+        const relativePath = path.relative(path.resolve(basePath), path.resolve(localPath));
+        if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath))
+          return "";
+        return normalizePath(relativePath);
+      } catch (e) {
+        return "";
+      }
     }
     function getFilenameFromPath(src) {
       const value = String(src || "").split("?")[0].split("#")[0].replace(/\\/g, "/");
@@ -13303,14 +13332,15 @@ var require_article_image_assets = __commonJS({
       const sourcePath = getNoteSourcePath(noteFile);
       const metadataCache = app.metadataCache;
       const vault = app.vault;
+      const lookupSrc = getVaultRelativePathFromLocalPath(app, decoded) || decoded;
       try {
-        const linked = (_a = metadataCache == null ? void 0 : metadataCache.getFirstLinkpathDest) == null ? void 0 : _a.call(metadataCache, decoded, sourcePath);
+        const linked = (_a = metadataCache == null ? void 0 : metadataCache.getFirstLinkpathDest) == null ? void 0 : _a.call(metadataCache, lookupSrc, sourcePath);
         if (linked == null ? void 0 : linked.extension)
           return linked;
       } catch (e) {
       }
       const candidates = [];
-      const normalized = normalizePath(decoded);
+      const normalized = normalizePath(lookupSrc);
       if (normalized)
         candidates.push(normalized);
       if (sourcePath && normalized && !normalized.startsWith("/")) {
@@ -13326,18 +13356,6 @@ var require_article_image_assets = __commonJS({
         }
       }
       return null;
-    }
-    async function readFileUrlAsset(src) {
-      const fs = require("fs/promises");
-      const { fileURLToPath } = require("url");
-      const filePath = fileURLToPath(src);
-      const buffer = await fs.readFile(filePath);
-      return {
-        buffer,
-        filename: getFilenameFromPath(filePath),
-        vaultRelativePath: "",
-        resourceSrc: ""
-      };
     }
     async function readVaultAsset(app, file) {
       var _a, _b;
@@ -13386,9 +13404,22 @@ var require_article_image_assets = __commonJS({
       let readResult = null;
       let cacheKey = "";
       if (isFileUrl(src)) {
-        cacheKey = `file:${src}`;
+        const filePath = getFileUrlPath(src);
+        const vaultRelativePath2 = getVaultRelativePathFromLocalPath(app, filePath);
+        if (!vaultRelativePath2) {
+          return {
+            warning: createWarning("image_outside_vault_unsupported", "\u53EA\u652F\u6301\u8BFB\u53D6\u5F53\u524D vault \u5185\u7684 file:// \u56FE\u7247", { src: originalSrc })
+          };
+        }
+        file = resolveVaultFile(app, vaultRelativePath2, noteFile);
+        if (!file) {
+          return {
+            warning: createWarning("image_local_missing", "\u672C\u5730\u56FE\u7247\u672A\u627E\u5230", { src: originalSrc })
+          };
+        }
+        cacheKey = `vault:${file.path || vaultRelativePath2}`;
       } else {
-        file = resolveVaultFile(app, src, noteFile);
+        file = resolveVaultFile(app, decodeLocalPath(src), noteFile);
         if (!file) {
           return {
             warning: createWarning("image_local_missing", "\u672C\u5730\u56FE\u7247\u672A\u627E\u5230", { src: originalSrc })
@@ -13400,7 +13431,7 @@ var require_article_image_assets = __commonJS({
         return { asset: existingByKey.get(cacheKey), reused: true };
       }
       try {
-        readResult = file ? await readVaultAsset(app, file) : await readFileUrlAsset(src);
+        readResult = await readVaultAsset(app, file);
       } catch (error) {
         return {
           warning: createWarning("image_local_read_failed", `\u8BFB\u53D6\u672C\u5730\u56FE\u7247\u5931\u8D25\uFF1A${error.message || String(error)}`, {
@@ -19174,23 +19205,8 @@ var AppleStyleView = class extends ItemView {
     this.previewContainer.removeClass("apple-has-content");
     const placeholder = this.previewContainer.createEl("div", { cls: "apple-placeholder" });
     const iconDiv = placeholder.createEl("div", { cls: "apple-placeholder-icon" });
-    try {
-      const path = require("path");
-      const fs = require("fs");
-      const vaultPath = this.app.vault.adapter.basePath;
-      const configDir = this.app.vault.configDir;
-      const imgPath = path.join(vaultPath, configDir, "plugins", "obsidian-wechat-converter", "images", "icon.png");
-      const imgBuffer = fs.readFileSync(imgPath);
-      const base64 = imgBuffer.toString("base64");
-      const img = iconDiv.createEl("img", { attr: { alt: "Obsidian \u53D1\u5E03\u52A9\u624B" } });
-      img.src = "data:image/png;base64," + base64;
-      img.style.width = "64px";
-      img.style.height = "64px";
-      img.style.display = "block";
-    } catch (e) {
-      iconDiv.textContent = "\u{1F4DD}";
-      console.error("Failed to load brand icon:", e);
-    }
+    iconDiv.textContent = "\u{1F4DD}";
+    this.loadPlaceholderIcon(iconDiv);
     placeholder.createEl("h2", { text: "Obsidian \u53D1\u5E03\u52A9\u624B" });
     placeholder.createEl("p", { text: "\u5728 Obsidian \u5199\u4F5C\uFF0C\u9884\u89C8\u786E\u8BA4\u516C\u4F17\u53F7\u6392\u7248\uFF0C\u6216\u76F4\u63A5\u4EE5 Markdown \u539F\u6587\u53D1\u5E03\u5230\u5176\u4ED6\u5E73\u53F0\u3002" });
     const steps = placeholder.createEl("div", { cls: "apple-steps" });
@@ -19201,6 +19217,28 @@ var AppleStyleView = class extends ItemView {
       text: "\u63D0\u793A\uFF1A\u70B9\u51FB\u8981\u53D1\u5E03\u7684\u6587\u6863\u5373\u53EF\u5728\u9884\u89C8\u4E2D\u67E5\u770B\u6392\u7248\u6548\u679C\u3002",
       cls: "apple-placeholder-note"
     });
+  }
+  async loadPlaceholderIcon(iconDiv) {
+    var _a, _b;
+    try {
+      const adapter = (_b = (_a = this.app) == null ? void 0 : _a.vault) == null ? void 0 : _b.adapter;
+      if (!adapter || typeof adapter.readBinary !== "function")
+        return;
+      const iconPath = `${this.plugin.manifest.dir}/images/icon.png`;
+      const imgBuffer = await adapter.readBinary(iconPath);
+      if (!iconDiv.isConnected)
+        return;
+      const base64 = Buffer.from(imgBuffer).toString("base64");
+      iconDiv.empty();
+      const img = iconDiv.createEl("img", { attr: { alt: "Obsidian \u53D1\u5E03\u52A9\u624B" } });
+      img.src = "data:image/png;base64," + base64;
+      img.style.width = "64px";
+      img.style.height = "64px";
+      img.style.display = "block";
+    } catch (e) {
+      iconDiv.textContent = "\u{1F4DD}";
+      console.error("Failed to load brand icon:", e);
+    }
   }
   showRenderFailurePlaceholder(message = "") {
     if (!this.previewContainer || typeof this.previewContainer.createEl !== "function")
@@ -20725,11 +20763,7 @@ var AppleStylePlugin = class extends Plugin {
   getWechatSyncBridgeService() {
     var _a, _b;
     const settings = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
-    const cacheKey = [
-      settings.port,
-      settings.token,
-      settings.allowRemote ? 1 : 0
-    ].join(":");
+    const cacheKey = `${settings.port}:${settings.token}:${settings.allowRemote ? 1 : 0}`;
     if (this._wechatSyncBridgeService && this._wechatSyncBridgeCacheKey === cacheKey) {
       return this._wechatSyncBridgeService;
     }
