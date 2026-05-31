@@ -1,4 +1,5 @@
 const path = require('path');
+const { fileURLToPath } = require('url');
 
 const DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
@@ -45,6 +46,34 @@ function isAssetImageSrc(src) {
 
 function isFileUrl(src) {
   return /^file:\/\//i.test(String(src || '').trim());
+}
+
+function decodeLocalPath(value) {
+  try {
+    return decodeURI(String(value || '').trim());
+  } catch {
+    return String(value || '').trim();
+  }
+}
+
+function getFileUrlPath(src) {
+  try {
+    return fileURLToPath(src);
+  } catch {
+    return '';
+  }
+}
+
+function getVaultRelativePathFromLocalPath(app, localPath) {
+  const basePath = app?.vault?.adapter?.basePath;
+  if (!basePath || !localPath) return '';
+  try {
+    const relativePath = path.relative(path.resolve(basePath), path.resolve(localPath));
+    if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) return '';
+    return normalizePath(relativePath);
+  } catch {
+    return '';
+  }
 }
 
 function getFilenameFromPath(src) {
@@ -318,16 +347,17 @@ function resolveVaultFile(app, src, noteFile) {
   const sourcePath = getNoteSourcePath(noteFile);
   const metadataCache = app.metadataCache;
   const vault = app.vault;
+  const lookupSrc = getVaultRelativePathFromLocalPath(app, decoded) || decoded;
 
   try {
-    const linked = metadataCache?.getFirstLinkpathDest?.(decoded, sourcePath);
+    const linked = metadataCache?.getFirstLinkpathDest?.(lookupSrc, sourcePath);
     if (linked?.extension) return linked;
   } catch {
     // Fall through to path-based candidates.
   }
 
   const candidates = [];
-  const normalized = normalizePath(decoded);
+  const normalized = normalizePath(lookupSrc);
   if (normalized) candidates.push(normalized);
   if (sourcePath && normalized && !normalized.startsWith('/')) {
     const noteDir = path.posix.dirname(normalizePath(sourcePath));
@@ -343,19 +373,6 @@ function resolveVaultFile(app, src, noteFile) {
     }
   }
   return null;
-}
-
-async function readFileUrlAsset(src) {
-  const fs = require('fs/promises');
-  const { fileURLToPath } = require('url');
-  const filePath = fileURLToPath(src);
-  const buffer = await fs.readFile(filePath);
-  return {
-    buffer,
-    filename: getFilenameFromPath(filePath),
-    vaultRelativePath: '',
-    resourceSrc: '',
-  };
 }
 
 async function readVaultAsset(app, file) {
@@ -413,9 +430,22 @@ async function resolveLocalImageAsset({
   let cacheKey = '';
 
   if (isFileUrl(src)) {
-    cacheKey = `file:${src}`;
+    const filePath = getFileUrlPath(src);
+    const vaultRelativePath = getVaultRelativePathFromLocalPath(app, filePath);
+    if (!vaultRelativePath) {
+      return {
+        warning: createWarning('image_outside_vault_unsupported', '只支持读取当前 vault 内的 file:// 图片', { src: originalSrc }),
+      };
+    }
+    file = resolveVaultFile(app, vaultRelativePath, noteFile);
+    if (!file) {
+      return {
+        warning: createWarning('image_local_missing', '本地图片未找到', { src: originalSrc }),
+      };
+    }
+    cacheKey = `vault:${file.path || vaultRelativePath}`;
   } else {
-    file = resolveVaultFile(app, src, noteFile);
+    file = resolveVaultFile(app, decodeLocalPath(src), noteFile);
     if (!file) {
       return {
         warning: createWarning('image_local_missing', '本地图片未找到', { src: originalSrc }),
@@ -429,7 +459,7 @@ async function resolveLocalImageAsset({
   }
 
   try {
-    readResult = file ? await readVaultAsset(app, file) : await readFileUrlAsset(src);
+    readResult = await readVaultAsset(app, file);
   } catch (error) {
     return {
       warning: createWarning('image_local_read_failed', `读取本地图片失败：${error.message || String(error)}`, {

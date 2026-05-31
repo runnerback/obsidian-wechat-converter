@@ -4777,23 +4777,8 @@ class AppleStyleView extends ItemView {
     this.previewContainer.removeClass('apple-has-content'); // 移除内容状态类
     const placeholder = this.previewContainer.createEl('div', { cls: 'apple-placeholder' });
     const iconDiv = placeholder.createEl('div', { cls: 'apple-placeholder-icon' });
-    try {
-      const path = require('path');
-      const fs = require('fs');
-      const vaultPath = this.app.vault.adapter.basePath;
-      const configDir = this.app.vault.configDir;
-      const imgPath = path.join(vaultPath, configDir, 'plugins', 'obsidian-wechat-converter', 'images', 'icon.png');
-      const imgBuffer = fs.readFileSync(imgPath);
-      const base64 = imgBuffer.toString('base64');
-      const img = iconDiv.createEl('img', { attr: { alt: 'Obsidian 发布助手' } });
-      img.src = 'data:image/png;base64,' + base64;
-      img.style.width = '64px';
-      img.style.height = '64px';
-      img.style.display = 'block';
-    } catch (e) {
-      iconDiv.textContent = '📝';
-      console.error('Failed to load brand icon:', e);
-    }
+    iconDiv.textContent = '📝';
+    this.loadPlaceholderIcon(iconDiv);
     placeholder.createEl('h2', { text: 'Obsidian 发布助手' });
     placeholder.createEl('p', { text: '在 Obsidian 写作，预览确认公众号排版，或直接以 Markdown 原文发布到其他平台。' });
     const steps = placeholder.createEl('div', { cls: 'apple-steps' });
@@ -4806,6 +4791,26 @@ class AppleStyleView extends ItemView {
       text: '提示：点击要发布的文档即可在预览中查看排版效果。',
       cls: 'apple-placeholder-note'
     });
+  }
+
+  async loadPlaceholderIcon(iconDiv) {
+    try {
+      const adapter = this.app?.vault?.adapter;
+      if (!adapter || typeof adapter.readBinary !== 'function') return;
+      const iconPath = `${this.plugin.manifest.dir}/images/icon.png`;
+      const imgBuffer = await adapter.readBinary(iconPath);
+      if (!iconDiv.isConnected) return;
+      const base64 = Buffer.from(imgBuffer).toString('base64');
+      iconDiv.empty();
+      const img = iconDiv.createEl('img', { attr: { alt: 'Obsidian 发布助手' } });
+      img.src = 'data:image/png;base64,' + base64;
+      img.style.width = '64px';
+      img.style.height = '64px';
+      img.style.display = 'block';
+    } catch (e) {
+      iconDiv.textContent = '📝';
+      console.error('Failed to load brand icon:', e);
+    }
   }
 
   showRenderFailurePlaceholder(message = '') {
@@ -6680,11 +6685,7 @@ class AppleStylePlugin extends Plugin {
 
   getWechatSyncBridgeService() {
     const settings = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
-    const cacheKey = [
-      settings.port,
-      settings.token,
-      settings.allowRemote ? 1 : 0,
-    ].join(':');
+    const cacheKey = `${settings.port}:${settings.token}:${settings.allowRemote ? 1 : 0}`;
     if (this._wechatSyncBridgeService && this._wechatSyncBridgeCacheKey === cacheKey) {
       return this._wechatSyncBridgeService;
     }
