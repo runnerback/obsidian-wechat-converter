@@ -88,4 +88,70 @@ describe('WechatAPI - Upload & MIME Logic', () => {
     const blob = await view.srcToBlob('http://example.com/icon.png');
     expect(blob.type).toBe('image/png');
   });
+
+  it('should request permanent image materials with pagination', async () => {
+    const api = new WechatAPI('appid', 'secret');
+    api.accessToken = 'token-1';
+    api.expireTime = Date.now() + 3600_000;
+    obsidianMock.requestUrl.mockResolvedValue({
+      json: { item: [], item_count: 0, total_count: 0 }
+    });
+
+    await api.batchGetMaterials('image', 20, 10);
+
+    expect(obsidianMock.requestUrl).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://api.weixin.qq.com/cgi-bin/material/batchget_material?access_token=token-1',
+      method: 'POST',
+      body: JSON.stringify({ type: 'image', offset: 20, count: 10 }),
+    }));
+  });
+
+  it('should request draft count, list, and detail with expected bodies', async () => {
+    const api = new WechatAPI('appid', 'secret');
+    api.accessToken = 'token-1';
+    api.expireTime = Date.now() + 3600_000;
+    obsidianMock.requestUrl.mockResolvedValue({ json: { total_count: 1, item: [] } });
+
+    await api.getDraftCount();
+    await api.batchGetDrafts(40, 20, 1);
+    await api.getDraft('draft-media');
+
+    expect(obsidianMock.requestUrl).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      url: 'https://api.weixin.qq.com/cgi-bin/draft/count?access_token=token-1',
+      method: 'POST',
+      body: JSON.stringify({}),
+    }));
+    expect(obsidianMock.requestUrl).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      url: 'https://api.weixin.qq.com/cgi-bin/draft/batchget?access_token=token-1',
+      method: 'POST',
+      body: JSON.stringify({ offset: 40, count: 20, no_content: 1 }),
+    }));
+    expect(obsidianMock.requestUrl).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      url: 'https://api.weixin.qq.com/cgi-bin/draft/get?access_token=token-1',
+      method: 'POST',
+      body: JSON.stringify({ media_id: 'draft-media' }),
+    }));
+  });
+
+  it('should update draft without network retry wrapper', async () => {
+    const api = new WechatAPI('appid', 'secret');
+    api.accessToken = 'token-1';
+    api.expireTime = Date.now() + 3600_000;
+    const requestWithRetrySpy = vi.spyOn(api, 'requestWithRetry');
+    obsidianMock.requestUrl.mockResolvedValue({ json: { errcode: 0, errmsg: 'ok' } });
+
+    const result = await api.updateDraft('draft-media', 0, { title: 'Title' });
+
+    expect(result).toEqual({ media_id: 'draft-media' });
+    expect(requestWithRetrySpy).not.toHaveBeenCalled();
+    expect(obsidianMock.requestUrl).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://api.weixin.qq.com/cgi-bin/draft/update?access_token=token-1',
+      method: 'POST',
+      body: JSON.stringify({
+        media_id: 'draft-media',
+        index: 0,
+        articles: { title: 'Title' },
+      }),
+    }));
+  });
 });

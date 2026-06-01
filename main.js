@@ -10333,22 +10333,28 @@ var require_wechat_sync = __commonJS({
           activeFile,
           publishMeta,
           sessionCoverBase64,
+          sessionThumbMediaId,
           sessionDigest,
+          draftMediaId,
+          draftIndex = 0,
           onStatus,
           onImageProgress,
           onMathProgress
         }) {
           const api = createApi(account.appId, account.appSecret, proxyUrl);
           const imageUploadFailures = [];
-          if (onStatus)
-            onStatus("cover");
-          const coverSrc = sessionCoverBase64 || publishMeta.coverSrc || getFirstImageFromArticle();
-          if (!coverSrc) {
-            throw new Error("\u672A\u8BBE\u7F6E\u5C01\u9762\u56FE\uFF0C\u540C\u6B65\u5931\u8D25\u3002\u8BF7\u5728\u5F39\u7A97\u4E2D\u4E0A\u4F20\u5C01\u9762\u3002");
+          let thumbMediaId = typeof sessionThumbMediaId === "string" ? sessionThumbMediaId.trim() : "";
+          if (!thumbMediaId) {
+            if (onStatus)
+              onStatus("cover");
+            const coverSrc = sessionCoverBase64 || publishMeta.coverSrc || getFirstImageFromArticle();
+            if (!coverSrc) {
+              throw new Error("\u672A\u8BBE\u7F6E\u5C01\u9762\u56FE\uFF0C\u540C\u6B65\u5931\u8D25\u3002\u8BF7\u5728\u5F39\u7A97\u4E2D\u4E0A\u4F20\u5C01\u9762\u3002");
+            }
+            const coverBlob = await srcToBlob(coverSrc);
+            const coverRes = await api.uploadCover(coverBlob);
+            thumbMediaId = coverRes.media_id;
           }
-          const coverBlob = await srcToBlob(coverSrc);
-          const coverRes = await api.uploadCover(coverBlob);
-          const thumbMediaId = coverRes.media_id;
           let draftHtml = await prepareHtmlForDraft(currentHtml);
           if (onStatus)
             onStatus("images");
@@ -10392,10 +10398,22 @@ var require_wechat_sync = __commonJS({
           }
           if (onStatus)
             onStatus("draft");
-          await api.createDraft(article);
+          const normalizedDraftMediaId = typeof draftMediaId === "string" ? draftMediaId.trim() : "";
+          const isUpdate = !!normalizedDraftMediaId;
+          let mediaId = "";
+          if (isUpdate) {
+            await api.updateDraft(normalizedDraftMediaId, draftIndex, article);
+            mediaId = normalizedDraftMediaId;
+          } else {
+            const draftRes = await api.createDraft(article);
+            mediaId = (draftRes == null ? void 0 : draftRes.media_id) || "";
+          }
           const cleanupResult = await cleanupConfiguredDirectory(activeFile);
           return {
             article,
+            mediaId,
+            isUpdate,
+            draftIndex,
             cleanupResult,
             imageUploadFailures,
             placeholderImageSources: cleanedResult.imageSources
@@ -12051,6 +12069,120 @@ var require_sync_context = __commonJS({
     module2.exports = {
       resolveSyncAccount: resolveSyncAccount2,
       toSyncFriendlyMessage: toSyncFriendlyMessage2
+    };
+  }
+});
+
+// services/wechat-draft-cache.js
+var require_wechat_draft_cache = __commonJS({
+  "services/wechat-draft-cache.js"(exports2, module2) {
+    var { normalizeVaultPath: normalizeVaultPath2 } = require_path_utils();
+    var DRAFT_CACHE_VERSION = 1;
+    function createEmptyDraftCache2() {
+      return {
+        version: DRAFT_CACHE_VERSION,
+        articles: {}
+      };
+    }
+    function normalizeDraftEntry(entry, fallbackPath = "") {
+      if (!entry || typeof entry !== "object")
+        return null;
+      const mediaId = typeof entry.mediaId === "string" ? entry.mediaId.trim() : typeof entry.media_id === "string" ? entry.media_id.trim() : "";
+      if (!mediaId)
+        return null;
+      const sourcePath = normalizeVaultPath2(
+        typeof entry.sourcePath === "string" && entry.sourcePath ? entry.sourcePath : fallbackPath
+      );
+      if (!sourcePath)
+        return null;
+      const index = Number.isInteger(entry.index) && entry.index >= 0 ? entry.index : 0;
+      const updatedAt = Number.isFinite(entry.updatedAt) && entry.updatedAt > 0 ? entry.updatedAt : 0;
+      return {
+        sourcePath,
+        mediaId,
+        accountId: typeof entry.accountId === "string" ? entry.accountId.trim() : "",
+        title: typeof entry.title === "string" ? entry.title : "",
+        index,
+        updatedAt
+      };
+    }
+    function normalizeDraftCache2(rawCache) {
+      const normalized = createEmptyDraftCache2();
+      let changed = false;
+      if (!rawCache || typeof rawCache !== "object" || Array.isArray(rawCache)) {
+        return {
+          cache: normalized,
+          changed: rawCache !== void 0 && rawCache !== null
+        };
+      }
+      const sourceArticles = rawCache.version === DRAFT_CACHE_VERSION && rawCache.articles && typeof rawCache.articles === "object" ? rawCache.articles : rawCache;
+      if (sourceArticles !== rawCache.articles || rawCache.version !== DRAFT_CACHE_VERSION) {
+        changed = true;
+      }
+      for (const [rawPath, rawEntry] of Object.entries(sourceArticles)) {
+        const sourcePath = normalizeVaultPath2(rawPath);
+        const entry = normalizeDraftEntry(rawEntry, sourcePath);
+        if (!entry) {
+          changed = true;
+          continue;
+        }
+        normalized.articles[entry.sourcePath] = entry;
+        if (entry.sourcePath !== rawPath || JSON.stringify(entry) !== JSON.stringify(rawEntry)) {
+          changed = true;
+        }
+      }
+      const expected = JSON.stringify(normalized);
+      if (expected !== JSON.stringify(rawCache)) {
+        changed = true;
+      }
+      return { cache: normalized, changed };
+    }
+    function getDraftAssociation2(settings, sourcePath, accountId = "") {
+      const path = normalizeVaultPath2(sourcePath || "");
+      if (!path)
+        return null;
+      const { cache } = normalizeDraftCache2(settings == null ? void 0 : settings.draftCache);
+      const entry = cache.articles[path] || null;
+      if (!entry)
+        return null;
+      const expectedAccountId = typeof accountId === "string" ? accountId.trim() : "";
+      if (expectedAccountId && entry.accountId && entry.accountId !== expectedAccountId) {
+        return null;
+      }
+      return { ...entry };
+    }
+    function setDraftAssociation2(settings, association) {
+      if (!settings || typeof settings !== "object")
+        return createEmptyDraftCache2();
+      const sourcePath = normalizeVaultPath2((association == null ? void 0 : association.sourcePath) || (association == null ? void 0 : association.filePath) || "");
+      const entry = normalizeDraftEntry({ ...association, sourcePath }, sourcePath);
+      const { cache } = normalizeDraftCache2(settings.draftCache);
+      if (entry) {
+        cache.articles[entry.sourcePath] = {
+          ...entry,
+          updatedAt: entry.updatedAt || Date.now()
+        };
+      }
+      settings.draftCache = cache;
+      return cache;
+    }
+    function clearDraftAssociation2(settings, sourcePath) {
+      if (!settings || typeof settings !== "object")
+        return createEmptyDraftCache2();
+      const path = normalizeVaultPath2(sourcePath || "");
+      const { cache } = normalizeDraftCache2(settings.draftCache);
+      if (path)
+        delete cache.articles[path];
+      settings.draftCache = cache;
+      return cache;
+    }
+    module2.exports = {
+      DRAFT_CACHE_VERSION,
+      createEmptyDraftCache: createEmptyDraftCache2,
+      normalizeDraftCache: normalizeDraftCache2,
+      getDraftAssociation: getDraftAssociation2,
+      setDraftAssociation: setDraftAssociation2,
+      clearDraftAssociation: clearDraftAssociation2
     };
   }
 });
@@ -14607,6 +14739,7 @@ var require_multi_platform = __commonJS({
     } = require_connection_status_bar();
     var { stripMarkdownFrontmatter: stripMarkdownFrontmatter2 } = require_markdown_utils();
     var {
+      DEFAULT_MAX_IMAGE_SIZE_BYTES,
       findAssetForCover,
       formatArticleImageWarnings,
       resolveArticleImages
@@ -14614,6 +14747,8 @@ var require_multi_platform = __commonJS({
     var QUOTA_POLICY = "truncate";
     var FREE_DAILY_PLATFORM_QUOTA = 3;
     var MODAL_SELECTED_PLATFORM_IDS = "__wechatMultiPlatformSelectedPlatformIds";
+    var MATERIAL_COVER_ASSET_TTL_MS = 5 * 60 * 1e3;
+    var MAX_MATERIAL_COVER_ASSET_CACHE_ENTRIES = 3;
     function getQuotaHintText(selectedCount = 0, { proLicensed = false } = {}) {
       if (proLicensed) {
         return selectedCount > 0 ? `\u5DF2\u9009 ${selectedCount} \u4E2A\u5E73\u53F0\u3002Pro \u5DF2\u6FC0\u6D3B\uFF0C\u65E0\u6BCF\u65E5\u5E73\u53F0\u6570\u91CF\u9650\u5236\u3002` : "Pro \u5DF2\u6FC0\u6D3B\uFF0C\u65E0\u6BCF\u65E5\u5E73\u53F0\u6570\u91CF\u9650\u5236\u3002";
@@ -14657,6 +14792,148 @@ var require_multi_platform = __commonJS({
       if (/^(data:image\/|https?:\/\/)/i.test(value))
         return value;
       return "";
+    }
+    function getFilenameFromUrl(url, fallback = "wechat-material-cover") {
+      try {
+        const parsed = new URL(String(url || ""));
+        const filename = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "");
+        return filename || fallback;
+      } catch (e) {
+        return fallback;
+      }
+    }
+    function normalizeRemoteCoverFilename(url, mimeType = "") {
+      const rawName = getFilenameFromUrl(url);
+      if (/\.(png|jpe?g|gif|webp)$/i.test(rawName))
+        return rawName;
+      if (/png/i.test(mimeType))
+        return `${rawName}.png`;
+      if (/gif/i.test(mimeType))
+        return `${rawName}.gif`;
+      if (/webp/i.test(mimeType))
+        return `${rawName}.webp`;
+      return `${rawName}.jpg`;
+    }
+    function bufferFromArrayBuffer(arrayBuffer) {
+      if (Buffer.isBuffer(arrayBuffer))
+        return arrayBuffer;
+      if (arrayBuffer instanceof ArrayBuffer)
+        return Buffer.from(arrayBuffer);
+      if (ArrayBuffer.isView(arrayBuffer)) {
+        return Buffer.from(arrayBuffer.buffer, arrayBuffer.byteOffset, arrayBuffer.byteLength);
+      }
+      return Buffer.from(arrayBuffer || []);
+    }
+    function getMaterialCoverAssetCacheKey(view, url) {
+      return [
+        (view == null ? void 0 : view.sessionThumbMediaId) || "",
+        String(url || "").trim()
+      ].join("::");
+    }
+    function pruneMaterialCoverAssetCache(view, now = Date.now()) {
+      if (!view.wechatMaterialCoverAssetCache)
+        view.wechatMaterialCoverAssetCache = /* @__PURE__ */ new Map();
+      for (const [key, entry] of view.wechatMaterialCoverAssetCache.entries()) {
+        if (!entry || now - entry.cachedAt >= MATERIAL_COVER_ASSET_TTL_MS) {
+          view.wechatMaterialCoverAssetCache.delete(key);
+        }
+      }
+      while (view.wechatMaterialCoverAssetCache.size > MAX_MATERIAL_COVER_ASSET_CACHE_ENTRIES) {
+        let oldestKey = "";
+        let oldestAt = Infinity;
+        for (const [key, entry] of view.wechatMaterialCoverAssetCache.entries()) {
+          if (((entry == null ? void 0 : entry.cachedAt) || 0) < oldestAt) {
+            oldestAt = entry.cachedAt || 0;
+            oldestKey = key;
+          }
+        }
+        if (!oldestKey)
+          break;
+        view.wechatMaterialCoverAssetCache.delete(oldestKey);
+      }
+    }
+    function cloneMaterialCoverAsset(cachedAsset, id) {
+      return {
+        id,
+        filename: cachedAsset.filename,
+        mimeType: cachedAsset.mimeType,
+        size: cachedAsset.size,
+        base64: cachedAsset.base64,
+        source: { ...cachedAsset.source || {} }
+      };
+    }
+    async function downloadMaterialCoverAsBridgeAsset(view, coverUrl, assets = []) {
+      var _a;
+      const url = String(coverUrl || "").trim();
+      if (!/^https?:\/\//i.test(url)) {
+        throw new Error("\u5FAE\u4FE1\u7D20\u6750\u5E93\u5C01\u9762\u7F3A\u5C11\u53EF\u4E0B\u8F7D URL\uFF0C\u65E0\u6CD5\u7528\u4E8E\u591A\u5E73\u53F0\u53D1\u5E03\u3002\u8BF7\u6539\u7528\u672C\u5730\u5C01\u9762\u6216 frontmatter cover\u3002");
+      }
+      const now = Date.now();
+      const cacheKey = getMaterialCoverAssetCacheKey(view, url);
+      pruneMaterialCoverAssetCache(view, now);
+      const cached = (_a = view.wechatMaterialCoverAssetCache) == null ? void 0 : _a.get(cacheKey);
+      if (cached && now - cached.cachedAt < MATERIAL_COVER_ASSET_TTL_MS) {
+        const id2 = `image-${assets.length + 1}`;
+        const asset2 = cloneMaterialCoverAsset(cached.asset, id2);
+        assets.push(asset2);
+        return {
+          asset: asset2,
+          cover: `asset://${id2}`,
+          fromCache: true
+        };
+      }
+      let response;
+      try {
+        response = await obsidian.requestUrl({ url, method: "GET" });
+      } catch (error) {
+        throw new Error(`\u5FAE\u4FE1\u7D20\u6750\u5E93\u5C01\u9762\u4E0B\u8F7D\u5931\u8D25\uFF1A${error.message || String(error)}`);
+      }
+      const arrayBuffer = typeof (response == null ? void 0 : response.arrayBuffer) === "function" ? await response.arrayBuffer() : response == null ? void 0 : response.arrayBuffer;
+      const buffer = bufferFromArrayBuffer(arrayBuffer);
+      if (!buffer.length) {
+        throw new Error("\u5FAE\u4FE1\u7D20\u6750\u5E93\u5C01\u9762\u4E0B\u8F7D\u5931\u8D25\uFF1A\u56FE\u7247\u5185\u5BB9\u4E3A\u7A7A\u3002");
+      }
+      if (buffer.length > DEFAULT_MAX_IMAGE_SIZE_BYTES) {
+        throw new Error(`\u5FAE\u4FE1\u7D20\u6750\u5E93\u5C01\u9762\u8D85\u8FC7 ${Math.round(DEFAULT_MAX_IMAGE_SIZE_BYTES / 1024 / 1024)} MB\uFF0C\u65E0\u6CD5\u7528\u4E8E\u591A\u5E73\u53F0\u53D1\u5E03\u3002`);
+      }
+      const headers = (response == null ? void 0 : response.headers) || {};
+      const mimeType = String(headers["content-type"] || headers["Content-Type"] || "image/jpeg").split(";")[0].trim() || "image/jpeg";
+      if (!/^image\/(png|jpe?g|gif|webp)$/i.test(mimeType)) {
+        throw new Error(`\u5FAE\u4FE1\u7D20\u6750\u5E93\u5C01\u9762\u683C\u5F0F\u4E0D\u652F\u6301\uFF1A${mimeType}`);
+      }
+      const id = `image-${assets.length + 1}`;
+      const filename = normalizeRemoteCoverFilename(url, mimeType);
+      const asset = {
+        id,
+        filename,
+        mimeType,
+        size: buffer.length,
+        base64: buffer.toString("base64"),
+        source: {
+          kind: "wechat-material-cover",
+          originalSrc: url,
+          thumbMediaId: view.sessionThumbMediaId || ""
+        }
+      };
+      assets.push(asset);
+      if (!view.wechatMaterialCoverAssetCache)
+        view.wechatMaterialCoverAssetCache = /* @__PURE__ */ new Map();
+      view.wechatMaterialCoverAssetCache.set(cacheKey, {
+        cachedAt: now,
+        asset: {
+          filename,
+          mimeType,
+          size: buffer.length,
+          base64: asset.base64,
+          source: { ...asset.source }
+        }
+      });
+      pruneMaterialCoverAssetCache(view, now);
+      return {
+        asset,
+        cover: `asset://${id}`,
+        fromCache: false
+      };
     }
     function getModalSelectedPlatformIds(modal, defaultSelectedPlatforms) {
       if (!Array.isArray(modal == null ? void 0 : modal[MODAL_SELECTED_PLATFORM_IDS])) {
@@ -14893,6 +15170,7 @@ var require_multi_platform = __commonJS({
         const rawMarkdown = stripMarkdownFrontmatter2(view.lastResolvedMarkdown || "");
         const exportHtml = view.getCurrentExportHtml() || view.currentHtml || "";
         const publishMeta = view.getFrontmatterPublishMeta(activeFile);
+        const selectedWechatMaterialCover = !!view.sessionThumbMediaId;
         const rawCover = getBridgeSafeSessionCover(view.sessionCoverBase64) || publishMeta.cover || "";
         const notice = new Notice2("\u6B63\u5728\u51C6\u5907\u5E76\u53D1\u9001\u5230\u6D4F\u89C8\u5668\u63D2\u4EF6...", 0);
         syncBtn.disabled = true;
@@ -14910,7 +15188,11 @@ var require_multi_platform = __commonJS({
           const markdown = resolvedImages.markdown;
           const assets = resolvedImages.assets;
           const fallbackCover = view.getFirstImageFromArticle();
-          const cover = resolvedImages.cover || resolvedImages.firstImageSrc || (/^(https?:\/\/|data:image\/)/i.test(fallbackCover || "") ? fallbackCover : "") || "";
+          let cover = resolvedImages.cover || resolvedImages.firstImageSrc || (/^(https?:\/\/|data:image\/)/i.test(fallbackCover || "") ? fallbackCover : "") || "";
+          if (selectedWechatMaterialCover) {
+            const materialCover = await downloadMaterialCoverAsBridgeAsset(view, view.sessionCoverBase64, assets);
+            cover = materialCover.cover;
+          }
           const content = await view.prepareHtmlForWechatsyncArticleViaBridge(exportHtml, assets);
           const base64Matches = String(content || "").match(/data:image\/[a-z]+;base64,/gi);
           if (base64Matches && base64Matches.length) {
@@ -15156,6 +15438,13 @@ var {
   updateCachedPlatformsAfterSync
 } = require_wechatsync_results();
 var { resolveSyncAccount, toSyncFriendlyMessage } = require_sync_context();
+var {
+  createEmptyDraftCache,
+  normalizeDraftCache,
+  getDraftAssociation,
+  setDraftAssociation,
+  clearDraftAssociation
+} = require_wechat_draft_cache();
 var { processAllImages: processAllImagesService, processMathFormulas: processMathFormulasService } = require_wechat_media();
 var { cleanHtmlForDraft: cleanHtmlForDraftService } = require_wechat_html_cleaner();
 var { rasterizeSvgToPngBlob } = require_svg_rasterizer();
@@ -15270,6 +15559,7 @@ var DEFAULT_SETTINGS = {
   // 代理设置
   proxyUrl: "",
   // Cloudflare Worker 等代理地址
+  draftCache: createEmptyDraftCache(),
   // 预览设置
   usePhoneFrame: true,
   // 是否使用手机框预览
@@ -15481,6 +15771,19 @@ var WechatAPI = class {
       return await this.uploadMultipart(url, blob, "media");
     });
   }
+  async batchGetMaterials(type, offset = 0, count = 20) {
+    return this.actionWithTokenRetry(async (token) => {
+      const url = `https://api.weixin.qq.com/cgi-bin/material/batchget_material?access_token=${token}`;
+      const data = await this.requestWithRetry(() => this.sendRequest(url, {
+        method: "POST",
+        body: JSON.stringify({ type, offset, count })
+      }));
+      if (Array.isArray(data.item) || data.item_count !== void 0 || data.total_count !== void 0) {
+        return data;
+      }
+      throw new Error(`\u5FAE\u4FE1API\u62A5\u9519: ${data.errmsg || JSON.stringify(data)} (${data.errcode || "N/A"})`);
+    });
+  }
   async createDraft(article) {
     return this.actionWithTokenRetry(async (token) => {
       const url = `https://api.weixin.qq.com/cgi-bin/draft/add?access_token=${token}`;
@@ -15492,6 +15795,46 @@ var WechatAPI = class {
         return data;
       }
       throw new Error(`\u521B\u5EFA\u8349\u7A3F\u5931\u8D25: ${data.errmsg || JSON.stringify(data)} (${data.errcode || "N/A"})`);
+    });
+  }
+  async getDraftCount() {
+    return this.actionWithTokenRetry(async (token) => {
+      const url = `https://api.weixin.qq.com/cgi-bin/draft/count?access_token=${token}`;
+      return await this.requestWithRetry(() => this.sendRequest(url, {
+        method: "POST",
+        body: JSON.stringify({})
+      }));
+    });
+  }
+  async batchGetDrafts(offset = 0, count = 20, noContent = 1) {
+    return this.actionWithTokenRetry(async (token) => {
+      const url = `https://api.weixin.qq.com/cgi-bin/draft/batchget?access_token=${token}`;
+      return await this.requestWithRetry(() => this.sendRequest(url, {
+        method: "POST",
+        body: JSON.stringify({ offset, count, no_content: noContent })
+      }));
+    });
+  }
+  async getDraft(mediaId) {
+    return this.actionWithTokenRetry(async (token) => {
+      const url = `https://api.weixin.qq.com/cgi-bin/draft/get?access_token=${token}`;
+      return await this.requestWithRetry(() => this.sendRequest(url, {
+        method: "POST",
+        body: JSON.stringify({ media_id: mediaId })
+      }));
+    });
+  }
+  async updateDraft(mediaId, index, article) {
+    return this.actionWithTokenRetry(async (token) => {
+      const url = `https://api.weixin.qq.com/cgi-bin/draft/update?access_token=${token}`;
+      const data = await this.sendRequest(url, {
+        method: "POST",
+        body: JSON.stringify({ media_id: mediaId, index, articles: article })
+      });
+      if (data.errcode === 0 || data.errmsg === "ok") {
+        return { media_id: mediaId };
+      }
+      throw new Error(`\u66F4\u65B0\u8349\u7A3F\u5931\u8D25: ${data.errmsg || JSON.stringify(data)} (${data.errcode || "N/A"})`);
     });
   }
   async uploadMultipart(url, blob, fieldName) {
@@ -15580,7 +15923,12 @@ var AppleStyleView = class extends ItemView {
     this.theme = null;
     this.lastActiveFile = null;
     this.sessionCoverBase64 = "";
+    this.sessionThumbMediaId = "";
+    this.sessionDraftMediaId = "";
+    this.sessionDraftIndex = 0;
     this.sessionDigest = "";
+    this.wechatMaterialCache = /* @__PURE__ */ new Map();
+    this.wechatMaterialCoverAssetCache = /* @__PURE__ */ new Map();
     this.articleStates = /* @__PURE__ */ new Map();
     this.svgUploadCache = /* @__PURE__ */ new Map();
     this.imageUploadCache = /* @__PURE__ */ new Map();
@@ -18392,8 +18740,8 @@ var AppleStyleView = class extends ItemView {
     };
     modal.open();
   }
-  showSyncFailureActions(message) {
-    var _a;
+  showSyncFailureActions(message, options = {}) {
+    var _a, _b, _c;
     const { Modal } = require("obsidian");
     if (typeof Modal !== "function") {
       new Notice(`\u274C \u540C\u6B65\u5931\u8D25: ${message}`);
@@ -18408,7 +18756,11 @@ var AppleStyleView = class extends ItemView {
     }
     const body = modal.contentEl.createDiv({ cls: "wechat-sync-failure-state" });
     body.createEl("p", { cls: "wechat-sync-failure-message", text: message });
-    body.createEl("p", { cls: "wechat-sync-failure-hint", text: "\u53EF\u4EE5\u91CD\u8BD5\u540C\u6B65\uFF0C\u6216\u5148\u68C0\u67E5\u8D26\u53F7\u914D\u7F6E\u3002" });
+    const hasDraftAssociation = !!((_b = options.draftAssociation) == null ? void 0 : _b.mediaId) && !!((_c = options.draftAssociation) == null ? void 0 : _c.sourcePath);
+    body.createEl("p", {
+      cls: "wechat-sync-failure-hint",
+      text: hasDraftAssociation ? "\u53EF\u4EE5\u91CD\u8BD5\u540C\u6B65\uFF1B\u5982\u679C\u5FAE\u4FE1\u540E\u53F0\u8349\u7A3F\u5DF2\u88AB\u5220\u9664\u6216\u65E0\u6CD5\u66F4\u65B0\uFF0C\u4E5F\u53EF\u4EE5\u53D6\u6D88\u5173\u8054\u540E\u65B0\u5EFA\u8349\u7A3F\u3002" : "\u53EF\u4EE5\u91CD\u8BD5\u540C\u6B65\uFF0C\u6216\u5148\u68C0\u67E5\u8D26\u53F7\u914D\u7F6E\u3002"
+    });
     const btnRow = modal.contentEl.createDiv({ cls: "wechat-modal-buttons" });
     const closeBtn = btnRow.createEl("button", { text: "\u5173\u95ED" });
     closeBtn.onclick = () => modal.close();
@@ -18419,6 +18771,17 @@ var AppleStyleView = class extends ItemView {
         new Notice("\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u6253\u5F00 Obsidian \u53D1\u5E03\u52A9\u624B\u5E76\u914D\u7F6E\u516C\u4F17\u53F7\u8D26\u53F7");
       }
     };
+    if (hasDraftAssociation) {
+      const resetDraftBtn = btnRow.createEl("button", { text: "\u53D6\u6D88\u5173\u8054\u5E76\u65B0\u5EFA\u8349\u7A3F" });
+      resetDraftBtn.onclick = async () => {
+        modal.close();
+        clearDraftAssociation(this.plugin.settings, options.draftAssociation.sourcePath);
+        this.sessionDraftMediaId = "";
+        this.sessionDraftIndex = 0;
+        await this.plugin.saveSettings();
+        await this.onSyncToWechat();
+      };
+    }
     const retryBtn = btnRow.createEl("button", { text: "\u91CD\u8BD5\u540C\u6B65", cls: "mod-cta" });
     retryBtn.onclick = async () => {
       modal.close();
@@ -18522,7 +18885,21 @@ var AppleStyleView = class extends ItemView {
     const hasDefault = accounts.some((account) => account.id === defaultId);
     let selectedAccountId = hasDefault ? defaultId : ((_b = accounts[0]) == null ? void 0 : _b.id) || "";
     let coverBase64 = (cachedState == null ? void 0 : cachedState.coverBase64) || frontmatterMeta.coverSrc || this.getFirstImageFromArticle();
+    let thumbMediaId = (cachedState == null ? void 0 : cachedState.thumbMediaId) || "";
+    let materialCover = (cachedState == null ? void 0 : cachedState.materialCover) || null;
     this.sessionCoverBase64 = coverBase64;
+    this.sessionThumbMediaId = thumbMediaId;
+    const getSelectedAccount = () => resolveSyncAccount({
+      accounts: this.plugin.settings.wechatAccounts || [],
+      selectedAccountId,
+      defaultAccountId: this.plugin.settings.defaultAccountId
+    });
+    const getSelectedDraftAssociation = () => {
+      var _a2;
+      return currentPath ? getDraftAssociation(this.plugin.settings, currentPath, ((_a2 = getSelectedAccount()) == null ? void 0 : _a2.id) || selectedAccountId) : null;
+    };
+    let draftAssociation = getSelectedDraftAssociation();
+    let forceNewDraft = false;
     const accountSection = modal.contentEl.createDiv({ cls: "wechat-modal-section" });
     accountSection.createEl("label", { text: "\u8D26\u53F7", cls: "wechat-modal-label" });
     if (accounts.length === 1) {
@@ -18544,16 +18921,23 @@ var AppleStyleView = class extends ItemView {
       }
       accountSelect.addEventListener("change", (e) => {
         selectedAccountId = e.target.value;
+        draftAssociation = getSelectedDraftAssociation();
+        forceNewDraft = false;
+        if (typeof updatePreview === "function")
+          updatePreview();
+        if (typeof updateDraftStatusUI === "function")
+          updateDraftStatusUI();
       });
     }
     if (mobileSync) {
+      const hasCoverForModal = !!coverBase64 || !!thumbMediaId;
       modal.contentEl.createEl("p", {
         cls: "wechat-sync-mobile-quick-hint",
-        text: coverBase64 ? "\u53EF\u76F4\u63A5\u540C\u6B65\uFF1B\u5C01\u9762\u4E0E\u6458\u8981\u53EF\u5728\u9AD8\u7EA7\u9009\u9879\u4E2D\u8C03\u6574\u3002" : "\u5F53\u524D\u672A\u68C0\u6D4B\u5230\u5C01\u9762\uFF0C\u8BF7\u5728\u9AD8\u7EA7\u9009\u9879\u4E2D\u4E0A\u4F20\u5C01\u9762\u540E\u518D\u540C\u6B65\u3002"
+        text: hasCoverForModal ? "\u53EF\u76F4\u63A5\u540C\u6B65\uFF1B\u5C01\u9762\u4E0E\u6458\u8981\u53EF\u5728\u9AD8\u7EA7\u9009\u9879\u4E2D\u8C03\u6574\u3002" : "\u5F53\u524D\u672A\u68C0\u6D4B\u5230\u5C01\u9762\uFF0C\u8BF7\u5728\u9AD8\u7EA7\u9009\u9879\u4E2D\u4E0A\u4F20\u5C01\u9762\u540E\u518D\u540C\u6B65\u3002"
       });
     }
     const advancedOptions = modal.contentEl.createEl("details", { cls: "wechat-sync-advanced" });
-    const shouldExpandAdvanced = !mobileSync || !coverBase64;
+    const shouldExpandAdvanced = !mobileSync || !coverBase64 && !thumbMediaId;
     if (shouldExpandAdvanced)
       advancedOptions.setAttribute("open", "");
     advancedOptions.createEl("summary", {
@@ -18567,10 +18951,33 @@ var AppleStyleView = class extends ItemView {
     const coverPreview = coverContent.createDiv({ cls: "wechat-modal-cover-preview" });
     const updatePreview = () => {
       coverPreview.empty();
-      if (coverBase64) {
+      coverPreview.removeClass("has-material-cover");
+      if (thumbMediaId) {
+        coverPreview.addClass("has-material-cover");
+        const materialPreview = coverPreview.createDiv({ cls: "wechat-modal-cover-material-preview" });
+        const materialTitle = (materialCover == null ? void 0 : materialCover.name) || "\u7D20\u6750\u5E93\u5C01\u9762";
+        const imageFrame = materialPreview.createDiv({ cls: "wechat-modal-cover-material-frame" });
+        if (coverBase64) {
+          const img = imageFrame.createEl("img", {
+            attr: { src: coverBase64, alt: materialTitle }
+          });
+          img.onerror = () => {
+            img.remove();
+            imageFrame.addClass("has-image-error");
+          };
+        } else {
+          imageFrame.addClass("has-image-error");
+        }
+        const meta = materialPreview.createDiv({ cls: "wechat-modal-cover-material-meta" });
+        meta.createEl("span", { text: "\u7D20\u6750\u5E93" });
+        meta.createEl("strong", { text: materialTitle });
+        syncBtn.disabled = false;
+        syncBtn.setText(getSyncButtonText());
+        syncBtn.removeClass("apple-btn-disabled");
+      } else if (coverBase64) {
         coverPreview.createEl("img", { attr: { src: coverBase64 } });
         syncBtn.disabled = false;
-        syncBtn.setText("\u5F00\u59CB\u540C\u6B65");
+        syncBtn.setText(getSyncButtonText());
         syncBtn.removeClass("apple-btn-disabled");
       } else {
         coverPreview.createEl("div", {
@@ -18584,6 +18991,10 @@ var AppleStyleView = class extends ItemView {
     };
     const coverBtns = coverContent.createDiv({ cls: "wechat-modal-cover-btns" });
     const uploadBtn = coverBtns.createEl("button", { text: "\u4E0A\u4F20" });
+    const selectMaterialBtn = coverBtns.createEl("button", {
+      text: "\u4ECE\u7D20\u6750\u5E93\u9009\u62E9",
+      cls: "wechat-cover-select-material-btn"
+    });
     const digestSection = advancedBody.createDiv({ cls: "wechat-modal-section" });
     digestSection.createEl("label", { text: "\u6587\u7AE0\u6458\u8981\uFF08\u53EF\u9009\uFF09", cls: "wechat-modal-label" });
     const tempDiv = document.createElement("div");
@@ -18612,19 +19023,57 @@ var AppleStyleView = class extends ItemView {
         this.articleStates.set(currentPath, { ...state, digest: digestInput.value });
       }
     });
+    const draftStatusEl = modal.contentEl.createDiv({ cls: "wechat-draft-status" });
+    const getSyncButtonText = () => draftAssociation && !forceNewDraft ? "\u66F4\u65B0\u8349\u7A3F" : "\u5F00\u59CB\u540C\u6B65";
+    const updateDraftStatusUI = () => {
+      if (!draftStatusEl)
+        return;
+      draftStatusEl.empty();
+      if (!draftAssociation || forceNewDraft)
+        return;
+      let confirmUnlink = false;
+      const statusText = draftStatusEl.createEl("span", {
+        text: "\u5DF2\u5173\u8054\u5FAE\u4FE1\u8349\u7A3F\uFF0C\u540C\u6B65\u5C06\u66F4\u65B0\u8BE5\u8349\u7A3F"
+      });
+      const unlinkBtn = draftStatusEl.createEl("button", {
+        text: "\u53D6\u6D88\u5173\u8054",
+        cls: "wechat-draft-unlink"
+      });
+      unlinkBtn.onclick = async () => {
+        if (!confirmUnlink) {
+          confirmUnlink = true;
+          draftStatusEl.addClass("is-confirming");
+          statusText.setText("\u518D\u6B21\u70B9\u51FB\u786E\u8BA4\u53D6\u6D88\u5173\u8054");
+          unlinkBtn.setText("\u786E\u8BA4\u53D6\u6D88");
+          return;
+        }
+        forceNewDraft = true;
+        if (currentPath) {
+          clearDraftAssociation(this.plugin.settings, currentPath);
+          await this.plugin.saveSettings();
+        }
+        draftAssociation = null;
+        syncBtn.setText(getSyncButtonText());
+        updateDraftStatusUI();
+      };
+    };
     const btnRow = modal.contentEl.createDiv({ cls: "wechat-modal-buttons" });
     const cancelBtn = btnRow.createEl("button", { text: "\u53D6\u6D88" });
     cancelBtn.onclick = () => modal.close();
-    const syncBtn = btnRow.createEl("button", { text: "\u5F00\u59CB\u540C\u6B65", cls: "mod-cta" });
+    const syncBtn = btnRow.createEl("button", { text: getSyncButtonText(), cls: "mod-cta" });
     updatePreview();
+    updateDraftStatusUI();
     syncBtn.onclick = async () => {
-      if (!coverBase64) {
+      if (!coverBase64 && !thumbMediaId) {
         new Notice("\u274C \u8BF7\u5148\u8BBE\u7F6E\u5C01\u9762\u56FE");
         return;
       }
       modal.close();
       this.selectedAccountId = selectedAccountId;
       this.sessionCoverBase64 = coverBase64;
+      this.sessionThumbMediaId = thumbMediaId;
+      this.sessionDraftMediaId = !forceNewDraft && (draftAssociation == null ? void 0 : draftAssociation.mediaId) ? draftAssociation.mediaId : "";
+      this.sessionDraftIndex = !forceNewDraft && Number.isInteger(draftAssociation == null ? void 0 : draftAssociation.index) ? draftAssociation.index : 0;
       this.sessionDigest = digestInput.value.trim() || autoDigest || "\u4E00\u952E\u540C\u6B65\u81EA Obsidian";
       await this.onSyncToWechat();
     };
@@ -18639,19 +19088,227 @@ var AppleStyleView = class extends ItemView {
         const reader = new FileReader();
         reader.onload = (event) => {
           coverBase64 = event.target.result;
+          thumbMediaId = "";
+          materialCover = null;
           this.sessionCoverBase64 = coverBase64;
+          this.sessionThumbMediaId = "";
           updatePreview();
           if (currentPath) {
             const state = this.articleStates.get(currentPath) || {};
-            this.articleStates.set(currentPath, { ...state, coverBase64 });
+            this.articleStates.set(currentPath, {
+              ...state,
+              coverBase64,
+              thumbMediaId: "",
+              materialCover: null
+            });
           }
         };
         reader.readAsDataURL(file);
       };
       input.click();
     };
+    selectMaterialBtn.onclick = async () => {
+      const account = getSelectedAccount();
+      if (!account) {
+        new Notice("\u8BF7\u5148\u914D\u7F6E\u516C\u4F17\u53F7\u8D26\u53F7");
+        return;
+      }
+      const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl);
+      await this.showMaterialPickerModal(api, (material) => {
+        thumbMediaId = material.mediaId;
+        coverBase64 = material.url || "";
+        materialCover = {
+          mediaId: material.mediaId,
+          url: material.url || "",
+          name: material.name || ""
+        };
+        this.sessionCoverBase64 = coverBase64;
+        this.sessionThumbMediaId = thumbMediaId;
+        updatePreview();
+        if (currentPath) {
+          const state = this.articleStates.get(currentPath) || {};
+          this.articleStates.set(currentPath, { ...state, coverBase64, thumbMediaId, materialCover });
+        }
+      });
+    };
     if (shouldOpenModal)
       modal.open();
+  }
+  getWechatMaterialCacheKey(api, type, offset, count) {
+    return [
+      (api == null ? void 0 : api.appId) || "",
+      (api == null ? void 0 : api.proxyUrl) || "",
+      type || "image",
+      Number(offset) || 0,
+      Number(count) || 20
+    ].join("::");
+  }
+  async loadWechatMaterialPage(api, type, offset, count, options = {}) {
+    const forceRefresh = options.forceRefresh === true;
+    const ttlMs = Number.isFinite(options.ttlMs) ? options.ttlMs : 5 * 60 * 1e3;
+    if (!this.wechatMaterialCache)
+      this.wechatMaterialCache = /* @__PURE__ */ new Map();
+    const key = this.getWechatMaterialCacheKey(api, type, offset, count);
+    const cached = this.wechatMaterialCache.get(key);
+    const now = Date.now();
+    for (const [cacheKey, entry] of this.wechatMaterialCache.entries()) {
+      if (!entry || now - entry.cachedAt >= ttlMs) {
+        this.wechatMaterialCache.delete(cacheKey);
+      }
+    }
+    if (!forceRefresh && cached && now - cached.cachedAt < ttlMs) {
+      return {
+        ...cached.data,
+        fromCache: true
+      };
+    }
+    const data = await api.batchGetMaterials(type, offset, count);
+    this.wechatMaterialCache.set(key, {
+      cachedAt: now,
+      data
+    });
+    return {
+      ...data,
+      fromCache: false
+    };
+  }
+  async showMaterialPickerModal(api, onSelect) {
+    var _a, _b;
+    const { Modal } = require("obsidian");
+    const modal = new Modal(this.app);
+    modal.titleEl.setText("\u4ECE\u7D20\u6750\u5E93\u9009\u62E9\u5C01\u9762");
+    (_a = modal.modalEl) == null ? void 0 : _a.addClass("wechat-material-picker-modal");
+    modal.contentEl.addClass("wechat-material-picker");
+    const pageSize = 18;
+    let currentPage = 1;
+    let totalCount = 0;
+    let selectedItem = null;
+    let isLoading = false;
+    const toolbar = modal.contentEl.createDiv({ cls: "wechat-material-toolbar" });
+    const refreshBtn = toolbar.createEl("button", { text: "\u5237\u65B0" });
+    const toolbarMeta = toolbar.createDiv({ cls: "wechat-material-toolbar-meta" });
+    const countLabel = toolbarMeta.createDiv({ cls: "wechat-material-count", text: "\u6B63\u5728\u52A0\u8F7D\u7D20\u6750\u5E93..." });
+    const cacheLabel = toolbarMeta.createDiv({ cls: "wechat-material-cache-note" });
+    const grid = modal.contentEl.createDiv({ cls: "wechat-material-grid" });
+    const footer = modal.contentEl.createDiv({ cls: "wechat-material-footer" });
+    const pagination = footer.createDiv({ cls: "wechat-material-pagination" });
+    const confirmBtn = footer.createEl("button", { text: "\u4F7F\u7528\u8FD9\u5F20\u5C01\u9762", cls: "mod-cta wechat-material-confirm" });
+    confirmBtn.disabled = true;
+    const renderLoadingSkeleton = () => {
+      grid.empty();
+      grid.addClass("is-loading");
+      for (let i = 0; i < pageSize; i += 1) {
+        const skeleton = grid.createDiv({ cls: "wechat-material-skeleton" });
+        skeleton.createDiv({ cls: "wechat-material-skeleton-thumb" });
+        skeleton.createDiv({ cls: "wechat-material-skeleton-name" });
+      }
+    };
+    const renderPagination = (loadPage2) => {
+      pagination.empty();
+      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+      if (totalPages <= 1)
+        return;
+      const prevBtn = pagination.createEl("button", { text: "\u4E0A\u4E00\u9875", cls: "wechat-material-page-btn" });
+      prevBtn.disabled = currentPage <= 1;
+      prevBtn.onclick = () => loadPage2(currentPage - 1);
+      pagination.createEl("span", {
+        text: `\u7B2C ${currentPage} / ${totalPages} \u9875`,
+        cls: "wechat-material-page-label"
+      });
+      const nextBtn = pagination.createEl("button", { text: "\u4E0B\u4E00\u9875", cls: "wechat-material-page-btn" });
+      nextBtn.disabled = currentPage >= totalPages;
+      nextBtn.onclick = () => loadPage2(currentPage + 1);
+    };
+    const renderItems = (items) => {
+      grid.empty();
+      grid.removeClass("is-loading");
+      if (!items.length) {
+        grid.createDiv({ cls: "wechat-material-empty", text: "\u7D20\u6750\u5E93\u4E2D\u6682\u65E0\u56FE\u7247\u7D20\u6750" });
+        return;
+      }
+      for (const item of items) {
+        const mediaId = item.media_id || item.mediaId || "";
+        if (!mediaId)
+          continue;
+        const cell = grid.createDiv({ cls: "wechat-material-cell" });
+        cell.setAttribute("role", "button");
+        cell.setAttribute("tabindex", "0");
+        cell.setAttribute("title", item.name || "\u672A\u547D\u540D\u56FE\u7247");
+        const url = item.url || "";
+        if (url) {
+          const img = cell.createEl("img", {
+            attr: { src: url, loading: "lazy", alt: item.name || "\u7D20\u6750\u56FE\u7247" }
+          });
+          img.onerror = () => {
+            img.remove();
+            cell.createDiv({ cls: "wechat-material-thumb-fallback", text: item.name || "\u56FE\u7247" });
+          };
+        } else {
+          cell.createDiv({ cls: "wechat-material-thumb-fallback", text: item.name || "\u56FE\u7247" });
+        }
+        cell.createDiv({ cls: "wechat-material-name", text: item.name || "\u672A\u547D\u540D\u56FE\u7247" });
+        const selectCell = () => {
+          grid.querySelectorAll(".wechat-material-cell.is-selected").forEach((el) => {
+            el.removeClass("is-selected");
+          });
+          cell.addClass("is-selected");
+          selectedItem = { ...item, mediaId, url };
+          confirmBtn.disabled = false;
+        };
+        cell.onclick = selectCell;
+        cell.onkeydown = (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            selectCell();
+          }
+        };
+      }
+    };
+    const loadPage = async (page, options = {}) => {
+      if (isLoading)
+        return;
+      isLoading = true;
+      currentPage = Math.max(1, page);
+      selectedItem = null;
+      confirmBtn.disabled = true;
+      pagination.empty();
+      countLabel.setText("\u6B63\u5728\u52A0\u8F7D\u7D20\u6750\u5E93...");
+      cacheLabel.setText("");
+      renderLoadingSkeleton();
+      try {
+        const offset = (currentPage - 1) * pageSize;
+        const data = await this.loadWechatMaterialPage(api, "image", offset, pageSize, {
+          forceRefresh: options.forceRefresh === true
+        });
+        totalCount = Number.isFinite(data.total_count) ? data.total_count : 0;
+        const items = Array.isArray(data.item) ? data.item : [];
+        countLabel.setText(totalCount > 0 ? `\u5171 ${totalCount} \u5F20\u56FE\u7247\u7D20\u6750` : "\u6682\u65E0\u56FE\u7247\u7D20\u6750");
+        cacheLabel.setText(data.fromCache ? "\u5F53\u524D\u9875\u5217\u8868\u6765\u81EA\u7F13\u5B58" : "");
+        renderItems(items);
+        renderPagination(loadPage);
+      } catch (error) {
+        grid.empty();
+        grid.removeClass("is-loading");
+        countLabel.setText("\u52A0\u8F7D\u5931\u8D25");
+        grid.createDiv({ cls: "wechat-material-empty", text: `\u52A0\u8F7D\u5931\u8D25\uFF1A${error.message}` });
+      } finally {
+        isLoading = false;
+      }
+    };
+    refreshBtn.onclick = () => loadPage(1, { forceRefresh: true });
+    confirmBtn.onclick = () => {
+      if (!selectedItem)
+        return;
+      modal.close();
+      onSelect({
+        mediaId: selectedItem.mediaId,
+        url: selectedItem.url || "",
+        name: selectedItem.name || ""
+      });
+    };
+    modal.open();
+    (_b = modal.modalEl) == null ? void 0 : _b.addClass("wechat-material-picker-modal");
+    await loadPage(1);
   }
   async openWechatsyncTask(syncId) {
     const taskId = String(syncId || "").trim();
@@ -19074,14 +19731,17 @@ var AppleStyleView = class extends ItemView {
         cleanupConfiguredDirectory: this.cleanupConfiguredDirectory.bind(this),
         getFirstImageFromArticle: this.getFirstImageFromArticle.bind(this)
       });
-      const { cleanupResult, imageUploadFailures, placeholderImageSources } = await syncService.syncToDraft({
+      const result = await syncService.syncToDraft({
         account,
         proxyUrl: this.plugin.settings.proxyUrl,
         currentHtml: this.getCurrentExportHtml(),
         activeFile,
         publishMeta,
         sessionCoverBase64: this.sessionCoverBase64,
+        sessionThumbMediaId: this.sessionThumbMediaId || "",
         sessionDigest: this.sessionDigest,
+        draftMediaId: this.sessionDraftMediaId || "",
+        draftIndex: this.sessionDraftIndex || 0,
         onStatus: (stage) => {
           if (stage === "cover")
             notice.setMessage("\u6B63\u5728\u5904\u7406\u5C01\u9762\u56FE...");
@@ -19090,7 +19750,7 @@ var AppleStyleView = class extends ItemView {
           if (stage === "math")
             notice.setMessage("\u6B63\u5728\u8F6C\u6362\u77E2\u91CF\u56FE/\u6570\u5B66\u516C\u5F0F...");
           if (stage === "draft")
-            notice.setMessage("\u6B63\u5728\u53D1\u9001\u5230\u5FAE\u4FE1\u8349\u7A3F\u7BB1...");
+            notice.setMessage(this.sessionDraftMediaId ? "\u6B63\u5728\u66F4\u65B0\u5FAE\u4FE1\u8349\u7A3F..." : "\u6B63\u5728\u53D1\u9001\u5230\u5FAE\u4FE1\u8349\u7A3F\u7BB1...");
         },
         onImageProgress: (current, total) => {
           notice.setMessage(`\u6B63\u5728\u540C\u6B65\u6B63\u6587\u56FE\u7247 (${current}/${total})...`);
@@ -19099,8 +19759,20 @@ var AppleStyleView = class extends ItemView {
           notice.setMessage(`\u6B63\u5728\u8F6C\u6362\u77E2\u91CF\u56FE/\u6570\u5B66\u516C\u5F0F (${current}/${total})...`);
         }
       });
+      const { cleanupResult, imageUploadFailures, placeholderImageSources, mediaId, isUpdate, draftIndex } = result;
+      if (activeFile && mediaId) {
+        setDraftAssociation(this.plugin.settings, {
+          sourcePath: activeFile.path,
+          mediaId,
+          accountId: account.id || "",
+          title: activeFile.basename,
+          index: draftIndex || 0,
+          updatedAt: Date.now()
+        });
+        await this.plugin.saveSettings();
+      }
       notice.hide();
-      new Notice("\u2705 \u540C\u6B65\u6210\u529F\uFF01\u8BF7\u524D\u5F80\u5FAE\u4FE1\u516C\u4F17\u53F7\u540E\u53F0\u8349\u7A3F\u7BB1\u67E5\u770B");
+      new Notice(isUpdate ? "\u2705 \u66F4\u65B0\u6210\u529F\uFF01\u5FAE\u4FE1\u8349\u7A3F\u5DF2\u66F4\u65B0" : "\u2705 \u540C\u6B65\u6210\u529F\uFF01\u8BF7\u524D\u5F80\u5FAE\u4FE1\u516C\u4F17\u53F7\u540E\u53F0\u8349\u7A3F\u7BB1\u67E5\u770B");
       const failedImageSources = Array.from(/* @__PURE__ */ new Set([
         ...Array.isArray(imageUploadFailures) ? imageUploadFailures.map((item) => item == null ? void 0 : item.src).filter(Boolean) : [],
         ...Array.isArray(placeholderImageSources) ? placeholderImageSources.filter(Boolean) : []
@@ -19117,7 +19789,13 @@ var AppleStyleView = class extends ItemView {
       notice.hide();
       console.error("Wechat Sync Error:", error);
       const friendlyMsg = toSyncFriendlyMessage(error.message);
-      this.showSyncFailureActions(friendlyMsg);
+      this.showSyncFailureActions(friendlyMsg, this.sessionDraftMediaId && activeFile ? {
+        draftAssociation: {
+          sourcePath: activeFile.path,
+          mediaId: this.sessionDraftMediaId,
+          accountId: account.id || ""
+        }
+      } : {});
     }
   }
   /**
@@ -20902,6 +21580,11 @@ var AppleStylePlugin = class extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
     let didMigrate = false;
     this.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    const normalizedDraftCache = normalizeDraftCache(this.settings.draftCache);
+    this.settings.draftCache = normalizedDraftCache.cache;
+    if (normalizedDraftCache.changed) {
+      didMigrate = true;
+    }
     const rawAiSettings = loadedData.ai;
     this.settings.ai = normalizeAiSettings(rawAiSettings || this.settings.ai || {});
     if (rawAiSettings !== void 0) {

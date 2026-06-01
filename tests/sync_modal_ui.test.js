@@ -78,6 +78,7 @@ describe('AppleStyleView - sync modal mobile UI', () => {
         defaultAccountId: 'acc-1',
         proxyUrl: '',
       },
+      saveSettings: vi.fn(),
     });
 
     view.app = { isMobile: true };
@@ -122,5 +123,79 @@ describe('AppleStyleView - sync modal mobile UI', () => {
     expect(syncBtn.disabled).toBe(false);
     expect(syncBtn.textContent).toBe('开始同步');
     expect(previewImg.getAttribute('src')).toBe(coverSrc);
+  });
+
+  it('should show associated draft state and pass draft media id into sync', async () => {
+    const coverSrc = 'data:image/png;base64,abc';
+    view.plugin.settings.draftCache = {
+      version: 1,
+      articles: {
+        'note-a.md': {
+          sourcePath: 'note-a.md',
+          mediaId: 'draft-existing',
+          accountId: 'acc-1',
+          title: 'note-a',
+          index: 0,
+          updatedAt: 100,
+        },
+      },
+    };
+    view.getFrontmatterPublishMeta = vi.fn(() => ({ excerpt: '', coverSrc }));
+    view.getFirstImageFromArticle = vi.fn(() => null);
+    const syncSpy = vi.spyOn(view, 'onSyncToWechat').mockResolvedValue(undefined);
+
+    view.showSyncModal();
+
+    const modal = getLastModal();
+    const status = modal.contentEl.querySelector('.wechat-draft-status');
+    const syncBtn = modal.contentEl.querySelector('.wechat-modal-buttons .mod-cta');
+
+    expect(status.textContent).toContain('已关联微信草稿');
+    expect(syncBtn.textContent).toBe('更新草稿');
+
+    await syncBtn.onclick();
+
+    expect(view.sessionDraftMediaId).toBe('draft-existing');
+    expect(view.sessionDraftIndex).toBe(0);
+    expect(syncSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should clear associated draft from the modal before creating a new draft', async () => {
+    const coverSrc = 'data:image/png;base64,abc';
+    view.plugin.settings.draftCache = {
+      version: 1,
+      articles: {
+        'note-a.md': {
+          sourcePath: 'note-a.md',
+          mediaId: 'draft-existing',
+          accountId: 'acc-1',
+          title: 'note-a',
+          index: 0,
+          updatedAt: 100,
+        },
+      },
+    };
+    view.getFrontmatterPublishMeta = vi.fn(() => ({ excerpt: '', coverSrc }));
+    view.getFirstImageFromArticle = vi.fn(() => null);
+
+    view.showSyncModal();
+
+    const modal = getLastModal();
+    const unlinkBtn = modal.contentEl.querySelector('.wechat-draft-unlink');
+    const syncBtn = modal.contentEl.querySelector('.wechat-modal-buttons .mod-cta');
+    expect(unlinkBtn).not.toBeNull();
+
+    await unlinkBtn.onclick();
+
+    expect(view.plugin.settings.draftCache.articles['note-a.md']).toBeDefined();
+    expect(view.plugin.saveSettings).not.toHaveBeenCalled();
+    expect(modal.contentEl.querySelector('.wechat-draft-status').textContent).toContain('确认取消');
+
+    await unlinkBtn.onclick();
+
+    expect(view.plugin.settings.draftCache.articles).toEqual({});
+    expect(view.plugin.saveSettings).toHaveBeenCalledTimes(1);
+    expect(modal.contentEl.querySelector('.wechat-draft-status').textContent).toBe('');
+    expect(syncBtn.textContent).toBe('开始同步');
   });
 });

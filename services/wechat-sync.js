@@ -48,7 +48,10 @@ function createWechatSyncService(deps) {
       activeFile,
       publishMeta,
       sessionCoverBase64,
+      sessionThumbMediaId,
       sessionDigest,
+      draftMediaId,
+      draftIndex = 0,
       onStatus,
       onImageProgress,
       onMathProgress,
@@ -56,15 +59,20 @@ function createWechatSyncService(deps) {
       const api = createApi(account.appId, account.appSecret, proxyUrl);
       const imageUploadFailures = [];
 
-      if (onStatus) onStatus('cover');
-      const coverSrc = sessionCoverBase64 || publishMeta.coverSrc || getFirstImageFromArticle();
-      if (!coverSrc) {
-        throw new Error('未设置封面图，同步失败。请在弹窗中上传封面。');
-      }
+      let thumbMediaId = typeof sessionThumbMediaId === 'string'
+        ? sessionThumbMediaId.trim()
+        : '';
+      if (!thumbMediaId) {
+        if (onStatus) onStatus('cover');
+        const coverSrc = sessionCoverBase64 || publishMeta.coverSrc || getFirstImageFromArticle();
+        if (!coverSrc) {
+          throw new Error('未设置封面图，同步失败。请在弹窗中上传封面。');
+        }
 
-      const coverBlob = await srcToBlob(coverSrc);
-      const coverRes = await api.uploadCover(coverBlob);
-      const thumbMediaId = coverRes.media_id;
+        const coverBlob = await srcToBlob(coverSrc);
+        const coverRes = await api.uploadCover(coverBlob);
+        thumbMediaId = coverRes.media_id;
+      }
 
       let draftHtml = await prepareHtmlForDraft(currentHtml);
 
@@ -108,11 +116,25 @@ function createWechatSyncService(deps) {
       }
 
       if (onStatus) onStatus('draft');
-      await api.createDraft(article);
+      const normalizedDraftMediaId = typeof draftMediaId === 'string' ? draftMediaId.trim() : '';
+      const isUpdate = !!normalizedDraftMediaId;
+      let mediaId = '';
+
+      if (isUpdate) {
+        await api.updateDraft(normalizedDraftMediaId, draftIndex, article);
+        mediaId = normalizedDraftMediaId;
+      } else {
+        const draftRes = await api.createDraft(article);
+        mediaId = draftRes?.media_id || '';
+      }
+
       const cleanupResult = await cleanupConfiguredDirectory(activeFile);
 
       return {
         article,
+        mediaId,
+        isUpdate,
+        draftIndex,
         cleanupResult,
         imageUploadFailures,
         placeholderImageSources: cleanedResult.imageSources,
