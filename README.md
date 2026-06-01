@@ -8,10 +8,34 @@
 
 只需一键，即可将您的 Markdown 笔记转换为符合微信生态美学、阅读体验极佳的 HTML；也可以在发布窗口选择其他平台，通过 Obsidian 发布助手浏览器插件保存为各平台草稿。无论是代码块、引用、列表、本地图片还是公式图表，都尽量保持从 Obsidian 到发布端的完整呈现。
 
-![Version](https://img.shields.io/badge/version-2.8.2-blue)
+![Version](https://img.shields.io/badge/version-2.8.3-blue)
 ![Obsidian](https://img.shields.io/badge/Obsidian-1.0.0+-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Chrome Companion](https://img.shields.io/badge/Chrome%20%E5%8D%8F%E5%90%8C%E6%89%A9%E5%B1%95-Obsidian%20%E5%8F%91%E5%B8%83%E5%8A%A9%E6%89%8B%E2%80%A2%E5%8D%B3%E5%B0%86%E4%B8%8A%E6%9E%B6-7c3aed)
+
+> 本项目基于开源项目 [ai-writing-plugins](https://github.com/Ceeon/ai-writing-plugins) 进行深度重构与迭代开发。我们致力于打造 Obsidian 生态中体验最好的公众号排版工具。
+
+如果这个插件帮你节省了公众号排版、复制或同步草稿箱的时间，欢迎[支持项目继续维护](./docs/support.md)。
+
+## 🔐 隐私与权限说明
+
+插件默认在你的 Obsidian 本地运行，不包含客户端遥测，也不会自动上传你的笔记内容。以下能力只会在你主动使用对应功能时触发：
+
+- **网络请求**：同步微信公众号草稿时会访问微信官方 API；配置 API 代理时会访问你填写的代理地址；使用 AI 编排时会访问你配置的 AI Provider；使用多平台发布时会连接本机浏览器插件服务。
+- **本地文件读取**：处理当前笔记引用的本地图片、封面和 Mermaid / LaTeX 导出资源时，会读取必要的 vault 内文件。
+- **剪贴板**：点击复制按钮时，插件会把当前预览内容写入系统剪贴板，便于粘贴到微信公众号后台。
+- **第三方账号**：微信公众号同步需要你自行配置 AppID / AppSecret；其他平台发布由「Obsidian 发布助手」浏览器插件使用你浏览器中已有的登录态保存草稿。
+- **Pro / 浏览器插件**：多平台发布和 Pro 授权能力由配套浏览器插件处理；Obsidian 插件侧负责写作、排版、平台选择和任务投递。
+
+## 🚀 v2.8.3 新功能：草稿更新与素材库封面
+
+v2.8.3 让微信草稿同步更接近真实发文流程：同一篇 Obsidian 笔记再次同步到同一个公众号账号时，可以更新已关联的微信草稿，减少重复草稿；发布窗口也支持直接从微信素材库选择封面，并在多平台分发时保持封面一致。
+
+- **保留草稿关联**：同步成功后会记录当前笔记与微信草稿的关联；后续修改文章再次同步时，会优先更新这篇草稿，而不是每次新建一篇。
+- **可控取消关联**：发布窗口会显示已关联草稿状态；需要重新创建草稿时，可以取消关联，操作前会有确认，避免误点。
+- **微信素材库封面**：封面图可以从本地上传，也可以从微信素材库选择。素材库选择器支持列表缓存、刷新和更稳定的加载状态。
+- **多平台封面一致**：当你选择微信素材库图片作为封面时，发送到浏览器插件的多平台任务会携带同一张封面，避免其他平台收到空封面或不同封面。
+- **任务列表修复**：修复 Markdown 任务列表 `[ ]` / `[x]` 在微信输出中的显示问题，包含 AI 布局结果缓存中的任务列表标记。
 
 ## English overview
 
@@ -28,21 +52,6 @@ The plugin does not include client-side telemetry and does not automatically upl
 - **Clipboard access**: Copy actions write the current rendered article to the system clipboard so you can paste it into the WeChat editor or another publishing surface.
 - **Third-party accounts**: WeChat sync requires your own AppID and AppSecret. Other platforms are handled by the companion browser extension using the login state already present in your browser.
 - **Companion browser extension**: Multi-platform publishing and Pro licensing are coordinated with Obsidian Publisher. The Obsidian plugin keeps the writing, rendering, platform selection, and task handoff inside your vault.
-
-> 本项目基于开源项目 [ai-writing-plugins](https://github.com/Ceeon/ai-writing-plugins) 进行深度重构与迭代开发。我们致力于打造 Obsidian 生态中体验最好的公众号排版工具。
-
-如果这个插件帮你节省了公众号排版、复制或同步草稿箱的时间，欢迎[支持项目继续维护](./docs/support.md)。
-
-## 🔐 隐私与权限说明
-
-插件默认在你的 Obsidian 本地运行，不包含客户端遥测，也不会自动上传你的笔记内容。以下能力只会在你主动使用对应功能时触发：
-
-- **网络请求**：同步微信公众号草稿时会访问微信官方 API；配置 API 代理时会访问你填写的代理地址；使用 AI 编排时会访问你配置的 AI Provider；使用多平台发布时会连接本机浏览器插件服务。
-- **本地文件读取**：处理当前笔记引用的本地图片、封面和 Mermaid / LaTeX 导出资源时，会读取必要的 vault 内文件。
-- **剪贴板**：点击复制按钮时，插件会把当前预览内容写入系统剪贴板，便于粘贴到微信公众号后台。
-- **第三方账号**：微信公众号同步需要你自行配置 AppID / AppSecret；其他平台发布由「Obsidian 发布助手」浏览器插件使用你浏览器中已有的登录态保存草稿。
-- **Pro / 浏览器插件**：多平台发布和 Pro 授权能力由配套浏览器插件处理；Obsidian 插件侧负责写作、排版、平台选择和任务投递。
-
 
 ## 🚀 v2.8.0 新功能：多平台一键分发
 
@@ -104,6 +113,8 @@ The plugin does not include client-side telemetry and does not automatically upl
     - **安全防重**：严格的幂等性设计，杜绝因网络超时产生的重复草稿。
     - **告别复制粘贴**：直接将文章同步到微信公众号后台草稿箱，图片自动上传。
     - **智能封面处理**：如果你的文档头部信息（frontmatter）里写了 `cover`，会优先用它做封面；没写就自动用正文第一张图，也可以手动换图。
+    - **草稿更新**：同一篇笔记再次同步到同一个公众号账号时，优先更新已关联草稿，避免后台堆出重复草稿。
+    - **素材库封面**：发布窗口支持从微信素材库选择封面；选择素材库封面后，多平台分发也会尽量携带同一张封面。
     - **智能摘要辅助**：如果 frontmatter 里写了 `excerpt`，会优先用它；没写就自动截取前 45 个字，也可以手动改。
     - **同步后自动清理（可选）**：发送成功后，可以自动删除你在设置里指定的目录（默认关闭）。
     - **目录支持变量**：清理目录支持 `{{note}}`，会自动替换成当前文档名，例如 `published/{{note}}_img`。
@@ -141,6 +152,7 @@ The plugin does not include client-side telemetry and does not automatically upl
     - **强大的本地图片支持**：无论是相对路径、绝对路径还是 WikiLink，都能自动识别并压缩。
     - **GIF 动图支持**：针对 GIF 格式特别优化，自动绕过压缩流程，完美保留完整动画帧。
     - **图片左右滑动查看**：多张图片可以组织成横向滑动图片块，适合步骤截图、对比图、长图拆分和敏感图片提示。
+    - **任务列表兼容**：Markdown 任务列表会转换为微信更稳定的勾选标记，避免 `[ ]` / `[x]` 泄漏到最终文章。
     - **温馨提示**：建议图片（尤其是 GIF）保持在 10MB 以内，以获得最佳的处理速度和公众号兼容性。超过 10MB 时插件会弹出提醒。
 
 8.  **⚡️ 实时渲染预览 (Live Preview)**
@@ -197,6 +209,8 @@ The plugin does not include client-side telemetry and does not automatically upl
      - `cover_dir` 用于同步成功后的“自动清理目录”判断，不作为封面图来源
      - 如果没有，就自动回退到插件默认逻辑（摘要自动截取、封面取正文首图）
    - 你在弹窗里手动上传封面、手动改摘要，始终优先于自动值。
+   - 如果当前笔记已经关联过微信草稿，再次同步会优先更新原草稿；需要新建时可在发布窗口取消关联。
+   - 如果封面已经在微信素材库里，可以直接点击“从素材库选择”，不用重复上传本地文件。
    - 发送成功后，文章会出现在公众号后台草稿箱。
 
 5. **发送到其他内容平台** ⭐ v2.8.0 新增
@@ -206,6 +220,7 @@ The plugin does not include client-side telemetry and does not automatically upl
    - 在设置页勾选想同步的平台；需要时可点击“读取已选平台状态”。
    - 回到转换器，点击 **发布与分发**，切换到 **其他平台**。
    - 勾选知乎、掘金、CSDN 等目标平台后，点击 **发送到浏览器插件**。
+   - 如果微信草稿箱页选择的是素材库封面，插件会把这张封面一并发送给浏览器插件，尽量保证各平台草稿封面一致。
    - Obsidian 会把当前文章投递给 Obsidian 发布助手；后续草稿链接、失败原因和单平台重试请在浏览器插件任务窗口中查看。
 
    <p align="center">

@@ -4,7 +4,7 @@
 
 Convert Obsidian Markdown into polished WeChat articles, then keep publishing to more platforms from the same workflow. Wechat Converter now supports live preview, copy-to-editor, WeChat draft sync, and beta multi-platform distribution through the Obsidian Publisher browser extension.
 
-![Version](https://img.shields.io/badge/version-2.8.2-blue)
+![Version](https://img.shields.io/badge/version-2.8.3-blue)
 ![Obsidian](https://img.shields.io/badge/Obsidian-1.0.0+-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Chrome Companion](https://img.shields.io/badge/Chrome%20Companion-Obsidian%20Publisher%20%E2%80%A2%20Coming%20Soon-7c3aed)
@@ -59,6 +59,9 @@ Wechat Converter is no longer limited to WeChat Official Accounts. From the same
 
 ## Recent Updates
 
+- WeChat draft sync can now keep a note linked to the draft it created, so later syncs update the existing draft instead of creating a duplicate. The publishing modal also lets you unlink when you want to start fresh.
+- Covers can now be selected from the WeChat permanent image material library, with cached material lists, a clearer picker loading state, and cover handoff to Obsidian Publisher for consistent multi-platform drafts.
+- Markdown task list markers now render as WeChat-safe checkbox glyphs, including task markers that pass through cached AI layout output.
 - Multi-platform publishing now lives in the publishing modal. Switch to `Other platforms` to send the rendered article to Obsidian Publisher, then let the browser extension save drafts on supported platforms such as Zhihu, Juejin, and CSDN.
 - Obsidian Publisher bridge settings now include enablement, token verification, platform selection, connection testing, and optional login-status checks for selected platforms.
 - AI layout planning now lives inside the converter workflow, with provider management, connection testing, built-in layout families, color palette switching, schema validation, and reusable debug snapshots.
