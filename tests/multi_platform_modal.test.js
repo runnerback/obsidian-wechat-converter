@@ -529,6 +529,135 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     }));
   });
 
+  it('downloads selected WeChat material cover and sends it as a bridge asset', async () => {
+    obsidian.requestUrl = vi.fn(async () => ({
+      arrayBuffer: async () => new Uint8Array([0xff, 0xd8, 0xff, 0x11]).buffer,
+      headers: { 'content-type': 'image/jpeg' },
+    }));
+    const bridge = {
+      health: vi.fn().mockResolvedValue({ ok: true, capabilities: { quotaPolicy: true } }),
+      enqueueSyncArticle: vi.fn().mockResolvedValue({ accepted: true, syncId: 'sync-1' }),
+    };
+    const view = makeView({ selectedPlatforms: ['zhihu'], bridge });
+    view.sessionThumbMediaId = 'thumb-from-material';
+    view.sessionCoverBase64 = 'https://mmbiz.qpic.cn/mmbiz_jpg/material-cover/0?wx_fmt=jpeg';
+    view.lastResolvedMarkdown = '正文';
+    view.getFrontmatterPublishMeta = vi.fn(() => ({ cover: 'assets/fallback.png', coverSrc: '' }));
+    view.getFirstImageFromArticle = vi.fn(() => 'https://example.com/fallback.png');
+    view.showWechatsyncEnqueueAcceptedModal = vi.fn();
+
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+    const syncBtn = modal.contentEl.querySelector('.wechat-modal-buttons .mod-cta');
+
+    await syncBtn.onclick();
+
+    expect(obsidian.requestUrl).toHaveBeenCalledWith({
+      url: 'https://mmbiz.qpic.cn/mmbiz_jpg/material-cover/0?wx_fmt=jpeg',
+      method: 'GET',
+    });
+    expect(bridge.enqueueSyncArticle).toHaveBeenCalledWith(expect.objectContaining({
+      cover: 'asset://image-1',
+      assets: [
+        expect.objectContaining({
+          id: 'image-1',
+          filename: '0.jpg',
+          mimeType: 'image/jpeg',
+          source: expect.objectContaining({
+            kind: 'wechat-material-cover',
+            thumbMediaId: 'thumb-from-material',
+          }),
+        }),
+      ],
+    }));
+  });
+
+  it('reuses cached downloaded WeChat material cover assets for later bridge sends', async () => {
+    obsidian.requestUrl = vi.fn(async () => ({
+      arrayBuffer: async () => new Uint8Array([0xff, 0xd8, 0xff, 0x22]).buffer,
+      headers: { 'content-type': 'image/jpeg' },
+    }));
+    const bridge = {
+      health: vi.fn().mockResolvedValue({ ok: true, capabilities: { quotaPolicy: true } }),
+      enqueueSyncArticle: vi.fn().mockResolvedValue({ accepted: true, syncId: 'sync-1' }),
+    };
+    const view = makeView({ selectedPlatforms: ['zhihu'], bridge });
+    view.sessionThumbMediaId = 'thumb-from-material';
+    view.sessionCoverBase64 = 'https://mmbiz.qpic.cn/mmbiz_jpg/material-cover/1?wx_fmt=jpeg';
+    view.lastResolvedMarkdown = '正文';
+    view.getFrontmatterPublishMeta = vi.fn(() => ({ cover: '', coverSrc: '' }));
+    view.showWechatsyncEnqueueAcceptedModal = vi.fn();
+
+    await view.showMultiPlatformSyncModal();
+    let modal = modalCapture.getLastModal();
+    await modal.contentEl.querySelector('.wechat-modal-buttons .mod-cta').onclick();
+
+    await view.showMultiPlatformSyncModal();
+    modal = modalCapture.getLastModal();
+    await modal.contentEl.querySelector('.wechat-modal-buttons .mod-cta').onclick();
+
+    expect(obsidian.requestUrl).toHaveBeenCalledTimes(1);
+    expect(bridge.enqueueSyncArticle).toHaveBeenCalledTimes(2);
+    expect(view.wechatMaterialCoverAssetCache.size).toBe(1);
+    expect(bridge.enqueueSyncArticle.mock.calls[1][0]).toEqual(expect.objectContaining({
+      cover: 'asset://image-1',
+      assets: [
+        expect.objectContaining({
+          id: 'image-1',
+          filename: '1.jpg',
+          base64: Buffer.from([0xff, 0xd8, 0xff, 0x22]).toString('base64'),
+        }),
+      ],
+    }));
+  });
+
+  it('does not enqueue when a selected WeChat material cover has no downloadable URL', async () => {
+    obsidian.requestUrl = vi.fn();
+    const bridge = {
+      health: vi.fn().mockResolvedValue({ ok: true, capabilities: { quotaPolicy: true } }),
+      enqueueSyncArticle: vi.fn().mockResolvedValue({ accepted: true, syncId: 'sync-1' }),
+    };
+    const view = makeView({ selectedPlatforms: ['zhihu'], bridge });
+    view.sessionThumbMediaId = 'thumb-from-material';
+    view.sessionCoverBase64 = '';
+    view.lastResolvedMarkdown = '正文';
+    view.showMultiPlatformSyncResultModal = vi.fn();
+
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+    await modal.contentEl.querySelector('.wechat-modal-buttons .mod-cta').onclick();
+
+    expect(obsidian.requestUrl).not.toHaveBeenCalled();
+    expect(bridge.enqueueSyncArticle).not.toHaveBeenCalled();
+    expect(view.showMultiPlatformSyncResultModal).toHaveBeenCalledWith(expect.objectContaining({
+      fatalError: expect.any(Error),
+    }));
+  });
+
+  it('does not enqueue when a selected WeChat material cover downloads as a non-image', async () => {
+    obsidian.requestUrl = vi.fn(async () => ({
+      arrayBuffer: async () => new TextEncoder().encode('<html></html>').buffer,
+      headers: { 'content-type': 'text/html' },
+    }));
+    const bridge = {
+      health: vi.fn().mockResolvedValue({ ok: true, capabilities: { quotaPolicy: true } }),
+      enqueueSyncArticle: vi.fn().mockResolvedValue({ accepted: true, syncId: 'sync-1' }),
+    };
+    const view = makeView({ selectedPlatforms: ['zhihu'], bridge });
+    view.sessionThumbMediaId = 'thumb-from-material';
+    view.sessionCoverBase64 = 'https://mmbiz.qpic.cn/material-cover/not-image';
+    view.lastResolvedMarkdown = '正文';
+    view.showMultiPlatformSyncResultModal = vi.fn();
+
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+    await modal.contentEl.querySelector('.wechat-modal-buttons .mod-cta').onclick();
+
+    expect(obsidian.requestUrl).toHaveBeenCalledTimes(1);
+    expect(bridge.enqueueSyncArticle).not.toHaveBeenCalled();
+    expect(view.showMultiPlatformSyncResultModal.mock.calls[0][0].fatalError.message).toContain('格式不支持');
+  });
+
   it('shows skipped platforms in the accepted task modal when quota truncates the request', () => {
     const view = makeView({ selectedPlatforms: ['zhihu', 'juejin'] });
     view.openPublisherProPage = vi.fn();

@@ -93,6 +93,7 @@ describe('AppleStyleView - sync action modal flows', () => {
     view = new AppleStyleView(null, {
       manifest: { id: 'wechat-converter' },
       settings: {},
+      saveSettings: vi.fn(),
     });
     view.app = { isMobile: true };
   });
@@ -147,5 +148,47 @@ describe('AppleStyleView - sync action modal flows', () => {
 
     expect(notices.length).toBeGreaterThan(0);
     expect(notices[notices.length - 1].message).toContain('请在设置中打开 Obsidian 发布助手并配置公众号账号');
+  });
+
+  it('showSyncFailureActions should let users unlink a stale draft and retry as a new draft', async () => {
+    const retrySpy = vi.spyOn(view, 'onSyncToWechat').mockResolvedValue(undefined);
+    view.plugin.settings = {
+      draftCache: {
+        version: 1,
+        articles: {
+          'folder/note.md': {
+            sourcePath: 'folder/note.md',
+            mediaId: 'draft-stale',
+            accountId: 'acc-1',
+            title: 'Note',
+            index: 0,
+            updatedAt: 100,
+          },
+        },
+      },
+    };
+    view.sessionDraftMediaId = 'draft-stale';
+    view.sessionDraftIndex = 0;
+
+    view.showSyncFailureActions('更新草稿失败', {
+      draftAssociation: {
+        sourcePath: 'folder/note.md',
+        mediaId: 'draft-stale',
+        accountId: 'acc-1',
+      },
+    });
+
+    const modal = getLastModal();
+    expect(modal.contentEl.textContent).toContain('取消关联后新建草稿');
+    const resetBtn = findButtonByText(modal.contentEl, '取消关联并新建草稿');
+    expect(resetBtn).not.toBeNull();
+
+    await resetBtn.onclick();
+
+    expect(view.plugin.settings.draftCache.articles).toEqual({});
+    expect(view.sessionDraftMediaId).toBe('');
+    expect(view.sessionDraftIndex).toBe(0);
+    expect(view.plugin.saveSettings).toHaveBeenCalledTimes(1);
+    expect(retrySpy).toHaveBeenCalledTimes(1);
   });
 });

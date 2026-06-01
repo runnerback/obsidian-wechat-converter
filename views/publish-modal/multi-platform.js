@@ -46,6 +46,7 @@ const {
 
 const { stripMarkdownFrontmatter } = require('../../services/markdown-utils');
 const {
+  DEFAULT_MAX_IMAGE_SIZE_BYTES,
   findAssetForCover,
   formatArticleImageWarnings,
   resolveArticleImages,
@@ -54,6 +55,8 @@ const {
 const QUOTA_POLICY = 'truncate';
 const FREE_DAILY_PLATFORM_QUOTA = 3;
 const MODAL_SELECTED_PLATFORM_IDS = '__wechatMultiPlatformSelectedPlatformIds';
+const MATERIAL_COVER_ASSET_TTL_MS = 5 * 60 * 1000;
+const MAX_MATERIAL_COVER_ASSET_CACHE_ENTRIES = 3;
 
 function getQuotaHintText(selectedCount = 0, { proLicensed = false } = {}) {
   if (proLicensed) {
@@ -101,6 +104,154 @@ function getBridgeSafeSessionCover(cover) {
   const value = String(cover || '').trim();
   if (/^(data:image\/|https?:\/\/)/i.test(value)) return value;
   return '';
+}
+
+function getFilenameFromUrl(url, fallback = 'wechat-material-cover') {
+  try {
+    const parsed = new URL(String(url || ''));
+    const filename = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || '');
+    return filename || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeRemoteCoverFilename(url, mimeType = '') {
+  const rawName = getFilenameFromUrl(url);
+  if (/\.(png|jpe?g|gif|webp)$/i.test(rawName)) return rawName;
+  if (/png/i.test(mimeType)) return `${rawName}.png`;
+  if (/gif/i.test(mimeType)) return `${rawName}.gif`;
+  if (/webp/i.test(mimeType)) return `${rawName}.webp`;
+  return `${rawName}.jpg`;
+}
+
+function bufferFromArrayBuffer(arrayBuffer) {
+  if (Buffer.isBuffer(arrayBuffer)) return arrayBuffer;
+  if (arrayBuffer instanceof ArrayBuffer) return Buffer.from(arrayBuffer);
+  if (ArrayBuffer.isView(arrayBuffer)) {
+    return Buffer.from(arrayBuffer.buffer, arrayBuffer.byteOffset, arrayBuffer.byteLength);
+  }
+  return Buffer.from(arrayBuffer || []);
+}
+
+function getMaterialCoverAssetCacheKey(view, url) {
+  return [
+    view?.sessionThumbMediaId || '',
+    String(url || '').trim(),
+  ].join('::');
+}
+
+function pruneMaterialCoverAssetCache(view, now = Date.now()) {
+  if (!view.wechatMaterialCoverAssetCache) view.wechatMaterialCoverAssetCache = new Map();
+
+  for (const [key, entry] of view.wechatMaterialCoverAssetCache.entries()) {
+    if (!entry || now - entry.cachedAt >= MATERIAL_COVER_ASSET_TTL_MS) {
+      view.wechatMaterialCoverAssetCache.delete(key);
+    }
+  }
+
+  while (view.wechatMaterialCoverAssetCache.size > MAX_MATERIAL_COVER_ASSET_CACHE_ENTRIES) {
+    let oldestKey = '';
+    let oldestAt = Infinity;
+    for (const [key, entry] of view.wechatMaterialCoverAssetCache.entries()) {
+      if ((entry?.cachedAt || 0) < oldestAt) {
+        oldestAt = entry.cachedAt || 0;
+        oldestKey = key;
+      }
+    }
+    if (!oldestKey) break;
+    view.wechatMaterialCoverAssetCache.delete(oldestKey);
+  }
+}
+
+function cloneMaterialCoverAsset(cachedAsset, id) {
+  return {
+    id,
+    filename: cachedAsset.filename,
+    mimeType: cachedAsset.mimeType,
+    size: cachedAsset.size,
+    base64: cachedAsset.base64,
+    source: { ...(cachedAsset.source || {}) },
+  };
+}
+
+async function downloadMaterialCoverAsBridgeAsset(view, coverUrl, assets = []) {
+  const url = String(coverUrl || '').trim();
+  if (!/^https?:\/\//i.test(url)) {
+    throw new Error('微信素材库封面缺少可下载 URL，无法用于多平台发布。请改用本地封面或 frontmatter cover。');
+  }
+
+  const now = Date.now();
+  const cacheKey = getMaterialCoverAssetCacheKey(view, url);
+  pruneMaterialCoverAssetCache(view, now);
+  const cached = view.wechatMaterialCoverAssetCache?.get(cacheKey);
+  if (cached && now - cached.cachedAt < MATERIAL_COVER_ASSET_TTL_MS) {
+    const id = `image-${assets.length + 1}`;
+    const asset = cloneMaterialCoverAsset(cached.asset, id);
+    assets.push(asset);
+    return {
+      asset,
+      cover: `asset://${id}`,
+      fromCache: true,
+    };
+  }
+
+  let response;
+  try {
+    response = await obsidian.requestUrl({ url, method: 'GET' });
+  } catch (error) {
+    throw new Error(`微信素材库封面下载失败：${error.message || String(error)}`);
+  }
+
+  const arrayBuffer = typeof response?.arrayBuffer === 'function'
+    ? await response.arrayBuffer()
+    : response?.arrayBuffer;
+  const buffer = bufferFromArrayBuffer(arrayBuffer);
+  if (!buffer.length) {
+    throw new Error('微信素材库封面下载失败：图片内容为空。');
+  }
+  if (buffer.length > DEFAULT_MAX_IMAGE_SIZE_BYTES) {
+    throw new Error(`微信素材库封面超过 ${Math.round(DEFAULT_MAX_IMAGE_SIZE_BYTES / 1024 / 1024)} MB，无法用于多平台发布。`);
+  }
+
+  const headers = response?.headers || {};
+  const mimeType = String(headers['content-type'] || headers['Content-Type'] || 'image/jpeg').split(';')[0].trim() || 'image/jpeg';
+  if (!/^image\/(png|jpe?g|gif|webp)$/i.test(mimeType)) {
+    throw new Error(`微信素材库封面格式不支持：${mimeType}`);
+  }
+
+  const id = `image-${assets.length + 1}`;
+  const filename = normalizeRemoteCoverFilename(url, mimeType);
+  const asset = {
+    id,
+    filename,
+    mimeType,
+    size: buffer.length,
+    base64: buffer.toString('base64'),
+    source: {
+      kind: 'wechat-material-cover',
+      originalSrc: url,
+      thumbMediaId: view.sessionThumbMediaId || '',
+    },
+  };
+  assets.push(asset);
+  if (!view.wechatMaterialCoverAssetCache) view.wechatMaterialCoverAssetCache = new Map();
+  view.wechatMaterialCoverAssetCache.set(cacheKey, {
+    cachedAt: now,
+    asset: {
+      filename,
+      mimeType,
+      size: buffer.length,
+      base64: asset.base64,
+      source: { ...asset.source },
+    },
+  });
+  pruneMaterialCoverAssetCache(view, now);
+  return {
+    asset,
+    cover: `asset://${id}`,
+    fromCache: false,
+  };
 }
 
 function getModalSelectedPlatformIds(modal, defaultSelectedPlatforms) {
@@ -351,6 +502,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     const rawMarkdown = stripMarkdownFrontmatter(view.lastResolvedMarkdown || '');
     const exportHtml = view.getCurrentExportHtml() || view.currentHtml || '';
     const publishMeta = view.getFrontmatterPublishMeta(activeFile);
+    const selectedWechatMaterialCover = !!view.sessionThumbMediaId;
     const rawCover = getBridgeSafeSessionCover(view.sessionCoverBase64) || publishMeta.cover || '';
     const notice = new Notice('正在准备并发送到浏览器插件...', 0);
     syncBtn.disabled = true;
@@ -368,10 +520,14 @@ async function showMultiPlatformPublishModal(view, options = {}) {
       const markdown = resolvedImages.markdown;
       const assets = resolvedImages.assets;
       const fallbackCover = view.getFirstImageFromArticle();
-      const cover = resolvedImages.cover
+      let cover = resolvedImages.cover
         || resolvedImages.firstImageSrc
         || (/^(https?:\/\/|data:image\/)/i.test(fallbackCover || '') ? fallbackCover : '')
         || '';
+      if (selectedWechatMaterialCover) {
+        const materialCover = await downloadMaterialCoverAsBridgeAsset(view, view.sessionCoverBase64, assets);
+        cover = materialCover.cover;
+      }
       // Bridge flow: do NOT inline base64 (assets[] carries bytes
       // separately). The ViaBridge variant maps app:// img srcs to
       // asset://<id> using the assets[] metadata directly. Sticking with

@@ -166,6 +166,40 @@ describe('AppleStylePlugin - Settings Migration', () => {
     expect(plugin.saveData).toHaveBeenCalledTimes(1);
   });
 
+  it('should normalize legacy flat draft cache shape', async () => {
+    const plugin = new AppleStylePlugin();
+    plugin.loadData = vi.fn().mockResolvedValue({
+      wechatAccounts: [],
+      defaultAccountId: '',
+      draftCache: {
+        'folder\\note.md': {
+          mediaId: 'draft-media',
+          accountId: 'acc-1',
+          title: 'Note',
+          updatedAt: 100,
+        },
+      },
+    });
+    plugin.saveData = vi.fn().mockResolvedValue(undefined);
+
+    await plugin.loadSettings();
+
+    expect(plugin.settings.draftCache).toEqual({
+      version: 1,
+      articles: {
+        'folder/note.md': {
+          sourcePath: 'folder/note.md',
+          mediaId: 'draft-media',
+          accountId: 'acc-1',
+          title: 'Note',
+          index: 0,
+          updatedAt: 100,
+        },
+      },
+    });
+    expect(plugin.saveData).toHaveBeenCalledTimes(1);
+  });
+
   it('should preserve explicit disabled ai setting during normalization', async () => {
     const plugin = new AppleStylePlugin();
     plugin.loadData = vi.fn().mockResolvedValue({
