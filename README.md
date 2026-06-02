@@ -2,13 +2,17 @@
 
 # 📝 微信公众号排版转换器 (WeChat Converter)
 
+## English summary
+
+WeChat Converter is an Obsidian plugin for writers who publish Markdown notes to WeChat Official Accounts and other Chinese content platforms. It provides live preview, WeChat-ready HTML conversion, rich HTML copy, WeChat draft sync, local image processing, math and diagram export, AI-assisted layout, and optional multi-platform draft delivery through the Obsidian Publisher companion browser extension.
+
 **让技术写作回归优雅与纯粹。**
 
 一款专为 Obsidian 打造的公众号与多平台发布增强插件。它不仅仅是一个转换工具，更是您内容创作流中的"数字化妆师"。我们解决了 Obsidian 到微信公众号排版的"最后一公里"问题，也把同一篇文章继续送往知乎、掘金、CSDN 等内容平台，让您专注于内容创作，无需为繁琐的格式调整和重复发布而分心。
 
 只需一键，即可将您的 Markdown 笔记转换为符合微信生态美学、阅读体验极佳的 HTML；也可以在发布窗口选择其他平台，通过 Obsidian 发布助手浏览器插件保存为各平台草稿。无论是代码块、引用、列表、本地图片还是公式图表，都尽量保持从 Obsidian 到发布端的完整呈现。
 
-![Version](https://img.shields.io/badge/version-2.8.3-blue)
+![Version](https://img.shields.io/badge/version-2.8.4-blue)
 ![Obsidian](https://img.shields.io/badge/Obsidian-1.0.0+-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Chrome Companion](https://img.shields.io/badge/Chrome%20%E5%8D%8F%E5%90%8C%E6%89%A9%E5%B1%95-Obsidian%20%E5%8F%91%E5%B8%83%E5%8A%A9%E6%89%8B%E2%80%A2%E5%8D%B3%E5%B0%86%E4%B8%8A%E6%9E%B6-7c3aed)
