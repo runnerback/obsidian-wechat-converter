@@ -323,7 +323,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   const cachedConnection = bridgeSettings.connection || normalizeMultiPlatformConnection();
   view.preparePublishModalShell(modal, { mode: 'multi', mobileSync });
 
-  const { wechatTab } = view.createPublishModeTabs(modal, 'multi');
+  const { wechatTab, multiPlatformTab } = view.createPublishModeTabs(modal, 'multi');
   wechatTab.onclick = () => {
     view.showSyncModal({ modal });
   };
@@ -335,8 +335,22 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   });
   const publishModalCapabilities = resolvePublishModalCapabilities(view, cachedConnection);
   const isProLicensed = publishModalCapabilities.proLicensed === true;
-  const quotaHint = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-quota-hint' });
+  const quotaHint = modal.contentEl.createDiv({
+    cls: `wechat-multiplatform-quota-hint ${isProLicensed ? 'is-pro' : 'is-free'}`,
+  });
+  if (isProLicensed) {
+    quotaHint.createEl('span', {
+      text: 'Pro',
+      cls: 'wechat-pro-identity-badge wechat-pro-identity-badge-quota',
+    });
+  } else {
+    quotaHint.createEl('span', {
+      text: '免费版',
+      cls: 'wechat-multiplatform-quota-pill',
+    });
+  }
   const quotaText = quotaHint.createEl('span', {
+    cls: 'wechat-multiplatform-quota-copy',
     text: getQuotaHintText(0, { proLicensed: isProLicensed }),
   });
   if (!isProLicensed) {

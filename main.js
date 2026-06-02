@@ -10314,10 +10314,44 @@ var require_wechat_sync = __commonJS({
         imageSources
       };
     }
+    function hashBytesFNV1a(bytes) {
+      let hash = 2166136261;
+      for (let i = 0; i < bytes.length; i++) {
+        hash ^= bytes[i];
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(16).padStart(8, "0");
+    }
+    async function computeBlobFingerprint(blob) {
+      if (!blob || typeof blob.arrayBuffer !== "function")
+        return "unknown";
+      const buffer = await blob.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      const contentHash = hashBytesFNV1a(bytes);
+      const type = blob.type || "application/octet-stream";
+      return `${type}:${bytes.length}:${contentHash}`;
+    }
+    function getCachedCoverEntry(cache, key) {
+      if (!cache || !cache.has(key))
+        return null;
+      const value = cache.get(key);
+      if (typeof value === "string") {
+        return { mediaId: value, fingerprint: "" };
+      }
+      if (value && typeof value === "object" && typeof value.mediaId === "string") {
+        return value;
+      }
+      return null;
+    }
+    function buildCoverUploadCacheKey(account, coverSrc) {
+      const namespace = String((account == null ? void 0 : account.id) || (account == null ? void 0 : account.appId) || "").trim();
+      return `${namespace}::cover::${String(coverSrc || "")}`;
+    }
     function createWechatSyncService2(deps) {
       const {
         createApi,
         srcToBlob,
+        coverUploadCache = null,
         processAllImages,
         processMathFormulas,
         prepareHtmlForDraft = async (html) => html,
@@ -10352,8 +10386,21 @@ var require_wechat_sync = __commonJS({
               throw new Error("\u672A\u8BBE\u7F6E\u5C01\u9762\u56FE\uFF0C\u540C\u6B65\u5931\u8D25\u3002\u8BF7\u5728\u5F39\u7A97\u4E2D\u4E0A\u4F20\u5C01\u9762\u3002");
             }
             const coverBlob = await srcToBlob(coverSrc);
-            const coverRes = await api.uploadCover(coverBlob);
-            thumbMediaId = coverRes.media_id;
+            const fingerprint = await computeBlobFingerprint(coverBlob);
+            const coverCacheKey = buildCoverUploadCacheKey(account, coverSrc);
+            const cachedCover = getCachedCoverEntry(coverUploadCache, coverCacheKey);
+            if (cachedCover && cachedCover.fingerprint && cachedCover.fingerprint === fingerprint && cachedCover.mediaId) {
+              thumbMediaId = cachedCover.mediaId;
+            } else {
+              const coverRes = await api.uploadCover(coverBlob);
+              thumbMediaId = coverRes.media_id;
+              if (coverUploadCache && thumbMediaId) {
+                coverUploadCache.set(coverCacheKey, {
+                  mediaId: thumbMediaId,
+                  fingerprint
+                });
+              }
+            }
           }
           let draftHtml = await prepareHtmlForDraft(currentHtml);
           if (onStatus)
@@ -14013,6 +14060,17 @@ var require_wechatsync_settings = __commonJS({
       const capabilities = normalizeMultiPlatformSyncSettings2(settings).connection.capabilities || {};
       return capabilities[capability] === true;
     }
+    function hasWechatSyncProLicense(settings = {}) {
+      var _a, _b;
+      const normalized = normalizeMultiPlatformSyncSettings2(settings);
+      if (((_b = (_a = normalized.connection) == null ? void 0 : _a.capabilities) == null ? void 0 : _b.proLicensed) === true)
+        return true;
+      return (normalized.connectedClients || []).some((client) => {
+        if ((client == null ? void 0 : client.status) !== "connected")
+          return false;
+        return normalizeWechatSyncCapabilities2(client.capabilities || {}).proLicensed === true;
+      });
+    }
     function normalizeWechatSyncRecentTasks2(value = []) {
       const tasks = Array.isArray(value) ? value : [];
       const seen = /* @__PURE__ */ new Set();
@@ -14093,6 +14151,7 @@ var require_wechatsync_settings = __commonJS({
       mergeWechatsyncPlatformLists: mergeWechatsyncPlatformLists2,
       normalizeWechatSyncCapabilities: normalizeWechatSyncCapabilities2,
       hasWechatSyncCapability: hasWechatSyncCapability2,
+      hasWechatSyncProLicense,
       normalizeWechatSyncRecentTasks: normalizeWechatSyncRecentTasks2,
       normalizeMultiPlatformConnection: normalizeMultiPlatformConnection2,
       normalizeMultiPlatformSyncSettings: normalizeMultiPlatformSyncSettings2,
@@ -14208,6 +14267,7 @@ var require_multi_platform_tab = __commonJS({
     } = require_wechatsync_results();
     var {
       getAvailableWechatsyncPlatforms: getAvailableWechatsyncPlatforms2,
+      hasWechatSyncProLicense,
       mergeWechatsyncPlatformLists: mergeWechatsyncPlatformLists2,
       normalizeMultiPlatformSyncSettings: normalizeMultiPlatformSyncSettings2,
       normalizeWechatSyncCapabilities: normalizeWechatSyncCapabilities2,
@@ -14245,21 +14305,30 @@ var require_multi_platform_tab = __commonJS({
       const { plugin } = tab;
       const multiPlatformSettings = normalizeMultiPlatformSyncSettings2(plugin.settings.multiPlatformSync);
       plugin.settings.multiPlatformSync = multiPlatformSettings;
+      const isProLicensed = hasWechatSyncProLicense(multiPlatformSettings);
       new Setting2(containerEl).setName("\u6D4F\u89C8\u5668\u63D2\u4EF6\u53D1\u5E03").setDesc("Obsidian \u8D1F\u8D23\u5199\u4F5C\u3001\u9884\u89C8\u548C\u5E73\u53F0\u9009\u62E9\uFF1B\u6D4F\u89C8\u5668\u63D2\u4EF6\u4F7F\u7528\u5F53\u524D\u7684\u6D4F\u89C8\u5668\u767B\u5F55\u6001\uFF0C\u628A\u6587\u7AE0\u4FDD\u5B58\u5230\u77E5\u4E4E\u3001\u6398\u91D1\u3001CSDN \u7B49\u5E73\u53F0\u8349\u7A3F\u7BB1\u3002\u5FAE\u4FE1\u4ECD\u53EF\u4F7F\u7528\u4E0A\u65B9\u516C\u4F17\u53F7 API\u3002").setHeading();
-      const guide = containerEl.createDiv({ cls: "wechat-multiplatform-onboarding" });
+      const guide = containerEl.createDiv({
+        cls: `wechat-multiplatform-onboarding${isProLicensed ? " is-pro" : ""}`
+      });
       guide.createEl("div", {
         cls: "wechat-multiplatform-onboarding-title",
-        text: "\u4E0B\u4E00\u6B65\uFF1A\u5B89\u88C5\u6D4F\u89C8\u5668\u63D2\u4EF6\u5E76\u5B8C\u6210\u914D\u7F6E"
+        text: isProLicensed ? "Pro \u5DF2\u6FC0\u6D3B\uFF1A\u591A\u5E73\u53F0\u53D1\u5E03\u5DF2\u89E3\u9501" : "\u4E0B\u4E00\u6B65\uFF1A\u5B89\u88C5\u6D4F\u89C8\u5668\u63D2\u4EF6\u5E76\u5B8C\u6210\u914D\u7F6E"
       });
       guide.createEl("p", {
-        text: "\u514D\u8D39\u7248\u6BCF\u5929\u53EF\u53D1\u5E03\u5230 3 \u4E2A\u5E73\u53F0\u3002\u60F3\u5148\u8BD5\u7528\uFF0C\u5148\u5B89\u88C5\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF1B\u5DF2\u7ECF\u8D2D\u4E70\u6216\u5DF2\u7ECF\u88C5\u597D\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF0C\u53EF\u76F4\u63A5\u67E5\u770B\u914D\u7F6E\u6B65\u9AA4\u3002"
+        text: isProLicensed ? "\u5F53\u524D\u6D4F\u89C8\u5668\u63D2\u4EF6\u6388\u6743\u5DF2\u540C\u6B65\u5230 Obsidian\uFF0C\u53D1\u5E03\u5230\u5176\u4ED6\u5E73\u53F0\u65F6\u4E0D\u518D\u53D7\u514D\u8D39\u7248\u6BCF\u65E5\u5E73\u53F0\u6570\u91CF\u9650\u5236\u3002" : "\u514D\u8D39\u7248\u6BCF\u5929\u53EF\u53D1\u5E03\u5230 3 \u4E2A\u5E73\u53F0\u3002\u60F3\u5148\u8BD5\u7528\uFF0C\u5148\u5B89\u88C5\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF1B\u5DF2\u7ECF\u8D2D\u4E70\u6216\u5DF2\u7ECF\u88C5\u597D\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF0C\u53EF\u76F4\u63A5\u67E5\u770B\u914D\u7F6E\u6B65\u9AA4\u3002"
       });
+      if (isProLicensed) {
+        guide.createEl("span", {
+          text: "Pro",
+          cls: "wechat-pro-identity-badge wechat-pro-identity-badge-panel"
+        });
+      }
       const guideActions = guide.createDiv({ cls: "wechat-multiplatform-onboarding-actions" });
       const installGuideBtn = guideActions.createEl("button", { text: "\u5B89\u88C5\u6D4F\u89C8\u5668\u63D2\u4EF6", cls: "mod-cta" });
       installGuideBtn.onclick = () => openExternalUrl(OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL2);
       const bridgeGuideBtn = guideActions.createEl("button", { text: "\u67E5\u770B\u914D\u7F6E\u6B65\u9AA4" });
       bridgeGuideBtn.onclick = () => openExternalUrl(OBSIDIAN_PUBLISHER_BRIDGE_GUIDE_URL2);
-      const proGuideBtn = guideActions.createEl("button", { text: "\u4E86\u89E3 Pro" });
+      const proGuideBtn = guideActions.createEl("button", { text: isProLicensed ? "\u67E5\u770B Pro \u6743\u76CA" : "\u4E86\u89E3 Pro" });
       proGuideBtn.onclick = () => openExternalUrl(OBSIDIAN_PUBLISHER_PRO_URL2);
       new Setting2(containerEl).setName("\u542F\u7528\u6D4F\u89C8\u5668\u63D2\u4EF6\u53D1\u5E03").setDesc("\u5F00\u542F\u540E\uFF0CObsidian \u4F1A\u628A\u6587\u7AE0\u53D1\u9001\u7ED9\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF0C\u7531\u63D2\u4EF6\u4F7F\u7528\u6D4F\u89C8\u5668\u767B\u5F55\u6001\u4FDD\u5B58\u5230\u5404\u5E73\u53F0\u8349\u7A3F\u7BB1\u3002\u5728\u4E0B\u65B9\u586B\u5165\u300C\u8FDE\u63A5\u4EE4\u724C\u300D\u5373\u53EF\u5B8C\u6210\u914D\u5BF9\u3002").addToggle((toggle) => toggle.setValue(multiPlatformSettings.enabled).onChange(async (value) => {
         var _a2;
@@ -14999,7 +15068,7 @@ var require_multi_platform = __commonJS({
       const bridgeSettings = normalizeMultiPlatformSyncSettings2(view.plugin.settings.multiPlatformSync);
       const cachedConnection = bridgeSettings.connection || normalizeMultiPlatformConnection2();
       view.preparePublishModalShell(modal, { mode: "multi", mobileSync });
-      const { wechatTab } = view.createPublishModeTabs(modal, "multi");
+      const { wechatTab, multiPlatformTab } = view.createPublishModeTabs(modal, "multi");
       wechatTab.onclick = () => {
         view.showSyncModal({ modal });
       };
@@ -15010,8 +15079,22 @@ var require_multi_platform = __commonJS({
       });
       const publishModalCapabilities = resolvePublishModalCapabilities(view, cachedConnection);
       const isProLicensed = publishModalCapabilities.proLicensed === true;
-      const quotaHint = modal.contentEl.createDiv({ cls: "wechat-multiplatform-quota-hint" });
+      const quotaHint = modal.contentEl.createDiv({
+        cls: `wechat-multiplatform-quota-hint ${isProLicensed ? "is-pro" : "is-free"}`
+      });
+      if (isProLicensed) {
+        quotaHint.createEl("span", {
+          text: "Pro",
+          cls: "wechat-pro-identity-badge wechat-pro-identity-badge-quota"
+        });
+      } else {
+        quotaHint.createEl("span", {
+          text: "\u514D\u8D39\u7248",
+          cls: "wechat-multiplatform-quota-pill"
+        });
+      }
       const quotaText = quotaHint.createEl("span", {
+        cls: "wechat-multiplatform-quota-copy",
         text: getQuotaHintText(0, { proLicensed: isProLicensed })
       });
       if (!isProLicensed) {
@@ -15932,6 +16015,7 @@ var AppleStyleView = class extends ItemView {
     this.articleStates = /* @__PURE__ */ new Map();
     this.svgUploadCache = /* @__PURE__ */ new Map();
     this.imageUploadCache = /* @__PURE__ */ new Map();
+    this.coverUploadCache = /* @__PURE__ */ new Map();
     this.mermaidImageCache = /* @__PURE__ */ new Map();
     this.renderGeneration = 0;
     this.lastRenderError = "";
@@ -18829,9 +18913,9 @@ var AppleStyleView = class extends ItemView {
       cls: `wechat-publish-mode-tab${activeMode === "wechat" ? " is-active" : ""}`
     });
     const multiPlatformTab = publishModeTabs.createEl("button", {
-      text: MULTI_PLATFORM_TAB_LABEL,
       cls: `wechat-publish-mode-tab${activeMode === "multi" ? " is-active" : ""}`
     });
+    multiPlatformTab.createEl("span", { text: MULTI_PLATFORM_TAB_LABEL });
     return { wechatTab, multiPlatformTab };
   }
   showSyncModal(options = {}) {
@@ -19724,6 +19808,7 @@ var AppleStyleView = class extends ItemView {
       const syncService = createWechatSyncService({
         createApi: (appId, appSecret, proxyUrl) => new WechatAPI(appId, appSecret, proxyUrl),
         srcToBlob: this.srcToBlob.bind(this),
+        coverUploadCache: this.coverUploadCache,
         processAllImages: this.processAllImages.bind(this),
         processMathFormulas: this.processMathFormulas.bind(this),
         prepareHtmlForDraft: this.prepareHtmlForWechatDraft.bind(this),
@@ -20701,6 +20786,9 @@ var AppleStyleView = class extends ItemView {
     if (this.imageUploadCache) {
       this.imageUploadCache.clear();
     }
+    if (this.coverUploadCache) {
+      this.coverUploadCache.clear();
+    }
     if (this.mermaidImageCache) {
       this.mermaidImageCache.clear();
     }
@@ -20744,7 +20832,8 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
     new Setting(containerEl).setDesc("\u5728 Obsidian \u4E2D\u5B8C\u6210\u5199\u4F5C\u4E0E\u9884\u89C8\uFF1B\u5FAE\u4FE1\u8D26\u53F7\u3001\u6D4F\u89C8\u5668\u63D2\u4EF6\u53D1\u5E03\u548C\u9ED8\u8BA4\u53D1\u5E03\u9009\u9879\u5728\u8FD9\u91CC\u914D\u7F6E\u3002\u66F4\u591A\u6392\u7248\u6837\u5F0F\u8BF7\u5728\u4FA7\u8FB9\u680F\u9762\u677F\u4E2D\u8C03\u6574\u3002");
     const tabBar = containerEl.createDiv({ cls: "apple-settings-tabs" });
     const wechatTab = tabBar.createDiv({ cls: "apple-settings-tab active", text: "\u5FAE\u4FE1" });
-    const multiTab = tabBar.createDiv({ cls: "apple-settings-tab", text: MULTI_PLATFORM_TAB_LABEL });
+    const multiTab = tabBar.createDiv({ cls: "apple-settings-tab apple-settings-tab-multi" });
+    multiTab.createSpan({ text: MULTI_PLATFORM_TAB_LABEL, cls: "apple-settings-tab-label" });
     const wechatContent = containerEl.createDiv({ cls: "apple-settings-tab-content" });
     const multiContent = containerEl.createDiv({ cls: "apple-settings-tab-content" });
     multiContent.style.display = "none";

@@ -255,7 +255,9 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
 
     const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
     expect(hint).not.toBeNull();
+    expect(hint.classList.contains('is-free')).toBe(true);
     expect(hint.textContent).toContain('免费版每天 3 个平台额度');
+    expect(hint.querySelector('.wechat-multiplatform-quota-pill')?.textContent).toBe('免费版');
     const upgradeBtn = hint.querySelector('button');
     expect(upgradeBtn.textContent).toBe('升级 Pro');
 
@@ -272,8 +274,11 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
 
     const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
     expect(hint).not.toBeNull();
+    expect(hint.classList.contains('is-pro')).toBe(true);
+    expect(hint.querySelector('.wechat-pro-identity-badge')?.textContent).toBe('Pro');
     expect(hint.textContent).toContain('Pro 已激活');
     expect(hint.textContent).not.toContain('免费版每天');
+    expect(modal.contentEl.querySelector('.wechat-publish-mode-tab.is-active .wechat-pro-identity-badge')).toBeNull();
     expect(hint.querySelector('button')).toBeNull();
     expect(view.openPublisherProPage).not.toHaveBeenCalled();
   });

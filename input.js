@@ -683,6 +683,9 @@ class AppleStyleView extends ItemView {
     // 普通图片上传缓存：Map<accountId::src, wechatUrl>
     // 用于同一视图生命周期内跨次同步复用，避免重复上传相同图片
     this.imageUploadCache = new Map();
+    // 封面上传缓存：Map<accountId/appId::cover::src, { mediaId, fingerprint }>
+    // 复用同一封面图的 thumb_media_id，封面内容变化时会自动重新上传。
+    this.coverUploadCache = new Map();
     // Mermaid 导出缓存：Map<Hash, { dataUrl, width, height, style }>
     // 复制与同步复用同一份本地导出结果，避免重复栅格化
     this.mermaidImageCache = new Map();
@@ -3920,9 +3923,9 @@ class AppleStyleView extends ItemView {
       cls: `wechat-publish-mode-tab${activeMode === 'wechat' ? ' is-active' : ''}`,
     });
     const multiPlatformTab = publishModeTabs.createEl('button', {
-      text: MULTI_PLATFORM_TAB_LABEL,
       cls: `wechat-publish-mode-tab${activeMode === 'multi' ? ' is-active' : ''}`,
     });
+    multiPlatformTab.createEl('span', { text: MULTI_PLATFORM_TAB_LABEL });
     return { wechatTab, multiPlatformTab };
   }
 
@@ -4923,6 +4926,7 @@ class AppleStyleView extends ItemView {
       const syncService = createWechatSyncService({
         createApi: (appId, appSecret, proxyUrl) => new WechatAPI(appId, appSecret, proxyUrl),
         srcToBlob: this.srcToBlob.bind(this),
+        coverUploadCache: this.coverUploadCache,
         processAllImages: this.processAllImages.bind(this),
         processMathFormulas: this.processMathFormulas.bind(this),
         prepareHtmlForDraft: this.prepareHtmlForWechatDraft.bind(this),
@@ -6049,6 +6053,9 @@ class AppleStyleView extends ItemView {
     if (this.imageUploadCache) {
       this.imageUploadCache.clear();
     }
+    if (this.coverUploadCache) {
+      this.coverUploadCache.clear();
+    }
     if (this.mermaidImageCache) {
       this.mermaidImageCache.clear();
     }
@@ -6106,7 +6113,8 @@ class AppleStyleSettingTab extends PluginSettingTab {
     // === Tab 导航 ===
     const tabBar = containerEl.createDiv({ cls: 'apple-settings-tabs' });
     const wechatTab = tabBar.createDiv({ cls: 'apple-settings-tab active', text: '微信' });
-    const multiTab = tabBar.createDiv({ cls: 'apple-settings-tab', text: MULTI_PLATFORM_TAB_LABEL });
+    const multiTab = tabBar.createDiv({ cls: 'apple-settings-tab apple-settings-tab-multi' });
+    multiTab.createSpan({ text: MULTI_PLATFORM_TAB_LABEL, cls: 'apple-settings-tab-label' });
 
     const wechatContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
     const multiContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });

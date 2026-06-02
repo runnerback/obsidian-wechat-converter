@@ -17,6 +17,7 @@ const {
   createDefaultMultiPlatformSyncSettings,
   normalizeConnectedClient,
   normalizeConnectedClients,
+  hasWechatSyncProLicense,
   normalizeMultiPlatformSyncSettings,
   normalizeWechatSyncCapabilities,
 } = require('../services/wechatsync-settings');
@@ -209,6 +210,28 @@ describe('§16 Phase 1 normalizeConnectedClient / normalizeConnectedClients', ()
       connection: { capabilities: { proLicensed: true } },
     });
     expect(normalized.connection.capabilities.proLicensed).toBe(true);
+  });
+
+  it('hasWechatSyncProLicense recognises active Pro from cached connection and connected clients', () => {
+    expect(hasWechatSyncProLicense({
+      connection: { capabilities: { proLicensed: true } },
+    })).toBe(true);
+
+    expect(hasWechatSyncProLicense({
+      connectedClients: [{
+        extensionInstanceId: 'client-1',
+        status: 'connected',
+        capabilities: { proLicensed: true },
+      }],
+    })).toBe(true);
+
+    expect(hasWechatSyncProLicense({
+      connectedClients: [{
+        extensionInstanceId: 'client-2',
+        status: 'disconnected',
+        capabilities: { proLicensed: true },
+      }],
+    })).toBe(false);
   });
 
   it('normalizeWechatSyncCapabilities coerces non-boolean proLicensed inputs to false (strict === true)', () => {

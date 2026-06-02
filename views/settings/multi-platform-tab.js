@@ -33,6 +33,7 @@ const {
 
 const {
   getAvailableWechatsyncPlatforms,
+  hasWechatSyncProLicense,
   mergeWechatsyncPlatformLists,
   normalizeMultiPlatformSyncSettings,
   normalizeWechatSyncCapabilities,
@@ -75,26 +76,37 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
   const { plugin } = tab;
   const multiPlatformSettings = normalizeMultiPlatformSyncSettings(plugin.settings.multiPlatformSync);
   plugin.settings.multiPlatformSync = multiPlatformSettings;
+  const isProLicensed = hasWechatSyncProLicense(multiPlatformSettings);
 
   new Setting(containerEl)
     .setName('浏览器插件发布')
     .setDesc('Obsidian 负责写作、预览和平台选择；浏览器插件使用当前的浏览器登录态，把文章保存到知乎、掘金、CSDN 等平台草稿箱。微信仍可使用上方公众号 API。')
     .setHeading();
 
-  const guide = containerEl.createDiv({ cls: 'wechat-multiplatform-onboarding' });
+  const guide = containerEl.createDiv({
+    cls: `wechat-multiplatform-onboarding${isProLicensed ? ' is-pro' : ''}`,
+  });
   guide.createEl('div', {
     cls: 'wechat-multiplatform-onboarding-title',
-    text: '下一步：安装浏览器插件并完成配置',
+    text: isProLicensed ? 'Pro 已激活：多平台发布已解锁' : '下一步：安装浏览器插件并完成配置',
   });
   guide.createEl('p', {
-    text: '免费版每天可发布到 3 个平台。想先试用，先安装浏览器插件；已经购买或已经装好浏览器插件，可直接查看配置步骤。',
+    text: isProLicensed
+      ? '当前浏览器插件授权已同步到 Obsidian，发布到其他平台时不再受免费版每日平台数量限制。'
+      : '免费版每天可发布到 3 个平台。想先试用，先安装浏览器插件；已经购买或已经装好浏览器插件，可直接查看配置步骤。',
   });
+  if (isProLicensed) {
+    guide.createEl('span', {
+      text: 'Pro',
+      cls: 'wechat-pro-identity-badge wechat-pro-identity-badge-panel',
+    });
+  }
   const guideActions = guide.createDiv({ cls: 'wechat-multiplatform-onboarding-actions' });
   const installGuideBtn = guideActions.createEl('button', { text: '安装浏览器插件', cls: 'mod-cta' });
   installGuideBtn.onclick = () => openExternalUrl(OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL);
   const bridgeGuideBtn = guideActions.createEl('button', { text: '查看配置步骤' });
   bridgeGuideBtn.onclick = () => openExternalUrl(OBSIDIAN_PUBLISHER_BRIDGE_GUIDE_URL);
-  const proGuideBtn = guideActions.createEl('button', { text: '了解 Pro' });
+  const proGuideBtn = guideActions.createEl('button', { text: isProLicensed ? '查看 Pro 权益' : '了解 Pro' });
   proGuideBtn.onclick = () => openExternalUrl(OBSIDIAN_PUBLISHER_PRO_URL);
 
   new Setting(containerEl)
