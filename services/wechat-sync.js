@@ -28,10 +28,46 @@ function replaceUnuploadedDraftImagesWithPlaceholders(html) {
   };
 }
 
+function hashBytesFNV1a(bytes) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    hash ^= bytes[i];
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+async function computeBlobFingerprint(blob) {
+  if (!blob || typeof blob.arrayBuffer !== 'function') return 'unknown';
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const contentHash = hashBytesFNV1a(bytes);
+  const type = blob.type || 'application/octet-stream';
+  return `${type}:${bytes.length}:${contentHash}`;
+}
+
+function getCachedCoverEntry(cache, key) {
+  if (!cache || !cache.has(key)) return null;
+  const value = cache.get(key);
+  if (typeof value === 'string') {
+    return { mediaId: value, fingerprint: '' };
+  }
+  if (value && typeof value === 'object' && typeof value.mediaId === 'string') {
+    return value;
+  }
+  return null;
+}
+
+function buildCoverUploadCacheKey(account, coverSrc) {
+  const namespace = String(account?.id || account?.appId || '').trim();
+  return `${namespace}::cover::${String(coverSrc || '')}`;
+}
+
 function createWechatSyncService(deps) {
   const {
     createApi,
     srcToBlob,
+    coverUploadCache = null,
     processAllImages,
     processMathFormulas,
     prepareHtmlForDraft = async (html) => html,
@@ -70,8 +106,26 @@ function createWechatSyncService(deps) {
         }
 
         const coverBlob = await srcToBlob(coverSrc);
-        const coverRes = await api.uploadCover(coverBlob);
-        thumbMediaId = coverRes.media_id;
+        const fingerprint = await computeBlobFingerprint(coverBlob);
+        const coverCacheKey = buildCoverUploadCacheKey(account, coverSrc);
+        const cachedCover = getCachedCoverEntry(coverUploadCache, coverCacheKey);
+        if (
+          cachedCover &&
+          cachedCover.fingerprint &&
+          cachedCover.fingerprint === fingerprint &&
+          cachedCover.mediaId
+        ) {
+          thumbMediaId = cachedCover.mediaId;
+        } else {
+          const coverRes = await api.uploadCover(coverBlob);
+          thumbMediaId = coverRes.media_id;
+          if (coverUploadCache && thumbMediaId) {
+            coverUploadCache.set(coverCacheKey, {
+              mediaId: thumbMediaId,
+              fingerprint,
+            });
+          }
+        }
       }
 
       let draftHtml = await prepareHtmlForDraft(currentHtml);

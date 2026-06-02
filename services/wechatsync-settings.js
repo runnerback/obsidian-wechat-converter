@@ -120,6 +120,15 @@ function hasWechatSyncCapability(settings = {}, capability = '') {
   return capabilities[capability] === true;
 }
 
+function hasWechatSyncProLicense(settings = {}) {
+  const normalized = normalizeMultiPlatformSyncSettings(settings);
+  if (normalized.connection?.capabilities?.proLicensed === true) return true;
+  return (normalized.connectedClients || []).some((client) => {
+    if (client?.status !== 'connected') return false;
+    return normalizeWechatSyncCapabilities(client.capabilities || {}).proLicensed === true;
+  });
+}
+
 function normalizeWechatSyncRecentTasks(value = []) {
   const tasks = Array.isArray(value) ? value : [];
   const seen = new Set();
@@ -222,6 +231,7 @@ module.exports = {
   mergeWechatsyncPlatformLists,
   normalizeWechatSyncCapabilities,
   hasWechatSyncCapability,
+  hasWechatSyncProLicense,
   normalizeWechatSyncRecentTasks,
   normalizeMultiPlatformConnection,
   normalizeMultiPlatformSyncSettings,

@@ -131,6 +131,92 @@ describe('Wechat Sync Service', () => {
     }));
   });
 
+  it('should reuse cached uploaded cover media id across repeated syncs', async () => {
+    const api = createMockApi();
+    api.uploadCover = vi.fn(async () => ({ media_id: 'thumb-cached' }));
+    const coverUploadCache = new Map();
+    const srcToBlob = vi.fn(async () => new Blob(['same-cover'], { type: 'image/png' }));
+    const service = createWechatSyncService({
+      createApi: vi.fn(() => api),
+      srcToBlob,
+      coverUploadCache,
+      prepareHtmlForDraft: vi.fn(async (html) => html),
+      processAllImages: vi.fn(async () => '<p>x</p>'),
+      processMathFormulas: vi.fn(async (html) => html),
+      cleanHtmlForDraft: vi.fn((html) => html),
+      cleanupConfiguredDirectory: vi.fn(async () => ({ attempted: false })),
+      getFirstImageFromArticle: vi.fn(() => 'app://fallback-cover'),
+    });
+
+    const payload = {
+      account: { id: 'acc-1', appId: 'wx1', appSecret: 'sec' },
+      proxyUrl: '',
+      currentHtml: '<p>x</p>',
+      activeFile: { basename: 'note-title' },
+      publishMeta: { coverSrc: null },
+      sessionCoverBase64: 'app://cover.png',
+      sessionDigest: '',
+    };
+
+    await service.syncToDraft(payload);
+    await service.syncToDraft(payload);
+
+    expect(srcToBlob).toHaveBeenCalledTimes(2);
+    expect(api.uploadCover).toHaveBeenCalledTimes(1);
+    expect(api.createDraft).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      thumb_media_id: 'thumb-cached',
+    }));
+  });
+
+  it('should re-upload cached cover when the source content changes', async () => {
+    const api = createMockApi();
+    api.uploadCover = vi
+      .fn()
+      .mockResolvedValueOnce({ media_id: 'thumb-v1' })
+      .mockResolvedValueOnce({ media_id: 'thumb-v2' });
+    const srcToBlob = vi
+      .fn()
+      .mockResolvedValueOnce({
+        type: 'image/png',
+        arrayBuffer: async () => new Uint8Array([1]).buffer,
+      })
+      .mockResolvedValueOnce({
+        type: 'image/png',
+        arrayBuffer: async () => new Uint8Array([2]).buffer,
+      });
+    const service = createWechatSyncService({
+      createApi: vi.fn(() => api),
+      srcToBlob,
+      coverUploadCache: new Map(),
+      prepareHtmlForDraft: vi.fn(async (html) => html),
+      processAllImages: vi.fn(async () => '<p>x</p>'),
+      processMathFormulas: vi.fn(async (html) => html),
+      cleanHtmlForDraft: vi.fn((html) => html),
+      cleanupConfiguredDirectory: vi.fn(async () => ({ attempted: false })),
+      getFirstImageFromArticle: vi.fn(() => 'app://fallback-cover'),
+    });
+    const payload = {
+      account: { id: 'acc-1', appId: 'wx1', appSecret: 'sec' },
+      proxyUrl: '',
+      currentHtml: '<p>x</p>',
+      activeFile: { basename: 'note-title' },
+      publishMeta: { coverSrc: null },
+      sessionCoverBase64: 'app://cover.png',
+      sessionDigest: '',
+    };
+
+    await service.syncToDraft(payload);
+    await service.syncToDraft(payload);
+
+    expect(api.uploadCover).toHaveBeenCalledTimes(2);
+    expect(api.createDraft).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      thumb_media_id: 'thumb-v1',
+    }));
+    expect(api.createDraft).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      thumb_media_id: 'thumb-v2',
+    }));
+  });
+
   it('should pass accountId cache context into image processing', async () => {
     const api = createMockApi();
     const createApi = vi.fn(() => api);

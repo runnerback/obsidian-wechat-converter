@@ -151,6 +151,25 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     expect(names).toContain('读取已选平台状态');
   });
 
+  it('shows Pro identity in the multi-platform panel without adding a settings-tab badge', () => {
+    const tab = renderTab(makePlugin({ multiPlatformSync: {
+      enabled: true,
+      port: 9527,
+      token: 'token',
+      supportedPlatforms: [],
+      selectedPlatforms: [],
+      connectedClients: [],
+      connection: { status: 'connected', checkedAt: Date.now(), platforms: [], capabilities: { proLicensed: true }, message: '' },
+      recentTasks: [],
+    } }));
+
+    const tabBadge = tab.containerEl.querySelector('.apple-settings-tab-multi .wechat-pro-identity-badge');
+    const panel = tab.containerEl.querySelector('.wechat-multiplatform-onboarding.is-pro');
+    expect(tabBadge).toBeNull();
+    expect(panel?.textContent).toContain('Pro 已激活');
+    expect(panel?.textContent).toContain('不再受免费版每日平台数量限制');
+  });
+
   it('does not expose hidden fallback-only platforms in the settings picker', () => {
     const tab = renderTab(makePlugin({ multiPlatformSync: {
       enabled: true,
