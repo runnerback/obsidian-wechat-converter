@@ -38,6 +38,44 @@ describe('Obsidian Triplet Serializer', () => {
     expect(figure.getAttribute('style')).toBe('display:block;margin:16px 0;text-align:center;');
   });
 
+  it('should not inject browser-only adaptive colors into styled list text wrappers', async () => {
+    const gridConverter = await createLegacyConverter({
+      themeOptions: {
+        theme: 'grid',
+        themeColor: 'teal',
+      },
+    });
+    const root = document.createElement('div');
+    root.innerHTML = [
+      '<ul>',
+      '<li>',
+      '<span style="display:block;margin:0;padding:0;line-height: 1.82;">',
+      '<span style="font-weight:bold;color:#20c997;">重点：</span> 外层列表正文',
+      '</span>',
+      '<p style="font-size:16px;line-height:1.82;color:#344054;margin:0 0 4px 20px;padding:0;">',
+      '嵌套列表正文 <code>code</code>',
+      '</p>',
+      '</li>',
+      '</ul>',
+    ].join('');
+
+    const html = serializeObsidianRenderedHtml({ root, converter: gridConverter });
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    const blockSpan = container.querySelector('li > span');
+    const nestedParagraph = container.querySelector('li > p');
+    const accentSpan = container.querySelector('li > span > span');
+    const code = container.querySelector('code');
+
+    expect(blockSpan?.getAttribute('style')).not.toContain('light-dark(');
+    expect(nestedParagraph?.getAttribute('style')).not.toContain('light-dark(');
+    expect(nestedParagraph?.getAttribute('style')).not.toContain('color:');
+    expect(accentSpan?.getAttribute('style')).not.toContain('light-dark(');
+    expect(accentSpan?.getAttribute('style')).toContain('color:#20c997');
+    expect(code?.getAttribute('style')).not.toContain('light-dark(');
+  });
+
   it('should convert marked image-swipe sections into a horizontal gallery', () => {
     const root = document.createElement('div');
     root.innerHTML = [

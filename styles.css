@@ -2332,7 +2332,6 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   --wechat-pro-accent: oklch(0.72 0.14 82);
   --wechat-pro-accent-strong: oklch(0.54 0.12 76);
   --wechat-pro-surface: color-mix(in srgb, var(--wechat-pro-accent) 13%, var(--background-primary));
-  --wechat-pro-crown-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z'/%3E%3Cpath d='M5 21h14'/%3E%3C/svg%3E");
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -2351,13 +2350,11 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .wechat-pro-identity-badge::before {
-  content: '';
+  content: '♕';
   flex: 0 0 auto;
-  width: 13px;
-  height: 13px;
-  background: oklch(0.56 0.14 74);
-  -webkit-mask: var(--wechat-pro-crown-icon) center / contain no-repeat;
-  mask: var(--wechat-pro-crown-icon) center / contain no-repeat;
+  color: oklch(0.56 0.14 74);
+  font-size: 13px;
+  line-height: 1;
   transform: translateY(-0.5px);
 }
 
@@ -2369,8 +2366,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .wechat-pro-identity-badge-quota::before {
-  width: 15px;
-  height: 15px;
+  font-size: 15px;
 }
 
 .wechat-pro-identity-badge-panel {

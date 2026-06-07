@@ -1,10 +1,4 @@
-简体中文 | [English](./README.en.md)
-
-# 📝 微信公众号排版转换器 (WeChat Converter)
-
-## English summary
-
-WeChat Converter is an Obsidian plugin for writers who publish Markdown notes to WeChat Official Accounts and other Chinese content platforms. It provides live preview, WeChat-ready HTML conversion, rich HTML copy, WeChat draft sync, local image processing, math and diagram export, AI-assisted layout, and optional multi-platform draft delivery through the Obsidian Publisher companion browser extension.
+# 📝 微信公众号排版转换器
 
 **让技术写作回归优雅与纯粹。**
 
@@ -41,22 +35,6 @@ v2.8.3 让微信草稿同步更接近真实发文流程：同一篇 Obsidian 笔
 - **多平台封面一致**：当你选择微信素材库图片作为封面时，发送到浏览器插件的多平台任务会携带同一张封面，避免其他平台收到空封面或不同封面。
 - **任务列表修复**：修复 Markdown 任务列表 `[ ]` / `[x]` 在微信输出中的显示问题，包含 AI 布局结果缓存中的任务列表标记。
 
-## English overview
-
-WeChat Converter is an Obsidian plugin for writers who publish Markdown notes to WeChat Official Accounts and other Chinese content platforms. It provides live preview, WeChat-ready HTML conversion, rich HTML copy, WeChat draft sync, local image processing, math and diagram export, AI-assisted layout, and optional multi-platform draft delivery through the Obsidian Publisher companion browser extension.
-
-Full English documentation is available in [README.en.md](./README.en.md).
-
-### Privacy and permissions
-
-The plugin does not include client-side telemetry and does not automatically upload your notes. The following capabilities are used only when you explicitly run the related feature:
-
-- **Network access and `fetch()` calls**: WeChat draft sync calls the official WeChat API, custom API proxy settings call the proxy URL you configure, AI layout calls the AI Provider you configure, and multi-platform delivery connects to the local companion browser extension service.
-- **Local filesystem access**: The plugin reads local vault files only when processing images, covers, Mermaid exports, LaTeX exports, and other assets referenced by the current note.
-- **Clipboard access**: Copy actions write the current rendered article to the system clipboard so you can paste it into the WeChat editor or another publishing surface.
-- **Third-party accounts**: WeChat sync requires your own AppID and AppSecret. Other platforms are handled by the companion browser extension using the login state already present in your browser.
-- **Companion browser extension**: Multi-platform publishing and Pro licensing are coordinated with Obsidian Publisher. The Obsidian plugin keeps the writing, rendering, platform selection, and task handoff inside your vault.
-
 ## 🚀 v2.8.0 新功能：多平台一键分发
 
 现在，插件不再只服务于微信公众号。你可以在同一个"发布与分发"窗口里，把同一篇文章继续投递到知乎、掘金、CSDN、小红书、头条号等 20+ 内容平台的草稿箱，由配套的「Obsidian 发布助手」浏览器插件驱动。
@@ -81,18 +59,18 @@ The plugin does not include client-side telemetry and does not automatically upl
 </table>
 
 
-## 💡 核心升级点 (Key Highlights)
+## 💡 核心升级点
 
 相较于原版，我们**重写了核心渲染逻辑**并新增了大量实用功能，旨在实现真正的**"所见即所得"**：
 
-1.  **🌐 多平台发布 (Multi-platform Publishing) ⭐ v2.8.0 新增**
+1.  **🌐 多平台发布 ⭐ v2.8.0 新增**
     - **一处写作，多处分发**：在 Obsidian 中完成写作和排版后，可继续发送到知乎、掘金、CSDN、语雀、小红书等平台草稿箱。
     - **「Obsidian 发布助手」浏览器插件接管平台登录态**：其他平台通过浏览器已有登录态保存草稿，Obsidian 不内嵌平台登录，也不接管 Cookie。
     - **微信与其他平台分工清晰**：微信公众号继续使用插件自己的官方 API 链路，其他平台走「Obsidian 发布助手」浏览器插件链路。
     - **发布窗口直接选择平台**：在“发布与分发”窗口切换到“其他平台”，勾选平台后发送到浏览器插件。
     - **任务结果回到插件查看**：草稿链接、失败原因和单平台重试由 「Obsidian 发布助手」任务窗口处理，减少 Obsidian 里的等待和阻塞。
 
-2.  **➗ 完美支持数学公式 (Math Support) ⭐ v2.1 新增**
+2.  **➗ 完美支持数学公式 ⭐ v2.1 新增**
     - **LaTeX 全面支持**：直接书写 `$E=mc^2$` 或 `$$...$$`，所见即所得。
     - **纯矢量 SVG 渲染**：采用独家无缓存技术，将公式转为独立的 SVG 矢量图，无论放大多少倍都清晰锐利。
     - **抗清洗**：完美抵抗微信公众号的样式清洗，不再出现乱码或被吞掉的情况。
@@ -131,7 +109,7 @@ The plugin does not include client-side telemetry and does not automatically upl
       <img src="images/wechat_sync_popup.png" alt="微信同步弹窗" width="520" />
     </p>
 
-5.  **🎛 全新可视化设置面板 (Settings Panel)**
+5.  **🎛 全新可视化设置面板**
     - 告别繁琐的代码修改！我们内置了直观的设置面板，让您可以实时调整字体、字号、主题色等参数，一切尽在掌握。
 
     <table>
@@ -145,12 +123,12 @@ The plugin does not include client-side telemetry and does not automatically upl
       </tr>
     </table>
 
-6.  **🎨 三大专家级主题 (Premade Themes)**
+6.  **🎨 三大专家级主题**
     - 内置 **简约 (Simple)**、**经典 (Classic)**、**优雅 (Elegant)** 三款精心设计的主题，覆盖从技术博客到人文随笔的各种场景。
     - 引用块支持更克制的**中性灰样式**，减少大面积主题色对正文阅读的干扰。
     - Callout 支持按语义类型高亮，如 `note`、`tip`、`warning`、`danger` 等；未知类型会自动回退为信息类样式。
 
-7.  **🖼️ 强大的本地图片支持 (Local Image Support)**
+7.  **🖼️ 强大的本地图片支持**
     - **打破图床限制**：完美支持 Obsidian 的本地图片引用（包括 `![[Wiki Link]]` 和 `![]()`）。
     - **头像上传**：支持直接上传本地图片作为作者头像，插件会自动转码为 Base64。
     - **强大的本地图片支持**：无论是相对路径、绝对路径还是 WikiLink，都能自动识别并压缩。
@@ -159,9 +137,9 @@ The plugin does not include client-side telemetry and does not automatically upl
     - **任务列表兼容**：Markdown 任务列表会转换为微信更稳定的勾选标记，避免 `[ ]` / `[x]` 泄漏到最终文章。
     - **温馨提示**：建议图片（尤其是 GIF）保持在 10MB 以内，以获得最佳的处理速度和公众号兼容性。超过 10MB 时插件会弹出提醒。
 
-8.  **⚡️ 实时渲染预览 (Live Preview)**
+8.  **⚡️ 实时渲染预览**
     - 右侧预览区实现了**毫秒级响应**的实时渲染。您在左侧 Markdown 编辑的每一个字符，都会即时反馈在右侧的公众号预览视图中。
-    - **📱 双模预览 (Dual Mode Preview)** ⭐ v2.2 新增
+    - **📱 双模预览** ⭐ v2.2 新增
         - **手机仿真模式 (默认)**：提供逼真的 iPhone X 边框与刘海屏效果，支持深色模式适配，还原最真实的读者视角。
         - **经典全宽模式**：在设置中一键切换回无边框全屏预览，利用屏幕每一寸空间。
     - **↕️ 双向同步滚动 (Bidirectional Sync)**：无论是在左侧编辑还是右侧浏览，另一侧都会如影随形，精准对齐。
@@ -189,7 +167,7 @@ The plugin does not include client-side telemetry and does not automatically upl
 ## 📖 使用方法
 
 1. **唤起插件**
-   - 点击 Obsidian 左侧边栏的 🪄 图标 (WeChat Converter)。
+   - 点击 Obsidian 左侧边栏的 🪄 图标。
    - 或使用命令面板 (`Cmd/Ctrl + P`) 搜索并执行 "Open Wechat Converter"。
 
 2. **预览与调整**

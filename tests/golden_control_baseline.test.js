@@ -59,6 +59,25 @@ describe('Golden Control Baseline (Main + Micro Samples)', () => {
     expect(html).not.toContain('<script');
   });
 
+  it('embedded markdown-it should keep linkify and non-ascii host normalization stable', () => {
+    const normalized = converter.md.normalizeLink('https://例子.测试/path');
+    expect(normalized).toBe('https://xn--fsqu00a.xn--0zwm56d/path');
+
+    const rendered = converter.md.render('访问 example.com 和 https://例子.测试/path');
+    const container = document.createElement('div');
+    container.innerHTML = rendered;
+    const links = Array.from(container.querySelectorAll('a')).map((link) => ({
+      href: link.getAttribute('href'),
+      text: link.textContent,
+    }));
+
+    expect(links).toContainEqual({ href: 'http://example.com', text: 'example.com' });
+    expect(links).toContainEqual({
+      href: 'https://xn--fsqu00a.xn--0zwm56d/path',
+      text: 'https://例子.测试/path',
+    });
+  });
+
   it('legacy converter should render markdown tables as swipeable wide blocks', async () => {
     const html = await converter.convert([
       '| 缩写 | 英文全称 | 中文全称 |',

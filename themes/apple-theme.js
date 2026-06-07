@@ -156,12 +156,15 @@ window.AppleTheme = class AppleTheme {
       textColor: '#344054',
       headingColor: '#263238',
       sectionBgStyle: 'grid',
+      sectionBg: '#ffffff',
       sectionBgSize: '18px 18px',
+      gridLineAlpha: '09',
       mutedTextColor: '#667085',
       linkDecoration: 'none',
       blockquoteBorderWidth: 4,
       blockquoteBg: '#f6f9fc',
       blockquoteStyle: 'soft',
+      blockquoteTextColor: '#4b5565',
       tableHeaderBg: '#f3f7fb',
       tableBorderColor: '#dbe5ef',
     },
@@ -377,16 +380,23 @@ window.AppleTheme = class AppleTheme {
 
     // 标题颜色逻辑：使用专门的深色系标题色
     // 注意：某些特殊主题装饰(h1Decoration)可能已经包含了颜色设置，这里主要针对文字本身
+    const textColor = config.textColor;
+    const mutedTextColor = config.mutedTextColor;
     const headingColor = this.getHeadingColorValue();
 
     switch (tagName) {
       case 'section':
         // 使用配置的 sidePadding
-        const sectionBackground = config.sectionBgStyle === 'grid'
-          ? `linear-gradient(${color}09 1px, transparent 1px), linear-gradient(90deg, ${color}09 1px, transparent 1px), #ffffff`
-          : (config.sectionBg || '#ffffff');
+        if (config.sectionBgStyle !== 'grid') {
+          return this.joinStyleStrings(
+            `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; padding: 20px ${this.sidePadding}px; background: ${config.sectionBg || '#ffffff'}; max-width: 100%; word-wrap: break-word; text-align: justify`
+          );
+        }
+
         return this.joinStyleStrings(
-          `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${config.textColor}; padding: 20px ${this.sidePadding}px; background: ${sectionBackground}; max-width: 100%; word-wrap: break-word; text-align: justify`,
+          `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; padding: 20px ${this.sidePadding}px; max-width: 100%; word-wrap: break-word; text-align: justify`,
+          `background-color: ${config.sectionBg || '#ffffff'}`,
+          `background-image: linear-gradient(${this.hexToRgba(color, config.gridLineAlpha || '09')} 1px, transparent 1px), linear-gradient(90deg, ${this.hexToRgba(color, config.gridLineAlpha || '09')} 1px, transparent 1px)`,
           config.sectionBgSize ? `background-size: ${config.sectionBgSize}` : ''
         );
 
@@ -407,11 +417,11 @@ window.AppleTheme = class AppleTheme {
       case 'h5':
         return this.getH5Style(config.h5Decoration, color, sizes.h5, font, headingColor);
       case 'h6':
-        return this.getH6Style(config.h6Decoration, color, sizes.h6, font, headingColor, config.mutedTextColor);
+        return this.getH6Style(config.h6Decoration, color, sizes.h6, font, headingColor, mutedTextColor);
 
       case 'p':
         return this.joinStyleStrings(
-          `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${config.textColor}; margin: 0 0 ${config.paragraphGap}px 0; text-align: justify; letter-spacing: 0`,
+          `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 0 0 ${config.paragraphGap}px 0; text-align: justify; letter-spacing: 0`,
           config.paragraphTextIndent ? `text-indent: ${config.paragraphTextIndent}` : ''
         );
 
@@ -442,13 +452,14 @@ window.AppleTheme = class AppleTheme {
           const softBg = quoteCalloutStyleMode === 'neutral'
             ? AppleTheme.QUOTE_CALLOUT_NEUTRAL_BG
             : (config.blockquoteBg || color + '14');
+          const softTextColor = config.blockquoteTextColor || '#595959';
           const softBorderColor = quoteCalloutStyleMode === 'neutral'
             ? AppleTheme.QUOTE_NEUTRAL_BORDER
             : `${color}99`;
           const softBorderWidth = this.themeName === 'wechat'
             ? 3
             : (config.blockquoteBorderWidth || 4);
-          return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: #595959; background: ${softBg}; margin: ${s.md}px 0 ${s.md}px 8px; padding: ${s.md}px; border-left: ${softBorderWidth}px solid ${softBorderColor}; border-radius: ${r.sm}px;`;
+          return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${softTextColor}; background: ${softBg}; margin: ${s.md}px 0 ${s.md}px 8px; padding: ${s.md}px; border-left: ${softBorderWidth}px solid ${softBorderColor}; border-radius: ${r.sm}px;`;
         }
 
         if (quoteCalloutStyleMode === 'neutral') {
@@ -478,11 +489,11 @@ window.AppleTheme = class AppleTheme {
         return `background: ${color}1A; color: ${color}; padding: 2px 4px; border-radius: 3px; font-family: ${AppleTheme.FONTS.monospace}; font-size: ${sizes.code}px;`;
 
       case 'ul':
-        return `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${config.textColor}; margin: 12px 0; padding-left: 20px; list-style-type: disc;`;
+        return `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 12px 0; padding-left: 20px; list-style-type: disc;`;
       case 'ol':
-        return `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${config.textColor}; margin: 12px 0; padding-left: 20px; list-style-type: decimal;`;
+        return `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 12px 0; padding-left: 20px; list-style-type: decimal;`;
       case 'li':
-        return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${config.textColor}; margin: 4px 0;`;
+        return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 4px 0;`;
       case 'li p':
         return `margin: 0; padding: 0; line-height: ${config.lineHeight};`;
 
@@ -508,7 +519,7 @@ window.AppleTheme = class AppleTheme {
       case 'table':
         return `border-collapse: collapse; width: 720px; min-width: 100%; max-width: none; table-layout: auto; border: 1px solid ${config.tableBorderColor || '#e1e4e8'};`;
       case 'th':
-        return `background: ${config.tableHeaderBg || color + '1F'}; font-weight: bold; color: ${config.textColor}; border: 1px solid ${config.tableBorderColor || '#e1e4e8'}; padding: ${config.tableCellPadding || 12}px; text-align: left; white-space: nowrap; word-break: keep-all; overflow-wrap: normal;`;
+        return `background: ${config.tableHeaderBg || color + '1F'}; font-weight: bold; color: ${textColor}; border: 1px solid ${config.tableBorderColor || '#e1e4e8'}; padding: ${config.tableCellPadding || 12}px; text-align: left; white-space: nowrap; word-break: keep-all; overflow-wrap: normal;`;
       case 'td':
         return `border: 1px solid ${config.tableBorderColor || '#e1e4e8'}; padding: ${config.tableCellPadding || 12}px; text-align: left; white-space: nowrap; word-break: keep-all; overflow-wrap: normal;`;
       case 'thead':
@@ -729,6 +740,19 @@ window.AppleTheme = class AppleTheme {
       default:
         return base;
     }
+  }
+
+  hexToRgba(hexColor, alphaHex = 'ff') {
+    const normalized = String(hexColor || '').trim().replace(/^#/, '');
+    if (!/^[0-9a-f]{6}$/i.test(normalized)) {
+      return hexColor;
+    }
+    const alpha = Number.parseInt(String(alphaHex || 'ff'), 16);
+    const clampedAlpha = Number.isFinite(alpha) ? Math.max(0, Math.min(255, alpha)) : 255;
+    const r = Number.parseInt(normalized.slice(0, 2), 16);
+    const g = Number.parseInt(normalized.slice(2, 4), 16);
+    const b = Number.parseInt(normalized.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${(clampedAlpha / 255).toFixed(3)})`;
   }
 
   joinStyleStrings(...styles) {

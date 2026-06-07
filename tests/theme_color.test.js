@@ -191,13 +191,38 @@ describe('AppleTheme Color Logic', () => {
       const media = new AppleTheme({ theme: 'media', themeColor: 'orange' });
       const colorful = new AppleTheme({ theme: 'colorful', themeColor: 'purple' });
 
-      expect(grid.getStyle('section')).toContain('linear-gradient(#20c99709 1px, transparent 1px)');
+      expect(grid.getStyle('section')).toContain('background-color: #ffffff;');
+      expect(grid.getStyle('section')).toContain('background-image: linear-gradient(rgba(32, 201, 151, 0.035) 1px, transparent 1px)');
+      expect(grid.getStyle('section')).toContain('color: #344054;');
+      expect(grid.getStyle('section')).not.toContain('light-dark(');
+      expect(grid.getStyle('section')).not.toContain('color-scheme:');
+      expect(grid.getStyle('section')).not.toContain('text-shadow:');
+      expect(grid.getStyle('p')).toContain('color: #344054;');
+      expect(grid.getStyle('p')).not.toContain('light-dark(');
+      expect(grid.getStyle('li p')).not.toContain('color:');
       expect(grid.getStyle('blockquote')).toContain('border-left: 4px solid #20c99799;');
+      expect(grid.getStyle('blockquote')).toContain('color: #4b5565;');
+      expect(grid.getStyle('blockquote')).not.toContain('light-dark(');
       expect(media.getStyle('blockquote')).toContain('border-left: 3px solid #fd7e1499;');
       expect(colorful.getStyle('blockquote')).toContain('border-left: 4px solid #6f42c199;');
       expect(grid.getStyle('blockquote')).not.toContain('border: 1px solid');
       expect(media.getStyle('blockquote')).not.toContain('border: 1px solid');
       expect(colorful.getStyle('blockquote')).not.toContain('border: 1px solid');
+    });
+
+    it('should keep grid-specific section background handling out of other built-in themes', () => {
+      const themeNames = AppleTheme.getThemeList()
+        .map((theme) => theme.value)
+        .filter((themeName) => themeName !== 'grid');
+
+      for (const themeName of themeNames) {
+        const sectionStyle = new AppleTheme({ theme: themeName, themeColor: 'teal' }).getStyle('section');
+
+        expect(sectionStyle).toContain('background:');
+        expect(sectionStyle).not.toContain('background-image:');
+        expect(sectionStyle).not.toContain('background-color:');
+        expect(sectionStyle).not.toContain('rgba(32, 201, 151, 0.035)');
+      }
     });
 
     it('should keep neutral quote styling distinct from neutral callouts in soft themes', () => {
