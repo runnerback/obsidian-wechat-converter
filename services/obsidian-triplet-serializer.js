@@ -208,12 +208,13 @@ function pruneObsidianOnlyAttributes(container, { finalStage = false } = {}) {
   if (!container) return;
 
   const SVG_ALLOWED_ATTRS = new Set([
-    'style', 'class', 'xmlns', 'viewbox', 'width', 'height', 'x', 'y',
+    'style', 'class', 'xmlns', 'viewbox', 'width', 'height', 'x', 'y', 'dx', 'dy',
     'cx', 'cy', 'rx', 'ry', 'r', 'x1', 'y1', 'x2', 'y2', 'd', 'points',
     'transform', 'fill', 'stroke', 'stroke-width', 'stroke-linecap',
     'stroke-linejoin', 'stroke-dasharray', 'stroke-dashoffset', 'opacity',
     'fill-opacity', 'stroke-opacity', 'font-size', 'font-family',
-    'font-weight', 'text-anchor', 'dominant-baseline', 'preserveaspectratio',
+    'font-weight', 'text-anchor', 'alignment-baseline', 'dominant-baseline',
+    'preserveaspectratio',
     'marker-start', 'marker-mid', 'marker-end', 'markerwidth', 'markerheight',
     'refx', 'refy', 'orient', 'pathlength', 'role', 'focusable', 'aria-hidden',
     'xmlns:xlink', 'xlink:href',
@@ -938,6 +939,9 @@ function applyThemeInlineStyles(container, converter) {
     const styleText = getTagStyle(converter, tag);
     if (!styleText) continue;
     container.querySelectorAll(tag).forEach((el) => {
+      if (el.closest?.('svg')) {
+        return;
+      }
       if (tag === 'img' && el.getAttribute('data-owc-skip-style') === '1') {
         return;
       }
@@ -947,7 +951,11 @@ function applyThemeInlineStyles(container, converter) {
 
   const liPStyle = getTagStyle(converter, 'li p');
   if (liPStyle) {
-    container.querySelectorAll('li > p').forEach((p) => setInlineStyleIfMissing(p, liPStyle));
+    container.querySelectorAll('li > p').forEach((p) => {
+      if (!p.closest?.('svg')) {
+        setInlineStyleIfMissing(p, liPStyle);
+      }
+    });
   }
 }
 

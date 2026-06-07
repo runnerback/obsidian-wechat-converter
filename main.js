@@ -1767,6 +1767,8 @@ var require_obsidian_triplet_serializer = __commonJS({
         "height",
         "x",
         "y",
+        "dx",
+        "dy",
         "cx",
         "cy",
         "rx",
@@ -1793,6 +1795,7 @@ var require_obsidian_triplet_serializer = __commonJS({
         "font-family",
         "font-weight",
         "text-anchor",
+        "alignment-baseline",
         "dominant-baseline",
         "preserveaspectratio",
         "marker-start",
@@ -2503,6 +2506,10 @@ var require_obsidian_triplet_serializer = __commonJS({
         if (!styleText)
           continue;
         container.querySelectorAll(tag).forEach((el) => {
+          var _a;
+          if ((_a = el.closest) == null ? void 0 : _a.call(el, "svg")) {
+            return;
+          }
           if (tag === "img" && el.getAttribute("data-owc-skip-style") === "1") {
             return;
           }
@@ -2511,7 +2518,12 @@ var require_obsidian_triplet_serializer = __commonJS({
       }
       const liPStyle = getTagStyle(converter, "li p");
       if (liPStyle) {
-        container.querySelectorAll("li > p").forEach((p) => setInlineStyleIfMissing(p, liPStyle));
+        container.querySelectorAll("li > p").forEach((p) => {
+          var _a;
+          if (!((_a = p.closest) == null ? void 0 : _a.call(p, "svg"))) {
+            setInlineStyleIfMissing(p, liPStyle);
+          }
+        });
       }
     }
     function getTableColumnCount(table) {

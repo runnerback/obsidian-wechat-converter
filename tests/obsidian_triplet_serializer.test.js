@@ -252,9 +252,9 @@ describe('Obsidian Triplet Serializer', () => {
     root.innerHTML = [
       '<div class="mermaid">',
       '<svg class="owc-mermaid-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" width="120" height="80">',
-      '<g transform="translate(10,10)">',
+      '<g transform="translate(10,10)" alignment-baseline="middle" dominant-baseline="middle">',
       '<rect x="0" y="0" width="100" height="40" fill="#ecebff" stroke="#8b7cf6"></rect>',
-      '<text x="50" y="25" text-anchor="middle">Mermaid</text>',
+      '<text x="50" y="25" text-anchor="middle"><tspan x="50" y="-0.1em" dx="0" dy="1.1em">Mermaid</tspan></text>',
       '</g>',
       '</svg>',
       '</div>',
@@ -271,6 +271,36 @@ describe('Obsidian Triplet Serializer', () => {
     expect(svg?.getAttribute('class')).toBe('owc-mermaid-diagram');
     expect(rect?.getAttribute('fill')).toBe('#ecebff');
     expect(rect?.getAttribute('stroke')).toBe('#8b7cf6');
+    expect(container.querySelector('g')?.getAttribute('alignment-baseline')).toBe('middle');
+    expect(container.querySelector('g')?.getAttribute('dominant-baseline')).toBe('middle');
+    expect(container.querySelector('tspan')?.getAttribute('dx')).toBe('0');
+    expect(container.querySelector('tspan')?.getAttribute('dy')).toBe('1.1em');
+  });
+
+  it('should not apply article theme styles inside Mermaid foreignObject labels', () => {
+    const root = document.createElement('div');
+    root.innerHTML = [
+      '<p>文章正文</p>',
+      '<div class="mermaid">',
+      '<svg class="owc-mermaid-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">',
+      '<foreignObject x="10" y="10" width="100" height="30">',
+      '<div xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>发现并解决问题</p></span></div>',
+      '</foreignObject>',
+      '</svg>',
+      '</div>',
+    ].join('');
+
+    const html = serializeObsidianRenderedHtml({ root, converter });
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    const articleParagraph = Array.from(container.querySelectorAll('p'))
+      .find((p) => p.textContent === '文章正文');
+    const mermaidParagraph = container.querySelector('foreignObject p');
+
+    expect(articleParagraph?.getAttribute('style') || '').toContain('font-size: 16px');
+    expect(mermaidParagraph).not.toBeNull();
+    expect(mermaidParagraph?.hasAttribute('style')).toBe(false);
   });
 
   it('should preserve Mermaid svg style tags for preview when requested', () => {
