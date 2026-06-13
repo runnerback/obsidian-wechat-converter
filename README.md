@@ -1,4 +1,16 @@
-# 📝 微信公众号排版转换器
+简体中文 | [English](./README.en.md)
+
+# 📝 微信公众号排版转换器 (Wechat Converter)
+
+## English summary
+
+Wechat Converter is an Obsidian plugin for writers who publish Markdown notes to WeChat Official Accounts and other Chinese content platforms. It provides live preview, WeChat-ready HTML conversion, rich HTML copy, WeChat draft sync, local image processing, math and diagram export, AI-assisted layout, and optional multi-platform draft delivery through the Obsidian Publisher companion browser extension.
+
+The core conversion, preview, copy, and WeChat publishing workflow is available in the plugin. Some optional Pro and companion-extension capabilities may require a paid license. Full English documentation is available in [README.en.md](./README.en.md).
+
+### Privacy and permissions
+
+The plugin does not include client-side telemetry and does not automatically upload your notes. Network requests are made only when you explicitly use WeChat draft sync, a configured API proxy or AI provider, or the companion browser extension. Local vault files are read only when processing assets referenced by the current note. Copy actions write the rendered article to the system clipboard; on mobile, the plugin may immediately read back the clipboard after writing to verify that the copy succeeded. WeChat sync requires your own AppID and AppSecret. Other platform accounts remain in the companion browser extension and use the browser's existing login state.
 
 **让技术写作回归优雅与纯粹。**
 
@@ -21,9 +33,9 @@
 
 - **网络请求**：同步微信公众号草稿时会访问微信官方 API；配置 API 代理时会访问你填写的代理地址；使用 AI 编排时会访问你配置的 AI Provider；使用多平台发布时会连接本机浏览器插件服务。
 - **本地文件读取**：处理当前笔记引用的本地图片、封面和 Mermaid / LaTeX 导出资源时，会读取必要的 vault 内文件。
-- **剪贴板**：点击复制按钮时，插件会把当前预览内容写入系统剪贴板，便于粘贴到微信公众号后台。
+- **剪贴板**：点击复制按钮时，插件会把当前预览内容写入系统剪贴板，便于粘贴到微信公众号后台；移动端可能在写入后立即读回剪贴板，用于确认复制是否成功，不会把剪贴板内容上传到远端。
 - **第三方账号**：微信公众号同步需要你自行配置 AppID / AppSecret；其他平台发布由「Obsidian 发布助手」浏览器插件使用你浏览器中已有的登录态保存草稿。
-- **Pro / 浏览器插件**：多平台发布和 Pro 授权能力由配套浏览器插件处理；Obsidian 插件侧负责写作、排版、平台选择和任务投递。
+- **Pro / 浏览器插件**：核心转换、预览、复制和微信发布流程可在插件内使用；部分可选 Pro 与浏览器插件能力可能需要付费授权。多平台发布和 Pro 授权能力由配套浏览器插件处理；Obsidian 插件侧负责写作、排版、平台选择和任务投递。
 
 ## 🚀 v2.8.3 新功能：草稿更新与素材库封面
 

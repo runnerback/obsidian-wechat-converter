@@ -83,6 +83,7 @@ function createWechatSyncService(deps) {
       currentHtml,
       activeFile,
       publishMeta,
+      sessionTitle,
       sessionCoverBase64,
       sessionThumbMediaId,
       sessionDigest,
@@ -150,7 +151,7 @@ function createWechatSyncService(deps) {
       const cleanedResult = replaceUnuploadedDraftImagesWithPlaceholders(cleanHtmlForDraft(processedHtml));
       const cleanedHtml = cleanedResult.html;
 
-      const title = activeFile ? activeFile.basename : '无标题文章';
+      const title = sessionTitle || publishMeta?.title || activeFile?.basename || '无标题文章';
       const article = {
         title: title.substring(0, 64),
         content: cleanedHtml,

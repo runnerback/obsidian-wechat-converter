@@ -43,6 +43,7 @@ describe('AppleStyleView native render + lifecycle', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('getDisplayText should keep the unified plugin title', () => {
@@ -150,6 +151,99 @@ describe('AppleStyleView native render + lifecycle', () => {
     expect(view.imageUploadCache.size).toBe(0);
     expect(view.coverUploadCache.size).toBe(0);
     expect(view.mermaidImageCache.size).toBe(0);
+  });
+
+  it('registerScrollSync should coalesce rapid preview scroll events into one animation frame', () => {
+    let scheduledFrame;
+    const requestAnimationFrame = vi.fn((callback) => {
+      scheduledFrame = callback;
+      return 7;
+    });
+    vi.stubGlobal('requestAnimationFrame', requestAnimationFrame);
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+
+    const view = new AppleStyleView(null, { settings: {} });
+    Object.defineProperty(view.containerEl, 'offsetParent', { value: {}, configurable: true });
+
+    const editorScroller = createObsidianLikeElement();
+    Object.defineProperties(editorScroller, {
+      scrollHeight: { value: 2000, configurable: true },
+      clientHeight: { value: 200, configurable: true },
+    });
+    editorScroller.scrollTop = 0;
+
+    view.previewContainer = createObsidianLikeElement();
+    Object.defineProperties(view.previewContainer, {
+      scrollHeight: { value: 1000, configurable: true },
+      clientHeight: { value: 100, configurable: true },
+    });
+    view.previewContainer.scrollTop = 0;
+
+    view.registerScrollSync({
+      contentEl: {
+        querySelector: vi.fn(() => editorScroller),
+      },
+    });
+
+    view.previewContainer.scrollTop = 180;
+    view.previewContainer.dispatchEvent(new Event('scroll'));
+    view.previewContainer.scrollTop = 270;
+    view.previewContainer.dispatchEvent(new Event('scroll'));
+
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+    expect(editorScroller.scrollTop).toBe(0);
+
+    scheduledFrame();
+
+    expect(editorScroller.scrollTop).toBe(540);
+  });
+
+  it('registerScrollSync should ignore matching programmatic scroll callbacks without blocking later user scrolls', () => {
+    const frames = [];
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback) => {
+      frames.push(callback);
+      return frames.length;
+    }));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+
+    const view = new AppleStyleView(null, { settings: {} });
+    Object.defineProperty(view.containerEl, 'offsetParent', { value: {}, configurable: true });
+
+    const editorScroller = createObsidianLikeElement();
+    Object.defineProperties(editorScroller, {
+      scrollHeight: { value: 2000, configurable: true },
+      clientHeight: { value: 200, configurable: true },
+    });
+    editorScroller.scrollTop = 0;
+
+    view.previewContainer = createObsidianLikeElement();
+    Object.defineProperties(view.previewContainer, {
+      scrollHeight: { value: 1000, configurable: true },
+      clientHeight: { value: 100, configurable: true },
+    });
+    view.previewContainer.scrollTop = 0;
+
+    view.registerScrollSync({
+      contentEl: {
+        querySelector: vi.fn(() => editorScroller),
+      },
+    });
+
+    view.previewContainer.scrollTop = 225;
+    view.previewContainer.dispatchEvent(new Event('scroll'));
+    frames.shift()();
+    expect(editorScroller.scrollTop).toBe(450);
+
+    editorScroller.dispatchEvent(new Event('scroll'));
+    editorScroller.dispatchEvent(new Event('scroll'));
+    expect(frames).toHaveLength(0);
+
+    editorScroller.scrollTop = 900;
+    editorScroller.dispatchEvent(new Event('scroll'));
+    expect(frames).toHaveLength(1);
+    frames.shift()();
+
+    expect(view.previewContainer.scrollTop).toBe(450);
   });
 
   it('scheduleActiveLeafRender should debounce and call convertCurrent with loading options', async () => {

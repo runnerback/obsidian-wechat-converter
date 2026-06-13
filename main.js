@@ -10378,6 +10378,7 @@ var require_wechat_sync = __commonJS({
           currentHtml,
           activeFile,
           publishMeta,
+          sessionTitle,
           sessionCoverBase64,
           sessionThumbMediaId,
           sessionDigest,
@@ -10437,7 +10438,7 @@ var require_wechat_sync = __commonJS({
           }
           const cleanedResult = replaceUnuploadedDraftImagesWithPlaceholders(cleanHtmlForDraft(processedHtml));
           const cleanedHtml = cleanedResult.html;
-          const title = activeFile ? activeFile.basename : "\u65E0\u6807\u9898\u6587\u7AE0";
+          const title = sessionTitle || (publishMeta == null ? void 0 : publishMeta.title) || (activeFile == null ? void 0 : activeFile.basename) || "\u65E0\u6807\u9898\u6587\u7AE0";
           const article = {
             title: title.substring(0, 64),
             content: cleanedHtml,
@@ -15261,10 +15262,12 @@ var require_multi_platform = __commonJS({
           return;
         }
         const activeFile = view.getPublishContextFile();
-        const title = (activeFile == null ? void 0 : activeFile.basename) || "\u65E0\u6807\u9898\u6587\u7AE0";
+        const publishMeta = view.getFrontmatterPublishMeta(activeFile);
+        const currentPath = activeFile ? activeFile.path : null;
+        const cachedState = currentPath ? view.articleStates.get(currentPath) : null;
+        const title = (cachedState == null ? void 0 : cachedState.title) || (publishMeta == null ? void 0 : publishMeta.title) || (activeFile == null ? void 0 : activeFile.basename) || "\u65E0\u6807\u9898\u6587\u7AE0";
         const rawMarkdown = stripMarkdownFrontmatter2(view.lastResolvedMarkdown || "");
         const exportHtml = view.getCurrentExportHtml() || view.currentHtml || "";
-        const publishMeta = view.getFrontmatterPublishMeta(activeFile);
         const selectedWechatMaterialCover = !!view.sessionThumbMediaId;
         const rawCover = getBridgeSafeSessionCover(view.sessionCoverBase64) || publishMeta.cover || "";
         const notice = new Notice2("\u6B63\u5728\u51C6\u5907\u5E76\u53D1\u9001\u5230\u6D4F\u89C8\u5668\u63D2\u4EF6...", 0);
@@ -16024,6 +16027,11 @@ var AppleStyleView = class extends ItemView {
     this.sessionDigest = "";
     this.wechatMaterialCache = /* @__PURE__ */ new Map();
     this.wechatMaterialCoverAssetCache = /* @__PURE__ */ new Map();
+    this.scrollSyncFrame = null;
+    this.cancelScrollSyncFrame = null;
+    this.pendingScrollSyncSource = "";
+    this.expectedEditorScrollTop = null;
+    this.expectedPreviewScrollTop = null;
     this.articleStates = /* @__PURE__ */ new Map();
     this.svgUploadCache = /* @__PURE__ */ new Map();
     this.imageUploadCache = /* @__PURE__ */ new Map();
@@ -16227,7 +16235,7 @@ var AppleStyleView = class extends ItemView {
   }
   /**
    * 注册同步滚动 (双向: Editor <-> Preview)
-   * 采用"原子锁"机制 + "差值检测"机制，彻底解决死循环和精度问题
+   * 用动画帧合并高频事件，并按预期目标位置过滤程序触发的回调。
    */
   registerScrollSync(activeView) {
     if (this.activeEditorScroller && this.editorScrollListener) {
@@ -16236,55 +16244,54 @@ var AppleStyleView = class extends ItemView {
     if (this.previewContainer && this.previewScrollListener) {
       this.previewContainer.removeEventListener("scroll", this.previewScrollListener);
     }
+    if (this.cancelScrollSyncFrame) {
+      this.cancelScrollSyncFrame();
+    }
     this.activeEditorScroller = null;
     this.editorScrollListener = null;
     this.previewScrollListener = null;
-    this.ignoreNextPreviewScroll = false;
-    this.ignoreNextEditorScroll = false;
+    this.scrollSyncFrame = null;
+    this.cancelScrollSyncFrame = null;
+    this.pendingScrollSyncSource = "";
+    this.expectedEditorScrollTop = null;
+    this.expectedPreviewScrollTop = null;
     if (!activeView)
       return;
     const editorScroller = activeView.contentEl.querySelector(".cm-scroller");
     if (!editorScroller)
       return;
     this.activeEditorScroller = editorScroller;
-    this.editorScrollListener = () => {
-      if (!this.containerEl.offsetParent)
-        return;
-      if (this.ignoreNextEditorScroll) {
-        this.ignoreNextEditorScroll = false;
-        return;
-      }
-      if (!this.previewContainer)
-        return;
-      const editorHeight = editorScroller.scrollHeight - editorScroller.clientHeight;
-      const previewHeight = this.previewContainer.scrollHeight - this.previewContainer.clientHeight;
-      if (editorHeight <= 0 || previewHeight <= 0)
-        return;
-      let targetScrollTop;
-      if (editorScroller.scrollTop === 0) {
-        targetScrollTop = 0;
-      } else if (Math.abs(editorScroller.scrollTop - editorHeight) < 2) {
-        targetScrollTop = previewHeight;
-      } else {
-        const ratio = editorScroller.scrollTop / editorHeight;
-        targetScrollTop = ratio * previewHeight;
-      }
-      if (Math.abs(this.previewContainer.scrollTop - targetScrollTop) > 1) {
-        this.ignoreNextPreviewScroll = true;
-        this.previewContainer.scrollTop = targetScrollTop;
-      }
+    const consumeExpectedScroll = (element, fieldName) => {
+      const expected = this[fieldName];
+      if (!Number.isFinite(expected))
+        return false;
+      if (Math.abs(element.scrollTop - expected) <= 1)
+        return true;
+      this[fieldName] = null;
+      return false;
     };
-    this.previewScrollListener = () => {
-      if (!this.containerEl.offsetParent)
+    const syncScrollPosition = (source) => {
+      if (!this.containerEl.offsetParent || !this.previewContainer)
         return;
-      if (this.ignoreNextPreviewScroll) {
-        this.ignoreNextPreviewScroll = false;
-        return;
-      }
       const editorHeight = editorScroller.scrollHeight - editorScroller.clientHeight;
       const previewHeight = this.previewContainer.scrollHeight - this.previewContainer.clientHeight;
       if (editorHeight <= 0 || previewHeight <= 0)
         return;
+      if (source === "editor") {
+        let targetScrollTop2;
+        if (editorScroller.scrollTop === 0) {
+          targetScrollTop2 = 0;
+        } else if (Math.abs(editorScroller.scrollTop - editorHeight) < 2) {
+          targetScrollTop2 = previewHeight;
+        } else {
+          targetScrollTop2 = editorScroller.scrollTop / editorHeight * previewHeight;
+        }
+        if (Math.abs(this.previewContainer.scrollTop - targetScrollTop2) <= 1)
+          return;
+        this.expectedPreviewScrollTop = targetScrollTop2;
+        this.previewContainer.scrollTop = targetScrollTop2;
+        return;
+      }
       let targetScrollTop;
       if (this.previewContainer.scrollTop === 0) {
         targetScrollTop = 0;
@@ -16294,10 +16301,51 @@ var AppleStyleView = class extends ItemView {
         const ratio = this.previewContainer.scrollTop / previewHeight;
         targetScrollTop = ratio * editorHeight;
       }
-      if (Math.abs(editorScroller.scrollTop - targetScrollTop) > 1) {
-        this.ignoreNextEditorScroll = true;
-        editorScroller.scrollTop = targetScrollTop;
+      if (Math.abs(editorScroller.scrollTop - targetScrollTop) <= 1)
+        return;
+      this.expectedEditorScrollTop = targetScrollTop;
+      editorScroller.scrollTop = targetScrollTop;
+    };
+    const scheduleScrollSync = (source) => {
+      this.pendingScrollSyncSource = source;
+      if (this.scrollSyncFrame !== null)
+        return;
+      const run = () => {
+        this.scrollSyncFrame = null;
+        this.cancelScrollSyncFrame = null;
+        const pendingSource = this.pendingScrollSyncSource;
+        this.pendingScrollSyncSource = "";
+        if (pendingSource) {
+          syncScrollPosition(pendingSource);
+        }
+      };
+      if (typeof requestAnimationFrame === "function") {
+        const frameId = requestAnimationFrame(run);
+        this.scrollSyncFrame = frameId;
+        this.cancelScrollSyncFrame = () => {
+          if (typeof cancelAnimationFrame === "function") {
+            cancelAnimationFrame(frameId);
+          }
+        };
+      } else {
+        const timeoutId = setTimeout(run, 16);
+        this.scrollSyncFrame = timeoutId;
+        this.cancelScrollSyncFrame = () => clearTimeout(timeoutId);
       }
+    };
+    this.editorScrollListener = () => {
+      if (!this.containerEl.offsetParent)
+        return;
+      if (consumeExpectedScroll(editorScroller, "expectedEditorScrollTop"))
+        return;
+      scheduleScrollSync("editor");
+    };
+    this.previewScrollListener = () => {
+      if (!this.containerEl.offsetParent || !this.previewContainer)
+        return;
+      if (consumeExpectedScroll(this.previewContainer, "expectedPreviewScrollTop"))
+        return;
+      scheduleScrollSync("preview");
     };
     editorScroller.addEventListener("scroll", this.editorScrollListener, { passive: true });
     this.previewContainer.addEventListener("scroll", this.previewScrollListener, { passive: true });
@@ -16701,19 +16749,20 @@ var AppleStyleView = class extends ItemView {
   }
   /**
    * 读取当前文档 frontmatter 中的发布元数据
-   * @returns {{ excerpt: string, cover: string, cover_dir: string, coverSrc: string|null }}
+   * @returns {{ excerpt: string, cover: string, cover_dir: string, coverSrc: string|null, title: string }}
    */
   getFrontmatterPublishMeta(activeFile) {
-    var _a;
+    var _a, _b, _c, _d;
     if (!activeFile) {
-      return { excerpt: "", cover: "", cover_dir: "", coverSrc: null };
+      return { excerpt: "", cover: "", cover_dir: "", coverSrc: null, title: "" };
     }
-    const frontmatter = (_a = this.app.metadataCache.getFileCache(activeFile)) == null ? void 0 : _a.frontmatter;
+    const frontmatter = (_d = (_c = (_b = (_a = this.app) == null ? void 0 : _a.metadataCache) == null ? void 0 : _b.getFileCache) == null ? void 0 : _c.call(_b, activeFile)) == null ? void 0 : _d.frontmatter;
     const excerpt = this.getFrontmatterString(frontmatter, ["excerpt"]);
     const cover = this.getFrontmatterString(frontmatter, ["cover"]);
     const cover_dir = this.getFrontmatterString(frontmatter, ["cover_dir", "coverDir", "cover-dir", "coverdir", "CoverDIR"]);
+    const title = this.getFrontmatterString(frontmatter, ["title"]);
     const coverSrc = cover ? this.resolveVaultPathToResourceSrc(cover) : null;
-    return { excerpt, cover, cover_dir, coverSrc };
+    return { excerpt, cover, cover_dir, coverSrc, title };
   }
   getFrontmatterString(frontmatter, keys) {
     if (!frontmatter || typeof frontmatter !== "object")
@@ -17486,7 +17535,7 @@ var AppleStyleView = class extends ItemView {
     this.refreshAiLayoutPanel();
   }
   getCurrentLayoutContext() {
-    var _a, _b, _c, _d;
+    var _a, _b, _c;
     const activeFile = ((_c = (_b = (_a = this.app) == null ? void 0 : _a.workspace) == null ? void 0 : _b.getActiveFile) == null ? void 0 : _c.call(_b)) || this.lastActiveFile || null;
     const activePath = (activeFile == null ? void 0 : activeFile.path) || "";
     const resolvedPath = this.lastResolvedSourcePath || "";
@@ -17497,6 +17546,9 @@ var AppleStyleView = class extends ItemView {
     const isSourcePending = !!(activePath && resolvedPath && activePath !== resolvedPath);
     const isSourceSwitching = !!(isSourcePending && this.aiLayoutSourceSwitchPath && this.aiLayoutSourceSwitchPath === activePath);
     const isStaleSuppressed = this.isAiLayoutStaleSuppressedForPath(sourcePath);
+    const activeFileForTitle = activeFile || this.getPublishContextFile();
+    const publishMeta = this.getFrontmatterPublishMeta(activeFileForTitle);
+    const title = (publishMeta == null ? void 0 : publishMeta.title) || (activeFileForTitle == null ? void 0 : activeFileForTitle.basename) || "\u672A\u547D\u540D\u6587\u7AE0";
     return {
       sourcePath,
       markdown,
@@ -17504,7 +17556,7 @@ var AppleStyleView = class extends ItemView {
       isSourcePending,
       isSourceSwitching,
       isStaleSuppressed,
-      title: ((_d = activeFile || this.getPublishContextFile()) == null ? void 0 : _d.basename) || "\u672A\u547D\u540D\u6587\u7AE0"
+      title
     };
   }
   getCurrentAiLayoutSelection() {
@@ -18525,7 +18577,6 @@ var AppleStyleView = class extends ItemView {
     this.updateAiToolbarState();
   }
   async ensureCurrentArticleContext() {
-    var _a;
     const source = await resolveMarkdownSource({
       app: this.app,
       lastActiveFile: this.lastActiveFile,
@@ -18539,11 +18590,14 @@ var AppleStyleView = class extends ItemView {
     this.lastResolvedMarkdown = markdown;
     this.lastResolvedSourcePath = sourcePath;
     this.lastResolvedSourceHash = String(this.simpleHash(markdown));
+    const activeFile = this.getPublishContextFile();
+    const publishMeta = this.getFrontmatterPublishMeta(activeFile);
+    const title = (publishMeta == null ? void 0 : publishMeta.title) || (activeFile == null ? void 0 : activeFile.basename) || "\u672A\u547D\u540D\u6587\u7AE0";
     return {
       markdown,
       sourcePath,
       sourceHash: this.lastResolvedSourceHash,
-      title: ((_a = this.getPublishContextFile()) == null ? void 0 : _a.basename) || "\u672A\u547D\u540D\u6587\u7AE0"
+      title
     };
   }
   async generateAiLayoutForCurrentArticle({ applyAfterGenerate = false } = {}) {
@@ -19038,9 +19092,26 @@ var AppleStyleView = class extends ItemView {
       advancedOptions.setAttribute("open", "");
     advancedOptions.createEl("summary", {
       cls: "wechat-sync-advanced-summary",
-      text: "\u9AD8\u7EA7\u9009\u9879\uFF08\u5C01\u9762\u4E0E\u6458\u8981\uFF09"
+      text: "\u9AD8\u7EA7\u9009\u9879\uFF08\u6807\u9898\u3001\u5C01\u9762\u4E0E\u6458\u8981\uFF09"
     });
     const advancedBody = advancedOptions.createDiv({ cls: "wechat-sync-advanced-body" });
+    const titleSection = advancedBody.createDiv({ cls: "wechat-modal-section" });
+    titleSection.createEl("label", { text: "\u6587\u7AE0\u6807\u9898", cls: "wechat-modal-label" });
+    const initialTitle = (cachedState == null ? void 0 : cachedState.title) !== void 0 ? cachedState.title : frontmatterMeta.title || (activeFile ? activeFile.basename : "");
+    const titleInput = titleSection.createEl("input", {
+      type: "text",
+      cls: "wechat-modal-title-input",
+      placeholder: "\u7559\u7A7A\u5219\u9ED8\u8BA4\u4F7F\u7528 frontmatter \u4E2D\u7684 title \u6216\u6587\u4EF6\u540D"
+    });
+    titleInput.value = initialTitle;
+    titleInput.style.width = "100%";
+    titleInput.maxLength = 64;
+    titleInput.addEventListener("input", () => {
+      if (currentPath) {
+        const state = this.articleStates.get(currentPath) || {};
+        this.articleStates.set(currentPath, { ...state, title: titleInput.value.trim() });
+      }
+    });
     const coverSection = advancedBody.createDiv({ cls: "wechat-modal-section" });
     coverSection.createEl("label", { text: "\u5C01\u9762\u56FE", cls: "wechat-modal-label" });
     const coverContent = coverSection.createDiv({ cls: "wechat-modal-cover-content" });
@@ -19170,6 +19241,7 @@ var AppleStyleView = class extends ItemView {
       this.sessionThumbMediaId = thumbMediaId;
       this.sessionDraftMediaId = !forceNewDraft && (draftAssociation == null ? void 0 : draftAssociation.mediaId) ? draftAssociation.mediaId : "";
       this.sessionDraftIndex = !forceNewDraft && Number.isInteger(draftAssociation == null ? void 0 : draftAssociation.index) ? draftAssociation.index : 0;
+      this.sessionTitle = titleInput.value.trim() || frontmatterMeta.title || (activeFile ? activeFile.basename : "\u65E0\u6807\u9898\u6587\u7AE0");
       this.sessionDigest = digestInput.value.trim() || autoDigest || "\u4E00\u952E\u540C\u6B65\u81EA Obsidian";
       await this.onSyncToWechat();
     };
@@ -19834,6 +19906,7 @@ var AppleStyleView = class extends ItemView {
         currentHtml: this.getCurrentExportHtml(),
         activeFile,
         publishMeta,
+        sessionTitle: this.sessionTitle,
         sessionCoverBase64: this.sessionCoverBase64,
         sessionThumbMediaId: this.sessionThumbMediaId || "",
         sessionDigest: this.sessionDigest,
@@ -19862,7 +19935,7 @@ var AppleStyleView = class extends ItemView {
           sourcePath: activeFile.path,
           mediaId,
           accountId: account.id || "",
-          title: activeFile.basename,
+          title: publishMeta.title || activeFile.basename,
           index: draftIndex || 0,
           updatedAt: Date.now()
         });
@@ -20785,6 +20858,14 @@ var AppleStyleView = class extends ItemView {
     if (this.previewContainer && this.previewScrollListener) {
       this.previewContainer.removeEventListener("scroll", this.previewScrollListener);
     }
+    if (this.cancelScrollSyncFrame) {
+      this.cancelScrollSyncFrame();
+      this.cancelScrollSyncFrame = null;
+      this.scrollSyncFrame = null;
+      this.pendingScrollSyncSource = "";
+    }
+    this.expectedEditorScrollTop = null;
+    this.expectedPreviewScrollTop = null;
     (_a = this.previewContainer) == null ? void 0 : _a.empty();
     this.closeTransientPanels();
     this.aiLayoutBtn = null;

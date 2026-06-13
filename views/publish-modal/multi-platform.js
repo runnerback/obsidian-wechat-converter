@@ -512,10 +512,12 @@ async function showMultiPlatformPublishModal(view, options = {}) {
       return;
     }
     const activeFile = view.getPublishContextFile();
-    const title = activeFile?.basename || '无标题文章';
+    const publishMeta = view.getFrontmatterPublishMeta(activeFile);
+    const currentPath = activeFile ? activeFile.path : null;
+    const cachedState = currentPath ? view.articleStates.get(currentPath) : null;
+    const title = cachedState?.title || publishMeta?.title || activeFile?.basename || '无标题文章';
     const rawMarkdown = stripMarkdownFrontmatter(view.lastResolvedMarkdown || '');
     const exportHtml = view.getCurrentExportHtml() || view.currentHtml || '';
-    const publishMeta = view.getFrontmatterPublishMeta(activeFile);
     const selectedWechatMaterialCover = !!view.sessionThumbMediaId;
     const rawCover = getBridgeSafeSessionCover(view.sessionCoverBase64) || publishMeta.cover || '';
     const notice = new Notice('正在准备并发送到浏览器插件...', 0);

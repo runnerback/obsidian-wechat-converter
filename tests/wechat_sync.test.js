@@ -131,6 +131,34 @@ describe('Wechat Sync Service', () => {
     }));
   });
 
+  it('should prioritize publishMeta.title over activeFile.basename for draft title', async () => {
+    const api = createMockApi();
+    const service = createWechatSyncService({
+      createApi: vi.fn(() => api),
+      srcToBlob: vi.fn(async () => new Blob(['cover'], { type: 'image/png' })),
+      prepareHtmlForDraft: vi.fn(async (html) => html),
+      processAllImages: vi.fn(async () => '<p>x</p>'),
+      processMathFormulas: vi.fn(async (html) => html),
+      cleanHtmlForDraft: vi.fn((html) => html),
+      cleanupConfiguredDirectory: vi.fn(async () => ({ attempted: false })),
+      getFirstImageFromArticle: vi.fn(() => 'app://fallback-cover'),
+    });
+
+    await service.syncToDraft({
+      account: { appId: 'wx1', appSecret: 'sec' },
+      proxyUrl: '',
+      currentHtml: '<p>x</p>',
+      activeFile: { basename: 'note-title-fallback' },
+      publishMeta: { coverSrc: null, title: 'Frontmatter-Title' },
+      sessionCoverBase64: 'data:image/png;base64,abc',
+      sessionDigest: '',
+    });
+
+    expect(api.createDraft).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Frontmatter-Title',
+    }));
+  });
+
   it('should reuse cached uploaded cover media id across repeated syncs', async () => {
     const api = createMockApi();
     api.uploadCover = vi.fn(async () => ({ media_id: 'thumb-cached' }));

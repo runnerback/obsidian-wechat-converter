@@ -3122,6 +3122,22 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--apple-accent) 12%, transparent);
 }
 
+.wechat-publish-shell .wechat-modal-title-input {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--apple-border) 88%, transparent);
+  border-radius: var(--apple-radius-md);
+  background: var(--apple-background);
+  color: var(--apple-primary);
+  line-height: 1.5;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.wechat-publish-shell .wechat-modal-title-input:focus {
+  border-color: color-mix(in srgb, var(--apple-accent) 62%, var(--apple-border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--apple-accent) 12%, transparent);
+}
+
 .wechat-publish-shell .wechat-account-select {
   min-height: 34px;
   border-color: color-mix(in srgb, var(--apple-border) 88%, transparent);
@@ -4022,6 +4038,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 .wechat-material-picker-modal {
   width: min(900px, 92vw);
   max-width: 92vw;
+  max-height: 85vh;
 }
 
 .wechat-material-picker-modal .modal-title {
@@ -4034,8 +4051,8 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 
 .wechat-material-picker {
   width: 100%;
-  height: min(660px, 82vh);
-  min-height: min(660px, 82vh);
+  height: 68vh;
+  max-height: 660px;
   display: flex;
   flex-direction: column;
   gap: 12px;

@@ -21,9 +21,9 @@ Wechat Converter does not include client-side telemetry and does not automatical
 
 - **Network access and `fetch()` calls**: WeChat draft sync calls the official WeChat API, custom API proxy settings call the proxy URL you configure, AI layout calls the AI Provider you configure, and multi-platform delivery connects to the local companion browser extension service.
 - **Local filesystem access**: The plugin reads local vault files only when processing images, covers, Mermaid exports, LaTeX exports, and other assets referenced by the current note.
-- **Clipboard access**: Copy actions write the current rendered article to the system clipboard so you can paste it into the WeChat editor or another publishing surface.
+- **Clipboard access**: Copy actions write the current rendered article to the system clipboard so you can paste it into the WeChat editor or another publishing surface. On mobile, the plugin may immediately read back the clipboard after writing to verify that the copy succeeded; clipboard contents are not uploaded.
 - **Third-party accounts**: WeChat sync requires your own AppID and AppSecret. Other platforms are handled by the companion browser extension using the login state already present in your browser.
-- **Companion browser extension**: Multi-platform publishing and Pro licensing are coordinated with Obsidian Publisher. The Obsidian plugin keeps the writing, rendering, platform selection, and task handoff inside your vault.
+- **Paid and companion features**: Core conversion, preview, copy, and WeChat publishing features are available in the plugin. Some optional Pro and companion-extension capabilities may require a paid license. Multi-platform publishing and Pro licensing are coordinated with Obsidian Publisher.
 
 ## Big Update: Multi-platform Publishing
 
