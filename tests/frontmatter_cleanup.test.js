@@ -45,6 +45,7 @@ describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () 
     view = new AppleStyleView(null, plugin);
     activeFile = { path: 'published/post.md', basename: 'post' };
     frontmatter = {
+      title: '这是 frontmatter 标题',
       excerpt: '这是 frontmatter 摘要',
       cover: 'published/post_img/post-cover.jpg',
       cover_dir: 'published/post_img',
@@ -80,6 +81,7 @@ describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () 
   it('should read excerpt/cover/cover_dir and resolve cover resource from frontmatter', () => {
     const meta = view.getFrontmatterPublishMeta(activeFile);
 
+    expect(meta.title).toBe('这是 frontmatter 标题');
     expect(meta.excerpt).toBe('这是 frontmatter 摘要');
     expect(meta.cover).toBe('published/post_img/post-cover.jpg');
     expect(meta.cover_dir).toBe('published/post_img');
@@ -106,6 +108,7 @@ describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () 
 
   it('should read frontmatter keys with case variants', () => {
     frontmatter = {
+      Title: '大小写标题',
       Excerpt: '大小写摘要',
       Cover: 'published/post_img/post-cover.jpg',
       CoverDIR: 'published/post_img',
@@ -113,6 +116,7 @@ describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () 
     view.app.metadataCache.getFileCache = vi.fn(() => ({ frontmatter }));
 
     const meta = view.getFrontmatterPublishMeta(activeFile);
+    expect(meta.title).toBe('大小写标题');
     expect(meta.excerpt).toBe('大小写摘要');
     expect(meta.cover).toBe('published/post_img/post-cover.jpg');
     expect(meta.cover_dir).toBe('published/post_img');

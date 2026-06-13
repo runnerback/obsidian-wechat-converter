@@ -671,8 +671,14 @@ class AppleStyleView extends ItemView {
     this.wechatMaterialCache = new Map(); // Map<account/page, { data, cachedAt }>
     this.wechatMaterialCoverAssetCache = new Map(); // Map<media/url, downloaded bridge asset bytes>
 
-    // 双向同步滚动互斥锁 (原子锁方案)
-    // 用于区分"用户滚动"和"代码同步滚动"，彻底解决死循环和抖动问题
+    // 双向滚动同步状态。滚动事件先合并到动画帧，再按预期目标位置
+    // 区分用户滚动与代码同步滚动，避免 CodeMirror 重排和反向回弹。
+    this.scrollSyncFrame = null;
+    this.cancelScrollSyncFrame = null;
+    this.pendingScrollSyncSource = '';
+    this.expectedEditorScrollTop = null;
+    this.expectedPreviewScrollTop = null;
+
     // 状态缓存：Map<FilePath, { coverBase64, digest }>
     // 用于在不关闭插件面板的情况下，切换文章或关闭弹窗后保留封面和摘要
     this.articleStates = new Map();
@@ -939,7 +945,7 @@ class AppleStyleView extends ItemView {
 
   /**
    * 注册同步滚动 (双向: Editor <-> Preview)
-   * 采用"原子锁"机制 + "差值检测"机制，彻底解决死循环和精度问题
+   * 用动画帧合并高频事件，并按预期目标位置过滤程序触发的回调。
    */
   registerScrollSync(activeView) {
     // 1. 清理旧的监听器
@@ -949,14 +955,18 @@ class AppleStyleView extends ItemView {
     if (this.previewContainer && this.previewScrollListener) {
       this.previewContainer.removeEventListener('scroll', this.previewScrollListener);
     }
+    if (this.cancelScrollSyncFrame) {
+      this.cancelScrollSyncFrame();
+    }
 
     this.activeEditorScroller = null;
     this.editorScrollListener = null;
     this.previewScrollListener = null;
-
-    // 重置原子锁标志位
-    this.ignoreNextPreviewScroll = false;
-    this.ignoreNextEditorScroll = false;
+    this.scrollSyncFrame = null;
+    this.cancelScrollSyncFrame = null;
+    this.pendingScrollSyncSource = '';
+    this.expectedEditorScrollTop = null;
+    this.expectedPreviewScrollTop = null;
 
     if (!activeView) return;
 
@@ -965,64 +975,37 @@ class AppleStyleView extends ItemView {
     if (!editorScroller) return;
     this.activeEditorScroller = editorScroller;
 
-    // === Listener A: Editor -> Preview ===
-    this.editorScrollListener = () => {
-      // 可见性检查：使用原生 offsetParent 判断是否在 DOM 树中且可见
-      if (!this.containerEl.offsetParent) return;
-
-      // 锁检查：如果是 Preview 带来的滚动，本次忽略，并重置锁
-      if (this.ignoreNextEditorScroll) {
-        this.ignoreNextEditorScroll = false;
-        return;
-      }
-
-      if (!this.previewContainer) return;
-
-      const editorHeight = editorScroller.scrollHeight - editorScroller.clientHeight;
-      const previewHeight = this.previewContainer.scrollHeight - this.previewContainer.clientHeight;
-
-      if (editorHeight <= 0 || previewHeight <= 0) return;
-
-      // 计算目标位置
-      let targetScrollTop;
-
-      // 端点严格对齐
-      if (editorScroller.scrollTop === 0) {
-        targetScrollTop = 0;
-      } else if (Math.abs(editorScroller.scrollTop - editorHeight) < 2) { // 放宽到底部判定
-        targetScrollTop = previewHeight;
-      } else {
-        const ratio = editorScroller.scrollTop / editorHeight;
-        targetScrollTop = ratio * previewHeight;
-      }
-
-      // 差值检测：只有当变化足够大时才应用，避免微小抖动和死循环
-      if (Math.abs(this.previewContainer.scrollTop - targetScrollTop) > 1) {
-        this.ignoreNextPreviewScroll = true; // 上锁：告诉 Preview 下次滚动是代码触发的
-        this.previewContainer.scrollTop = targetScrollTop;
-      }
+    const consumeExpectedScroll = (element, fieldName) => {
+      const expected = this[fieldName];
+      if (!Number.isFinite(expected)) return false;
+      if (Math.abs(element.scrollTop - expected) <= 1) return true;
+      this[fieldName] = null;
+      return false;
     };
 
-    // === Listener B: Preview -> Editor ===
-    this.previewScrollListener = () => {
-      // 可见性检查
-      if (!this.containerEl.offsetParent) return;
+    const syncScrollPosition = (source) => {
+      if (!this.containerEl.offsetParent || !this.previewContainer) return;
+      const editorHeight = editorScroller.scrollHeight - editorScroller.clientHeight;
+      const previewHeight = this.previewContainer.scrollHeight - this.previewContainer.clientHeight;
+      if (editorHeight <= 0 || previewHeight <= 0) return;
 
-      // 锁检查
-      if (this.ignoreNextPreviewScroll) {
-        this.ignoreNextPreviewScroll = false;
+      if (source === 'editor') {
+        let targetScrollTop;
+        if (editorScroller.scrollTop === 0) {
+          targetScrollTop = 0;
+        } else if (Math.abs(editorScroller.scrollTop - editorHeight) < 2) {
+          targetScrollTop = previewHeight;
+        } else {
+          targetScrollTop = (editorScroller.scrollTop / editorHeight) * previewHeight;
+        }
+
+        if (Math.abs(this.previewContainer.scrollTop - targetScrollTop) <= 1) return;
+        this.expectedPreviewScrollTop = targetScrollTop;
+        this.previewContainer.scrollTop = targetScrollTop;
         return;
       }
 
-      const editorHeight = editorScroller.scrollHeight - editorScroller.clientHeight;
-      const previewHeight = this.previewContainer.scrollHeight - this.previewContainer.clientHeight;
-
-      if (editorHeight <= 0 || previewHeight <= 0) return;
-
-      // 计算目标位置
       let targetScrollTop;
-
-      // 端点严格对齐
       if (this.previewContainer.scrollTop === 0) {
         targetScrollTop = 0;
       } else if (Math.abs(this.previewContainer.scrollTop - previewHeight) < 2) {
@@ -1032,11 +1015,52 @@ class AppleStyleView extends ItemView {
         targetScrollTop = ratio * editorHeight;
       }
 
-      // 差值检测
-      if (Math.abs(editorScroller.scrollTop - targetScrollTop) > 1) {
-        this.ignoreNextEditorScroll = true; // 上锁
-        editorScroller.scrollTop = targetScrollTop;
+      if (Math.abs(editorScroller.scrollTop - targetScrollTop) <= 1) return;
+      this.expectedEditorScrollTop = targetScrollTop;
+      editorScroller.scrollTop = targetScrollTop;
+    };
+
+    const scheduleScrollSync = (source) => {
+      this.pendingScrollSyncSource = source;
+      if (this.scrollSyncFrame !== null) return;
+
+      const run = () => {
+        this.scrollSyncFrame = null;
+        this.cancelScrollSyncFrame = null;
+        const pendingSource = this.pendingScrollSyncSource;
+        this.pendingScrollSyncSource = '';
+        if (pendingSource) {
+          syncScrollPosition(pendingSource);
+        }
+      };
+
+      if (typeof requestAnimationFrame === 'function') {
+        const frameId = requestAnimationFrame(run);
+        this.scrollSyncFrame = frameId;
+        this.cancelScrollSyncFrame = () => {
+          if (typeof cancelAnimationFrame === 'function') {
+            cancelAnimationFrame(frameId);
+          }
+        };
+      } else {
+        const timeoutId = setTimeout(run, 16);
+        this.scrollSyncFrame = timeoutId;
+        this.cancelScrollSyncFrame = () => clearTimeout(timeoutId);
       }
+    };
+
+    // === Listener A: Editor -> Preview ===
+    this.editorScrollListener = () => {
+      if (!this.containerEl.offsetParent) return;
+      if (consumeExpectedScroll(editorScroller, 'expectedEditorScrollTop')) return;
+      scheduleScrollSync('editor');
+    };
+
+    // === Listener B: Preview -> Editor ===
+    this.previewScrollListener = () => {
+      if (!this.containerEl.offsetParent || !this.previewContainer) return;
+      if (consumeExpectedScroll(this.previewContainer, 'expectedPreviewScrollTop')) return;
+      scheduleScrollSync('preview');
     };
 
     // 4. 绑定监听 (使用 passive 提升性能)
@@ -1530,22 +1554,23 @@ class AppleStyleView extends ItemView {
 
   /**
    * 读取当前文档 frontmatter 中的发布元数据
-   * @returns {{ excerpt: string, cover: string, cover_dir: string, coverSrc: string|null }}
+   * @returns {{ excerpt: string, cover: string, cover_dir: string, coverSrc: string|null, title: string }}
    */
   getFrontmatterPublishMeta(activeFile) {
     if (!activeFile) {
-      return { excerpt: '', cover: '', cover_dir: '', coverSrc: null };
+      return { excerpt: '', cover: '', cover_dir: '', coverSrc: null, title: '' };
     }
 
-    const frontmatter = this.app.metadataCache.getFileCache(activeFile)?.frontmatter;
+    const frontmatter = this.app?.metadataCache?.getFileCache?.(activeFile)?.frontmatter;
     const excerpt = this.getFrontmatterString(frontmatter, ['excerpt']);
     const cover = this.getFrontmatterString(frontmatter, ['cover']);
     const cover_dir = this.getFrontmatterString(frontmatter, ['cover_dir', 'coverDir', 'cover-dir', 'coverdir', 'CoverDIR']);
+    const title = this.getFrontmatterString(frontmatter, ['title']);
 
     // 解析失败时静默回退：返回 null，不中断流程
     const coverSrc = cover ? this.resolveVaultPathToResourceSrc(cover) : null;
 
-    return { excerpt, cover, cover_dir, coverSrc };
+    return { excerpt, cover, cover_dir, coverSrc, title };
   }
 
   getFrontmatterString(frontmatter, keys) {
@@ -2385,6 +2410,9 @@ class AppleStyleView extends ItemView {
       && this.aiLayoutSourceSwitchPath === activePath
     );
     const isStaleSuppressed = this.isAiLayoutStaleSuppressedForPath(sourcePath);
+    const activeFileForTitle = activeFile || this.getPublishContextFile();
+    const publishMeta = this.getFrontmatterPublishMeta(activeFileForTitle);
+    const title = publishMeta?.title || activeFileForTitle?.basename || '未命名文章';
     return {
       sourcePath,
       markdown,
@@ -2392,7 +2420,7 @@ class AppleStyleView extends ItemView {
       isSourcePending,
       isSourceSwitching,
       isStaleSuppressed,
-      title: (activeFile || this.getPublishContextFile())?.basename || '未命名文章',
+      title,
     };
   }
 
@@ -3496,11 +3524,16 @@ class AppleStyleView extends ItemView {
     this.lastResolvedMarkdown = markdown;
     this.lastResolvedSourcePath = sourcePath;
     this.lastResolvedSourceHash = String(this.simpleHash(markdown));
+
+    const activeFile = this.getPublishContextFile();
+    const publishMeta = this.getFrontmatterPublishMeta(activeFile);
+    const title = publishMeta?.title || activeFile?.basename || '未命名文章';
+
     return {
       markdown,
       sourcePath,
       sourceHash: this.lastResolvedSourceHash,
-      title: this.getPublishContextFile()?.basename || '未命名文章',
+      title,
     };
   }
 
@@ -4051,9 +4084,35 @@ class AppleStyleView extends ItemView {
     if (shouldExpandAdvanced) advancedOptions.setAttribute('open', '');
     advancedOptions.createEl('summary', {
       cls: 'wechat-sync-advanced-summary',
-      text: '高级选项（封面与摘要）'
+      text: '高级选项（标题、封面与摘要）'
     });
     const advancedBody = advancedOptions.createDiv({ cls: 'wechat-sync-advanced-body' });
+
+    // 标题设置
+    const titleSection = advancedBody.createDiv({ cls: 'wechat-modal-section' });
+    titleSection.createEl('label', { text: '文章标题', cls: 'wechat-modal-label' });
+
+    // 标题逻辑：优先使用缓存 -> frontmatter.title -> 文件名
+    const initialTitle = cachedState?.title !== undefined
+      ? cachedState.title
+      : (frontmatterMeta.title || (activeFile ? activeFile.basename : ''));
+
+    const titleInput = titleSection.createEl('input', {
+      type: 'text',
+      cls: 'wechat-modal-title-input',
+      placeholder: '留空则默认使用 frontmatter 中的 title 或文件名'
+    });
+    titleInput.value = initialTitle;
+    titleInput.style.width = '100%';
+    titleInput.maxLength = 64; // 微信标题最大限制 64 字符
+
+    // 实时更新缓存（标题）
+    titleInput.addEventListener('input', () => {
+      if (currentPath) {
+        const state = this.articleStates.get(currentPath) || {};
+        this.articleStates.set(currentPath, { ...state, title: titleInput.value.trim() });
+      }
+    });
 
     // 封面设置
     const coverSection = advancedBody.createDiv({ cls: 'wechat-modal-section' });
@@ -4216,6 +4275,8 @@ class AppleStyleView extends ItemView {
       this.sessionThumbMediaId = thumbMediaId;
       this.sessionDraftMediaId = (!forceNewDraft && draftAssociation?.mediaId) ? draftAssociation.mediaId : '';
       this.sessionDraftIndex = (!forceNewDraft && Number.isInteger(draftAssociation?.index)) ? draftAssociation.index : 0;
+      // 传递用户输入的标题，或使用 frontmatter 标题或文件名
+      this.sessionTitle = titleInput.value.trim() || frontmatterMeta.title || (activeFile ? activeFile.basename : '无标题文章');
       // 传递用户输入的摘要，或使用自动提取的摘要
       this.sessionDigest = digestInput.value.trim() || autoDigest || '一键同步自 Obsidian';
       await this.onSyncToWechat();
@@ -4941,6 +5002,7 @@ class AppleStyleView extends ItemView {
         currentHtml: this.getCurrentExportHtml(),
         activeFile,
         publishMeta,
+        sessionTitle: this.sessionTitle,
         sessionCoverBase64: this.sessionCoverBase64,
         sessionThumbMediaId: this.sessionThumbMediaId || '',
         sessionDigest: this.sessionDigest,
@@ -4966,7 +5028,7 @@ class AppleStyleView extends ItemView {
           sourcePath: activeFile.path,
           mediaId,
           accountId: account.id || '',
-          title: activeFile.basename,
+          title: publishMeta.title || activeFile.basename,
           index: draftIndex || 0,
           updatedAt: Date.now(),
         });
@@ -6038,6 +6100,14 @@ class AppleStyleView extends ItemView {
     if (this.previewContainer && this.previewScrollListener) {
       this.previewContainer.removeEventListener('scroll', this.previewScrollListener);
     }
+    if (this.cancelScrollSyncFrame) {
+      this.cancelScrollSyncFrame();
+      this.cancelScrollSyncFrame = null;
+      this.scrollSyncFrame = null;
+      this.pendingScrollSyncSource = '';
+    }
+    this.expectedEditorScrollTop = null;
+    this.expectedPreviewScrollTop = null;
     this.previewContainer?.empty();
     this.closeTransientPanels();
     this.aiLayoutBtn = null;
