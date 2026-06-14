@@ -114,7 +114,8 @@ function createWechatSyncService(deps) {
           cachedCover &&
           cachedCover.fingerprint &&
           cachedCover.fingerprint === fingerprint &&
-          cachedCover.mediaId
+          cachedCover.mediaId &&
+          (!cachedCover.uploadedAt || Date.now() - cachedCover.uploadedAt < 2.5 * 24 * 60 * 60 * 1000)
         ) {
           thumbMediaId = cachedCover.mediaId;
         } else {
@@ -124,6 +125,7 @@ function createWechatSyncService(deps) {
             coverUploadCache.set(coverCacheKey, {
               mediaId: thumbMediaId,
               fingerprint,
+              uploadedAt: Date.now(),
             });
           }
         }

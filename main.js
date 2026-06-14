@@ -10402,7 +10402,7 @@ var require_wechat_sync = __commonJS({
             const fingerprint = await computeBlobFingerprint(coverBlob);
             const coverCacheKey = buildCoverUploadCacheKey(account, coverSrc);
             const cachedCover = getCachedCoverEntry(coverUploadCache, coverCacheKey);
-            if (cachedCover && cachedCover.fingerprint && cachedCover.fingerprint === fingerprint && cachedCover.mediaId) {
+            if (cachedCover && cachedCover.fingerprint && cachedCover.fingerprint === fingerprint && cachedCover.mediaId && (!cachedCover.uploadedAt || Date.now() - cachedCover.uploadedAt < 2.5 * 24 * 60 * 60 * 1e3)) {
               thumbMediaId = cachedCover.mediaId;
             } else {
               const coverRes = await api.uploadCover(coverBlob);
@@ -10410,7 +10410,8 @@ var require_wechat_sync = __commonJS({
               if (coverUploadCache && thumbMediaId) {
                 coverUploadCache.set(coverCacheKey, {
                   mediaId: thumbMediaId,
-                  fingerprint
+                  fingerprint,
+                  uploadedAt: Date.now()
                 });
               }
             }
@@ -12123,6 +12124,9 @@ var require_sync_context = __commonJS({
       }
       if (/invalid content|invalld content|45166/i.test(errorMessage)) {
         return "\u5FAE\u4FE1\u63A5\u53E3\u62D2\u6536\u6B63\u6587\u5185\u5BB9\uFF08invalid content\uFF09\u3002\u5E38\u89C1\u539F\u56E0\u662F\u6B63\u6587\u91CC\u4ECD\u6709\u672A\u4E0A\u4F20\u56FE\u7247\u3001\u65E0\u6548\u94FE\u63A5\u6216\u5FAE\u4FE1\u4E0D\u652F\u6301\u7684 HTML\u3002\u8BF7\u6839\u636E\u4E0A\u65B9\u540C\u6B65\u63D0\u793A\u68C0\u67E5\u6B63\u6587\u56FE\u7247\u548C\u590D\u6742\u7C98\u8D34\u5185\u5BB9\u540E\u91CD\u8BD5\u3002";
+      }
+      if (errorMessage.includes("40007") || /invalid media_id|invalld media_id/i.test(errorMessage)) {
+        return "\u5FAE\u4FE1\u63A5\u53E3\u8FD4\u56DE\u5A92\u4F53 ID \u65E0\u6548 (40007)\u3002\u8FD9\u901A\u5E38\u662F\u56E0\u4E3A\u8349\u7A3F\u5728\u5FAE\u4FE1\u540E\u53F0\u5DF2\u88AB\u5220\u9664\uFF0C\u6216\u5C01\u9762\u56FE\u5DF2\u8FC7\u671F\u3002\u5EFA\u8BAE\u5728\u4E0B\u65B9\u70B9\u51FB\u300C\u53D6\u6D88\u5173\u8054\u5E76\u65B0\u5EFA\u8349\u7A3F\u300D\uFF0C\u7136\u540E\u91CD\u65B0\u540C\u6B65\u3002";
       }
       if (errorMessage.includes("status 403")) {
         return "\u8BBF\u95EE\u4E2D\u8F6C\u4EE3\u7406\u670D\u52A1\u5668\u88AB\u62D2\u7EDD (HTTP 403)\u3002\u8BF7\u68C0\u67E5\u60A8\u7684\u4EE3\u7406\u5730\u5740\u548C Token \u662F\u5426\u6B63\u786E\u3002";

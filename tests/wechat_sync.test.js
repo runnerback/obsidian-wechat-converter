@@ -196,6 +196,54 @@ describe('Wechat Sync Service', () => {
     }));
   });
 
+  it('should re-upload cover when cached cover is older than 2.5 days', async () => {
+    const api = createMockApi();
+    api.uploadCover = vi
+      .fn()
+      .mockResolvedValueOnce({ media_id: 'thumb-cached' })
+      .mockResolvedValueOnce({ media_id: 'thumb-new' });
+    const coverUploadCache = new Map();
+    const srcToBlob = vi.fn(async () => new Blob(['same-cover'], { type: 'image/png' }));
+    const service = createWechatSyncService({
+      createApi: vi.fn(() => api),
+      srcToBlob,
+      coverUploadCache,
+      prepareHtmlForDraft: vi.fn(async (html) => html),
+      processAllImages: vi.fn(async () => '<p>x</p>'),
+      processMathFormulas: vi.fn(async (html) => html),
+      cleanHtmlForDraft: vi.fn((html) => html),
+      cleanupConfiguredDirectory: vi.fn(async () => ({ attempted: false })),
+      getFirstImageFromArticle: vi.fn(() => 'app://fallback-cover'),
+    });
+
+    const payload = {
+      account: { id: 'acc-1', appId: 'wx1', appSecret: 'sec' },
+      proxyUrl: '',
+      currentHtml: '<p>x</p>',
+      activeFile: { basename: 'note-title' },
+      publishMeta: { coverSrc: null },
+      sessionCoverBase64: 'app://cover.png',
+      sessionDigest: '',
+    };
+
+    // First sync: uploads cover and sets cache
+    await service.syncToDraft(payload);
+    expect(api.uploadCover).toHaveBeenCalledTimes(1);
+
+    // Modify cache entry to make it expired (3 days ago)
+    const cacheKey = 'acc-1::cover::app://cover.png';
+    const cachedEntry = coverUploadCache.get(cacheKey);
+    expect(cachedEntry).toBeDefined();
+    cachedEntry.uploadedAt = Date.now() - 3 * 24 * 60 * 60 * 1000;
+
+    // Second sync: should ignore expired cache and upload again
+    await service.syncToDraft(payload);
+    expect(api.uploadCover).toHaveBeenCalledTimes(2);
+    expect(api.createDraft).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      thumb_media_id: 'thumb-new',
+    }));
+  });
+
   it('should re-upload cached cover when the source content changes', async () => {
     const api = createMockApi();
     api.uploadCover = vi

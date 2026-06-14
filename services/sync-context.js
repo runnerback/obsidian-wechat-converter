@@ -22,6 +22,9 @@ function toSyncFriendlyMessage(errorMessage = '') {
   if (/invalid content|invalld content|45166/i.test(errorMessage)) {
     return '微信接口拒收正文内容（invalid content）。常见原因是正文里仍有未上传图片、无效链接或微信不支持的 HTML。请根据上方同步提示检查正文图片和复杂粘贴内容后重试。';
   }
+  if (errorMessage.includes('40007') || /invalid media_id|invalld media_id/i.test(errorMessage)) {
+    return '微信接口返回媒体 ID 无效 (40007)。这通常是因为草稿在微信后台已被删除，或封面图已过期。建议在下方点击「取消关联并新建草稿」，然后重新同步。';
+  }
   if (errorMessage.includes('status 403')) {
     return '访问中转代理服务器被拒绝 (HTTP 403)。请检查您的代理地址和 Token 是否正确。';
   }
