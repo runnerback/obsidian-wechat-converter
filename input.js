@@ -6466,11 +6466,23 @@ class AppleStyleSettingTab extends PluginSettingTab {
       .setName('API 代理地址')
       .setDesc(createFragment(frag => {
         const descDiv = frag.createDiv();
-        descDiv.appendText('如果你的网络 IP 经常变化，可配置代理服务。');
+        descDiv.appendText('如果您的网络 IP 经常变化，可配置代理服务。');
         descDiv.createEl('a', {
-          text: '查看部署指南',
+          text: '查看自建指南',
           href: 'https://xiaoweibox.top/chats/wechat-proxy',
           attr: { style: 'margin-left: 5px;' },
+        });
+
+        frag.createDiv({
+          cls: 'wechat-official-proxy-note',
+          attr: { style: 'margin-top: 6px; font-size: 12px; color: var(--text-normal); background: var(--background-secondary); border-left: 3px solid var(--interactive-accent); padding: 8px; border-radius: 0 4px 4px 0;' },
+        }, el => {
+          el.createSpan({ text: '💡 官方免自建中转：已上线稳定中转代理，彻底解决微信 IP 白名单频繁漂移问题，免去自行部署维护服务器的麻烦。' });
+          el.createEl('a', {
+            text: '获取官方中转 Token ➔',
+            href: 'https://xiaoweibox.top/chats/wechat-proxy-service',
+            attr: { style: 'margin-left: 8px; color: var(--interactive-accent); font-weight: bold; text-decoration: underline;' },
+          });
         });
 
         frag.createDiv({
