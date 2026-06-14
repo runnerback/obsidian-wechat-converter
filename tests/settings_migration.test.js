@@ -89,6 +89,7 @@ describe('AppleStylePlugin - Settings Migration', () => {
       cleanupDirTemplate: '',
       cleanupAfterSync: false,
       cleanupUseSystemTrash: true,
+      clientId: 'client-123456',
     });
     plugin.saveData = vi.fn().mockResolvedValue(undefined);
 
@@ -103,6 +104,7 @@ describe('AppleStylePlugin - Settings Migration', () => {
       wechatAccounts: [],
       defaultAccountId: '',
       cleanupDirTemplate: '',
+      clientId: 'client-123456',
     });
     plugin.saveData = vi.fn().mockResolvedValue(undefined);
 
@@ -128,6 +130,7 @@ describe('AppleStylePlugin - Settings Migration', () => {
         author: '作者',
       }],
       defaultAccountId: 'acc-1',
+      clientId: 'client-123456',
     });
     plugin.saveData = vi.fn().mockResolvedValue(undefined);
 
@@ -310,5 +313,21 @@ describe('AppleStylePlugin - Settings Migration', () => {
     expect(plugin.getArticleLayoutState('notes/demo.md', 'tech-green')?.layoutJson?.blocks?.[0]?.title).toBe('blue');
     expect(plugin.getArticleLayoutState('notes/demo.md', 'ocean-blue')?.layoutJson?.blocks?.[0]?.title).toBe('blue');
     expect(Object.keys(plugin.settings.ai.articleLayoutsByPath['notes/demo.md'].familyStates)).toEqual(['tutorial-cards']);
+  });
+
+  it('should auto-generate clientId when it is missing and trigger a save', async () => {
+    const plugin = new AppleStylePlugin();
+    plugin.loadData = vi.fn().mockResolvedValue({
+      wechatAccounts: [],
+      defaultAccountId: '',
+      cleanupDirTemplate: '',
+    });
+    plugin.saveData = vi.fn().mockResolvedValue(undefined);
+
+    await plugin.loadSettings();
+
+    expect(plugin.settings.clientId).toBeTruthy();
+    expect(plugin.settings.clientId.startsWith('wp_dev_')).toBe(true);
+    expect(plugin.saveData).toHaveBeenCalledTimes(1);
   });
 });

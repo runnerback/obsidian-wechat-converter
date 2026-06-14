@@ -15657,6 +15657,8 @@ var DEFAULT_SETTINGS = {
   // 代理设置
   proxyUrl: "",
   // Cloudflare Worker 等代理地址
+  clientId: "",
+  // 自动生成的本地设备唯一ID
   draftCache: createEmptyDraftCache(),
   // 预览设置
   usePhoneFrame: true,
@@ -15731,10 +15733,11 @@ async function pMap(array, mapper, concurrency = 3) {
   return Promise.all(results);
 }
 var WechatAPI = class {
-  constructor(appId, appSecret, proxyUrl = "") {
+  constructor(appId, appSecret, proxyUrl = "", clientId = "") {
     this.appId = appId;
     this.appSecret = appSecret;
     this.proxyUrl = proxyUrl;
+    this.clientId = clientId;
     this.accessToken = "";
     this.expireTime = 0;
   }
@@ -15827,9 +15830,14 @@ var WechatAPI = class {
     const { requestUrl: requestUrl2 } = require("obsidian");
     if (this.proxyUrl) {
       this.validateProxyUrl(this.proxyUrl);
+      const headers = { "Content-Type": "application/json" };
+      if (this.clientId) {
+        headers["X-Client-Id"] = this.clientId;
+      }
       const proxyResponse = await requestUrl2({
         url: this.proxyUrl,
         method: "POST",
+        headers,
         body: JSON.stringify({
           url,
           method: options.method || "GET",
@@ -15948,9 +15956,14 @@ var WechatAPI = class {
           reader.onload = () => resolve(reader.result.split(",")[1]);
           reader.onerror = reject;
         });
+        const headers = { "Content-Type": "application/json" };
+        if (this.clientId) {
+          headers["X-Client-Id"] = this.clientId;
+        }
         const proxyResponse = await requestUrl2({
           url: this.proxyUrl,
           method: "POST",
+          headers,
           body: JSON.stringify({
             url,
             method: "UPLOAD",
@@ -19281,7 +19294,7 @@ var AppleStyleView = class extends ItemView {
         new Notice("\u8BF7\u5148\u914D\u7F6E\u516C\u4F17\u53F7\u8D26\u53F7");
         return;
       }
-      const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl);
+      const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl, this.plugin.settings.clientId);
       await this.showMaterialPickerModal(api, (material) => {
         thumbMediaId = material.mediaId;
         coverBase64 = material.url || "";
@@ -19890,7 +19903,7 @@ var AppleStyleView = class extends ItemView {
     const publishMeta = this.getFrontmatterPublishMeta(activeFile);
     try {
       const syncService = createWechatSyncService({
-        createApi: (appId, appSecret, proxyUrl) => new WechatAPI(appId, appSecret, proxyUrl),
+        createApi: (appId, appSecret, proxyUrl) => new WechatAPI(appId, appSecret, proxyUrl, this.plugin.settings.clientId),
         srcToBlob: this.srcToBlob.bind(this),
         coverUploadCache: this.coverUploadCache,
         processAllImages: this.processAllImages.bind(this),
@@ -21037,7 +21050,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
             testBtn.disabled = true;
             testBtn.textContent = "\u6D4B\u8BD5\u4E2D...";
             try {
-              const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl);
+              const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl, this.plugin.settings.clientId);
               await api.getAccessToken();
               new Notice(`\u2705 ${account.name} \u8FDE\u63A5\u6210\u529F\uFF01`);
             } catch (err) {
@@ -21552,7 +21565,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       testBtn.disabled = true;
       testBtn.textContent = "\u6D4B\u8BD5\u4E2D...";
       try {
-        const api = new WechatAPI(appIdInput.value.trim(), secretInput.value.trim(), this.plugin.settings.proxyUrl);
+        const api = new WechatAPI(appIdInput.value.trim(), secretInput.value.trim(), this.plugin.settings.proxyUrl, this.plugin.settings.clientId);
         await api.getAccessToken();
         new Notice("\u2705 \u8FDE\u63A5\u6210\u529F\uFF01");
       } catch (err) {
@@ -21761,6 +21774,10 @@ var AppleStylePlugin = class extends Plugin {
     const loadedData = await this.loadData() || {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
     let didMigrate = false;
+    if (!this.settings.clientId) {
+      this.settings.clientId = "wp_dev_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
+      didMigrate = true;
+    }
     this.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
     const normalizedDraftCache = normalizeDraftCache(this.settings.draftCache);
     this.settings.draftCache = normalizedDraftCache.cache;

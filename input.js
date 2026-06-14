@@ -213,6 +213,7 @@ const DEFAULT_SETTINGS = {
   defaultAccountId: '',
   // 代理设置
   proxyUrl: '',  // Cloudflare Worker 等代理地址
+  clientId: '',  // 自动生成的本地设备唯一ID
   draftCache: createEmptyDraftCache(),
   // 预览设置
   usePhoneFrame: true, // 是否使用手机框预览
@@ -305,10 +306,11 @@ async function pMap(array, mapper, concurrency = 3) {
  * 🚀 微信公众号 API 对接模块
  */
 class WechatAPI {
-  constructor(appId, appSecret, proxyUrl = '') {
+  constructor(appId, appSecret, proxyUrl = '', clientId = '') {
     this.appId = appId;
     this.appSecret = appSecret;
     this.proxyUrl = proxyUrl;
+    this.clientId = clientId;
     this.accessToken = '';
     this.expireTime = 0;
   }
@@ -440,9 +442,15 @@ class WechatAPI {
       this.validateProxyUrl(this.proxyUrl);
 
       // 通过代理发送
+      const headers = { 'Content-Type': 'application/json' };
+      if (this.clientId) {
+        headers['X-Client-Id'] = this.clientId;
+      }
+
       const proxyResponse = await requestUrl({
         url: this.proxyUrl,
         method: 'POST',
+        headers: headers,
         body: JSON.stringify({
           url: url,
           method: options.method || 'GET',
@@ -587,9 +595,15 @@ class WechatAPI {
           reader.onerror = reject;
         });
 
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.clientId) {
+          headers['X-Client-Id'] = this.clientId;
+        }
+
         const proxyResponse = await requestUrl({
           url: this.proxyUrl,
           method: 'POST',
+          headers: headers,
           body: JSON.stringify({
             url: url,
             method: 'UPLOAD',  // 特殊标记，告诉代理这是文件上传
@@ -4322,7 +4336,7 @@ class AppleStyleView extends ItemView {
         return;
       }
 
-      const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl);
+      const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl, this.plugin.settings.clientId);
       await this.showMaterialPickerModal(api, (material) => {
         thumbMediaId = material.mediaId;
         coverBase64 = material.url || '';
@@ -4985,7 +4999,7 @@ class AppleStyleView extends ItemView {
 
     try {
       const syncService = createWechatSyncService({
-        createApi: (appId, appSecret, proxyUrl) => new WechatAPI(appId, appSecret, proxyUrl),
+        createApi: (appId, appSecret, proxyUrl) => new WechatAPI(appId, appSecret, proxyUrl, this.plugin.settings.clientId),
         srcToBlob: this.srcToBlob.bind(this),
         coverUploadCache: this.coverUploadCache,
         processAllImages: this.processAllImages.bind(this),
@@ -6355,7 +6369,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
           testBtn.disabled = true;
           testBtn.textContent = '测试中...';
           try {
-            const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl);
+            const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl, this.plugin.settings.clientId);
             await api.getAccessToken();
             new Notice(`✅ ${account.name} 连接成功！`);
           } catch (err) {
@@ -6992,7 +7006,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
       testBtn.disabled = true;
       testBtn.textContent = '测试中...';
       try {
-        const api = new WechatAPI(appIdInput.value.trim(), secretInput.value.trim(), this.plugin.settings.proxyUrl);
+        const api = new WechatAPI(appIdInput.value.trim(), secretInput.value.trim(), this.plugin.settings.proxyUrl, this.plugin.settings.clientId);
         await api.getAccessToken();
         new Notice('✅ 连接成功！');
       } catch (err) {
@@ -7241,6 +7255,11 @@ class AppleStylePlugin extends Plugin {
     const loadedData = (await this.loadData()) || {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
     let didMigrate = false;
+
+    if (!this.settings.clientId) {
+      this.settings.clientId = 'wp_dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+      didMigrate = true;
+    }
 
     this.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
 
