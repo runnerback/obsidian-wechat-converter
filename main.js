@@ -21140,20 +21140,28 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       const officialRow = card.createDiv({ attr: { style: "display: flex; gap: 6px; align-items: flex-start;" } });
       officialRow.createSpan({ text: "\u{1F4A1}", attr: { style: "flex-shrink: 0; line-height: 1.6;" } });
       const officialText = officialRow.createDiv();
+      officialText.createEl("strong", {
+        text: "\u5B98\u65B9\u4E2D\u8F6C",
+        attr: { style: "color: var(--text-normal); font-weight: 600;" }
+      });
       officialText.createSpan({
-        text: "\u5B98\u65B9\u514D\u81EA\u5EFA\u4E2D\u8F6C\uFF1A\u5DF2\u4E0A\u7EBF\u7A33\u5B9A\u4E2D\u8F6C\u4EE3\u7406\uFF0C\u5F7B\u5E95\u89E3\u51B3\u5FAE\u4FE1 IP \u767D\u540D\u5355\u9891\u7E41\u6F02\u79FB\u95EE\u9898\u3002",
-        attr: { style: "color: var(--text-normal); font-weight: 500;" }
+        text: "\uFF1A\u5DF2\u4E0A\u7EBF\u7A33\u5B9A\u4E2D\u8F6C\u4EE3\u7406\uFF0C\u5F7B\u5E95\u89E3\u51B3\u5FAE\u4FE1 IP \u767D\u540D\u5355\u9891\u7E41\u6F02\u79FB\u95EE\u9898\u3002",
+        attr: { style: "color: var(--text-muted);" }
       });
       officialText.createEl("a", {
         text: "\u83B7\u53D6\u5B98\u65B9\u4E2D\u8F6C Token \u2794",
         href: "https://xiaoweibox.top/chats/wechat-proxy-service",
-        attr: { style: "margin-left: 6px; color: var(--interactive-accent); font-weight: bold; text-decoration: underline;" }
+        attr: { style: "margin-left: 6px; color: var(--interactive-accent); font-weight: 600; text-decoration: underline;" }
       });
       const selfHostedRow = card.createDiv({ attr: { style: "display: flex; gap: 6px; align-items: flex-start;" } });
       selfHostedRow.createSpan({ text: "\u{1F6E0}\uFE0F", attr: { style: "flex-shrink: 0; line-height: 1.6;" } });
       const selfHostedText = selfHostedRow.createDiv();
+      selfHostedText.createEl("strong", {
+        text: "\u624B\u5DE5\u81EA\u5EFA",
+        attr: { style: "color: var(--text-normal); font-weight: 600;" }
+      });
       selfHostedText.createSpan({
-        text: "\u81EA\u5EFA\u65B9\u6848\uFF1A\u5982\u679C\u60A8\u60F3\u62E5\u6709\u5B8C\u5168\u81EA\u4E3B\u7684\u63A7\u5236\u6743\uFF0C\u4E5F\u53EF\u4EE5\u57FA\u4E8E Cloudflare Worker \u6216\u4E2A\u4EBA VPS \u81EA\u5EFA\u3002",
+        text: "\uFF1A\u5982\u679C\u60A8\u60F3\u62E5\u6709\u5B8C\u5168\u81EA\u4E3B\u7684\u63A7\u5236\u6743\uFF0C\u4E5F\u53EF\u4EE5\u57FA\u4E8E Cloudflare Worker \u6216\u4E2A\u4EBA VPS \u81EA\u5EFA\u3002",
         attr: { style: "color: var(--text-muted);" }
       });
       selfHostedText.createEl("a", {
@@ -21163,8 +21171,15 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       });
       const securityRow = card.createDiv({ attr: { style: "display: flex; gap: 6px; align-items: flex-start;" } });
       securityRow.createSpan({ text: "\u{1F512}", attr: { style: "flex-shrink: 0; line-height: 1.6;" } });
-      const securityText = securityRow.createDiv({ attr: { style: "color: var(--text-warning);" } });
-      securityText.appendText("\u5B89\u5168\u63D0\u793A\uFF1A\u4EE3\u7406\u670D\u52A1\u5C06\u4E2D\u8F6C\u60A8\u7684\u8BF7\u6C42\u3002\u8BF7\u786E\u4FDD\u4F7F\u7528\u53D7\u4FE1\u4EFB\u7684\u4EE3\u7406\uFF08\u81EA\u5EFA\u6216\u5B98\u65B9\uFF09\uFF0C\u4EE5\u4FDD\u62A4 AppSecret \u5B89\u5168\u3002\u4E2D\u8F6C\u670D\u52A1\u4EC5\u5728\u5185\u5B58\u4E2D\u8F6C\u53D1\uFF0C\u4E0D\u5B58\u50A8\u60A8\u7684\u4EFB\u4F55\u654F\u611F\u51ED\u8BC1\u3002");
+      const securityText = securityRow.createDiv();
+      securityText.createEl("strong", {
+        text: "\u5B89\u5168\u58F0\u660E",
+        attr: { style: "color: var(--text-warning); font-weight: 600;" }
+      });
+      securityText.createSpan({
+        text: "\uFF1A\u4EE3\u7406\u670D\u52A1\u5C06\u4E2D\u8F6C\u60A8\u7684\u8BF7\u6C42\u3002\u8BF7\u786E\u4FDD\u4F7F\u7528\u53D7\u4FE1\u4EFB\u7684\u4EE3\u7406\uFF08\u81EA\u5EFA\u6216\u5B98\u65B9\uFF09\uFF0C\u4EE5\u4FDD\u62A4 AppSecret \u5B89\u5168\u3002\u4E2D\u8F6C\u670D\u52A1\u4EC5\u5728\u5185\u5B58\u4E2D\u8F6C\u53D1\uFF0C\u4E0D\u5B58\u50A8\u60A8\u7684\u4EFB\u4F55\u654F\u611F\u51ED\u8BC1\u3002",
+        attr: { style: "color: var(--text-muted);" }
+      });
     }
     renderMultiPlatformSettingsTab(this, multiContent);
   }
