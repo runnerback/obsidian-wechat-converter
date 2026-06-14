@@ -82,6 +82,21 @@ describe('Sync Context Service', () => {
     expect(msg).toContain('微信接口拒收正文内容');
   });
 
+  it('toSyncFriendlyMessage should map status 403 to proxy error message', () => {
+    const msg = toSyncFriendlyMessage('Request failed, status 403');
+    expect(msg).toContain('访问中转代理服务器被拒绝 (HTTP 403)');
+  });
+
+  it('toSyncFriendlyMessage should map status 401 to proxy error message', () => {
+    const msg = toSyncFriendlyMessage('Request failed, status 401');
+    expect(msg).toContain('访问中转代理服务器未授权 (HTTP 401)');
+  });
+
+  it('toSyncFriendlyMessage should map 40007 / invalid media_id to user friendly message', () => {
+    const msg = toSyncFriendlyMessage('微信API报错: invalid media_id (40007)');
+    expect(msg).toContain('微信接口返回媒体 ID 无效 (40007)');
+  });
+
   it('toSyncFriendlyMessage should keep other errors unchanged', () => {
     expect(toSyncFriendlyMessage('network error')).toBe('network error');
   });

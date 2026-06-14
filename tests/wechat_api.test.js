@@ -154,4 +154,46 @@ describe('WechatAPI - Upload & MIME Logic', () => {
       }),
     }));
   });
+
+  it('should include X-Client-Id header in sendRequest when clientId is provided and proxy is used', async () => {
+    const api = new WechatAPI('appid', 'secret', 'https://proxy.com', 'client-123456');
+    obsidianMock.requestUrl.mockResolvedValue({ json: { success: true } });
+
+    await api.sendRequest('https://api.weixin.qq.com/test');
+
+    expect(obsidianMock.requestUrl).toHaveBeenCalledTimes(1);
+    expect(obsidianMock.requestUrl).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://proxy.com',
+      headers: expect.objectContaining({
+        'X-Client-Id': 'client-123456'
+      })
+    }));
+  });
+
+  it('should include X-Client-Id header in uploadMultipart when clientId is provided and proxy is used', async () => {
+    const api = new WechatAPI('appid', 'secret', 'https://proxy.com', 'client-123456');
+    const mockBlob = new Blob(['fake-image-data'], { type: 'image/png' });
+    obsidianMock.requestUrl.mockResolvedValue({ json: { url: 'http://wx.com', media_id: 'media-123' } });
+
+    await api.uploadMultipart('https://api.weixin.qq.com/upload', mockBlob, 'media');
+
+    expect(obsidianMock.requestUrl).toHaveBeenCalledTimes(1);
+    expect(obsidianMock.requestUrl).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://proxy.com',
+      headers: expect.objectContaining({
+        'X-Client-Id': 'client-123456'
+      })
+    }));
+  });
+
+  it('should NOT include X-Client-Id header when clientId is empty', async () => {
+    const api = new WechatAPI('appid', 'secret', 'https://proxy.com', '');
+    obsidianMock.requestUrl.mockResolvedValue({ json: { success: true } });
+
+    await api.sendRequest('https://api.weixin.qq.com/test');
+
+    expect(obsidianMock.requestUrl).toHaveBeenCalledTimes(1);
+    const callArg = obsidianMock.requestUrl.mock.calls[0][0];
+    expect(callArg.headers).not.toHaveProperty('X-Client-Id');
+  });
 });

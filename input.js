@@ -213,6 +213,7 @@ const DEFAULT_SETTINGS = {
   defaultAccountId: '',
   // 代理设置
   proxyUrl: '',  // Cloudflare Worker 等代理地址
+  clientId: '',  // 自动生成的本地设备唯一ID
   draftCache: createEmptyDraftCache(),
   // 预览设置
   usePhoneFrame: true, // 是否使用手机框预览
@@ -305,10 +306,11 @@ async function pMap(array, mapper, concurrency = 3) {
  * 🚀 微信公众号 API 对接模块
  */
 class WechatAPI {
-  constructor(appId, appSecret, proxyUrl = '') {
+  constructor(appId, appSecret, proxyUrl = '', clientId = '') {
     this.appId = appId;
     this.appSecret = appSecret;
     this.proxyUrl = proxyUrl;
+    this.clientId = clientId;
     this.accessToken = '';
     this.expireTime = 0;
   }
@@ -440,16 +442,44 @@ class WechatAPI {
       this.validateProxyUrl(this.proxyUrl);
 
       // 通过代理发送
+      const headers = { 'Content-Type': 'application/json' };
+      if (this.clientId) {
+        headers['X-Client-Id'] = this.clientId;
+      }
+
       const proxyResponse = await requestUrl({
         url: this.proxyUrl,
         method: 'POST',
+        headers: headers,
         body: JSON.stringify({
           url: url,
           method: options.method || 'GET',
           data: options.body ? JSON.parse(options.body) : undefined
         }),
-        contentType: 'application/json'
+        contentType: 'application/json',
+        throw: false
       });
+
+      if (proxyResponse.status < 200 || proxyResponse.status >= 300) {
+        let errorMsg = `Request failed, status ${proxyResponse.status}`;
+        try {
+          const body = proxyResponse.json || (proxyResponse.text ? JSON.parse(proxyResponse.text) : null);
+          if (body && body.error) {
+            errorMsg = body.error;
+          }
+        } catch (e) {
+          if (proxyResponse.text) {
+            errorMsg = proxyResponse.text;
+          }
+        }
+        const error = new Error(errorMsg);
+        if (proxyResponse.status === 403 || proxyResponse.status === 401) {
+          error.isProxyAuth = true;
+          error.isFatal = true;
+        }
+        throw error;
+      }
+
       return proxyResponse.json;
     } else {
       // 直连
@@ -587,9 +617,15 @@ class WechatAPI {
           reader.onerror = reject;
         });
 
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.clientId) {
+          headers['X-Client-Id'] = this.clientId;
+        }
+
         const proxyResponse = await requestUrl({
           url: this.proxyUrl,
           method: 'POST',
+          headers: headers,
           body: JSON.stringify({
             url: url,
             method: 'UPLOAD',  // 特殊标记，告诉代理这是文件上传
@@ -598,8 +634,29 @@ class WechatAPI {
             mimeType: mimeType,
             fieldName: fieldName
           }),
-          contentType: 'application/json'
+          contentType: 'application/json',
+          throw: false
         });
+
+        if (proxyResponse.status < 200 || proxyResponse.status >= 300) {
+          let errorMsg = `Request failed, status ${proxyResponse.status}`;
+          try {
+            const body = proxyResponse.json || (proxyResponse.text ? JSON.parse(proxyResponse.text) : null);
+            if (body && body.error) {
+              errorMsg = body.error;
+            }
+          } catch (e) {
+            if (proxyResponse.text) {
+              errorMsg = proxyResponse.text;
+            }
+          }
+          const error = new Error(errorMsg);
+          if (proxyResponse.status === 403 || proxyResponse.status === 401) {
+            error.isProxyAuth = true;
+            error.isFatal = true;
+          }
+          throw error;
+        }
 
         const data = proxyResponse.json;
         if (data.media_id || data.url) {
@@ -3874,12 +3931,20 @@ class AppleStyleView extends ItemView {
 
     const body = modal.contentEl.createDiv({ cls: 'wechat-sync-failure-state' });
     body.createEl('p', { cls: 'wechat-sync-failure-message', text: message });
-    const hasDraftAssociation = !!options.draftAssociation?.mediaId && !!options.draftAssociation?.sourcePath;
+    
+    const isProxyAuth = !!options.isProxyAuth;
+    const hasDraftAssociation = !isProxyAuth && !!options.draftAssociation?.mediaId && !!options.draftAssociation?.sourcePath;
+    
+    let hintText = '可以重试同步，或先检查账号配置。';
+    if (isProxyAuth) {
+      hintText = '请检查您的 API 代理地址和 Token 配置是否正确。若服务已到期，请联系作者续费。';
+    } else if (hasDraftAssociation) {
+      hintText = '可以重试同步；如果微信后台草稿已被删除或无法更新，也可以取消关联后新建草稿。';
+    }
+
     body.createEl('p', {
       cls: 'wechat-sync-failure-hint',
-      text: hasDraftAssociation
-        ? '可以重试同步；如果微信后台草稿已被删除或无法更新，也可以取消关联后新建草稿。'
-        : '可以重试同步，或先检查账号配置。'
+      text: hintText
     });
 
     const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
@@ -4322,7 +4387,7 @@ class AppleStyleView extends ItemView {
         return;
       }
 
-      const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl);
+      const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl, this.plugin.settings.clientId);
       await this.showMaterialPickerModal(api, (material) => {
         thumbMediaId = material.mediaId;
         coverBase64 = material.url || '';
@@ -4985,7 +5050,7 @@ class AppleStyleView extends ItemView {
 
     try {
       const syncService = createWechatSyncService({
-        createApi: (appId, appSecret, proxyUrl) => new WechatAPI(appId, appSecret, proxyUrl),
+        createApi: (appId, appSecret, proxyUrl) => new WechatAPI(appId, appSecret, proxyUrl, this.plugin.settings.clientId),
         srcToBlob: this.srcToBlob.bind(this),
         coverUploadCache: this.coverUploadCache,
         processAllImages: this.processAllImages.bind(this),
@@ -5052,14 +5117,16 @@ class AppleStyleView extends ItemView {
     } catch (error) {
       notice.hide();
       console.error('Wechat Sync Error:', error);
+      const isProxyAuth = error.isProxyAuth || /token|服务已于|安全警报/i.test(error.message);
       const friendlyMsg = toSyncFriendlyMessage(error.message);
-      this.showSyncFailureActions(friendlyMsg, this.sessionDraftMediaId && activeFile ? {
-        draftAssociation: {
+      this.showSyncFailureActions(friendlyMsg, {
+        isProxyAuth,
+        draftAssociation: (this.sessionDraftMediaId && activeFile) ? {
           sourcePath: activeFile.path,
           mediaId: this.sessionDraftMediaId,
           accountId: account.id || '',
-        },
-      } : {});
+        } : null
+      });
     }
   }
 
@@ -6355,7 +6422,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
           testBtn.disabled = true;
           testBtn.textContent = '测试中...';
           try {
-            const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl);
+            const api = new WechatAPI(account.appId, account.appSecret, this.plugin.settings.proxyUrl, this.plugin.settings.clientId);
             await api.getAccessToken();
             new Notice(`✅ ${account.name} 连接成功！`);
           } catch (err) {
@@ -6450,38 +6517,86 @@ class AppleStyleSettingTab extends PluginSettingTab {
     let hasWarnedInsecureProxy = false;
     new Setting(containerEl)
       .setName('API 代理地址')
-      .setDesc(createFragment(frag => {
-        const descDiv = frag.createDiv();
-        descDiv.appendText('如果你的网络 IP 经常变化，可配置代理服务。');
-        descDiv.createEl('a', {
-          text: '查看部署指南',
-          href: 'https://xiaoweibox.top/chats/wechat-proxy',
-          attr: { style: 'margin-left: 5px;' },
-        });
-
-        frag.createDiv({
-          cls: 'wechat-proxy-note',
-          attr: { style: 'margin-top: 6px; font-size: 12px; color: var(--text-muted); background: var(--background-secondary); padding: 8px; border-radius: 4px;' },
-        }, el => {
-          el.createSpan({ text: '🔒 安全提示：代理服务将中转您的请求。请确保使用受信任的代理（自建或可靠第三方），以保护 AppSecret 安全。' });
-        });
-      }))
-      .addText(text => text
-        .setPlaceholder('https://your-proxy.workers.dev')
-        .setValue(this.plugin.settings.proxyUrl || '')
-        .onChange(async (value) => {
-          const trimmedValue = value.trim();
-          if (trimmedValue && !trimmedValue.toLowerCase().startsWith('https://')) {
-            if (!hasWarnedInsecureProxy) {
-              new Notice('⚠️ 安全风险：代理地址必须使用 HTTPS 以保护您的 AppSecret。');
-              hasWarnedInsecureProxy = true;
+      .setDesc('如果您的网络 IP 经常变化（如多地办公或使用移动热点），可配置代理服务以解决微信 IP 白名单漂移导致的同步失败问题。')
+      .addText(text => {
+        text
+          .setPlaceholder('https://your-proxy.workers.dev')
+          .setValue(this.plugin.settings.proxyUrl || '')
+          .onChange(async (value) => {
+            const trimmedValue = value.trim();
+            if (trimmedValue && !trimmedValue.toLowerCase().startsWith('https://')) {
+              if (!hasWarnedInsecureProxy) {
+                new Notice('⚠️ 安全风险：代理地址必须使用 HTTPS 以保护您的 AppSecret。');
+                hasWarnedInsecureProxy = true;
+              }
+            } else {
+              hasWarnedInsecureProxy = false;
             }
-          } else {
-            hasWarnedInsecureProxy = false;
-          }
-          this.plugin.settings.proxyUrl = trimmedValue;
-          await this.plugin.saveSettings();
-        }));
+            this.plugin.settings.proxyUrl = trimmedValue;
+            await this.plugin.saveSettings();
+          });
+        // 拓宽输入框宽度以完美容纳带 Token 的长 URL，并作安全判定兼容 Mock 环境
+        if (text.inputEl && typeof text.inputEl.setAttribute === 'function') {
+          text.inputEl.setAttribute('style', 'width: 320px; max-width: 100%;');
+        }
+      });
+
+    // 独立于 Setting 结构之外的说明卡片，自动独占一行并横跨 100% 宽度
+    const card = containerEl.createDiv({
+      cls: 'wechat-proxy-info-card',
+      attr: {
+        style: 'margin-top: 8px; margin-bottom: 16px; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 6px; background-color: var(--background-primary-alt); font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; gap: 8px;'
+      }
+    });
+
+    // 1. 官方免自建服务行
+    const officialRow = card.createDiv({ attr: { style: 'display: flex; gap: 6px; align-items: flex-start;' } });
+    officialRow.createSpan({ text: '💡', attr: { style: 'flex-shrink: 0; line-height: 1.6;' } });
+    const officialText = officialRow.createDiv();
+    officialText.createEl('strong', {
+      text: '官方中转',
+      attr: { style: 'color: var(--text-normal); font-weight: 600;' }
+    });
+    officialText.createSpan({
+      text: '：已上线稳定中转代理，彻底解决微信 IP 白名单频繁漂移问题。',
+      attr: { style: 'color: var(--text-muted);' }
+    });
+    officialText.createEl('a', {
+      text: '获取官方中转 Token ➔',
+      href: 'https://xiaoweibox.top/chats/wechat-proxy-service',
+      attr: { style: 'margin-left: 6px; color: var(--interactive-accent); font-weight: 600; text-decoration: underline;' }
+    });
+
+    // 2. 自建指南行
+    const selfHostedRow = card.createDiv({ attr: { style: 'display: flex; gap: 6px; align-items: flex-start;' } });
+    selfHostedRow.createSpan({ text: '🛠️', attr: { style: 'flex-shrink: 0; line-height: 1.6;' } });
+    const selfHostedText = selfHostedRow.createDiv();
+    selfHostedText.createEl('strong', {
+      text: '手工自建',
+      attr: { style: 'color: var(--text-normal); font-weight: 600;' }
+    });
+    selfHostedText.createSpan({
+      text: '：如果您想拥有完全自主的控制权，也可以基于 Cloudflare Worker 或个人 VPS 自建。',
+      attr: { style: 'color: var(--text-muted);' }
+    });
+    selfHostedText.createEl('a', {
+      text: '查看自建部署指南 ➔',
+      href: 'https://xiaoweibox.top/chats/wechat-proxy',
+      attr: { style: 'margin-left: 6px; color: var(--text-muted); text-decoration: underline;' }
+    });
+
+    // 3. 安全与隐私提示
+    const securityRow = card.createDiv({ attr: { style: 'display: flex; gap: 6px; align-items: flex-start;' } });
+    securityRow.createSpan({ text: '🔒', attr: { style: 'flex-shrink: 0; line-height: 1.6;' } });
+    const securityText = securityRow.createDiv();
+    securityText.createEl('strong', {
+      text: '安全声明',
+      attr: { style: 'color: var(--text-warning); font-weight: 600;' }
+    });
+    securityText.createSpan({
+      text: '：代理服务将中转您的请求。请确保使用受信任的代理（自建或官方），以保护 AppSecret 安全。中转服务仅在内存中转发，不存储您的任何敏感凭证。',
+      attr: { style: 'color: var(--text-muted);' }
+    });
 
     }
 
@@ -6992,7 +7107,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
       testBtn.disabled = true;
       testBtn.textContent = '测试中...';
       try {
-        const api = new WechatAPI(appIdInput.value.trim(), secretInput.value.trim(), this.plugin.settings.proxyUrl);
+        const api = new WechatAPI(appIdInput.value.trim(), secretInput.value.trim(), this.plugin.settings.proxyUrl, this.plugin.settings.clientId);
         await api.getAccessToken();
         new Notice('✅ 连接成功！');
       } catch (err) {
@@ -7241,6 +7356,11 @@ class AppleStylePlugin extends Plugin {
     const loadedData = (await this.loadData()) || {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
     let didMigrate = false;
+
+    if (!this.settings.clientId) {
+      this.settings.clientId = 'wp_dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+      didMigrate = true;
+    }
 
     this.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
 
