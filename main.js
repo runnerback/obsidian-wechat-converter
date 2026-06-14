@@ -21115,29 +21115,41 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       let hasWarnedInsecureProxy = false;
       new Setting(containerEl2).setName("API \u4EE3\u7406\u5730\u5740").setDesc(createFragment((frag) => {
         const descDiv = frag.createDiv();
-        descDiv.appendText("\u5982\u679C\u60A8\u7684\u7F51\u7EDC IP \u7ECF\u5E38\u53D8\u5316\uFF0C\u53EF\u914D\u7F6E\u4EE3\u7406\u670D\u52A1\u3002");
-        descDiv.createEl("a", {
-          text: "\u67E5\u770B\u81EA\u5EFA\u6307\u5357",
+        descDiv.appendText("\u5982\u679C\u60A8\u7684\u7F51\u7EDC IP \u7ECF\u5E38\u53D8\u5316\uFF08\u5982\u591A\u5730\u529E\u516C\u6216\u4F7F\u7528\u79FB\u52A8\u70ED\u70B9\uFF09\uFF0C\u53EF\u914D\u7F6E\u4EE3\u7406\u670D\u52A1\u4EE5\u89E3\u51B3\u5FAE\u4FE1 IP \u767D\u540D\u5355\u6F02\u79FB\u5BFC\u81F4\u7684\u540C\u6B65\u5931\u8D25\u95EE\u9898\u3002");
+        const card = frag.createDiv({
+          cls: "wechat-proxy-info-card",
+          attr: {
+            style: "margin-top: 10px; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 6px; background-color: var(--background-primary-alt); font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; gap: 8px;"
+          }
+        });
+        const officialRow = card.createDiv({ attr: { style: "display: flex; gap: 6px; align-items: flex-start;" } });
+        officialRow.createSpan({ text: "\u{1F4A1}", attr: { style: "flex-shrink: 0; line-height: 1.6;" } });
+        const officialText = officialRow.createDiv();
+        officialText.createSpan({
+          text: "\u5B98\u65B9\u514D\u81EA\u5EFA\u4E2D\u8F6C\uFF1A\u5DF2\u4E0A\u7EBF\u7A33\u5B9A\u4E2D\u8F6C\u4EE3\u7406\uFF0C\u5F7B\u5E95\u89E3\u51B3\u5FAE\u4FE1 IP \u767D\u540D\u5355\u9891\u7E41\u6F02\u79FB\u95EE\u9898\u3002",
+          attr: { style: "color: var(--text-normal); font-weight: 500;" }
+        });
+        officialText.createEl("a", {
+          text: "\u83B7\u53D6\u5B98\u65B9\u4E2D\u8F6C Token \u2794",
+          href: "https://xiaoweibox.top/chats/wechat-proxy-service",
+          attr: { style: "margin-left: 6px; color: var(--interactive-accent); font-weight: bold; text-decoration: underline;" }
+        });
+        const selfHostedRow = card.createDiv({ attr: { style: "display: flex; gap: 6px; align-items: flex-start;" } });
+        selfHostedRow.createSpan({ text: "\u{1F6E0}\uFE0F", attr: { style: "flex-shrink: 0; line-height: 1.6;" } });
+        const selfHostedText = selfHostedRow.createDiv();
+        selfHostedText.createSpan({
+          text: "\u81EA\u5EFA\u65B9\u6848\uFF1A\u5982\u679C\u60A8\u60F3\u62E5\u6709\u5B8C\u5168\u81EA\u4E3B\u7684\u63A7\u5236\u6743\uFF0C\u4E5F\u53EF\u4EE5\u57FA\u4E8E Cloudflare Worker \u6216\u4E2A\u4EBA VPS \u81EA\u5EFA\u3002",
+          attr: { style: "color: var(--text-muted);" }
+        });
+        selfHostedText.createEl("a", {
+          text: "\u67E5\u770B\u81EA\u5EFA\u90E8\u7F72\u6307\u5357 \u2794",
           href: "https://xiaoweibox.top/chats/wechat-proxy",
-          attr: { style: "margin-left: 5px;" }
+          attr: { style: "margin-left: 6px; color: var(--text-muted); text-decoration: underline;" }
         });
-        frag.createDiv({
-          cls: "wechat-official-proxy-note",
-          attr: { style: "margin-top: 6px; font-size: 12px; color: var(--text-normal); background: var(--background-secondary); border-left: 3px solid var(--interactive-accent); padding: 8px; border-radius: 0 4px 4px 0;" }
-        }, (el) => {
-          el.createSpan({ text: "\u{1F4A1} \u5B98\u65B9\u514D\u81EA\u5EFA\u4E2D\u8F6C\uFF1A\u5DF2\u4E0A\u7EBF\u7A33\u5B9A\u4E2D\u8F6C\u4EE3\u7406\uFF0C\u5F7B\u5E95\u89E3\u51B3\u5FAE\u4FE1 IP \u767D\u540D\u5355\u9891\u7E41\u6F02\u79FB\u95EE\u9898\uFF0C\u514D\u53BB\u81EA\u884C\u90E8\u7F72\u7EF4\u62A4\u670D\u52A1\u5668\u7684\u9EBB\u70E6\u3002" });
-          el.createEl("a", {
-            text: "\u83B7\u53D6\u5B98\u65B9\u4E2D\u8F6C Token \u2794",
-            href: "https://xiaoweibox.top/chats/wechat-proxy-service",
-            attr: { style: "margin-left: 8px; color: var(--interactive-accent); font-weight: bold; text-decoration: underline;" }
-          });
-        });
-        frag.createDiv({
-          cls: "wechat-proxy-note",
-          attr: { style: "margin-top: 6px; font-size: 12px; color: var(--text-muted); background: var(--background-secondary); padding: 8px; border-radius: 4px;" }
-        }, (el) => {
-          el.createSpan({ text: "\u{1F512} \u5B89\u5168\u63D0\u793A\uFF1A\u4EE3\u7406\u670D\u52A1\u5C06\u4E2D\u8F6C\u60A8\u7684\u8BF7\u6C42\u3002\u8BF7\u786E\u4FDD\u4F7F\u7528\u53D7\u4FE1\u4EFB\u7684\u4EE3\u7406\uFF08\u81EA\u5EFA\u6216\u53EF\u9760\u7B2C\u4E09\u65B9\uFF09\uFF0C\u4EE5\u4FDD\u62A4 AppSecret \u5B89\u5168\u3002" });
-        });
+        const securityRow = card.createDiv({ attr: { style: "display: flex; gap: 6px; align-items: flex-start;" } });
+        securityRow.createSpan({ text: "\u{1F512}", attr: { style: "flex-shrink: 0; line-height: 1.6;" } });
+        const securityText = securityRow.createDiv({ attr: { style: "color: var(--text-warning);" } });
+        securityText.appendText("\u5B89\u5168\u63D0\u793A\uFF1A\u4EE3\u7406\u670D\u52A1\u5C06\u4E2D\u8F6C\u60A8\u7684\u8BF7\u6C42\u3002\u8BF7\u786E\u4FDD\u4F7F\u7528\u53D7\u4FE1\u4EFB\u7684\u4EE3\u7406\uFF08\u81EA\u5EFA\u6216\u5B98\u65B9\uFF09\uFF0C\u4EE5\u4FDD\u62A4 AppSecret \u5B89\u5168\u3002\u4E2D\u8F6C\u670D\u52A1\u4EC5\u5728\u5185\u5B58\u4E2D\u8F6C\u53D1\uFF0C\u4E0D\u5B58\u50A8\u60A8\u7684\u4EFB\u4F55\u654F\u611F\u51ED\u8BC1\u3002");
       })).addText((text) => text.setPlaceholder("https://your-proxy.workers.dev").setValue(this.plugin.settings.proxyUrl || "").onChange(async (value) => {
         const trimmedValue = value.trim();
         if (trimmedValue && !trimmedValue.toLowerCase().startsWith("https://")) {

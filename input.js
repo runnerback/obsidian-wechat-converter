@@ -6466,31 +6466,48 @@ class AppleStyleSettingTab extends PluginSettingTab {
       .setName('API 代理地址')
       .setDesc(createFragment(frag => {
         const descDiv = frag.createDiv();
-        descDiv.appendText('如果您的网络 IP 经常变化，可配置代理服务。');
-        descDiv.createEl('a', {
-          text: '查看自建指南',
+        descDiv.appendText('如果您的网络 IP 经常变化（如多地办公或使用移动热点），可配置代理服务以解决微信 IP 白名单漂移导致的同步失败问题。');
+
+        const card = frag.createDiv({
+          cls: 'wechat-proxy-info-card',
+          attr: {
+            style: 'margin-top: 10px; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 6px; background-color: var(--background-primary-alt); font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; gap: 8px;'
+          }
+        });
+
+        // 1. 官方免自建服务行
+        const officialRow = card.createDiv({ attr: { style: 'display: flex; gap: 6px; align-items: flex-start;' } });
+        officialRow.createSpan({ text: '💡', attr: { style: 'flex-shrink: 0; line-height: 1.6;' } });
+        const officialText = officialRow.createDiv();
+        officialText.createSpan({
+          text: '官方免自建中转：已上线稳定中转代理，彻底解决微信 IP 白名单频繁漂移问题。',
+          attr: { style: 'color: var(--text-normal); font-weight: 500;' }
+        });
+        officialText.createEl('a', {
+          text: '获取官方中转 Token ➔',
+          href: 'https://xiaoweibox.top/chats/wechat-proxy-service',
+          attr: { style: 'margin-left: 6px; color: var(--interactive-accent); font-weight: bold; text-decoration: underline;' }
+        });
+
+        // 2. 自建指南行
+        const selfHostedRow = card.createDiv({ attr: { style: 'display: flex; gap: 6px; align-items: flex-start;' } });
+        selfHostedRow.createSpan({ text: '🛠️', attr: { style: 'flex-shrink: 0; line-height: 1.6;' } });
+        const selfHostedText = selfHostedRow.createDiv();
+        selfHostedText.createSpan({
+          text: '自建方案：如果您想拥有完全自主的控制权，也可以基于 Cloudflare Worker 或个人 VPS 自建。',
+          attr: { style: 'color: var(--text-muted);' }
+        });
+        selfHostedText.createEl('a', {
+          text: '查看自建部署指南 ➔',
           href: 'https://xiaoweibox.top/chats/wechat-proxy',
-          attr: { style: 'margin-left: 5px;' },
+          attr: { style: 'margin-left: 6px; color: var(--text-muted); text-decoration: underline;' }
         });
 
-        frag.createDiv({
-          cls: 'wechat-official-proxy-note',
-          attr: { style: 'margin-top: 6px; font-size: 12px; color: var(--text-normal); background: var(--background-secondary); border-left: 3px solid var(--interactive-accent); padding: 8px; border-radius: 0 4px 4px 0;' },
-        }, el => {
-          el.createSpan({ text: '💡 官方免自建中转：已上线稳定中转代理，彻底解决微信 IP 白名单频繁漂移问题，免去自行部署维护服务器的麻烦。' });
-          el.createEl('a', {
-            text: '获取官方中转 Token ➔',
-            href: 'https://xiaoweibox.top/chats/wechat-proxy-service',
-            attr: { style: 'margin-left: 8px; color: var(--interactive-accent); font-weight: bold; text-decoration: underline;' },
-          });
-        });
-
-        frag.createDiv({
-          cls: 'wechat-proxy-note',
-          attr: { style: 'margin-top: 6px; font-size: 12px; color: var(--text-muted); background: var(--background-secondary); padding: 8px; border-radius: 4px;' },
-        }, el => {
-          el.createSpan({ text: '🔒 安全提示：代理服务将中转您的请求。请确保使用受信任的代理（自建或可靠第三方），以保护 AppSecret 安全。' });
-        });
+        // 3. 安全与隐私提示
+        const securityRow = card.createDiv({ attr: { style: 'display: flex; gap: 6px; align-items: flex-start;' } });
+        securityRow.createSpan({ text: '🔒', attr: { style: 'flex-shrink: 0; line-height: 1.6;' } });
+        const securityText = securityRow.createDiv({ attr: { style: 'color: var(--text-warning);' } });
+        securityText.appendText('安全提示：代理服务将中转您的请求。请确保使用受信任的代理（自建或官方），以保护 AppSecret 安全。中转服务仅在内存中转发，不存储您的任何敏感凭证。');
       }))
       .addText(text => text
         .setPlaceholder('https://your-proxy.workers.dev')
