@@ -12124,6 +12124,12 @@ var require_sync_context = __commonJS({
       if (/invalid content|invalld content|45166/i.test(errorMessage)) {
         return "\u5FAE\u4FE1\u63A5\u53E3\u62D2\u6536\u6B63\u6587\u5185\u5BB9\uFF08invalid content\uFF09\u3002\u5E38\u89C1\u539F\u56E0\u662F\u6B63\u6587\u91CC\u4ECD\u6709\u672A\u4E0A\u4F20\u56FE\u7247\u3001\u65E0\u6548\u94FE\u63A5\u6216\u5FAE\u4FE1\u4E0D\u652F\u6301\u7684 HTML\u3002\u8BF7\u6839\u636E\u4E0A\u65B9\u540C\u6B65\u63D0\u793A\u68C0\u67E5\u6B63\u6587\u56FE\u7247\u548C\u590D\u6742\u7C98\u8D34\u5185\u5BB9\u540E\u91CD\u8BD5\u3002";
       }
+      if (errorMessage.includes("status 403")) {
+        return "\u8BBF\u95EE\u4E2D\u8F6C\u4EE3\u7406\u670D\u52A1\u5668\u88AB\u62D2\u7EDD (HTTP 403)\u3002\u8BF7\u68C0\u67E5\u60A8\u7684\u4EE3\u7406\u5730\u5740\u548C Token \u662F\u5426\u6B63\u786E\u3002";
+      }
+      if (errorMessage.includes("status 401")) {
+        return "\u8BBF\u95EE\u4E2D\u8F6C\u4EE3\u7406\u670D\u52A1\u5668\u672A\u6388\u6743 (HTTP 401)\u3002\u8BF7\u68C0\u67E5\u60A8\u7684\u4EE3\u7406\u5730\u5740\u548C Token \u662F\u5426\u6B63\u786E\u3002";
+      }
       return errorMessage;
     }
     module2.exports = {
@@ -15843,8 +15849,28 @@ var WechatAPI = class {
           method: options.method || "GET",
           data: options.body ? JSON.parse(options.body) : void 0
         }),
-        contentType: "application/json"
+        contentType: "application/json",
+        throw: false
       });
+      if (proxyResponse.status < 200 || proxyResponse.status >= 300) {
+        let errorMsg = `Request failed, status ${proxyResponse.status}`;
+        try {
+          const body = proxyResponse.json || (proxyResponse.text ? JSON.parse(proxyResponse.text) : null);
+          if (body && body.error) {
+            errorMsg = body.error;
+          }
+        } catch (e) {
+          if (proxyResponse.text) {
+            errorMsg = proxyResponse.text;
+          }
+        }
+        const error = new Error(errorMsg);
+        if (proxyResponse.status === 403 || proxyResponse.status === 401) {
+          error.isProxyAuth = true;
+          error.isFatal = true;
+        }
+        throw error;
+      }
       return proxyResponse.json;
     } else {
       const response = await requestUrl2({ url, ...options });
@@ -15973,8 +15999,28 @@ var WechatAPI = class {
             mimeType,
             fieldName
           }),
-          contentType: "application/json"
+          contentType: "application/json",
+          throw: false
         });
+        if (proxyResponse.status < 200 || proxyResponse.status >= 300) {
+          let errorMsg = `Request failed, status ${proxyResponse.status}`;
+          try {
+            const body = proxyResponse.json || (proxyResponse.text ? JSON.parse(proxyResponse.text) : null);
+            if (body && body.error) {
+              errorMsg = body.error;
+            }
+          } catch (e) {
+            if (proxyResponse.text) {
+              errorMsg = proxyResponse.text;
+            }
+          }
+          const error = new Error(errorMsg);
+          if (proxyResponse.status === 403 || proxyResponse.status === 401) {
+            error.isProxyAuth = true;
+            error.isFatal = true;
+          }
+          throw error;
+        }
         const data = proxyResponse.json;
         if (data.media_id || data.url) {
           return data;
@@ -18919,10 +18965,17 @@ var AppleStyleView = class extends ItemView {
     }
     const body = modal.contentEl.createDiv({ cls: "wechat-sync-failure-state" });
     body.createEl("p", { cls: "wechat-sync-failure-message", text: message });
-    const hasDraftAssociation = !!((_b = options.draftAssociation) == null ? void 0 : _b.mediaId) && !!((_c = options.draftAssociation) == null ? void 0 : _c.sourcePath);
+    const isProxyAuth = !!options.isProxyAuth;
+    const hasDraftAssociation = !isProxyAuth && !!((_b = options.draftAssociation) == null ? void 0 : _b.mediaId) && !!((_c = options.draftAssociation) == null ? void 0 : _c.sourcePath);
+    let hintText = "\u53EF\u4EE5\u91CD\u8BD5\u540C\u6B65\uFF0C\u6216\u5148\u68C0\u67E5\u8D26\u53F7\u914D\u7F6E\u3002";
+    if (isProxyAuth) {
+      hintText = "\u8BF7\u68C0\u67E5\u60A8\u7684 API \u4EE3\u7406\u5730\u5740\u548C Token \u914D\u7F6E\u662F\u5426\u6B63\u786E\u3002\u82E5\u670D\u52A1\u5DF2\u5230\u671F\uFF0C\u8BF7\u8054\u7CFB\u4F5C\u8005\u7EED\u8D39\u3002";
+    } else if (hasDraftAssociation) {
+      hintText = "\u53EF\u4EE5\u91CD\u8BD5\u540C\u6B65\uFF1B\u5982\u679C\u5FAE\u4FE1\u540E\u53F0\u8349\u7A3F\u5DF2\u88AB\u5220\u9664\u6216\u65E0\u6CD5\u66F4\u65B0\uFF0C\u4E5F\u53EF\u4EE5\u53D6\u6D88\u5173\u8054\u540E\u65B0\u5EFA\u8349\u7A3F\u3002";
+    }
     body.createEl("p", {
       cls: "wechat-sync-failure-hint",
-      text: hasDraftAssociation ? "\u53EF\u4EE5\u91CD\u8BD5\u540C\u6B65\uFF1B\u5982\u679C\u5FAE\u4FE1\u540E\u53F0\u8349\u7A3F\u5DF2\u88AB\u5220\u9664\u6216\u65E0\u6CD5\u66F4\u65B0\uFF0C\u4E5F\u53EF\u4EE5\u53D6\u6D88\u5173\u8054\u540E\u65B0\u5EFA\u8349\u7A3F\u3002" : "\u53EF\u4EE5\u91CD\u8BD5\u540C\u6B65\uFF0C\u6216\u5148\u68C0\u67E5\u8D26\u53F7\u914D\u7F6E\u3002"
+      text: hintText
     });
     const btnRow = modal.contentEl.createDiv({ cls: "wechat-modal-buttons" });
     const closeBtn = btnRow.createEl("button", { text: "\u5173\u95ED" });
@@ -19971,14 +20024,16 @@ var AppleStyleView = class extends ItemView {
     } catch (error) {
       notice.hide();
       console.error("Wechat Sync Error:", error);
+      const isProxyAuth = error.isProxyAuth || /token|服务已于|安全警报/i.test(error.message);
       const friendlyMsg = toSyncFriendlyMessage(error.message);
-      this.showSyncFailureActions(friendlyMsg, this.sessionDraftMediaId && activeFile ? {
-        draftAssociation: {
+      this.showSyncFailureActions(friendlyMsg, {
+        isProxyAuth,
+        draftAssociation: this.sessionDraftMediaId && activeFile ? {
           sourcePath: activeFile.path,
           mediaId: this.sessionDraftMediaId,
           accountId: account.id || ""
-        }
-      } : {});
+        } : null
+      });
     }
   }
   /**

@@ -456,8 +456,30 @@ class WechatAPI {
           method: options.method || 'GET',
           data: options.body ? JSON.parse(options.body) : undefined
         }),
-        contentType: 'application/json'
+        contentType: 'application/json',
+        throw: false
       });
+
+      if (proxyResponse.status < 200 || proxyResponse.status >= 300) {
+        let errorMsg = `Request failed, status ${proxyResponse.status}`;
+        try {
+          const body = proxyResponse.json || (proxyResponse.text ? JSON.parse(proxyResponse.text) : null);
+          if (body && body.error) {
+            errorMsg = body.error;
+          }
+        } catch (e) {
+          if (proxyResponse.text) {
+            errorMsg = proxyResponse.text;
+          }
+        }
+        const error = new Error(errorMsg);
+        if (proxyResponse.status === 403 || proxyResponse.status === 401) {
+          error.isProxyAuth = true;
+          error.isFatal = true;
+        }
+        throw error;
+      }
+
       return proxyResponse.json;
     } else {
       // 直连
@@ -612,8 +634,29 @@ class WechatAPI {
             mimeType: mimeType,
             fieldName: fieldName
           }),
-          contentType: 'application/json'
+          contentType: 'application/json',
+          throw: false
         });
+
+        if (proxyResponse.status < 200 || proxyResponse.status >= 300) {
+          let errorMsg = `Request failed, status ${proxyResponse.status}`;
+          try {
+            const body = proxyResponse.json || (proxyResponse.text ? JSON.parse(proxyResponse.text) : null);
+            if (body && body.error) {
+              errorMsg = body.error;
+            }
+          } catch (e) {
+            if (proxyResponse.text) {
+              errorMsg = proxyResponse.text;
+            }
+          }
+          const error = new Error(errorMsg);
+          if (proxyResponse.status === 403 || proxyResponse.status === 401) {
+            error.isProxyAuth = true;
+            error.isFatal = true;
+          }
+          throw error;
+        }
 
         const data = proxyResponse.json;
         if (data.media_id || data.url) {
@@ -3888,12 +3931,20 @@ class AppleStyleView extends ItemView {
 
     const body = modal.contentEl.createDiv({ cls: 'wechat-sync-failure-state' });
     body.createEl('p', { cls: 'wechat-sync-failure-message', text: message });
-    const hasDraftAssociation = !!options.draftAssociation?.mediaId && !!options.draftAssociation?.sourcePath;
+    
+    const isProxyAuth = !!options.isProxyAuth;
+    const hasDraftAssociation = !isProxyAuth && !!options.draftAssociation?.mediaId && !!options.draftAssociation?.sourcePath;
+    
+    let hintText = '可以重试同步，或先检查账号配置。';
+    if (isProxyAuth) {
+      hintText = '请检查您的 API 代理地址和 Token 配置是否正确。若服务已到期，请联系作者续费。';
+    } else if (hasDraftAssociation) {
+      hintText = '可以重试同步；如果微信后台草稿已被删除或无法更新，也可以取消关联后新建草稿。';
+    }
+
     body.createEl('p', {
       cls: 'wechat-sync-failure-hint',
-      text: hasDraftAssociation
-        ? '可以重试同步；如果微信后台草稿已被删除或无法更新，也可以取消关联后新建草稿。'
-        : '可以重试同步，或先检查账号配置。'
+      text: hintText
     });
 
     const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
@@ -5066,14 +5117,16 @@ class AppleStyleView extends ItemView {
     } catch (error) {
       notice.hide();
       console.error('Wechat Sync Error:', error);
+      const isProxyAuth = error.isProxyAuth || /token|服务已于|安全警报/i.test(error.message);
       const friendlyMsg = toSyncFriendlyMessage(error.message);
-      this.showSyncFailureActions(friendlyMsg, this.sessionDraftMediaId && activeFile ? {
-        draftAssociation: {
+      this.showSyncFailureActions(friendlyMsg, {
+        isProxyAuth,
+        draftAssociation: (this.sessionDraftMediaId && activeFile) ? {
           sourcePath: activeFile.path,
           mediaId: this.sessionDraftMediaId,
           accountId: account.id || '',
-        },
-      } : {});
+        } : null
+      });
     }
   }
 

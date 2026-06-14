@@ -22,6 +22,12 @@ function toSyncFriendlyMessage(errorMessage = '') {
   if (/invalid content|invalld content|45166/i.test(errorMessage)) {
     return '微信接口拒收正文内容（invalid content）。常见原因是正文里仍有未上传图片、无效链接或微信不支持的 HTML。请根据上方同步提示检查正文图片和复杂粘贴内容后重试。';
   }
+  if (errorMessage.includes('status 403')) {
+    return '访问中转代理服务器被拒绝 (HTTP 403)。请检查您的代理地址和 Token 是否正确。';
+  }
+  if (errorMessage.includes('status 401')) {
+    return '访问中转代理服务器未授权 (HTTP 401)。请检查您的代理地址和 Token 是否正确。';
+  }
   return errorMessage;
 }
 

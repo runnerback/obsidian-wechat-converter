@@ -191,4 +191,21 @@ describe('AppleStyleView - sync action modal flows', () => {
     expect(view.plugin.saveSettings).toHaveBeenCalledTimes(1);
     expect(retrySpy).toHaveBeenCalledTimes(1);
   });
+
+  it('showSyncFailureActions should show proxy auth error message and hide unlink button', () => {
+    view.showSyncFailureActions('Token 无效，请联系作者获取', {
+      isProxyAuth: true,
+      draftAssociation: {
+        sourcePath: 'folder/note.md',
+        mediaId: 'draft-stale',
+        accountId: 'acc-1',
+      },
+    });
+
+    const modal = getLastModal();
+    expect(modal.contentEl.textContent).toContain('请检查您的 API 代理地址和 Token 配置是否正确');
+    expect(modal.contentEl.textContent).not.toContain('取消关联后新建草稿');
+    const resetBtn = findButtonByText(modal.contentEl, '取消关联并新建草稿');
+    expect(resetBtn).toBeNull();
+  });
 });
