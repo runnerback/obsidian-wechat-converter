@@ -1,7 +1,7 @@
 let MarkdownRenderer = null;
 try {
   ({ MarkdownRenderer } = require('obsidian'));
-} catch (error) {
+} catch {
   MarkdownRenderer = null;
 }
 const { serializeObsidianRenderedHtml } = require('./obsidian-triplet-serializer');
@@ -344,7 +344,6 @@ function escapeLinePreservingInlineCode(line) {
       let foundClose = false;
       while (i < line.length) {
         if (line[i] === '`') {
-          const closeStart = i;
           let closeLen = 0;
           while (i < line.length && line[i] === '`') {
             closeLen++;
@@ -463,22 +462,21 @@ function preRenderMathFormulas(markdown, converter) {
       const cleaned = rendered.replace(/^<p>|<\/p>$/g, '').trim();
       formulas.push({ placeholder, rendered: cleaned, isBlock: true });
       return placeholder;
-    } catch (error) {
+    } catch {
       return match;
     }
   });
 
-  // Then, handle inline math ($...$) - single $ not $$
-  // Use negative lookbehind/lookahead to avoid matching $$
-  const inlineMathPattern = /(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g;
-  output = output.replace(inlineMathPattern, (match, formula) => {
+  // Then, handle inline math ($...$) - single $ not $$.
+  const inlineMathPattern = /(^|[^$])\$(?!\$)([^$\n]+?)\$(?!\$)/g;
+  output = output.replace(inlineMathPattern, (match, prefix, formula) => {
     const placeholder = generateMathPlaceholder('INLINE');
     try {
       // Render using renderInline for inline math
       const rendered = converter.md.renderInline(`$${formula}$`);
       formulas.push({ placeholder, rendered, isBlock: false });
-      return placeholder;
-    } catch (error) {
+      return `${prefix}${placeholder}`;
+    } catch {
       return match;
     }
   });
@@ -525,7 +523,7 @@ function encodeMarkdownImageSrc(src) {
   const value = String(src || '').trim();
   try {
     return encodeURI(decodeURI(value));
-  } catch (error) {
+  } catch {
     return encodeURI(value);
   }
 }
@@ -1365,8 +1363,7 @@ async function waitForTripletDomToSettle(root, options = {}) {
   // while still catching delayed async embed insertion after render.
   if (unresolved === 0 && renderedMermaid === 0 && pendingMermaid === 0 && initialObserveMs > 0) {
     while (Date.now() - start < initialObserveMs) {
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
       unresolved = countUnresolvedImageEmbeds(root);
       renderedMermaid = observeMermaid ? countRenderedMermaidDiagrams(root) : 0;
       pendingMermaid = observeMermaid ? countPendingMermaidHosts(root) : 0;
@@ -1391,8 +1388,7 @@ async function waitForTripletDomToSettle(root, options = {}) {
     } else {
       stableCount = 0;
     }
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
   }
 }
 

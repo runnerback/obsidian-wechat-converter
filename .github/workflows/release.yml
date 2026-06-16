@@ -67,17 +67,8 @@ jobs:
           mkdir -p node_modules/obsidian
           cp __mocks__/obsidian.js node_modules/obsidian/index.js
 
-      - name: Run tests
-        run: npm test -- --run
-
-      - name: Build
-        run: npm run build
-
-      - name: Package release artifact
-        run: npm run release:pack
-
-      - name: Validate release artifact
-        run: npm run release:validate
+      - name: Obsidian scan readiness guard
+        run: npm run review:guard
 
       - name: Prepare release notes
         if: startsWith(github.ref, 'refs/tags/')

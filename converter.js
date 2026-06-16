@@ -152,7 +152,7 @@ window.AppleStyleConverter = class AppleStyleConverter {
 
   setupRenderRules() {
     // Callout & Blockquote 智能检测渲染
-    this.md.renderer.rules.blockquote_open = (tokens, idx, options, env, self) => {
+    this.md.renderer.rules.blockquote_open = (tokens, idx, options, env, _self) => {
       // 查找 blockquote 内的第一个文本内容，检测是否为 callout 语法
       const calloutInfo = this.detectCallout(tokens, idx);
 
@@ -167,7 +167,7 @@ window.AppleStyleConverter = class AppleStyleConverter {
       return `<blockquote style="${this.getInlineStyle('blockquote')}">`;
     };
 
-    this.md.renderer.rules.blockquote_close = (tokens, idx, options, env, self) => {
+    this.md.renderer.rules.blockquote_close = (tokens, idx, options, env, _self) => {
       const calloutInfo = env._calloutStack ? env._calloutStack.pop() : null;
       if (calloutInfo) {
         return `</section></section>`; // 关闭内容区和外层容器
@@ -554,7 +554,7 @@ window.AppleStyleConverter = class AppleStyleConverter {
     try {
       if (lang && this.hljs.getLanguage(lang)) return this.hljs.highlight(code, { language: lang }).value;
       return this.hljs.highlightAuto(code).value;
-    } catch (e) { return this.escapeHtml(code); }
+    } catch { return this.escapeHtml(code); }
   }
 
   /**
@@ -940,7 +940,7 @@ ${macHeader}
       if (safeProtocols.includes(parsed.protocol)) {
         return value;
       }
-    } catch (e) {
+    } catch {
       // Handle relative paths or Obsidian internal links that URL() can't parse
       if (value.startsWith('#') || value.startsWith('/') || !value.includes(':')) return value;
     }

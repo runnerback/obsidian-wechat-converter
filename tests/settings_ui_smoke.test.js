@@ -102,6 +102,8 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
   beforeEach(() => {
     globalThis.__obsidianSettingNamesRegistry = [];
     globalThis.__obsidianButtonRegistry = [];
+    globalThis.__obsidianModalRegistry = [];
+    globalThis.__obsidianDisableSetDestructiveForButtons = false;
   });
 
   it('loads via the resolver patch (sanity check)', () => {
@@ -131,6 +133,129 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
     expect(names).toContain('预览模式');
     expect(names).toContain('使用手机仿真框');
     expect(names).toContain('图片水印');
+  });
+
+  it('cancels AI Provider deletion through an Obsidian confirmation modal', async () => {
+    const plugin = makePlugin({
+      ai: {
+        enabled: true,
+        providers: [{
+          id: 'provider-1',
+          name: '测试 Provider',
+          kind: 'openai-compatible',
+          baseUrl: 'https://api.example.com/v1',
+          apiKey: 'secret',
+          model: 'gpt-test',
+          enabled: true,
+        }],
+        defaultProviderId: 'provider-1',
+        defaultLayoutFamily: 'auto',
+        defaultColorPalette: 'auto',
+        includeImagesInLayout: true,
+        requestTimeoutMs: 45000,
+        articleLayoutsByPath: {},
+      },
+    });
+    const tab = renderTab(plugin);
+    const deleteButton = Array.from(tab.containerEl.querySelectorAll('button'))
+      .find((button) => button.textContent === '删除');
+    expect(deleteButton).toBeDefined();
+
+    const pending = deleteButton.onclick();
+    const modal = globalThis.__obsidianModalRegistry.at(-1);
+    expect(modal.titleEl.textContent).toBe('删除 AI Provider');
+    modal.contentEl.querySelector('button').click();
+    await pending;
+
+    expect(plugin.settings.ai.providers).toHaveLength(1);
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('confirms AI Provider deletion through an Obsidian confirmation modal', async () => {
+    const plugin = makePlugin({
+      ai: {
+        enabled: true,
+        providers: [{
+          id: 'provider-1',
+          name: '测试 Provider',
+          kind: 'openai-compatible',
+          baseUrl: 'https://api.example.com/v1',
+          apiKey: 'secret',
+          model: 'gpt-test',
+          enabled: true,
+        }],
+        defaultProviderId: 'provider-1',
+        defaultLayoutFamily: 'auto',
+        defaultColorPalette: 'auto',
+        includeImagesInLayout: true,
+        requestTimeoutMs: 45000,
+        articleLayoutsByPath: {},
+      },
+    });
+    const tab = renderTab(plugin);
+    const deleteButton = Array.from(tab.containerEl.querySelectorAll('button'))
+      .find((button) => button.textContent === '删除');
+
+    const pending = deleteButton.onclick();
+    const modal = globalThis.__obsidianModalRegistry.at(-1);
+    const confirmButton = Array.from(modal.contentEl.querySelectorAll('button'))
+      .find((button) => button.textContent === '删除');
+    confirmButton.click();
+    await pending;
+
+    expect(plugin.settings.ai.providers).toEqual([]);
+    expect(plugin.settings.ai.defaultProviderId).toBe('');
+    expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks destructive Setting buttons with setDestructive and clears AI layout cache only after confirmation', async () => {
+    const plugin = makePlugin({
+      ai: {
+        enabled: true,
+        providers: [],
+        defaultProviderId: '',
+        defaultLayoutFamily: 'auto',
+        defaultColorPalette: 'auto',
+        includeImagesInLayout: true,
+        requestTimeoutMs: 45000,
+        articleLayoutsByPath: {
+          'notes/demo.md': {
+            layoutJson: {
+              articleType: 'tutorial',
+              stylePack: 'tech-green',
+              blocks: [{ type: 'lead-quote', text: 'hello' }],
+            },
+          },
+        },
+      },
+    });
+    renderTab(plugin);
+    const clearButton = globalThis.__obsidianButtonRegistry.find((button) => button.text === '清空缓存');
+    expect(clearButton).toBeDefined();
+    expect(clearButton.destructive).toBe(true);
+
+    const pending = clearButton.clickHandler();
+    const modal = globalThis.__obsidianModalRegistry.at(-1);
+    expect(modal.titleEl.textContent).toBe('清空 AI 编排缓存');
+    const confirmButton = Array.from(modal.contentEl.querySelectorAll('button'))
+      .find((button) => button.textContent === '清空');
+    confirmButton.click();
+    await pending;
+
+    expect(plugin.settings.ai.articleLayoutsByPath).toEqual({});
+    expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to setWarning when setDestructive is unavailable on older Obsidian buttons', () => {
+    globalThis.__obsidianDisableSetDestructiveForButtons = true;
+    renderTab(makePlugin({
+      avatarBase64: 'data:image/png;base64,ZmFrZQ==',
+    }));
+
+    const clearButton = globalThis.__obsidianButtonRegistry.find((button) => button.text === '清除');
+    expect(clearButton).toBeDefined();
+    expect(clearButton.destructive).toBeUndefined();
+    expect(clearButton.warning).toBe(true);
   });
 
   it('renders the multi-platform tab core fields when bridge is enabled', () => {

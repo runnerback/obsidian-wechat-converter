@@ -37,28 +37,16 @@ const {
 } = require('./services/ai-layout');
 const { createWechatSyncService } = require('./services/wechat-sync');
 const {
-  DEFAULT_WECHATSYNC_PORT,
   createWechatSyncBridgeService,
   isUnsupportedBridgeMethodError: isWechatSyncUnsupportedMethodError,
-  retryRecoverableBridgeOperation,
 } = require('./services/wechatsync-bridge');
 const {
-  buildWechatsyncPlatformCatalog,
-  getFallbackWechatsyncPlatforms,
   getMultiPlatformResultSummary,
   getWechatSyncResultError,
   getWechatSyncResultPlatformId,
   getWechatSyncResultUrl,
-  getWechatsyncPlatformStatusBadge,
-  isWechatSyncConnectionFailure,
-  normalizeWechatSyncResponseResults,
-  normalizeWechatsyncAuthSnapshot,
   normalizeWechatsyncPlatform,
-  normalizeWechatsyncPlatformList,
-  probeWechatsyncPlatformsIndividually,
   sortWechatsyncPlatformItemsForDisplay,
-  summarizeWechatsyncPlatformResponse,
-  updateCachedPlatformsAfterSync,
 } = require('./services/wechatsync-results');
 const { resolveSyncAccount, toSyncFriendlyMessage } = require('./services/sync-context');
 const {
@@ -74,6 +62,83 @@ const { rasterizeSvgToPngBlob } = require('./services/svg-rasterizer');
 const { createObsidianFetchAdapter } = require('./services/obsidian-fetch-adapter');
 const { stripMarkdownFrontmatter } = require('./services/markdown-utils');
 const { mapAppUrlImagesToAssetUrls } = require('./services/article-image-assets');
+const { createHtmlContainer, htmlToText, setElementHtml } = require('./services/dom-utils');
+
+function getActiveDocumentCompat() {
+  if (typeof window !== 'undefined' && window.activeDocument) return window.activeDocument;
+  if (typeof globalThis !== 'undefined' && globalThis.activeDocument) return globalThis.activeDocument;
+  if (typeof document !== 'undefined') return document;
+  return null;
+}
+
+function getActiveWindowCompat() {
+  if (typeof window !== 'undefined' && window.activeWindow) return window.activeWindow;
+  if (typeof globalThis !== 'undefined' && globalThis.activeWindow) return globalThis.activeWindow;
+  if (typeof window !== 'undefined') return window;
+  return null;
+}
+
+function revealLeafCompat(workspace, leaf) {
+  if (!workspace || !leaf) return Promise.resolve();
+  const revealLeaf = workspace['revealLeaf'];
+  if (typeof revealLeaf === 'function') {
+    return revealLeaf.call(workspace, leaf);
+  }
+  if (typeof workspace.setActiveLeaf === 'function') {
+    workspace.setActiveLeaf(leaf, { focus: true });
+    return Promise.resolve();
+  }
+  if (typeof leaf.open === 'function') {
+    leaf.open();
+  }
+  return Promise.resolve();
+}
+
+function getPluginSettings(plugin) {
+  if (!plugin || typeof plugin !== 'object') return {};
+  return plugin['settings'] || {};
+}
+
+function setPluginSettings(plugin, settings) {
+  if (!plugin || typeof plugin !== 'object') return settings;
+  plugin['settings'] = settings;
+  return settings;
+}
+
+function setDestructiveButtonCompat(button) {
+  if (!button) return button;
+  const setDestructive = button['setDestructive'];
+  if (typeof setDestructive === 'function') {
+    return setDestructive.call(button);
+  }
+  const setWarning = button['setWarning'];
+  if (typeof setWarning === 'function') {
+    return setWarning.call(button);
+  }
+  return button;
+}
+
+function dataUrlToBlob(dataUrl) {
+  const source = String(dataUrl || '');
+  const match = source.match(/^data:([^;,]*)(;base64)?,([\s\S]*)$/i);
+  if (!match) {
+    throw new Error('无效的 data URL 图片来源');
+  }
+  const mimeType = match[1] || 'application/octet-stream';
+  const isBase64 = !!match[2];
+  const payload = match[3] || '';
+  let binary;
+  if (isBase64) {
+    binary = atob(payload);
+  } else {
+    binary = decodeURIComponent(payload);
+  }
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
 
 // 视图类型标识
 const APPLE_STYLE_VIEW = 'apple-style-converter';
@@ -88,15 +153,9 @@ const MULTI_PLATFORM_TAB_LABEL = '其他平台（小红书/知乎/抖音等）';
 // views/ layer can normalize / read settings without depending on input.js.
 const {
   createDefaultMultiPlatformSyncSettings,
-  normalizeWechatsyncPlatformId,
   parseWechatsyncPlatformIds,
-  mergeWechatsyncPlatformLists,
-  normalizeWechatSyncCapabilities,
   hasWechatSyncCapability,
-  normalizeWechatSyncRecentTasks,
-  normalizeMultiPlatformConnection,
   normalizeMultiPlatformSyncSettings,
-  getConfiguredWechatsyncPlatforms,
   getAvailableWechatsyncPlatforms,
 } = require('./services/wechatsync-settings');
 
@@ -108,26 +167,6 @@ const {
 
 const { renderMultiPlatformSettingsTab } = require('./views/settings/multi-platform-tab.js');
 const { showMultiPlatformPublishModal } = require('./views/publish-modal/multi-platform.js');
-
-function formatWechatsyncCapabilityLabels(capabilities = []) {
-  const labels = {
-    draft: '草稿',
-    image_upload: '图片',
-    cover: '封面',
-    tags: '标签',
-    categories: '分类',
-    article: '文章',
-  };
-  const seen = new Set();
-  return (Array.isArray(capabilities) ? capabilities : [])
-    .map((capability) => labels[capability] || '')
-    .filter((label) => {
-      if (!label || seen.has(label)) return false;
-      seen.add(label);
-      return true;
-    })
-    .slice(0, 4);
-}
 
 const IMAGE_SWIPE_COMMAND_COPY = {
   'image-swipe': {
@@ -156,8 +195,6 @@ function getObsidianLocale(app = null) {
   const candidates = [
     app?.vault?.getConfig?.('language'),
     app?.vault?.getConfig?.('locale'),
-    typeof window !== 'undefined' ? window.localStorage?.getItem?.('language') : '',
-    typeof window !== 'undefined' ? window.localStorage?.getItem?.('obsidian-language') : '',
     typeof navigator !== 'undefined' ? navigator.language : '',
   ];
 
@@ -276,11 +313,11 @@ function isMobileClient(app) {
 
 // 生成唯一 ID
 function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 11);
 }
 
 // 辅助函数：等待指定毫秒数
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise(resolve => window.setTimeout(resolve, ms));
 
 // 辅助函数：并发控制 (p-limit 简化版)
 async function pMap(array, mapper, concurrency = 3) {
@@ -467,7 +504,7 @@ class WechatAPI {
           if (body && body.error) {
             errorMsg = body.error;
           }
-        } catch (e) {
+        } catch {
           if (proxyResponse.text) {
             errorMsg = proxyResponse.text;
           }
@@ -645,7 +682,7 @@ class WechatAPI {
             if (body && body.error) {
               errorMsg = body.error;
             }
-          } catch (e) {
+          } catch {
             if (proxyResponse.text) {
               errorMsg = proxyResponse.text;
             }
@@ -809,7 +846,7 @@ class AppleStyleView extends ItemView {
     });
 
     // Light Dismiss: 点击预览区域(手机框外)收起设置面板
-    previewWrapper.addEventListener('click', (e) => {
+    previewWrapper.addEventListener('click', () => {
       this.closeTransientPanels();
     });
 
@@ -847,7 +884,7 @@ class AppleStyleView extends ItemView {
     if (activeView) this.registerScrollSync(activeView);
 
     // 自动转换当前文档
-    setTimeout(async () => {
+    window.setTimeout(async () => {
       const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (activeView && this.converter) {
         await this.convertCurrent(true);
@@ -887,10 +924,9 @@ class AppleStyleView extends ItemView {
     // 监听编辑器内容变化 (实时预览)
     const debounce = (func, wait) => {
       let timeout;
-      return function (...args) {
-        const context = this;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
+      return (...args) => {
+        window.clearTimeout(timeout);
+        timeout = window.setTimeout(() => func(...args), wait);
       };
     };
 
@@ -918,12 +954,12 @@ class AppleStyleView extends ItemView {
 
   scheduleActiveLeafRender(activeViewOverride = null) {
     if (this.activeLeafRenderTimer) {
-      clearTimeout(this.activeLeafRenderTimer);
+      window.clearTimeout(this.activeLeafRenderTimer);
       this.activeLeafRenderTimer = null;
     }
 
     // 让出当前 active-leaf 事件栈，但不额外等待一帧，避免切文档时可见卡顿。
-    this.activeLeafRenderTimer = setTimeout(() => {
+    this.activeLeafRenderTimer = window.setTimeout(() => {
       this.activeLeafRenderTimer = null;
       const activeView = activeViewOverride || this.app.workspace.getActiveViewOfType(MarkdownView);
       const sourceOverride = activeView && activeView.file
@@ -943,10 +979,10 @@ class AppleStyleView extends ItemView {
 
   scheduleSidePaddingPreview(delay = 120) {
     if (this.sidePaddingPreviewTimer) {
-      clearTimeout(this.sidePaddingPreviewTimer);
+      window.clearTimeout(this.sidePaddingPreviewTimer);
       this.sidePaddingPreviewTimer = null;
     }
-    this.sidePaddingPreviewTimer = setTimeout(() => {
+    this.sidePaddingPreviewTimer = window.setTimeout(() => {
       this.sidePaddingPreviewTimer = null;
       this.convertCurrent(true);
     }, delay);
@@ -969,9 +1005,9 @@ class AppleStyleView extends ItemView {
     this.aiLayoutStaleSuppressPath = sourcePath;
     this.aiLayoutStaleSuppressUntil = Date.now() + AI_LAYOUT_SOURCE_SWITCH_STALE_SUPPRESS_MS;
     if (this.aiLayoutStaleSuppressTimer) {
-      clearTimeout(this.aiLayoutStaleSuppressTimer);
+      window.clearTimeout(this.aiLayoutStaleSuppressTimer);
     }
-    this.aiLayoutStaleSuppressTimer = setTimeout(() => {
+    this.aiLayoutStaleSuppressTimer = window.setTimeout(() => {
       this.aiLayoutStaleSuppressTimer = null;
       if (
         this.aiLayoutStaleSuppressPath === sourcePath
@@ -1092,7 +1128,7 @@ class AppleStyleView extends ItemView {
       };
 
       if (typeof requestAnimationFrame === 'function') {
-        const frameId = requestAnimationFrame(run);
+        const frameId = window.requestAnimationFrame(run);
         this.scrollSyncFrame = frameId;
         this.cancelScrollSyncFrame = () => {
           if (typeof cancelAnimationFrame === 'function') {
@@ -1100,9 +1136,9 @@ class AppleStyleView extends ItemView {
           }
         };
       } else {
-        const timeoutId = setTimeout(run, 16);
+        const timeoutId = window.setTimeout(run, 16);
         this.scrollSyncFrame = timeoutId;
-        this.cancelScrollSyncFrame = () => clearTimeout(timeoutId);
+        this.cancelScrollSyncFrame = () => window.clearTimeout(timeoutId);
       }
     };
 
@@ -1361,8 +1397,8 @@ class AppleStyleView extends ItemView {
         this.plugin.settings.sidePadding = val;
         this.theme.update({ sidePadding: val });
 
-        if (this.saveTimeout) clearTimeout(this.saveTimeout);
-        this.saveTimeout = setTimeout(async () => {
+        if (this.saveTimeout) window.clearTimeout(this.saveTimeout);
+        this.saveTimeout = window.setTimeout(async () => {
           await this.plugin.saveSettings();
         }, 500);
         this.scheduleSidePaddingPreview(mobile ? 220 : 120);
@@ -1374,7 +1410,7 @@ class AppleStyleView extends ItemView {
         this.plugin.settings.sidePadding = val;
         this.theme.update({ sidePadding: val });
         if (this.sidePaddingPreviewTimer) {
-          clearTimeout(this.sidePaddingPreviewTimer);
+          window.clearTimeout(this.sidePaddingPreviewTimer);
           this.sidePaddingPreviewTimer = null;
         }
         await this.plugin.saveSettings();
@@ -1589,9 +1625,7 @@ class AppleStyleView extends ItemView {
    */
   getFirstImageFromArticle() {
     if (!this.currentHtml) return null;
-    const tempDiv = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse already-rendered article HTML to locate the first cover candidate image without mutating source markdown
-    tempDiv.innerHTML = this.currentHtml;
+    const tempDiv = createHtmlContainer('div', this.currentHtml);
     const imgs = Array.from(tempDiv.querySelectorAll('img'));
 
     // 遍历所有图片，跳过头像（alt="logo"）
@@ -1708,6 +1742,57 @@ class AppleStyleView extends ItemView {
     return this.isPathInsideDirectoryByTail(normalized, cleanedDir);
   }
 
+  clearInvalidPublishMetaInFrontmatter(frontmatter, cleanedDir) {
+    if (!frontmatter || typeof frontmatter !== 'object') return false;
+
+    let changed = false;
+    const coverMap = this.getFrontmatterKeyMap(frontmatter, ['cover']);
+    const coverDirMap = this.getFrontmatterKeyMap(frontmatter, ['cover_dir', 'coverDir', 'cover-dir', 'coverdir', 'CoverDIR']);
+
+    for (const [key, value] of Object.entries(coverMap)) {
+      if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
+        frontmatter[key] = '';
+        changed = true;
+      }
+    }
+
+    for (const [key, value] of Object.entries(coverDirMap)) {
+      if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
+        frontmatter[key] = '';
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  async clearInvalidPublishMetaByTextFallback(activeFile, cleanedDir) {
+    const vault = this.app?.vault;
+    if (!vault || typeof vault.read !== 'function' || typeof vault.modify !== 'function') {
+      return false;
+    }
+
+    const source = await vault.read(activeFile);
+    if (typeof source !== 'string' || !source.startsWith('---')) return false;
+
+    const match = source.match(/^(---[ \t]*\r?\n)([\s\S]*?)(\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$))/);
+    if (!match) return false;
+
+    let changed = false;
+    const body = match[2].replace(/^([ \t]*)(cover|cover_dir|coverDir|cover-dir|coverdir|CoverDIR)([ \t]*:[ \t]*)(.*)$/gmi, (line, indent, key, separator, rawValue) => {
+      const value = String(rawValue || '').trim().replace(/^['"]|['"]$/g, '');
+      if (!this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
+        return line;
+      }
+      changed = true;
+      return `${indent}${key}${separator}''`;
+    });
+
+    if (!changed) return false;
+    await vault.modify(activeFile, `${match[1]}${body}${match[3]}${source.slice(match[0].length)}`);
+    return true;
+  }
+
   async clearInvalidPublishMetaAfterCleanup(activeFile, cleanedDirPath) {
     if (!activeFile || !cleanedDirPath) return null;
 
@@ -1715,24 +1800,14 @@ class AppleStyleView extends ItemView {
     if (!cleanedDir) return null;
 
     try {
-      await this.app.fileManager.processFrontMatter(activeFile, (frontmatter) => {
-        if (!frontmatter || typeof frontmatter !== 'object') return;
-
-        const coverMap = this.getFrontmatterKeyMap(frontmatter, ['cover']);
-        const coverDirMap = this.getFrontmatterKeyMap(frontmatter, ['cover_dir', 'coverDir', 'cover-dir', 'coverdir', 'CoverDIR']);
-
-        for (const [key, value] of Object.entries(coverMap)) {
-          if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
-            frontmatter[key] = '';
-          }
-        }
-
-        for (const [key, value] of Object.entries(coverDirMap)) {
-          if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
-            frontmatter[key] = '';
-          }
-        }
-      });
+      const processFrontMatter = this.app?.fileManager?.['processFrontMatter'];
+      if (typeof processFrontMatter === 'function') {
+        await processFrontMatter.call(this.app.fileManager, activeFile, (frontmatter) => {
+          this.clearInvalidPublishMetaInFrontmatter(frontmatter, cleanedDir);
+        });
+      } else {
+        await this.clearInvalidPublishMetaByTextFallback(activeFile, cleanedDir);
+      }
     } catch (error) {
       return `资源已删除，但清理 frontmatter 中失效的 cover/cover_dir 失败: ${error.message}`;
     }
@@ -1753,7 +1828,7 @@ class AppleStyleView extends ItemView {
       if (!file) return null;
       if (typeof file.extension !== 'string') return null; // 仅接受文件，不接受目录
       return this.app.vault.getResourcePath(file);
-    } catch (error) {
+    } catch {
       // frontmatter 路径失效或不是文件时，静默回退
       return null;
     }
@@ -1799,7 +1874,8 @@ class AppleStyleView extends ItemView {
     if (!normalized) return false;
     if (normalized === '.') return false;
     if (normalized.includes('..')) return false;
-    if (normalized === '.obsidian' || normalized.startsWith('.obsidian/')) return false;
+    const configDir = this.normalizeVaultPath(this.app?.vault?.configDir || '.obsidian');
+    if (configDir && (normalized === configDir || normalized.startsWith(`${configDir}/`))) return false;
     return true;
   }
 
@@ -1882,7 +1958,7 @@ class AppleStyleView extends ItemView {
 
     resetScroll();
     if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(resetScroll);
+      window.requestAnimationFrame(resetScroll);
     }
   }
 
@@ -1906,7 +1982,7 @@ class AppleStyleView extends ItemView {
 
     resetScroll();
     if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(resetScroll);
+      window.requestAnimationFrame(resetScroll);
     }
   }
 
@@ -3031,15 +3107,17 @@ class AppleStyleView extends ItemView {
   }
 
   copyPlainTextBySelection(text) {
-    if (typeof document?.execCommand !== 'function') return false;
-    const selection = window.getSelection?.();
+    const activeDocument = getActiveDocumentCompat();
+    const activeWindow = getActiveWindowCompat();
+    if (!activeDocument || typeof activeDocument.execCommand !== 'function') return false;
+    const selection = activeWindow?.getSelection?.();
     if (!selection) return false;
     const previousRanges = [];
     for (let i = 0; i < selection.rangeCount; i += 1) {
       previousRanges.push(selection.getRangeAt(i).cloneRange());
     }
-    const activeElement = document.activeElement;
-    const tempEl = document.createElement('textarea');
+    const activeElement = activeDocument.activeElement;
+    const tempEl = activeDocument.createElement('textarea');
     tempEl.value = text;
     tempEl.setAttribute('readonly', 'readonly');
     tempEl.setCssStyles({
@@ -3047,13 +3125,13 @@ class AppleStyleView extends ItemView {
       left: '-9999px',
       top: '0',
     });
-    document.body.appendChild(tempEl);
+    activeDocument.body.appendChild(tempEl);
     tempEl.select();
 
     let success = false;
     try {
-      success = document.execCommand('copy');
-    } catch (error) {
+      success = activeDocument.execCommand('copy');
+    } catch {
       success = false;
     } finally {
       tempEl.remove();
@@ -3061,14 +3139,14 @@ class AppleStyleView extends ItemView {
       for (const prevRange of previousRanges) {
         try {
           selection.addRange(prevRange);
-        } catch (restoreError) {
+        } catch {
           // ignore invalid stale ranges
         }
       }
       if (activeElement && typeof activeElement.focus === 'function') {
         try {
           activeElement.focus({ preventScroll: true });
-        } catch (focusError) {
+        } catch {
           activeElement.focus();
         }
       }
@@ -3110,7 +3188,7 @@ class AppleStyleView extends ItemView {
       const copied = await this.copyPlainTextSnapshot(payload);
       if (!copied) throw new Error('clipboard unavailable');
       new Notice('✅ 调试快照已复制');
-    } catch (error) {
+    } catch {
       new Notice('❌ 调试快照复制失败，请检查剪贴板权限');
     }
   }
@@ -3139,7 +3217,7 @@ class AppleStyleView extends ItemView {
       const copied = await this.copyPlainTextSnapshot(payload);
       if (!copied) throw new Error('clipboard unavailable');
       new Notice('✅ Prompt 上下文已复制');
-    } catch (error) {
+    } catch {
       new Notice('❌ Prompt 上下文复制失败，请检查剪贴板权限');
     }
   }
@@ -3776,8 +3854,7 @@ class AppleStyleView extends ItemView {
     this.currentHtml = html;
     this.aiPreviewApplied = true;
     if (this.previewContainer) {
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Render sanitized AI layout HTML into the live article preview container
-      this.previewContainer.innerHTML = html;
+      setElementHtml(this.previewContainer, html);
       this.previewContainer.scrollTop = scrollTop;
       this.previewContainer.addClass('apple-has-content');
     }
@@ -3815,8 +3892,7 @@ class AppleStyleView extends ItemView {
     const scrollTop = this.previewContainer.scrollTop;
     this.currentHtml = this.baseRenderedHtml;
     this.aiPreviewApplied = false;
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Restore sanitized base Markdown render HTML into the live preview container
-    this.previewContainer.innerHTML = this.baseRenderedHtml;
+    setElementHtml(this.previewContainer, this.baseRenderedHtml);
     this.previewContainer.scrollTop = scrollTop;
     this.previewContainer.addClass('apple-has-content');
     this.syncPreviewPresentationMode();
@@ -4251,11 +4327,7 @@ class AppleStyleView extends ItemView {
     digestSection.createEl('label', { text: '文章摘要（可选）', cls: 'wechat-modal-label' });
 
     // 自动提取文章前 45 字作为默认摘要
-    const tempDiv = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse current sanitized preview HTML to derive a plain-text draft digest
-    tempDiv.innerHTML = this.currentHtml || '';
-    // 使用 innerText 可以更好地处理换行，但为了安全起见，还是用 textContent 并清理空格
-    const autoDigest = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 45);
+    const autoDigest = htmlToText(this.currentHtml || '').replace(/\s+/g, ' ').trim().substring(0, 45);
 
     // 摘要逻辑：优先使用缓存 -> frontmatter.excerpt -> 自动提取
     const initialDigest = cachedState?.digest !== undefined
@@ -5146,15 +5218,14 @@ class AppleStyleView extends ItemView {
    * 将各种形式的 src (Base64, URL, 路径) 转为 Blob
    */
   async srcToBlob(src) {
-    // Base64 可以直接用 fetch 转换
+    // Base64/data URL 图片直接本地解析，避免对 data: URL 发起 fetch。
     if (src.startsWith('data:')) {
-      const resp = await fetch(src);
-      return await resp.blob();
+      return dataUrlToBlob(src);
     }
 
     // Obsidian 本地资源 (app:// 或 capacitor://) 可以直接 fetch
     if (src.startsWith('app://') || src.startsWith('capacitor://')) {
-      const resp = await fetch(src);
+      const resp = await window.fetch(src);
       return await resp.blob();
     }
 
@@ -5414,11 +5485,11 @@ class AppleStyleView extends ItemView {
     if (showLoading) {
       this.loadingGeneration = generation;
       if (this.loadingVisibilityTimer) {
-        clearTimeout(this.loadingVisibilityTimer);
+        window.clearTimeout(this.loadingVisibilityTimer);
         this.loadingVisibilityTimer = null;
       }
       if (loadingDelay > 0) {
-        this.loadingVisibilityTimer = setTimeout(() => {
+        this.loadingVisibilityTimer = window.setTimeout(() => {
           if (this.loadingGeneration === generation) {
             this.setPreviewLoading(true, loadingText);
           }
@@ -5452,7 +5523,7 @@ class AppleStyleView extends ItemView {
       if (!silent) new Notice('请先打开一个 Markdown 文件');
       if (showLoading && this.loadingGeneration === generation) {
         if (this.loadingVisibilityTimer) {
-          clearTimeout(this.loadingVisibilityTimer);
+          window.clearTimeout(this.loadingVisibilityTimer);
           this.loadingVisibilityTimer = null;
         }
         this.setPreviewLoading(false);
@@ -5465,7 +5536,7 @@ class AppleStyleView extends ItemView {
       this.completeAiLayoutSourceSwitch(sourcePath);
       if (showLoading && this.loadingGeneration === generation) {
         if (this.loadingVisibilityTimer) {
-          clearTimeout(this.loadingVisibilityTimer);
+          window.clearTimeout(this.loadingVisibilityTimer);
           this.loadingVisibilityTimer = null;
         }
         this.setPreviewLoading(false);
@@ -5495,8 +5566,7 @@ class AppleStyleView extends ItemView {
 
       // 滚动位置保持 (Scroll Preservation)
       const scrollTop = this.previewContainer.scrollTop;
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Render sanitized Markdown HTML into the live preview container while preserving scroll position
-      this.previewContainer.innerHTML = html;
+      setElementHtml(this.previewContainer, html);
       this.previewContainer.scrollTop = scrollTop;
 
       this.previewContainer.addClass('apple-has-content'); // 添加内容状态类
@@ -5548,7 +5618,7 @@ class AppleStyleView extends ItemView {
     } finally {
       if (showLoading && this.loadingGeneration === generation) {
         if (this.loadingVisibilityTimer) {
-          clearTimeout(this.loadingVisibilityTimer);
+          window.clearTimeout(this.loadingVisibilityTimer);
           this.loadingVisibilityTimer = null;
         }
         this.setPreviewLoading(false);
@@ -5562,12 +5632,12 @@ class AppleStyleView extends ItemView {
   onResize() {
     super.onResize();
     // 使用防抖，避免拖动侧边栏时频繁渲染
-    if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
+    if (this.resizeTimeout) window.clearTimeout(this.resizeTimeout);
 
     // 检查是否可见 (以防万一)
     if (!this.containerEl.offsetParent) return;
 
-    this.resizeTimeout = setTimeout(() => {
+    this.resizeTimeout = window.setTimeout(() => {
       this.convertCurrent(true);
     }, 300);
   }
@@ -5577,22 +5647,22 @@ class AppleStyleView extends ItemView {
    */
   renderHTML(html) {
     this.previewContainer.empty();
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Render sanitized Markdown HTML into the plugin preview panel
-    this.previewContainer.innerHTML = html;
+    setElementHtml(this.previewContainer, html);
   }
 
   copyRichHTMLBySelection(htmlContent) {
-    const selection = window.getSelection?.();
-    if (!selection || typeof document.execCommand !== 'function') return false;
+    const activeDocument = getActiveDocumentCompat();
+    const activeWindow = getActiveWindowCompat();
+    const selection = activeWindow?.getSelection?.();
+    if (!activeDocument || !selection || typeof activeDocument.execCommand !== 'function') return false;
     const previousRanges = [];
     for (let i = 0; i < selection.rangeCount; i += 1) {
       previousRanges.push(selection.getRangeAt(i).cloneRange());
     }
-    const activeElement = document.activeElement;
+    const activeElement = activeDocument.activeElement;
 
-    const tempContainer = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert final sanitized clipboard HTML into an offscreen selection container for rich copy fallback
-    tempContainer.innerHTML = htmlContent;
+    const tempContainer = activeDocument.createElement('div');
+    setElementHtml(tempContainer, htmlContent);
     tempContainer.setCssStyles({
       position: 'fixed',
       left: '-9999px',
@@ -5601,30 +5671,30 @@ class AppleStyleView extends ItemView {
       pointerEvents: 'none',
       background: '#fff',
     });
-    document.body.appendChild(tempContainer);
+    activeDocument.body.appendChild(tempContainer);
 
     let success = false;
     try {
-      const range = document.createRange();
+      const range = activeDocument.createRange();
       range.selectNodeContents(tempContainer);
       selection.removeAllRanges();
       selection.addRange(range);
-      success = document.execCommand('copy');
-    } catch (error) {
+      success = activeDocument.execCommand('copy');
+    } catch {
       success = false;
     } finally {
       selection.removeAllRanges();
       for (const prevRange of previousRanges) {
         try {
           selection.addRange(prevRange);
-        } catch (restoreError) {
+        } catch {
           // ignore invalid stale ranges
         }
       }
       if (activeElement && typeof activeElement.focus === 'function') {
         try {
           activeElement.focus({ preventScroll: true });
-        } catch (focusError) {
+        } catch {
           activeElement.focus();
         }
       }
@@ -5701,17 +5771,13 @@ class AppleStyleView extends ItemView {
   }
 
   async prepareHtmlForWechatDraft(html) {
-    const tempDiv = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML for WeChat draft post-processing
-    tempDiv.innerHTML = html || '';
+    const tempDiv = createHtmlContainer('div', html || '');
     await this.enhanceHtmlForWechatPublishing(tempDiv);
     return tempDiv.innerHTML;
   }
 
   async prepareHtmlForWechatsyncArticle(html) {
-    const tempDiv = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML for Wechatsync image and code-block processing
-    tempDiv.innerHTML = html || '';
+    const tempDiv = createHtmlContainer('div', html || '');
     await this.processImagesToDataURL(tempDiv);
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
@@ -5729,9 +5795,7 @@ class AppleStyleView extends ItemView {
   // call processImagesToDataURL.
   async prepareHtmlForWechatsyncArticleViaBridge(html, assets = []) {
     const mapped = mapAppUrlImagesToAssetUrls(html || '', assets);
-    const tempDiv = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized bridge publish HTML after app URL to asset URL mapping
-    tempDiv.innerHTML = mapped;
+    const tempDiv = createHtmlContainer('div', mapped);
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
   }
@@ -5817,13 +5881,10 @@ class AppleStyleView extends ItemView {
       })[0];
 
     if (codeLinesNode) {
-      const scratch = document.createElement('div');
       return (codeLinesNode.innerHTML || '')
         .split(/<br\s*\/?>/i)
         .map((lineHtml) => {
-          // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Decode one sanitized code-line HTML fragment into text for Wechatsync plain code export
-          scratch.innerHTML = lineHtml || '';
-          return (scratch.textContent || '').replace(/\u00a0/g, ' ');
+          return htmlToText(lineHtml || '').replace(/\u00a0/g, ' ');
         })
         .join('\n');
     }
@@ -5936,12 +5997,11 @@ class AppleStyleView extends ItemView {
         const toolbar = document.createElement('section');
         const toolbarStyle = 'display:block !important;background:#161b22 !important;padding:6px 10px 6px 10px !important;border:none !important;border-bottom:1px solid #30363d !important;border-radius:8px 8px 0 0 !important;line-height:1 !important;box-sizing:border-box !important;width:100% !important;';
         toolbar.setAttribute('style', toolbarStyle);
-        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Build fixed Mac window controls HTML with static spans required for WeChat clipboard fidelity
-        toolbar.innerHTML = [
+        setElementHtml(toolbar, [
         '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ff5f57 !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>',
         '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ffbd2e !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>',
         '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#28c840 !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>',
-      ].join('');
+      ].join(''));
         pre.appendChild(toolbar);
       }
 
@@ -5954,18 +6014,16 @@ class AppleStyleView extends ItemView {
         const codeInnerHtml = codeLineParts.map((lineHtml) => lineHtml || '&nbsp;').join('<br/>');
         const codeWithLineNumbersStyle = 'display:block !important;width:100% !important;min-width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;background:transparent !important;color:#f0f6fc !important;font-family:inherit !important;font-size:13px !important;line-height:1.75 !important;white-space:normal !important;overflow:visible !important;text-indent:0 !important;margin:0 !important;';
         code.setAttribute('style', codeWithLineNumbersStyle);
-        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Recompose sanitized highlighted code HTML with fixed line-number markup for WeChat clipboard scrolling
-        code.innerHTML = `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;margin:0 !important;">
+        setElementHtml(code, `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;margin:0 !important;">
           <section class="line-numbers" style="text-align:right !important;padding:12px 0 !important;border-right:1px solid rgba(255,255,255,0.1) !important;user-select:none !important;background:transparent !important;flex:0 0 auto !important;min-width:3.5em !important;box-sizing:border-box !important;margin:0 !important;">${lineNumbersHtml}</section>
           <section class="code-scroll" style="flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;-webkit-overflow-scrolling:touch !important;padding:12px 12px 12px 16px !important;min-width:0 !important;box-sizing:border-box !important;margin:0 !important;">
             <section style="white-space:pre !important;min-width:max-content !important;line-height:1.75 !important;font-size:13px !important;margin:0 !important;">${codeInnerHtml}</section>
           </section>
-        </section>`;
+        </section>`);
       } else {
         const codeScrollableStyle = 'display:block !important;width:max-content !important;min-width:100% !important;max-width:none !important;padding:12px !important;box-sizing:border-box !important;background:transparent !important;color:#f0f6fc !important;font-family:inherit !important;font-size:13px !important;line-height:1.75 !important;white-space:nowrap !important;overflow:visible !important;text-indent:0 !important;margin:0 !important;';
         code.setAttribute('style', codeScrollableStyle);
-        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Preserve sanitized highlighted code span HTML in clipboard output
-        code.innerHTML = codeLinesHtml;
+        setElementHtml(code, codeLinesHtml);
       }
       pre.appendChild(code);
 
@@ -5980,7 +6038,7 @@ class AppleStyleView extends ItemView {
     try {
       const text = await navigator.clipboard.readText();
       return { supported: true, text: this.normalizeClipboardText(text) };
-    } catch (error) {
+    } catch {
       return { supported: false, text: '' };
     }
   }
@@ -6006,13 +6064,11 @@ class AppleStyleView extends ItemView {
     try {
       const exportHtml = this.getCurrentExportHtml() || this.currentHtml;
       // 创建临时的 DOM 容器来解析和处理图片
-      const tempDiv = document.createElement('div');
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized export HTML so images, Mermaid, and code blocks can be transformed before clipboard write
-      tempDiv.innerHTML = exportHtml;
+      const tempDiv = createHtmlContainer('div', exportHtml);
 
       // 处理本地图片：转换为 JPEG Base64
       // 返回 true 表示有图片被处理了
-      const processed = await this.processImagesToDataURL(tempDiv);
+      await this.processImagesToDataURL(tempDiv);
 
       await this.enhanceHtmlForWechatPublishing(tempDiv);
 
@@ -6021,10 +6077,7 @@ class AppleStyleView extends ItemView {
 
       const htmlContent = cleanedHtml;
       window.__OWC_LAST_CLIPBOARD_HTML = htmlContent;
-      const plainDiv = document.createElement('div');
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse final sanitized clipboard HTML to capture its plain-text debug snapshot
-      plainDiv.innerHTML = cleanedHtml;
-      window.__OWC_LAST_CLIPBOARD_TEXT = plainDiv.textContent || '';
+      window.__OWC_LAST_CLIPBOARD_TEXT = htmlToText(cleanedHtml);
       const expectedPlainText = this.normalizeClipboardText(window.__OWC_LAST_CLIPBOARD_TEXT);
 
       const mobile = isMobileClient(this.app);
@@ -6038,7 +6091,7 @@ class AppleStyleView extends ItemView {
       } else {
         try {
           copied = await this.copyRichHTMLByClipboard(htmlContent);
-        } catch (error) {
+        } catch {
           copied = false;
         }
         if (!copied) {
@@ -6055,7 +6108,7 @@ class AppleStyleView extends ItemView {
       if (this.copyBtn) {
          this.copyBtn.classList.remove('is-copying');
          this.setCopyButtonIcon('check'); // 变成对勾图标
-         setTimeout(() => {
+         window.setTimeout(() => {
            if (this.copyBtn) {
              this.setCopyButtonIcon('copy'); // 恢复复制图标
            }
@@ -6098,7 +6151,7 @@ class AppleStyleView extends ItemView {
     const elapsed = Date.now() - startTime;
     const minDuration = 800; // 800ms minimum duration
     if (elapsed < minDuration) {
-      await new Promise(resolve => setTimeout(resolve, minDuration - elapsed));
+      await new Promise(resolve => window.setTimeout(resolve, minDuration - elapsed));
     }
 
     return true;
@@ -6109,7 +6162,7 @@ class AppleStyleView extends ItemView {
     try {
       // CRITICAL FIX: app:// 资源在 Electron 中可以直接 fetch！
       // 我们不需要反向查找 TFile，直接 fetch(img.src) 拿 blob 即可！
-      const response = await fetch(img.src);
+      const response = await window.fetch(img.src);
       const blob = await response.blob();
 
       // 检查大小警告
@@ -6182,19 +6235,19 @@ class AppleStyleView extends ItemView {
 
   async onClose() {
     if (this.activeLeafRenderTimer) {
-      clearTimeout(this.activeLeafRenderTimer);
+      window.clearTimeout(this.activeLeafRenderTimer);
       this.activeLeafRenderTimer = null;
     }
     if (this.loadingVisibilityTimer) {
-      clearTimeout(this.loadingVisibilityTimer);
+      window.clearTimeout(this.loadingVisibilityTimer);
       this.loadingVisibilityTimer = null;
     }
     if (this.sidePaddingPreviewTimer) {
-      clearTimeout(this.sidePaddingPreviewTimer);
+      window.clearTimeout(this.sidePaddingPreviewTimer);
       this.sidePaddingPreviewTimer = null;
     }
     if (this.aiLayoutStaleSuppressTimer) {
-      clearTimeout(this.aiLayoutStaleSuppressTimer);
+      window.clearTimeout(this.aiLayoutStaleSuppressTimer);
       this.aiLayoutStaleSuppressTimer = null;
     }
     this.setPreviewLoading(false);
@@ -6276,6 +6329,37 @@ class AppleStyleSettingTab extends PluginSettingTab {
     if (view && typeof view.refreshAiLayoutPanel === 'function') {
       view.refreshAiLayoutPanel();
     }
+  }
+
+  confirmDestructiveAction({ title, message, confirmText = '确认', cancelText = '取消' }) {
+    const { Modal } = require('obsidian');
+    return new Promise((resolve) => {
+      const modal = new Modal(this.app);
+      let settled = false;
+      const settle = (value) => {
+        if (settled) return;
+        settled = true;
+        modal.close();
+        resolve(value);
+      };
+
+      modal.titleEl.setText(title || '确认操作');
+      const body = modal.contentEl.createDiv({ cls: 'wechat-confirm-modal' });
+      body.createEl('p', { text: message || '确定要继续吗？' });
+      const actions = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
+      actions.createEl('button', { text: cancelText }).onclick = () => settle(false);
+      const confirmBtn = actions.createEl('button', { text: confirmText, cls: 'mod-warning' });
+      confirmBtn.onclick = () => settle(true);
+      const originalOnClose = modal.onClose?.bind(modal);
+      modal.onClose = () => {
+        if (typeof originalOnClose === 'function') originalOnClose();
+        if (!settled) {
+          settled = true;
+          resolve(false);
+        }
+      };
+      modal.open();
+    });
   }
 
   display() {
@@ -6385,15 +6469,15 @@ class AppleStyleSettingTab extends PluginSettingTab {
       }));
 
     if (this.plugin.settings.avatarBase64) {
-      uploadSetting.addButton(button => button
-        .setButtonText('清除')
-        .setWarning()
-        .onClick(async () => {
-          this.plugin.settings.avatarBase64 = '';
-          await this.plugin.saveSettings();
-          new Notice('已清除本地头像');
-          this.display();
-        }));
+      uploadSetting.addButton((button) => {
+        setDestructiveButtonCompat(button.setButtonText('清除'))
+          .onClick(async () => {
+            this.plugin.settings.avatarBase64 = '';
+            await this.plugin.saveSettings();
+            new Notice('已清除本地头像');
+            this.display();
+          });
+      });
     }
 
     new Setting(containerEl)
@@ -6473,17 +6557,21 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
         const deleteBtn = actions.createEl('button', { text: '删除', cls: 'wechat-btn-small wechat-btn-danger' });
         deleteBtn.onclick = async () => {
-          if (confirm(`确定要删除账号 "${account.name}" 吗？`)) {
-            this.plugin.settings.wechatAccounts = accounts.filter(a => a.id !== account.id);
-            // 如果删除的是默认账号，自动选择第一个
-            if (account.id === defaultId && this.plugin.settings.wechatAccounts.length > 0) {
-              this.plugin.settings.defaultAccountId = this.plugin.settings.wechatAccounts[0].id;
-            } else if (this.plugin.settings.wechatAccounts.length === 0) {
-              this.plugin.settings.defaultAccountId = '';
-            }
-            await this.plugin.saveSettings();
-            this.display();
+          const confirmed = await this.confirmDestructiveAction({
+            title: '删除公众号账号',
+            message: `确定要删除账号 "${account.name}" 吗？`,
+            confirmText: '删除',
+          });
+          if (!confirmed) return;
+          this.plugin.settings.wechatAccounts = accounts.filter(a => a.id !== account.id);
+          // 如果删除的是默认账号，自动选择第一个
+          if (account.id === defaultId && this.plugin.settings.wechatAccounts.length > 0) {
+            this.plugin.settings.defaultAccountId = this.plugin.settings.wechatAccounts[0].id;
+          } else if (this.plugin.settings.wechatAccounts.length === 0) {
+            this.plugin.settings.defaultAccountId = '';
           }
+          await this.plugin.saveSettings();
+          this.display();
         };
       }
     }
@@ -6531,7 +6619,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
         .onChange(async (value) => {
           if (this.isAbsolutePathLike(value)) {
             if (!hasWarnedAbsoluteCleanupPath) {
-              new Notice('⚠️ 清理目录请填写 vault 内相对路径，不要使用绝对路径（如 /Users/... 或 C:\...）');
+              new Notice('⚠️ 清理目录请填写 vault 内相对路径，不要使用绝对路径（如 /Users/... 或 C:\\...）');
               hasWarnedAbsoluteCleanupPath = true;
             }
           } else {
@@ -6783,16 +6871,20 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
         const deleteBtn = actions.createEl('button', { text: '删除', cls: 'wechat-btn-small wechat-btn-danger' });
         deleteBtn.onclick = async () => {
-          if (confirm(`确定要删除 AI Provider "${provider.name}" 吗？`)) {
-            this.plugin.settings.ai.providers = providers.filter((item) => item.id !== provider.id);
-            if (provider.id === defaultProviderId) {
-              const nextRunnableProvider = this.plugin.settings.ai.providers.find((item) => item.enabled !== false && isAiProviderRunnable(item));
-              this.plugin.settings.ai.defaultProviderId = nextRunnableProvider?.id || '';
-            }
-            await this.plugin.saveSettings();
-            this.refreshOpenConverterAiState();
-            this.display();
+          const confirmed = await this.confirmDestructiveAction({
+            title: '删除 AI Provider',
+            message: `确定要删除 AI Provider "${provider.name}" 吗？`,
+            confirmText: '删除',
+          });
+          if (!confirmed) return;
+          this.plugin.settings.ai.providers = providers.filter((item) => item.id !== provider.id);
+          if (provider.id === defaultProviderId) {
+            const nextRunnableProvider = this.plugin.settings.ai.providers.find((item) => item.enabled !== false && isAiProviderRunnable(item));
+            this.plugin.settings.ai.defaultProviderId = nextRunnableProvider?.id || '';
           }
+          await this.plugin.saveSettings();
+          this.refreshOpenConverterAiState();
+          this.display();
         };
       }
     }
@@ -6849,17 +6941,22 @@ class AppleStyleSettingTab extends PluginSettingTab {
         : '当前还没有缓存的 AI 编排结果。');
 
     if (cachedLayoutCount > 0) {
-      cacheSetting.addButton((button) => button
-        .setButtonText('清空缓存')
-        .setWarning()
-        .onClick(async () => {
-          if (!confirm(`确定要清空 ${cachedDocCount} 篇文章、共 ${cachedLayoutCount} 份 AI 编排缓存吗？`)) return;
-          this.plugin.settings.ai.articleLayoutsByPath = {};
-          await this.plugin.saveSettings();
-          this.refreshOpenConverterAiState();
-          new Notice('已清空 AI 编排缓存');
-          this.display();
-        }));
+      cacheSetting.addButton((button) => {
+        setDestructiveButtonCompat(button.setButtonText('清空缓存'))
+          .onClick(async () => {
+            const confirmed = await this.confirmDestructiveAction({
+              title: '清空 AI 编排缓存',
+              message: `确定要清空 ${cachedDocCount} 篇文章、共 ${cachedLayoutCount} 份 AI 编排缓存吗？`,
+              confirmText: '清空',
+            });
+            if (!confirmed) return;
+            this.plugin.settings.ai.articleLayoutsByPath = {};
+            await this.plugin.saveSettings();
+            this.refreshOpenConverterAiState();
+            new Notice('已清空 AI 编排缓存');
+            this.display();
+          });
+      });
     }
   }
 
@@ -7322,7 +7419,7 @@ class AppleStylePlugin extends Plugin {
       }
     }
 
-    this.app.workspace.revealLeaf(leaf);
+    await revealLeafCompat(this.app.workspace, leaf);
   }
 
   getConverterView() {
@@ -7334,7 +7431,8 @@ class AppleStylePlugin extends Plugin {
   }
 
   getWechatSyncBridgeService() {
-    const settings = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    const pluginSettings = getPluginSettings(this);
+    const settings = normalizeMultiPlatformSyncSettings(pluginSettings['multiPlatformSync']);
     const cacheKey = `${settings.port}:${settings.token}:${settings.allowRemote ? 1 : 0}`;
     if (this._wechatSyncBridgeService && this._wechatSyncBridgeCacheKey === cacheKey) {
       return this._wechatSyncBridgeService;
@@ -7348,7 +7446,6 @@ class AppleStylePlugin extends Plugin {
 
     const http = require('http');
     this._wechatSyncBridgeCacheKey = cacheKey;
-    const self = this;
     this._wechatSyncBridgeService = createWechatSyncBridgeService({
       http,
       port: settings.port,
@@ -7356,20 +7453,22 @@ class AppleStylePlugin extends Plugin {
       allowRemote: settings.allowRemote,
       serverVersion: this.manifest?.version || '',
       initialConnectedClients: settings.connectedClients || [],
-      async onClientRegistryChange(clients) {
-        self.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-          ...self.settings.multiPlatformSync,
+      onClientRegistryChange: async (clients) => {
+        const currentSettings = getPluginSettings(this);
+        currentSettings['multiPlatformSync'] = normalizeMultiPlatformSyncSettings({
+          ...currentSettings['multiPlatformSync'],
           connectedClients: clients,
         });
-        await self.saveSettings();
-        self.app?.setting?.activeTab?.display?.();
+        await this.saveSettings();
+        this.app?.setting?.activeTab?.display?.();
       },
     });
     return this._wechatSyncBridgeService;
   }
 
   startWechatSyncBridgeInBackground(reason = 'manual') {
-    const settings = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    const pluginSettings = getPluginSettings(this);
+    const settings = normalizeMultiPlatformSyncSettings(pluginSettings['multiPlatformSync']);
     if (!settings.enabled) return;
 
     const bridge = this.getWechatSyncBridgeService();
@@ -7393,24 +7492,24 @@ class AppleStylePlugin extends Plugin {
 
   async loadSettings() {
     const loadedData = (await this.loadData()) || {};
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+    const settings = setPluginSettings(this, Object.assign({}, DEFAULT_SETTINGS, loadedData));
     let didMigrate = false;
 
-    if (!this.settings.clientId) {
-      this.settings.clientId = 'wp_dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    if (!settings['clientId']) {
+      settings['clientId'] = 'wp_dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
       didMigrate = true;
     }
 
-    this.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    settings['multiPlatformSync'] = normalizeMultiPlatformSyncSettings(settings['multiPlatformSync']);
 
-    const normalizedDraftCache = normalizeDraftCache(this.settings.draftCache);
-    this.settings.draftCache = normalizedDraftCache.cache;
+    const normalizedDraftCache = normalizeDraftCache(settings['draftCache']);
+    settings['draftCache'] = normalizedDraftCache.cache;
     if (normalizedDraftCache.changed) {
       didMigrate = true;
     }
 
     const rawAiSettings = loadedData.ai;
-    this.settings.ai = normalizeAiSettings(rawAiSettings || this.settings.ai || {});
+    settings['ai'] = normalizeAiSettings(rawAiSettings || settings['ai'] || {});
     if (rawAiSettings !== undefined) {
       const normalizedRawAi = normalizeAiSettings(rawAiSettings);
       if (JSON.stringify(normalizedRawAi) !== JSON.stringify(rawAiSettings)) {
@@ -7419,24 +7518,24 @@ class AppleStylePlugin extends Plugin {
     }
 
     // 数据迁移：将旧的单账号格式迁移到新的多账号格式
-    if (this.settings.wechatAppId && this.settings.wechatAccounts.length === 0) {
+    if (settings['wechatAppId'] && settings['wechatAccounts'].length === 0) {
       const migratedAccount = {
         id: generateId(),
         name: '我的公众号',
-        appId: this.settings.wechatAppId,
-        appSecret: this.settings.wechatAppSecret,
+        appId: settings['wechatAppId'],
+        appSecret: settings['wechatAppSecret'],
       };
-      this.settings.wechatAccounts.push(migratedAccount);
-      this.settings.defaultAccountId = migratedAccount.id;
+      settings['wechatAccounts'].push(migratedAccount);
+      settings['defaultAccountId'] = migratedAccount.id;
       // 清除旧字段
-      this.settings.wechatAppId = '';
-      this.settings.wechatAppSecret = '';
+      settings['wechatAppId'] = '';
+      settings['wechatAppSecret'] = '';
       didMigrate = true;
       console.log('✅ 已将旧账号配置迁移到新格式');
     }
 
-    if (Array.isArray(this.settings.wechatAccounts)) {
-      this.settings.wechatAccounts = this.settings.wechatAccounts.map((account) => {
+    if (Array.isArray(settings['wechatAccounts'])) {
+      settings['wechatAccounts'] = settings['wechatAccounts'].map((account) => {
         if (!account || typeof account !== 'object') return account;
         const nextAccount = { ...account };
         let changed = false;
@@ -7458,24 +7557,24 @@ class AppleStylePlugin extends Plugin {
     }
 
     // 数据迁移：旧清理配置 -> cleanupDirTemplate
-    const currentTemplate = normalizeVaultPath(this.settings.cleanupDirTemplate || '');
-    const legacyRootDir = normalizeVaultPath(this.settings.cleanupRootDir || '');
-    const legacyTarget = this.settings.cleanupTarget;
+    const currentTemplate = normalizeVaultPath(settings['cleanupDirTemplate'] || '');
+    const legacyRootDir = normalizeVaultPath(settings['cleanupRootDir'] || '');
+    const legacyTarget = settings['cleanupTarget'];
 
     // 仅迁移旧的 folder 模式，避免把 file 模式误迁移成“删目录”
     if (!currentTemplate && legacyRootDir && legacyTarget === 'folder') {
-      this.settings.cleanupDirTemplate = `${legacyRootDir}/{{note}}_img`;
+      settings['cleanupDirTemplate'] = `${legacyRootDir}/{{note}}_img`;
       didMigrate = true;
       console.log('✅ 已将旧清理配置迁移为目录模板 cleanupDirTemplate');
     }
 
     // 清理弃用字段，避免后续歧义
-    if (Object.prototype.hasOwnProperty.call(this.settings, 'cleanupRootDir')) {
-      delete this.settings.cleanupRootDir;
+    if (Object.prototype.hasOwnProperty.call(settings, 'cleanupRootDir')) {
+      delete settings['cleanupRootDir'];
       didMigrate = true;
     }
-    if (Object.prototype.hasOwnProperty.call(this.settings, 'cleanupTarget')) {
-      delete this.settings.cleanupTarget;
+    if (Object.prototype.hasOwnProperty.call(settings, 'cleanupTarget')) {
+      delete settings['cleanupTarget'];
       didMigrate = true;
     }
 
@@ -7492,8 +7591,8 @@ class AppleStylePlugin extends Plugin {
       'enforceNativeParity',
     ];
     for (const key of deprecatedRenderKeys) {
-      if (Object.prototype.hasOwnProperty.call(this.settings, key)) {
-        delete this.settings[key];
+      if (Object.prototype.hasOwnProperty.call(settings, key)) {
+        delete settings[key];
         didMigrate = true;
       }
     }
@@ -7506,28 +7605,33 @@ class AppleStylePlugin extends Plugin {
   getArticleLayoutState(sourcePath = '', selection = {}) {
     const normalizedPath = normalizeVaultPath(sourcePath || '');
     if (!normalizedPath) return null;
-    const entry = this.settings?.ai?.articleLayoutsByPath?.[normalizedPath] || null;
+    const pluginSettings = getPluginSettings(this);
+    const aiSettings = pluginSettings['ai'] || {};
+    const entry = aiSettings['articleLayoutsByPath']?.[normalizedPath] || null;
     const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
     if (!normalizedEntry) return null;
     if (!selection || Object.keys(selection).length === 0) {
       return normalizedEntry.familyStates?.[normalizedEntry.lastLayoutFamily] || null;
     }
     return getArticleLayoutSelectionState(normalizedEntry, selection, {
-      layoutFamily: this.settings?.ai?.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO,
-      colorPalette: this.settings?.ai?.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO,
+      layoutFamily: aiSettings['defaultLayoutFamily'] || AI_LAYOUT_SELECTION_AUTO,
+      colorPalette: aiSettings['defaultColorPalette'] || AI_LAYOUT_SELECTION_AUTO,
     });
   }
 
   async saveArticleLayoutState(sourcePath = '', nextState = null, selection = {}) {
     const normalizedPath = normalizeVaultPath(sourcePath || '');
     if (!normalizedPath) return false;
-    if (!this.settings.ai) {
-      this.settings.ai = createDefaultAiSettings();
+    const pluginSettings = getPluginSettings(this);
+    if (!pluginSettings['ai']) {
+      pluginSettings['ai'] = createDefaultAiSettings();
     }
-    if (!this.settings.ai.articleLayoutsByPath || typeof this.settings.ai.articleLayoutsByPath !== 'object') {
-      this.settings.ai.articleLayoutsByPath = {};
+    const aiSettings = pluginSettings['ai'];
+    if (!aiSettings['articleLayoutsByPath'] || typeof aiSettings['articleLayoutsByPath'] !== 'object') {
+      aiSettings['articleLayoutsByPath'] = {};
     }
-    const existingEntry = normalizeArticleLayoutCacheEntry(this.settings.ai.articleLayoutsByPath[normalizedPath]) || {
+    const articleLayoutsByPath = aiSettings['articleLayoutsByPath'];
+    const existingEntry = normalizeArticleLayoutCacheEntry(articleLayoutsByPath[normalizedPath]) || {
       lastLayoutFamily: '',
       lastAutoResolvedFamily: '',
       familyStates: {},
@@ -7540,8 +7644,8 @@ class AppleStylePlugin extends Plugin {
         colorPalette: nextState?.stylePack || nextState?.resolved?.colorPalette || nextState?.layoutJson?.stylePack,
       },
       {
-        layoutFamily: this.settings.ai.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO,
-        colorPalette: this.settings.ai.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO,
+        layoutFamily: aiSettings['defaultLayoutFamily'] || AI_LAYOUT_SELECTION_AUTO,
+        colorPalette: aiSettings['defaultColorPalette'] || AI_LAYOUT_SELECTION_AUTO,
       }
     );
     const getCacheFamily = (state = null) => {
@@ -7561,7 +7665,7 @@ class AppleStylePlugin extends Plugin {
         delete existingEntry.familyStates[effectiveLayoutFamily];
         const remainingFamilies = Object.keys(existingEntry.familyStates);
         if (!remainingFamilies.length) {
-          delete this.settings.ai.articleLayoutsByPath[normalizedPath];
+          delete articleLayoutsByPath[normalizedPath];
         } else {
           existingEntry.lastLayoutFamily = existingEntry.familyStates[existingEntry.lastLayoutFamily]
             ? existingEntry.lastLayoutFamily
@@ -7569,10 +7673,10 @@ class AppleStylePlugin extends Plugin {
           if (existingEntry.lastAutoResolvedFamily && !existingEntry.familyStates[existingEntry.lastAutoResolvedFamily]) {
             existingEntry.lastAutoResolvedFamily = '';
           }
-          this.settings.ai.articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
+          articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
         }
       } else {
-        delete this.settings.ai.articleLayoutsByPath[normalizedPath];
+        delete articleLayoutsByPath[normalizedPath];
       }
     } else {
       const resolvedLayoutFamily = effectiveLayoutFamily || 'source-first';
@@ -7600,14 +7704,14 @@ class AppleStylePlugin extends Plugin {
       if (requestedSelection.layoutFamily === AI_LAYOUT_SELECTION_AUTO) {
         existingEntry.lastAutoResolvedFamily = resolvedLayoutFamily;
       }
-      this.settings.ai.articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
+      articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
     }
     return this.saveSettings();
   }
 
   async saveSettings() {
     try {
-      await this.saveData(this.settings);
+      await this.saveData(getPluginSettings(this));
       return true;
     } catch (error) {
       console.error('保存插件设置失败:', error);

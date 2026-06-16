@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock markdown-it globally before importing converter
-global.markdownit = function(options) {
+global.markdownit = function(_options) {
   return {
     render: vi.fn((md) => `<p>${md}</p>`),
     renderer: {
@@ -519,11 +519,11 @@ describe('Callout Syntax Support', () => {
 
       // Layer 1: Callout
       vi.spyOn(converter, 'detectCallout').mockReturnValueOnce({ type: 'note' });
-      const html1 = rules.blockquote_open([{type:'blockquote_open'}], 0, {}, env);
+      rules.blockquote_open([{type:'blockquote_open'}], 0, {}, env);
 
       // Layer 2: Regular quote
       vi.spyOn(converter, 'detectCallout').mockReturnValueOnce(null);
-      const html2 = rules.blockquote_open([{type:'blockquote_open'}], 0, {}, env);
+      rules.blockquote_open([{type:'blockquote_open'}], 0, {}, env);
 
       expect(env._calloutStack.length).toBe(2);
       expect(env._calloutStack[0]).not.toBeNull(); // note

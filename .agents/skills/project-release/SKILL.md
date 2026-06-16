@@ -49,7 +49,7 @@ title: 简短标题（会显示为 "v{version} - 标题"）
 1. **准备阶段**（在 feature 分支完成）
    - 更新版本号文件
    - 创建 `RELEASE_NOTES/v{version}.md`
-   - 确保所有测试通过：`npm test`
+   - 确保 Obsidian scan readiness guard 通过：`npm run review:guard`
 
 2. **合并 PR**
    - 将 feature 分支合并到 `main` 分支
@@ -67,7 +67,7 @@ title: 简短标题（会显示为 "v{version} - 标题"）
 1. **准备阶段**
    - 更新版本号文件
    - 创建 `RELEASE_NOTES/v{version}.md`
-   - 确保所有测试通过：`npm test`
+   - 确保 Obsidian scan readiness guard 通过：`npm run review:guard`
 
 2. **提交并触发发布**
    ```bash
@@ -82,9 +82,15 @@ title: 简短标题（会显示为 "v{version} - 标题"）
 
 无论哪种情况，推送无前缀版本 tag 后 GitHub Actions 会自动执行：
 
-- 运行测试
-- 构建项目
-- 打 zip 文件
+- 校验 `versions.json` 与 `manifest.json.minAppVersion` 映射
+- 校验 tag 与 `manifest.json.version` 一致，且不使用 `v` 前缀
+- 运行 `npm run review:guard`，其中包含：
+  - ESLint
+  - 生产构建
+  - generated build artifact 一致性检查
+  - Vitest 全量测试
+  - release zip 打包
+  - release artifact 校验
 - 创建 GitHub Release（从 release notes 文件读取内容）
 - 上传 release 文件
 

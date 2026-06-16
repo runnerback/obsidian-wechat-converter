@@ -323,7 +323,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   const cachedConnection = bridgeSettings.connection || normalizeMultiPlatformConnection();
   view.preparePublishModalShell(modal, { mode: 'multi', mobileSync });
 
-  const { wechatTab, multiPlatformTab } = view.createPublishModeTabs(modal, 'multi');
+  const { wechatTab } = view.createPublishModeTabs(modal, 'multi');
   wechatTab.onclick = () => {
     view.showSyncModal({ modal });
   };

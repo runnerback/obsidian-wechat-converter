@@ -12,6 +12,7 @@ const {
   getAiLayoutSharedResources,
   validateAiLayoutPayload,
 } = require('./ai-layout-skill-bundle');
+const { createHtmlContainer } = require('./dom-utils');
 
 const AI_LAYOUT_SCHEMA_VERSION = 1;
 
@@ -81,6 +82,21 @@ const AI_PROVIDER_KIND_DEFAULTS = {
     model: 'claude-3-5-haiku-latest',
   },
 };
+
+function getActiveTimerApi() {
+  if (typeof window !== 'undefined' && window?.setTimeout && window?.clearTimeout) {
+    return window;
+  }
+  return globalThis;
+}
+
+function setAiLayoutTimeout(callback, delay) {
+  return getActiveTimerApi().setTimeout(callback, delay);
+}
+
+function clearAiLayoutTimeout(timer) {
+  return getActiveTimerApi().clearTimeout(timer);
+}
 
 function createDefaultAiSettings() {
   return {
@@ -820,10 +836,6 @@ function getStylePackById(id) {
   return getColorPaletteById(id);
 }
 
-function getColorPaletteTokenPack(id) {
-  return getColorPaletteById(id);
-}
-
 function getArticleLayoutSelectionState(entry, selection = {}, defaults = {}) {
   const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
   if (!normalizedEntry) return null;
@@ -1483,9 +1495,7 @@ function remapPreservedFragmentColors(html = '', tokens = {}) {
   const source = coerceString(html);
   if (!source || typeof document === 'undefined') return source;
 
-  const container = document.createElement('div');
-  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized preserved section HTML so AI layout colors can be remapped without changing source markdown
-  container.innerHTML = source;
+  const container = createHtmlContainer('div', source);
 
   const isInsideCodeChrome = (element) => {
     if (!element || typeof element.closest !== 'function') return false;
@@ -1553,9 +1563,7 @@ function extractRenderedSectionFragments(html = '') {
     return { sections: [] };
   }
 
-  const container = document.createElement('div');
-  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered HTML into DOM sections for AI layout fragment extraction
-  container.innerHTML = String(html || '');
+  const container = createHtmlContainer('div', String(html || ''));
   const root = container.children.length === 1 ? container.firstElementChild : container;
   const childNodes = Array.from(root?.childNodes || []).filter((node) => (
     node.nodeType !== 3 || /\S/.test(node.textContent || '')
@@ -2282,9 +2290,7 @@ function buildLayoutResult(rawLayout = {}, context = {}) {
 
 function extractImageRefsFromHtml(html) {
   if (typeof document === 'undefined' || !html) return [];
-  const container = document.createElement('div');
-  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML to extract figure image references for AI layout generation
-  container.innerHTML = html;
+  const container = createHtmlContainer('div', html);
   const figures = Array.from(container.querySelectorAll('figure'));
   const refs = [];
 
@@ -2485,7 +2491,7 @@ async function requestOpenAICompatibleLayout({
   fetchImpl,
 }) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetchImpl(`${provider.baseUrl}/chat/completions`, {
@@ -2525,7 +2531,7 @@ async function requestOpenAICompatibleLayout({
     }
     throw error;
   } finally {
-    clearTimeout(timer);
+    clearAiLayoutTimeout(timer);
   }
 }
 
@@ -2540,7 +2546,7 @@ async function requestGeminiLayout({
   fetchImpl,
 }) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const messages = buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs });
@@ -2596,7 +2602,7 @@ async function requestGeminiLayout({
     }
     throw error;
   } finally {
-    clearTimeout(timer);
+    clearAiLayoutTimeout(timer);
   }
 }
 
@@ -2611,7 +2617,7 @@ async function requestAnthropicLayout({
   fetchImpl,
 }) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const messages = buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs });
@@ -2662,7 +2668,7 @@ async function requestAnthropicLayout({
     }
     throw error;
   } finally {
-    clearTimeout(timer);
+    clearAiLayoutTimeout(timer);
   }
 }
 
@@ -2963,9 +2969,7 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
   const collectImageSrcsFromHtml = (html = '') => {
     const normalizedHtml = coerceString(html);
     if (!normalizedHtml || typeof document === 'undefined') return new Set();
-    const container = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered section HTML to collect image sources already present in article fragments
-    container.innerHTML = normalizedHtml;
+    const container = createHtmlContainer('div', normalizedHtml);
     return new Set(
       Array.from(container.querySelectorAll('img'))
         .map((img) => coerceString(img.getAttribute('src') || img.src))
@@ -3288,8 +3292,6 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
             )}
             ${preservedSubsectionHtml || `${subsectionParagraphs}${subsectionBullets}${subsectionCallouts}`}
           `;
-          const subsectionRailWidth = isTutorialCards ? 3 : 2;
-          const subsectionRailGap = isTutorialCards ? 12 : 14;
           const subsectionContentHtml = subsectionHasAccentRail
             ? (isDraft && isTutorialCards
               ? subsectionInnerHtml

@@ -19,6 +19,8 @@ This file provides guidance to Codex when working with code in this repository.
 - **Start development watcher**: `npm run dev`
 - **Run unit tests**: `npm test`
 - **Run coverage**: `npm run test:coverage`
+- **Run Obsidian scan readiness guard**: `npm run review:guard`
+- **Check generated build artifacts**: `npm run check:build-artifacts`
 - **Release dry run**: `npm run release:dryrun`
 - **Release validation**: `npm run release:validate`
 
@@ -26,6 +28,7 @@ This file provides guidance to Codex when working with code in this repository.
 - This project still relies on manual visual testing for end-to-end rendering quality and WeChat paste/sync behavior.
 - Use [TEST.md](/Users/davidlin/Documents/Obsidian/MyVault/.obsidian/plugins/obsidian-wechat-converter/TEST.md) for general rendering checks.
 - Use [TEST_MATH.md](/Users/davidlin/Documents/Obsidian/MyVault/.obsidian/plugins/obsidian-wechat-converter/TEST_MATH.md) when touching formula rendering or math upload behavior.
+- Use [OBSIDIAN_SCAN_CHECKLIST.md](/Users/davidlin/Documents/Obsidian/MyVault/.obsidian/plugins/obsidian-wechat-converter/OBSIDIAN_SCAN_CHECKLIST.md) before merging feature branches or preparing a release candidate.
 - The repository also has a substantial Vitest suite under [tests](/Users/davidlin/Documents/Obsidian/MyVault/.obsidian/plugins/obsidian-wechat-converter/tests). For logic changes, especially around rendering, sanitization, path resolution, sync flow, or error handling, add or update unit tests unless the change is purely cosmetic.
 
 ## Architecture & Structure
@@ -105,6 +108,10 @@ This file provides guidance to Codex when working with code in this repository.
 ### 5. Quality Bar
 - Add tests for core logic changes, especially regex-heavy transformations, sanitizer changes, sync failure handling, path cleanup rules, or rendering edge cases.
 - When changing output HTML, consider both automated tests and manual visual verification because small markup changes can regress WeChat compatibility.
+- Before merging feature work that could affect Obsidian review results, run `npm run review:guard`.
+- CI/CD must use the same `npm run review:guard` gatekeeper so local, PR, and release checks stay aligned.
+- Avoid introducing new scan-triggering APIs: prefer DOM helpers over `innerHTML`, `setCssStyles(...)` over static `element.style.*`, Obsidian `Modal` over `confirm()`, and local parsing over `fetch(data:)`.
+- If a scan-sensitive API is intentionally required for compatibility, keep the usage narrow, document the reason inline, and add regression tests around the behavior.
 
 ### 6. Modular Architecture
 - Adhere to the refactored modular architecture. Do not pile rendering rules or core logic inside the entry file `input.js`.
@@ -115,4 +122,3 @@ This file provides guidance to Codex when working with code in this repository.
 
 ## Release
 发布新版本时，使用 `/project-release` skill 查看完整流程。
-

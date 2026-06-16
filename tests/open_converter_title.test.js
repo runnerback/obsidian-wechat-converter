@@ -69,6 +69,31 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
     expect(revealLeaf).toHaveBeenCalledWith(freshLeaf);
   });
 
+  it('should fallback to setActiveLeaf when revealLeaf is unavailable', async () => {
+    const plugin = new AppleStylePlugin();
+    const setActiveLeaf = vi.fn();
+    const freshLeaf = {
+      getViewState: vi.fn(() => ({
+        type: 'apple-style-converter',
+        state: { keep: true },
+        icon: 'wand',
+        title: 'Obsidian 发布助手',
+      })),
+      setViewState: vi.fn().mockResolvedValue(undefined),
+    };
+
+    plugin.app = {
+      workspace: {
+        getLeavesOfType: vi.fn(() => [freshLeaf]),
+        setActiveLeaf,
+      },
+    };
+
+    await plugin.openConverter();
+
+    expect(setActiveLeaf).toHaveBeenCalledWith(freshLeaf, { focus: true });
+  });
+
   it('should migrate stale leaf titles during startup reconciliation', async () => {
     const plugin = new AppleStylePlugin();
     const staleLeafSetViewState = vi.fn().mockResolvedValue(undefined);

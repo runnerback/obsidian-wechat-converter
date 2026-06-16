@@ -12,11 +12,14 @@ import {
   DEFAULT_MAX_CLIENTS,
   createReadableBridgeError,
   createWechatSyncBridgeService,
+  defaultConnectionIdFactory,
   isOriginAllowedForWebSocket,
   isRecoverableBridgeConnectionError,
   isUnsupportedBridgeMethodError,
   parseWebSocketFrames,
   retryRecoverableBridgeOperation,
+  setBridgeTimeout,
+  clearBridgeTimeout,
 } from '../services/wechatsync-bridge.js';
 
 async function getFreePort() {
@@ -119,6 +122,59 @@ describe('Wechatsync bridge service', () => {
       const item = cleanup.pop();
       if (item?.stop) await item.stop();
       if (item?.close) item.close();
+    }
+  });
+
+  it('routes bridge timers through the active window helpers', () => {
+    const originalSetTimeout = Object.getOwnPropertyDescriptor(window, 'setTimeout');
+    const originalClearTimeout = Object.getOwnPropertyDescriptor(window, 'clearTimeout');
+    const timerToken = { timer: 'bridge-timeout' };
+    const setTimeoutSpy = vi.fn(() => timerToken);
+    const clearTimeoutSpy = vi.fn();
+
+    Object.defineProperty(window, 'setTimeout', {
+      value: setTimeoutSpy,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'clearTimeout', {
+      value: clearTimeoutSpy,
+      configurable: true,
+    });
+
+    try {
+      const handler = () => {};
+      const timer = setBridgeTimeout(handler, 1234);
+      clearBridgeTimeout(timer);
+
+      expect(timer).toBe(timerToken);
+      expect(setTimeoutSpy).toHaveBeenCalledWith(handler, 1234);
+      expect(clearTimeoutSpy).toHaveBeenCalledWith(timerToken);
+    } finally {
+      if (originalSetTimeout) {
+        Object.defineProperty(window, 'setTimeout', originalSetTimeout);
+      }
+      if (originalClearTimeout) {
+        Object.defineProperty(window, 'clearTimeout', originalClearTimeout);
+      }
+    }
+  });
+
+  it('prefers active window crypto.randomUUID for bridge connection IDs', () => {
+    const originalCrypto = Object.getOwnPropertyDescriptor(window, 'crypto');
+    Object.defineProperty(window, 'crypto', {
+      value: { randomUUID: vi.fn(() => 'window-random-uuid') },
+      configurable: true,
+    });
+
+    try {
+      expect(defaultConnectionIdFactory()).toBe('window-random-uuid');
+      expect(window.crypto.randomUUID).toHaveBeenCalledTimes(1);
+    } finally {
+      if (originalCrypto) {
+        Object.defineProperty(window, 'crypto', originalCrypto);
+      } else {
+        delete window.crypto;
+      }
     }
   });
 

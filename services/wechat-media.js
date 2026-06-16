@@ -1,3 +1,5 @@
+const { createHtmlContainer, setElementHtml } = require('./dom-utils');
+
 function hashBytesFNV1a(bytes) {
   let hash = 0x811c9dc5;
   for (let i = 0; i < bytes.length; i++) {
@@ -40,9 +42,7 @@ async function processAllImages({
   onImageFailure = null,
 }) {
 
-    const div = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML to upload and replace image sources before draft sync
-    div.innerHTML = html;
+    const div = createHtmlContainer('div', html);
     const imgs = Array.from(div.querySelectorAll('img'));
 
     // 1. 提取唯一图片 URL
@@ -193,8 +193,7 @@ async function processMathFormulas({
       top: '0',
       width: '800px',
     }); // 模拟常见的文章宽度
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML in an offscreen container so SVG math can be measured and rasterized
-    container.innerHTML = html;
+    setElementHtml(container, html);
     document.body.appendChild(container);
 
     try {

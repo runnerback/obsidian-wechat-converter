@@ -1,8 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-// 模拟 Obsidian 环境
-const MarkdownView = class {};
-const Notice = vi.fn();
+import { describe, it, expect, vi } from 'vitest';
 
 // 模拟我们的 View 类逻辑
 class MockAppleStyleView {
@@ -34,7 +30,7 @@ class MockAppleStyleView {
         this.updateCurrentDoc = vi.fn();
     }
 
-    async convertCurrent(silent = false, customMd = null) {
+    async convertCurrent(_silent = false, customMd = null) {
         const generation = ++this.renderGeneration;
 
         // 模拟获取 markdown 的逻辑
@@ -51,7 +47,7 @@ class MockAppleStyleView {
             this.currentHtml = html;
             this.previewContainer.innerHTML = html;
             this.updateCurrentDoc();
-        } catch (error) {
+        } catch {
             // error handling
         }
     }

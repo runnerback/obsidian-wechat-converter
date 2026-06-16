@@ -22,6 +22,28 @@ const DEFAULT_MAX_CLIENTS = 4;
 // keeping the array O(small).
 const MAX_CONNECTED_CLIENT_REGISTRY = 20;
 
+function getBridgeTimerWindow() {
+  if (typeof window !== 'undefined' && window) return window;
+  if (typeof globalThis !== 'undefined' && globalThis) return globalThis;
+  return null;
+}
+
+function setBridgeTimeout(handler, ms) {
+  const timerWindow = getBridgeTimerWindow();
+  if (timerWindow && typeof timerWindow.setTimeout === 'function') {
+    return timerWindow.setTimeout(handler, ms);
+  }
+  return null;
+}
+
+function clearBridgeTimeout(timer) {
+  if (!timer) return;
+  const timerWindow = getBridgeTimerWindow();
+  if (timerWindow && typeof timerWindow.clearTimeout === 'function') {
+    timerWindow.clearTimeout(timer);
+  }
+}
+
 function isUnsupportedBridgeMethodError(error = {}) {
   const message = String(error?.message || error || '');
   return /unknown method|unknown tool|method not found|not supported|unsupported/i.test(message);
@@ -33,7 +55,7 @@ function isRecoverableBridgeConnectionError(error = {}) {
 }
 
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => setBridgeTimeout(resolve, ms));
 }
 
 async function retryRecoverableBridgeOperation(operation, options = {}) {
@@ -271,7 +293,9 @@ function createMinimalWebSocketServer({ http, port, host = LOCAL_BIND_HOST, orig
       logger.warn?.('[WechatsyncBridge] WebSocket upgrade rejected: origin not allowed', { origin });
       try {
         socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
-      } catch {}
+      } catch {
+        // Socket may already be closed; destroy below still completes rejection.
+      }
       socket.destroy();
       return;
     }
@@ -384,6 +408,11 @@ function readRequestBody(req) {
 }
 
 function defaultConnectionIdFactory() {
+  const timerWindow = getBridgeTimerWindow();
+  const windowCrypto = timerWindow?.crypto;
+  if (windowCrypto && typeof windowCrypto.randomUUID === 'function') {
+    return windowCrypto.randomUUID();
+  }
   try {
     const nodeCrypto = require('crypto');
     if (typeof nodeCrypto.randomUUID === 'function') {
@@ -436,8 +465,8 @@ function createWechatSyncBridgeService(options = {}) {
 
   function scheduleRegistryChange() {
     if (!onClientRegistryChange) return;
-    clearTimeout(_clientRegistryDebounceTimer);
-    _clientRegistryDebounceTimer = setTimeout(() => {
+    clearBridgeTimeout(_clientRegistryDebounceTimer);
+    _clientRegistryDebounceTimer = setBridgeTimeout(() => {
       onClientRegistryChange(connectedClients.map((c) => ({ ...c })));
     }, 1000);
   }
@@ -606,7 +635,7 @@ function createWechatSyncBridgeService(options = {}) {
   function removePendingConnection(connectionId) {
     const pending = pendingConnections.get(connectionId);
     if (!pending) return;
-    if (pending.helloTimeout) clearTimeout(pending.helloTimeout);
+    if (pending.helloTimeout) clearBridgeTimeout(pending.helloTimeout);
     pendingConnections.delete(connectionId);
   }
 
@@ -630,7 +659,7 @@ function createWechatSyncBridgeService(options = {}) {
       closeWs(existing.ws, 'hello_takeover');
       connectionIdToInstanceId.delete(existing.connectionId);
       for (const [, req] of existing.pendingRequests.entries()) {
-        clearTimeout(req.timeout);
+        clearBridgeTimeout(req.timeout);
         req.reject(createReadableBridgeError(new Error('Session replaced by reconnect.')));
       }
       existing.pendingRequests.clear();
@@ -768,7 +797,7 @@ function createWechatSyncBridgeService(options = {}) {
       return;
     }
 
-    clearTimeout(pending.timeout);
+    clearBridgeTimeout(pending.timeout);
     session.pendingRequests.delete(message.id);
 
     if (message.error) {
@@ -804,7 +833,7 @@ function createWechatSyncBridgeService(options = {}) {
     pendingConnections.set(connectionId, pending);
     debug('Extension connected (pending hello)', { connectionId, origin });
 
-    pending.helloTimeout = setTimeout(() => {
+    pending.helloTimeout = setBridgeTimeout(() => {
       if (!pendingConnections.has(connectionId)) return;
       rejectHello(pending, HELLO_ERROR_TIMEOUT, { timeoutMs: helloTimeoutMs });
     }, helloTimeoutMs);
@@ -828,7 +857,7 @@ function createWechatSyncBridgeService(options = {}) {
         const session = sessions.get(instanceId);
         if (session) {
           for (const [, req] of session.pendingRequests.entries()) {
-            clearTimeout(req.timeout);
+            clearBridgeTimeout(req.timeout);
             req.reject(createReadableBridgeError(new Error('Extension disconnected.')));
           }
           session.pendingRequests.clear();
@@ -1003,7 +1032,7 @@ function createWechatSyncBridgeService(options = {}) {
   async function stop() {
     for (const session of sessions.values()) {
       for (const [id, req] of session.pendingRequests.entries()) {
-        clearTimeout(req.timeout);
+        clearBridgeTimeout(req.timeout);
         req.reject(new Error(`Request cancelled: ${id}`));
       }
       session.pendingRequests.clear();
@@ -1014,7 +1043,7 @@ function createWechatSyncBridgeService(options = {}) {
     primaryClientId = null;
 
     for (const pending of pendingConnections.values()) {
-      if (pending.helloTimeout) clearTimeout(pending.helloTimeout);
+      if (pending.helloTimeout) clearBridgeTimeout(pending.helloTimeout);
       closeWs(pending.ws, 'stop');
     }
     pendingConnections.clear();
@@ -1033,14 +1062,14 @@ function createWechatSyncBridgeService(options = {}) {
     if (isAuthenticatedConnected()) return Promise.resolve();
     return new Promise((resolve, reject) => {
       let wrappedResolve;
-      const timeout = setTimeout(() => {
+      const timeout = setBridgeTimeout(() => {
         const index = connectionResolvers.indexOf(wrappedResolve);
         if (index >= 0) connectionResolvers.splice(index, 1);
         reject(createReadableBridgeError(new Error('timeout:no_extension')));
       }, timeoutMs);
 
       wrappedResolve = () => {
-        clearTimeout(timeout);
+        clearBridgeTimeout(timeout);
         resolve();
       };
       connectionResolvers.push(wrappedResolve);
@@ -1070,7 +1099,7 @@ function createWechatSyncBridgeService(options = {}) {
       : requestTimeoutMs;
 
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
+      const timeout = setBridgeTimeout(() => {
         session.pendingRequests.delete(id);
         debug('Request timed out', { id, method, timeoutMs });
         reject(createReadableBridgeError(new Error(`Request timeout: ${method}`)));
@@ -1317,11 +1346,14 @@ module.exports = {
   HELLO_ERROR_DUPLICATE_SESSION,
   HELLO_ERROR_TOO_MANY_CLIENTS,
   DEFAULT_MAX_CLIENTS,
+  clearBridgeTimeout,
   createReadableBridgeError,
   createWechatSyncBridgeService,
+  defaultConnectionIdFactory,
   isOriginAllowedForWebSocket,
   isRecoverableBridgeConnectionError,
   isUnsupportedBridgeMethodError,
   parseWebSocketFrames,
   retryRecoverableBridgeOperation,
+  setBridgeTimeout,
 };

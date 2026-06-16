@@ -1,4 +1,5 @@
 const { isMathJaxSvg, rasterizeSvgToPngDataUrl } = require('./svg-rasterizer');
+const { setElementHtml } = require('./dom-utils');
 
 const MERMAID_COMPAT_THEME = {
   theme: 'base',
@@ -53,10 +54,25 @@ function normalizeMermaidPreviewHost(host) {
   });
 }
 
+function setCssStylesCompat(el, styles = {}) {
+  if (!el || !styles) return;
+  if (typeof el.setCssStyles === 'function') {
+    el.setCssStyles(styles);
+    return;
+  }
+  const declarations = Object.entries(styles)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([property, value]) => `${property.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)}:${value};`)
+    .join('');
+  if (declarations) {
+    appendInlineStyle(el, declarations);
+  }
+}
+
 function normalizeMermaidPreviewSvg(svg) {
   if (!svg || typeof svg.setAttribute !== 'function') return;
   svg.classList?.add?.('owc-mermaid-diagram');
-  Object.assign(svg.style, {
+  setCssStylesCompat(svg, {
     display: 'block',
     width: '100%',
     maxWidth: '100%',
@@ -120,7 +136,7 @@ function inlineMermaidSvgStyles(svg) {
           } else {
             targets = Array.from(svg.querySelectorAll(selector));
           }
-        } catch (error) {
+        } catch {
           continue;
         }
 
@@ -154,7 +170,7 @@ function estimateMermaidTextUnits(text) {
   for (const ch of String(text || '')) {
     if (/\s/.test(ch)) {
       units += 0.35;
-    } else if (/[\x00-\x7F]/.test(ch)) {
+    } else if (/[\u0000-\u007F]/.test(ch)) {
       units += /[A-Z0-9]/.test(ch) ? 0.72 : 0.58;
     } else {
       units += 1;
@@ -320,8 +336,9 @@ function convertMermaidForeignObjectContainers(svg) {
     const style = parent.getAttribute('style');
     if (xmlns) section.setAttribute('xmlns', xmlns);
     if (style) section.setAttribute('style', style);
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Preserve Mermaid-rendered label HTML while moving it into a WeChat-safe section wrapper
-    section.innerHTML = parent.innerHTML;
+    while (parent.firstChild) {
+      section.appendChild(parent.firstChild);
+    }
 
     grand.setAttribute('data-owc-mermaid-label-host', 'true');
     grand.replaceChildren(section);
@@ -354,6 +371,7 @@ function prepareRenderedMermaidDiagramsForWechat(root) {
   const svgs = Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg);
   for (const svg of svgs) {
     unwrapMermaidHtmlLabelParagraphs(svg);
+    convertMermaidForeignObjectContainers(svg);
     flattenMermaidForeignObjectLabels(svg);
     enforceMermaidTextReadability(svg);
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
@@ -519,8 +537,7 @@ async function renderMermaidCodeBlocks(root, options = {}) {
       const host = document.createElement('div');
       host.setAttribute('class', 'mermaid');
       host.setAttribute('data-obsidian-wechat-mermaid', 'true');
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert SVG returned by Mermaid render API so it can be normalized and rasterized before publishing
-      host.innerHTML = svg;
+      setElementHtml(host, svg);
       normalizeRenderedMermaidDiagrams(host);
 
       if (typeof renderResult?.bindFunctions === 'function') {

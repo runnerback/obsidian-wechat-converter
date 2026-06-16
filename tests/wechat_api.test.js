@@ -10,6 +10,16 @@ describe('WechatAPI - Upload & MIME Logic', () => {
   let AppleStyleView;
   let obsidianMock;
 
+  const blobToText = async (blob) => {
+    if (blob && typeof blob.text === 'function') return blob.text();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('Failed to read Blob'));
+      reader.readAsText(blob);
+    });
+  };
+
   beforeEach(async () => {
     // 1. Reset modules to ensure we get a fresh import of input.js
     vi.resetModules();
@@ -87,6 +97,32 @@ describe('WechatAPI - Upload & MIME Logic', () => {
 
     const blob = await view.srcToBlob('http://example.com/icon.png');
     expect(blob.type).toBe('image/png');
+  });
+
+  it('should convert base64 data URL images to Blob without fetch', async () => {
+    const view = new AppleStyleView(null, null);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    const blob = await view.srcToBlob('data:image/png;base64,aGVsbG8=');
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(blob.type).toBe('image/png');
+    expect(await blobToText(blob)).toBe('hello');
+  });
+
+  it('should preserve MIME and decoded bytes for non-base64 data URL images', async () => {
+    const view = new AppleStyleView(null, null);
+
+    const blob = await view.srcToBlob('data:image/svg+xml,%3Csvg%3Eok%3C%2Fsvg%3E');
+
+    expect(blob.type).toBe('image/svg+xml');
+    expect(await blobToText(blob)).toBe('<svg>ok</svg>');
+  });
+
+  it('should reject invalid data URL image sources', async () => {
+    const view = new AppleStyleView(null, null);
+
+    await expect(view.srcToBlob('data:not-valid')).rejects.toThrow('无效的 data URL 图片来源');
   });
 
   it('should request permanent image materials with pagination', async () => {

@@ -9,6 +9,12 @@ coverage/
 ClaudeFix.md
 
 review.md
+
+# Local Obsidian review / scanner fix notes
+OBSIDIAN_REVIEW_*.md
+*_review.txt
+*_review
+
 docs/*
 !docs/support.md
 
@@ -20,4 +26,3 @@ docs/*
 lib/markdown-it.min.js
 lib/highlight.min.js
 lib/mathjax-plugin.js
-

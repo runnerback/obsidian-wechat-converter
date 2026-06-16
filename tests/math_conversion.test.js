@@ -169,8 +169,8 @@ describe('AppleStyleView - Math Formula Processing', () => {
 
     // Use spies for existing globals if possible, or stub if they are readonly/missing in jsdom
     // jsdom has URL, so we spy on createObjectURL
-    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
-    const revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 
     // Mock Canvas
     const mockCanvas = {
@@ -182,7 +182,7 @@ describe('AppleStyleView - Math Formula Processing', () => {
     };
 
     // Stub createElement to intercept canvas creation
-    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+    vi.spyOn(document, 'createElement').mockImplementation((tag) => {
         if (tag === 'canvas') return mockCanvas;
         // For other tags, we should ideally call original, but jsdom's createElement is complex.
         // We know svgToPngBlob only creates 'canvas' explicitly.
@@ -196,7 +196,6 @@ describe('AppleStyleView - Math Formula Processing', () => {
     });
 
     // Critical: Mock Image to trigger onload immediately
-    const OriginalImage = global.Image;
     vi.stubGlobal('Image', class {
         constructor() {
             setTimeout(() => {
