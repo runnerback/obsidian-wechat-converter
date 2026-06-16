@@ -49,7 +49,7 @@ function normalizeWechatUnsafeTaskListMarkersForNative(markdown) {
     lines[i] = line.replace(
       /^(\s*)([-*+])\s+\[([ xX])\]\s+/,
       (_match, indent, marker, state) =>
-        `${indent}${marker} ${String(state || '').trim().toLowerCase() === 'x' ? '☑' : '□'} `,
+        `${indent}${marker} ${String(state || '').trim().toLowerCase() === 'x' ? '☑' : '☐'} `,
     );
   }
 

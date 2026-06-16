@@ -959,6 +959,71 @@ function applyThemeInlineStyles(container, converter) {
   }
 }
 
+function formatTaskListItems(container, converter) {
+  if (!container || !converter) return;
+
+  const themeColor = converter.theme.getThemeColorValue() || '#576b95';
+  const liTaskStyle = getTagStyle(converter, 'li-task') || 'list-style-type: none; margin-left: -20px;';
+
+  container.querySelectorAll('li').forEach((li) => {
+    let target = li;
+    let firstChild = li.firstChild;
+
+    if (firstChild && firstChild.nodeType === 1 && firstChild.tagName === 'P') {
+      target = firstChild;
+      firstChild = firstChild.firstChild;
+    }
+
+    if (firstChild && firstChild.nodeType === 3) {
+      const text = firstChild.textContent || '';
+      const trimmed = text.trimStart();
+      if (trimmed.startsWith('☑') || trimmed.startsWith('□') || trimmed.startsWith('☐')) {
+        const markerChar = trimmed[0];
+        const isChecked = markerChar === '☑';
+        
+        li.setAttribute('style', liTaskStyle);
+
+        const markerIndex = text.indexOf(markerChar);
+        const preMarker = text.slice(0, markerIndex);
+        const postMarker = text.slice(markerIndex + 1).trimStart();
+        
+        firstChild.textContent = preMarker;
+
+        const checkboxSpan = document.createElement('span');
+        checkboxSpan.setAttribute('style', `display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: ${isChecked ? '#8f959e' : themeColor}; line-height: 1;`);
+        checkboxSpan.textContent = isChecked ? '☑' : '☐';
+
+        target.insertBefore(checkboxSpan, firstChild.nextSibling);
+
+        if (postMarker) {
+          const restTextNode = document.createTextNode(postMarker);
+          target.insertBefore(restTextNode, checkboxSpan.nextSibling);
+        }
+
+        if (isChecked) {
+          const contentSpan = document.createElement('span');
+          contentSpan.setAttribute('style', 'text-decoration: line-through; color: #8f959e;');
+
+          let sibling = checkboxSpan.nextSibling;
+          while (sibling) {
+            const next = sibling.nextSibling;
+            if (sibling.nodeType === 1 && (sibling.tagName === 'UL' || sibling.tagName === 'OL')) {
+              break;
+            }
+            contentSpan.appendChild(sibling);
+            sibling = next;
+          }
+          if (sibling) {
+            target.insertBefore(contentSpan, sibling);
+          } else {
+            target.appendChild(contentSpan);
+          }
+        }
+      }
+    }
+  });
+}
+
 function getTableColumnCount(table) {
   if (!table) return 0;
   const rows = Array.from(table.querySelectorAll('tr'));
@@ -1382,6 +1447,7 @@ function serializeObsidianRenderedHtml({
   convertPreBlocks(container, converter);
   convertImageSwipeBlocks(container, converter);
   convertStandaloneImages(container, converter);
+  formatTaskListItems(container, converter);
   applyThemeInlineStyles(container, converter);
   wrapTablesForHorizontalScroll(container, converter);
   pruneObsidianOnlyAttributes(container, { finalStage: true });

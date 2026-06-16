@@ -88,7 +88,7 @@ describe('Obsidian Triplet Renderer', () => {
     ].join('\n');
 
     const output = normalizeWechatUnsafeTaskListMarkers(input);
-    expect(output).toContain('- □ 展位设计稿');
+    expect(output).toContain('- ☐ 展位设计稿');
     expect(output).toContain('  - ☑ 已确认物料');
     expect(output).toContain('```md\n- [ ] 代码块不改\n```');
   });

@@ -68,7 +68,7 @@ describe('Native Renderer', () => {
     ].join('\n');
 
     const output = normalizeWechatUnsafeTaskListMarkersForNative(input);
-    expect(output).toContain('- □ 展位设计稿');
+    expect(output).toContain('- ☐ 展位设计稿');
     expect(output).toContain('  - ☑ 已确认物料');
     expect(output).toContain('```md\n- [ ] 代码块不改\n```');
   });

@@ -229,7 +229,7 @@ title: 示例
       ],
     }, { imageRefs: [] });
 
-    expect(html).toContain('□ 展位设计稿');
+    expect(html).toContain('☐ 展位设计稿');
     expect(html).toContain('☑ 产品陈列台');
     expect(html).not.toContain('[ ] 展位设计稿');
     expect(html).not.toContain('[x] 产品陈列台');

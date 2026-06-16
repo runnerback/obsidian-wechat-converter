@@ -106,5 +106,13 @@ This file provides guidance to Codex when working with code in this repository.
 - Add tests for core logic changes, especially regex-heavy transformations, sanitizer changes, sync failure handling, path cleanup rules, or rendering edge cases.
 - When changing output HTML, consider both automated tests and manual visual verification because small markup changes can regress WeChat compatibility.
 
+### 6. Modular Architecture
+- Adhere to the refactored modular architecture. Do not pile rendering rules or core logic inside the entry file `input.js`.
+- Keep the entry file `input.js` lightweight, focused only on plugin lifecycle, view wiring, settings UI, and top-level sync actions.
+- Place markdown-it rules and conversion core in `converter.js`.
+- Place styling rules in `themes/apple-theme.js`.
+- Place preprocessing, path resolution, and cleaner logic in their respective modules under `services/`.
+
 ## Release
 发布新版本时，使用 `/project-release` skill 查看完整流程。
+

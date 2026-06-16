@@ -494,6 +494,8 @@ window.AppleTheme = class AppleTheme {
         return `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 12px 0; padding-left: 20px; list-style-type: decimal;`;
       case 'li':
         return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 4px 0;`;
+      case 'li-task':
+        return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 4px 0; list-style-type: none; margin-left: -20px;`;
       case 'li p':
         return `margin: 0; padding: 0; line-height: ${config.lineHeight};`;
 

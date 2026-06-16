@@ -2796,7 +2796,7 @@ function normalizeWechatTaskMarkerText(text) {
   return String(text || '').replace(
     /(^|\n)(\s*)\[([ xX])\]\s+/g,
     (_match, lineStart, indent, state) =>
-      `${lineStart}${indent}${String(state || '').trim().toLowerCase() === 'x' ? '☑' : '□'} `,
+      `${lineStart}${indent}${String(state || '').trim().toLowerCase() === 'x' ? '☑' : '☐'} `,
   );
 }
 

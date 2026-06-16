@@ -74,6 +74,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
     - Use the `universal-guardrails` skill to maintain test infrastructure.
 - **CI/CD**: Ensure CI environments (Node version) match toolchain requirements (e.g., Node 20+ for Vitest), even if the runtime target is lower (Node 16).
 
+### 6. Modular Architecture
+- Adhere to the refactored modular architecture. Do not pile rendering rules or core logic inside the entry file `input.js`.
+- Keep the entry file `input.js` lightweight, focused only on plugin lifecycle, view wiring, settings UI, and top-level sync actions.
+- Place markdown-it rules and conversion core in `converter.js`.
+- Place styling rules in `themes/apple-theme.js`.
+- Place preprocessing, path resolution, and cleaner logic in their respective modules under `services/`.
+
 ## Release
 
 发布新版本时，使用 `/project-release` skill 查看完整流程。

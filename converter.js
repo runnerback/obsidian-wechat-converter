@@ -187,7 +187,88 @@ window.AppleStyleConverter = class AppleStyleConverter {
     this.md.renderer.rules.heading_open = (tokens, idx) => `<${tokens[idx].tag} style="${this.getInlineStyle(tokens[idx].tag)}">`;
     this.md.renderer.rules.bullet_list_open = () => `<ul style="${this.getInlineStyle('ul')}">`;
     this.md.renderer.rules.ordered_list_open = () => `<ol style="${this.getInlineStyle('ol')}">`;
-    this.md.renderer.rules.list_item_open = () => `<li style="${this.getInlineStyle('li')}">`;
+    const isTaskListItem = (tokens, idx) => {
+      for (let i = idx + 1; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (token.type === 'list_item_close') break;
+        if (token.type === 'inline') {
+          const content = token.content || '';
+          if (content.startsWith('☑') || content.startsWith('□') || content.startsWith('☐')) {
+            return {
+              isTask: true,
+              checked: content.startsWith('☑'),
+              token: token
+            };
+          }
+          break;
+        }
+      }
+      return null;
+    };
+
+    this.md.renderer.rules.list_item_open = (tokens, idx) => {
+      const taskInfo = isTaskListItem(tokens, idx);
+      if (taskInfo) {
+        const inlineToken = taskInfo.token;
+        const themeColor = this.theme.getThemeColorValue() || '#576b95';
+        
+        if (inlineToken.children && inlineToken.children.length > 0) {
+          const firstChild = inlineToken.children[0];
+          if (firstChild.type === 'text' && (firstChild.content.startsWith('☑') || firstChild.content.startsWith('□') || firstChild.content.startsWith('☐'))) {
+            const content = firstChild.content;
+            const restText = content.slice(1);
+            
+            const newChildren = [];
+            
+            if (taskInfo.checked) {
+              newChildren.push({
+                type: 'html_inline',
+                content: `<span style="display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: #8f959e; line-height: 1;">☑</span>`
+              });
+              newChildren.push({
+                type: 'html_inline',
+                content: `<span style="text-decoration: line-through; color: #8f959e;">`
+              });
+              newChildren.push({
+                type: 'text',
+                content: restText.trimStart()
+              });
+              for (let j = 1; j < inlineToken.children.length; j++) {
+                newChildren.push(inlineToken.children[j]);
+              }
+              newChildren.push({
+                type: 'html_inline',
+                content: `</span>`
+              });
+            } else {
+              newChildren.push({
+                type: 'html_inline',
+                content: `<span style="display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: ${themeColor}; line-height: 1;">☐</span>`
+              });
+              newChildren.push({
+                type: 'text',
+                content: restText.trimStart()
+              });
+              for (let j = 1; j < inlineToken.children.length; j++) {
+                newChildren.push(inlineToken.children[j]);
+              }
+            }
+            inlineToken.children = newChildren;
+          }
+        } else {
+          const content = inlineToken.content;
+          const restText = content.slice(1);
+          if (taskInfo.checked) {
+            inlineToken.content = `<span style="display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: #8f959e; line-height: 1;">☑</span><span style="text-decoration: line-through; color: #8f959e;">${restText.trimStart()}</span>`;
+          } else {
+            inlineToken.content = `<span style="display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: ${themeColor}; line-height: 1;">☐</span>${restText.trimStart()}`;
+          }
+        }
+        
+        return `<li style="${this.getInlineStyle('li-task')}">`;
+      }
+      return `<li style="${this.getInlineStyle('li')}">`;
+    };
 
     this.md.renderer.rules.code_inline = (tokens, idx) =>
       `<code style="${this.getInlineStyle('code')}">${this.escapeHtml(tokens[idx].content)}</code>`;
