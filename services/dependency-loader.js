@@ -1,16 +1,52 @@
-const { embeddedDependencyScripts } = require('./generated-embedded-deps');
+function getRuntimeGlobal() {
+  if (typeof window !== 'undefined' && window) return window;
+  if (typeof global !== 'undefined' && global) return global;
+  return null;
+}
 
-function executeRenderRuntimeScript(code) {
-  const script = String(code || '');
-  if (!script) return undefined;
-  if (typeof document === 'undefined') {
-    throw new Error('DOM document is required to execute render runtime scripts');
+function assignRuntimeGlobal(name, value) {
+  const runtimeGlobal = getRuntimeGlobal();
+  if (runtimeGlobal) {
+    runtimeGlobal[name] = value;
+    if (runtimeGlobal.window && runtimeGlobal.window !== runtimeGlobal) {
+      runtimeGlobal.window[name] = value;
+    }
   }
-  const scriptEl = document.createElement('script');
-  scriptEl.textContent = script;
-  (document.head || document.documentElement).appendChild(scriptEl);
-  scriptEl.remove();
-  return undefined;
+}
+
+function loadRuntimeDependencies() {
+  const runtimeGlobal = getRuntimeGlobal();
+  if (!runtimeGlobal) {
+    throw new Error('Runtime global object is required to load converter dependencies');
+  }
+
+  if (typeof runtimeGlobal.markdownit === 'undefined') {
+    assignRuntimeGlobal('markdownit', require('../lib/markdown-it.min.js'));
+  }
+
+  if (typeof runtimeGlobal.hljs === 'undefined') {
+    assignRuntimeGlobal('hljs', require('../lib/highlight.min.js'));
+  }
+
+  if (typeof runtimeGlobal.ObsidianWechatMath === 'undefined') {
+    require('../lib/mathjax-plugin.js');
+    const mathPlugin = runtimeGlobal.ObsidianWechatMath
+      || (runtimeGlobal.window && runtimeGlobal.window.ObsidianWechatMath);
+    if (typeof mathPlugin !== 'undefined') {
+      assignRuntimeGlobal('ObsidianWechatMath', mathPlugin);
+    }
+  }
+
+  if (typeof runtimeGlobal.AppleTheme === 'undefined') {
+    assignRuntimeGlobal('AppleTheme', require('../themes/apple-theme.js'));
+  }
+
+  if (typeof runtimeGlobal.AppleStyleConverter === 'undefined') {
+    assignRuntimeGlobal('AppleStyleConverter', require('../converter.js'));
+  }
+
+  if (typeof runtimeGlobal.AppleTheme === 'undefined') throw new Error('AppleTheme failed to load');
+  if (typeof runtimeGlobal.AppleStyleConverter === 'undefined') throw new Error('AppleStyleConverter failed to load');
 }
 
 function getAvatarSrc(settings = {}) {
@@ -39,7 +75,7 @@ async function readEmbeddedOrFile({
   path,
   required = true,
   logger = console,
-  embeddedScripts = embeddedDependencyScripts,
+  embeddedScripts = {},
 }) {
   const embedded = embeddedScripts && typeof embeddedScripts[key] === 'string'
     ? embeddedScripts[key]
@@ -65,86 +101,26 @@ async function readEmbeddedOrFile({
   return adapter.read(path);
 }
 
-async function loadConverterDependencies({
-  adapter,
-  basePath,
-  execute,
-  logger = console,
-  embeddedScripts = embeddedDependencyScripts,
-}) {
-  if (typeof markdownit === 'undefined') {
-    const markdownItSource = await readEmbeddedOrFile({
-      key: 'markdownIt',
-      adapter,
-      path: `${basePath}/lib/markdown-it.min.js`,
-      logger,
-      embeddedScripts,
-    });
-    execute(markdownItSource);
-  }
-
-  if (typeof hljs === 'undefined') {
-    const highlightSource = await readEmbeddedOrFile({
-      key: 'highlight',
-      adapter,
-      path: `${basePath}/lib/highlight.min.js`,
-      logger,
-      embeddedScripts,
-    });
-    execute(highlightSource);
-  }
-
-  try {
-    const mathContent = await readEmbeddedOrFile({
-      key: 'mathjax',
-      adapter,
-      path: `${basePath}/lib/mathjax-plugin.js`,
-      required: false,
-      logger,
-      embeddedScripts,
-    });
-    if (mathContent) {
-      execute(mathContent);
-    }
-  } catch (error) {
-    logger.error('MathJax plugin load failed:', error);
-  }
-
-  const themeContent = await readEmbeddedOrFile({
-    key: 'theme',
-    adapter,
-    path: `${basePath}/themes/apple-theme.js`,
-    logger,
-    embeddedScripts,
-  });
-  execute(themeContent);
-
-  const converterContent = await readEmbeddedOrFile({
-    key: 'converter',
-    adapter,
-    path: `${basePath}/converter.js`,
-    logger,
-    embeddedScripts,
-  });
-  execute(converterContent);
-
-  if (!window.AppleTheme) throw new Error('AppleTheme failed to load');
-  if (!window.AppleStyleConverter) throw new Error('AppleStyleConverter failed to load');
-}
-
 async function buildRenderRuntime({
   settings,
   app,
   adapter,
   basePath,
-  execute = executeRenderRuntimeScript,
-  logger = console,
-  embeddedScripts = embeddedDependencyScripts,
 }) {
-  await loadConverterDependencies({ adapter, basePath, execute, logger, embeddedScripts });
+  if (adapter || basePath) {
+    // Keep the signature stable for existing callers, but runtime loading is now static.
+  }
+  loadRuntimeDependencies();
 
-  const theme = new window.AppleTheme(toThemeOptions(settings));
-  const converter = new window.AppleStyleConverter(
+  const runtimeGlobal = getRuntimeGlobal();
+  const ThemeCtor = runtimeGlobal && runtimeGlobal.AppleTheme;
+  const ConverterCtor = runtimeGlobal && runtimeGlobal.AppleStyleConverter;
+
+  if (!ThemeCtor) throw new Error('AppleTheme failed to load');
+  if (!ConverterCtor) throw new Error('AppleStyleConverter failed to load');
+
+  const theme = new ThemeCtor(toThemeOptions(settings));
+  const converter = new ConverterCtor(
     theme,
     getAvatarSrc(settings),
     settings.showImageCaption,
@@ -158,8 +134,7 @@ async function buildRenderRuntime({
 module.exports = {
   getAvatarSrc,
   toThemeOptions,
-  executeRenderRuntimeScript,
-  loadConverterDependencies,
   buildRenderRuntime,
+  loadRuntimeDependencies,
   readEmbeddedOrFile,
 };

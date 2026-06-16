@@ -5,7 +5,9 @@
  */
 
 // Use assignment expression to avoid "Identifier has already been declared" errors if re-eval'd
-window.AppleTheme = class AppleTheme {
+const APPLE_THEME_GLOBAL = typeof global !== 'undefined' ? global : (typeof window !== 'undefined' ? window : {});
+
+class AppleTheme {
   /**
    * 🎨 主题色板 - 8种预设颜色
    */
@@ -818,4 +820,11 @@ window.AppleTheme = class AppleTheme {
 }
 
 // 导出到全局作用域
-window.AppleTheme = AppleTheme;
+APPLE_THEME_GLOBAL.AppleTheme = AppleTheme;
+if (typeof window !== 'undefined') {
+  window.AppleTheme = APPLE_THEME_GLOBAL.AppleTheme;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = AppleTheme;
+}

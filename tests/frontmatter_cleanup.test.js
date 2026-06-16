@@ -62,6 +62,7 @@ describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () 
         getFileCache: vi.fn(() => ({ frontmatter })),
       },
       vault: {
+        configDir: '.obsidian',
         getAbstractFileByPath: vi.fn((p) => files.get(p) || null),
         getResourcePath: vi.fn((file) => `app://local/${file.path}`),
         read: vi.fn().mockResolvedValue(''),

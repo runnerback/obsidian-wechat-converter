@@ -1141,7 +1141,7 @@ function preprocessMarkdownForTriplet(markdown, converter) {
 
   // Align with converter.convert preprocessing to reduce non-semantic parity noise.
   output = output.replace(/^[\t ]+(\$\$)/gm, '$1');
-  output = output.replace(/!\[\[([^\[\]|]+)(?:\|([^\[\]]+))?\]\]/g, (match, imagePath, alt) => {
+  output = output.replace(/!\[\[([^[\]|]+)(?:\|([^[\]]+))?]]/g, (match, imagePath, alt) => {
     const normalizedPath = String(imagePath || '').trim();
     return `![${alt || getImageCaptionFromPath(normalizedPath)}](${encodeURI(normalizedPath)})`;
   });
@@ -1293,7 +1293,7 @@ function collectImageTargets(markdown) {
     fullReferenceMatch = fullReferenceImagePattern.exec(source);
   }
 
-  const shortcutReferenceImagePattern = /!\[([^\]]+)](?![\[(])/g;
+  const shortcutReferenceImagePattern = /!\[([^\]]+)](?![[(])/g;
   let shortcutReferenceMatch = shortcutReferenceImagePattern.exec(source);
   while (shortcutReferenceMatch) {
     const label = normalizeReferenceLabel(shortcutReferenceMatch[1]);

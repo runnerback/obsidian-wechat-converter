@@ -127,6 +127,29 @@ describe('article image asset resolver', () => {
     expect(result.markdown).toContain('![from file url](asset://image-1)');
   });
 
+  it('resolves encoded file URLs inside the vault', async () => {
+    const basePath = path.resolve('/tmp/owc-vault');
+    const imageFile = {
+      path: 'assets/local image.png',
+      name: 'local image.png',
+      extension: 'png',
+      bytes: pngBytes(24),
+    };
+    const app = makeApp({ 'assets/local image.png': imageFile }, { basePath });
+    const fileUrl = pathToFileURL(path.join(basePath, 'assets/local image.png')).toString();
+
+    const result = await resolveArticleImages(
+      `![from file url](${fileUrl})`,
+      { path: 'post.md', basename: 'post' },
+      { app }
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0].source.vaultRelativePath).toBe('assets/local image.png');
+    expect(result.markdown).toContain('![from file url](asset://image-1)');
+  });
+
   it('rejects file URLs outside the current vault', async () => {
     const basePath = path.resolve('/tmp/owc-vault');
     const app = makeApp({}, { basePath });
