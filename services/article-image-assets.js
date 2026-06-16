@@ -1,6 +1,3 @@
-const path = require('path');
-const { fileURLToPath } = require('url');
-
 const DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
 
@@ -25,6 +22,28 @@ function normalizePath(value) {
     .replace(/\\/g, '/')
     .replace(/^\/+/, '')
     .replace(/\/{2,}/g, '/');
+}
+
+function normalizeAbsoluteLocalPath(value) {
+  let pathValue = String(value || '').trim().replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+  const hasDrivePrefix = /^[a-zA-Z]:\//.test(pathValue);
+  if (!hasDrivePrefix) {
+    pathValue = pathValue.replace(/\/+/g, '/');
+  }
+  if (pathValue.endsWith('/') && pathValue.length > (hasDrivePrefix ? 3 : 1)) {
+    pathValue = pathValue.replace(/\/+$/, '');
+  }
+  return pathValue;
+}
+
+function getDirname(filePath) {
+  const normalized = normalizePath(filePath);
+  const index = normalized.lastIndexOf('/');
+  return index > 0 ? normalized.slice(0, index) : '';
+}
+
+function joinVaultPath(...parts) {
+  return normalizePath(parts.filter(Boolean).join('/'));
 }
 
 function getExtension(filename) {
@@ -58,7 +77,14 @@ function decodeLocalPath(value) {
 
 function getFileUrlPath(src) {
   try {
-    return fileURLToPath(src);
+    const url = new URL(String(src || '').trim());
+    if (url.protocol !== 'file:') return '';
+    if (url.hostname && url.hostname !== 'localhost') return '';
+    const pathname = decodeURIComponent(url.pathname || '');
+    if (/^\/[a-zA-Z]:\//.test(pathname)) {
+      return pathname.slice(1);
+    }
+    return pathname;
   } catch {
     return '';
   }
@@ -67,13 +93,12 @@ function getFileUrlPath(src) {
 function getVaultRelativePathFromLocalPath(app, localPath) {
   const basePath = app?.vault?.adapter?.basePath;
   if (!basePath || !localPath) return '';
-  try {
-    const relativePath = path.relative(path.resolve(basePath), path.resolve(localPath));
-    if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) return '';
-    return normalizePath(relativePath);
-  } catch {
-    return '';
-  }
+  const normalizedBase = normalizeAbsoluteLocalPath(basePath);
+  const normalizedLocal = normalizeAbsoluteLocalPath(localPath);
+  if (!normalizedBase || !normalizedLocal) return '';
+  if (normalizedLocal === normalizedBase) return '';
+  if (!normalizedLocal.startsWith(`${normalizedBase}/`)) return '';
+  return normalizePath(normalizedLocal.slice(normalizedBase.length + 1));
 }
 
 function getFilenameFromPath(src) {
@@ -360,8 +385,8 @@ function resolveVaultFile(app, src, noteFile) {
   const normalized = normalizePath(lookupSrc);
   if (normalized) candidates.push(normalized);
   if (sourcePath && normalized && !normalized.startsWith('/')) {
-    const noteDir = path.posix.dirname(normalizePath(sourcePath));
-    candidates.push(normalizePath(path.posix.join(noteDir === '.' ? '' : noteDir, normalized)));
+    const noteDir = getDirname(sourcePath);
+    candidates.push(joinVaultPath(noteDir, normalized));
   }
 
   for (const candidate of candidates) {

@@ -1838,6 +1838,11 @@ class AppleStyleView extends ItemView {
     return normalizeVaultPath(vaultPath);
   }
 
+  getVaultConfigDir() {
+    const configDir = this.app?.vault?.configDir;
+    return typeof configDir === 'string' ? this.normalizeVaultPath(configDir) : '';
+  }
+
   getCleanupDirTemplate() {
     const raw = typeof this.plugin?.settings?.cleanupDirTemplate === 'string'
       ? this.plugin.settings.cleanupDirTemplate
@@ -1874,7 +1879,7 @@ class AppleStyleView extends ItemView {
     if (!normalized) return false;
     if (normalized === '.') return false;
     if (normalized.includes('..')) return false;
-    const configDir = this.normalizeVaultPath(this.app?.vault?.configDir || '.obsidian');
+    const configDir = this.getVaultConfigDir();
     if (configDir && (normalized === configDir || normalized.startsWith(`${configDir}/`))) return false;
     return true;
   }

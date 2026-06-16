@@ -90,10 +90,26 @@ function resolveCalloutSemanticColor(type, fallbackColor) {
   return CALLOUT_SEMANTIC_COLORS[group] || fallbackColor;
 }
 
-window.AppleStyleConverter = class AppleStyleConverter {
+const APPLE_CONVERTER_GLOBAL = typeof global !== 'undefined' ? global : (typeof window !== 'undefined' ? window : {});
+
+function getRuntimeDependency(name) {
+  if (typeof globalThis !== 'undefined' && globalThis && typeof globalThis[name] !== 'undefined') {
+    return globalThis[name];
+  }
+  if (typeof window !== 'undefined' && window && typeof window[name] !== 'undefined') {
+    return window[name];
+  }
+  if (typeof global !== 'undefined' && global && typeof global[name] !== 'undefined') {
+    return global[name];
+  }
+  return undefined;
+}
+
+class AppleStyleConverter {
   constructor(theme, avatarUrl = '', showImageCaption = true, app = null, sourcePath = '') {
     this.theme = theme;
     this.avatarUrl = avatarUrl;
+    this.avatarSrc = avatarUrl;
     this.showImageCaption = showImageCaption;
     this.app = app; // Obsidian App instance
     this.sourcePath = sourcePath; // Current file path for relative resolution
@@ -103,13 +119,15 @@ window.AppleStyleConverter = class AppleStyleConverter {
 
   async initMarkdownIt() {
     if (this.md) return;
-    if (typeof markdownit === 'undefined') throw new Error('markdown-it 未加载');
-    this.hljs = typeof hljs !== 'undefined' ? hljs : null;
-    this.md = markdownit({ html: true, breaks: true, linkify: true, typographer: true });
+    const markdownIt = getRuntimeDependency('markdownit');
+    if (typeof markdownIt === 'undefined') throw new Error('markdown-it 未加载');
+    this.hljs = getRuntimeDependency('hljs') || null;
+    this.md = markdownIt({ html: true, breaks: true, linkify: true, typographer: true });
 
     // Enable MathJax if available
-    if (window.ObsidianWechatMath) {
-      window.ObsidianWechatMath(this.md);
+    const runtimeGlobal = typeof window !== 'undefined' ? window : APPLE_CONVERTER_GLOBAL;
+    if (runtimeGlobal.ObsidianWechatMath) {
+      runtimeGlobal.ObsidianWechatMath(this.md);
     }
 
     this.setupRenderRules();
@@ -123,6 +141,7 @@ window.AppleStyleConverter = class AppleStyleConverter {
     }
     if (config.avatarUrl !== undefined) {
       this.avatarUrl = config.avatarUrl;
+      this.avatarSrc = config.avatarUrl;
     }
   }
 
@@ -985,4 +1004,11 @@ ${macHeader}
   }
 }
 
-window.AppleStyleConverter = AppleStyleConverter;
+APPLE_CONVERTER_GLOBAL.AppleStyleConverter = AppleStyleConverter;
+if (typeof window !== 'undefined') {
+  window.AppleStyleConverter = AppleStyleConverter;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = AppleStyleConverter;
+}

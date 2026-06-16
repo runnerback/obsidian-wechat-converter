@@ -451,7 +451,12 @@ function sanitizeAnchorAndImageLinks(container, converter) {
   if (!container) return;
 
   const hasExplicitProtocol = (value) => /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(String(value || ''));
-  const hasNonAscii = (value) => /[^\u0000-\u007F]/.test(String(value || ''));
+  const hasNonAscii = (value) => {
+    for (const ch of String(value || '')) {
+      if (String(ch || '').charCodeAt(0) > 0x7f) return true;
+    }
+    return false;
+  };
 
   const canonicalizeRelativeHrefForLegacyParity = (href) => {
     const value = String(href || '').trim();
