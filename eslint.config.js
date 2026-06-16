@@ -1,11 +1,17 @@
 const js = require("@eslint/js");
 const globals = require("globals");
+const obsidianmd = require("eslint-plugin-obsidianmd");
+const sdl = require("@microsoft/eslint-plugin-sdl");
 
 module.exports = [
   js.configs.recommended,
   // Default CommonJS settings for plugin source files
   {
     files: ["**/*.js"],
+    plugins: {
+      obsidianmd: obsidianmd.default || obsidianmd,
+      "@microsoft/sdl": sdl.default || sdl,
+    },
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "commonjs",
@@ -37,6 +43,8 @@ module.exports = [
       "no-extra-semi": "off",
       "no-inner-declarations": "off",
       "no-control-regex": "off", // Allow regex to check control characters like \x00
+      "obsidianmd/no-static-styles-assignment": "error",
+      "@microsoft/sdl/no-inner-html": "error",
     },
   },
   // ES Modules settings for tests, scripts, and .mjs files
