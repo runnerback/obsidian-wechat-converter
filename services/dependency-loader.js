@@ -1,5 +1,18 @@
 const { embeddedDependencyScripts } = require('./generated-embedded-deps');
 
+function executeRenderRuntimeScript(code) {
+  const script = String(code || '');
+  if (!script) return undefined;
+  if (typeof document === 'undefined') {
+    throw new Error('DOM document is required to execute render runtime scripts');
+  }
+  const scriptEl = document.createElement('script');
+  scriptEl.textContent = script;
+  (document.head || document.documentElement).appendChild(scriptEl);
+  scriptEl.remove();
+  return undefined;
+}
+
 function getAvatarSrc(settings = {}) {
   if (!settings.enableWatermark) return '';
   return settings.avatarBase64 || settings.avatarUrl || '';
@@ -124,7 +137,7 @@ async function buildRenderRuntime({
   app,
   adapter,
   basePath,
-  execute = (code) => (0, eval)(code),
+  execute = executeRenderRuntimeScript,
   logger = console,
   embeddedScripts = embeddedDependencyScripts,
 }) {
@@ -145,6 +158,7 @@ async function buildRenderRuntime({
 module.exports = {
   getAvatarSrc,
   toThemeOptions,
+  executeRenderRuntimeScript,
   loadConverterDependencies,
   buildRenderRuntime,
   readEmbeddedOrFile,

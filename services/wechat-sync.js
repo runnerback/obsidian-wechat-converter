@@ -1,11 +1,11 @@
+const { createHtmlContainer } = require('./dom-utils');
+
 function replaceUnuploadedDraftImagesWithPlaceholders(html) {
   if (typeof document === 'undefined') {
     return { html, imageSources: [] };
   }
 
-  const div = document.createElement('div');
-  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized draft HTML to replace unuploaded image tags with visible placeholders before API submission
-  div.innerHTML = html || '';
+  const div = createHtmlContainer('div', html || '');
   const imageSources = [];
 
   Array.from(div.querySelectorAll('img')).forEach((img) => {

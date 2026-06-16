@@ -134,7 +134,7 @@ function prepareSvgClone(svgElement) {
     clonedSvg.setAttribute('fill', '#333333');
     if (clonedSvg.style) {
       const mathSvgColor = '#333333';
-      clonedSvg.style.color = mathSvgColor;
+      clonedSvg.setCssStyles?.({ color: mathSvgColor });
     }
 
     clonedSvg.querySelectorAll('*').forEach((el) => {

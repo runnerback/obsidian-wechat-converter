@@ -74,6 +74,23 @@ const { rasterizeSvgToPngBlob } = require('./services/svg-rasterizer');
 const { createObsidianFetchAdapter } = require('./services/obsidian-fetch-adapter');
 const { stripMarkdownFrontmatter } = require('./services/markdown-utils');
 const { mapAppUrlImagesToAssetUrls } = require('./services/article-image-assets');
+const { createHtmlContainer, htmlToText, setElementHtml } = require('./services/dom-utils');
+
+function revealLeafCompat(workspace, leaf) {
+  if (!workspace || !leaf) return Promise.resolve();
+  const revealLeaf = workspace['revealLeaf'];
+  if (typeof revealLeaf === 'function') {
+    return revealLeaf.call(workspace, leaf);
+  }
+  if (typeof workspace.setActiveLeaf === 'function') {
+    workspace.setActiveLeaf(leaf, { focus: true });
+    return Promise.resolve();
+  }
+  if (typeof leaf.open === 'function') {
+    leaf.open();
+  }
+  return Promise.resolve();
+}
 
 // 视图类型标识
 const APPLE_STYLE_VIEW = 'apple-style-converter';
@@ -1589,9 +1606,7 @@ class AppleStyleView extends ItemView {
    */
   getFirstImageFromArticle() {
     if (!this.currentHtml) return null;
-    const tempDiv = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse already-rendered article HTML to locate the first cover candidate image without mutating source markdown
-    tempDiv.innerHTML = this.currentHtml;
+    const tempDiv = createHtmlContainer('div', this.currentHtml);
     const imgs = Array.from(tempDiv.querySelectorAll('img'));
 
     // 遍历所有图片，跳过头像（alt="logo"）
@@ -1708,6 +1723,57 @@ class AppleStyleView extends ItemView {
     return this.isPathInsideDirectoryByTail(normalized, cleanedDir);
   }
 
+  clearInvalidPublishMetaInFrontmatter(frontmatter, cleanedDir) {
+    if (!frontmatter || typeof frontmatter !== 'object') return false;
+
+    let changed = false;
+    const coverMap = this.getFrontmatterKeyMap(frontmatter, ['cover']);
+    const coverDirMap = this.getFrontmatterKeyMap(frontmatter, ['cover_dir', 'coverDir', 'cover-dir', 'coverdir', 'CoverDIR']);
+
+    for (const [key, value] of Object.entries(coverMap)) {
+      if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
+        frontmatter[key] = '';
+        changed = true;
+      }
+    }
+
+    for (const [key, value] of Object.entries(coverDirMap)) {
+      if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
+        frontmatter[key] = '';
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  async clearInvalidPublishMetaByTextFallback(activeFile, cleanedDir) {
+    const vault = this.app?.vault;
+    if (!vault || typeof vault.read !== 'function' || typeof vault.modify !== 'function') {
+      return false;
+    }
+
+    const source = await vault.read(activeFile);
+    if (typeof source !== 'string' || !source.startsWith('---')) return false;
+
+    const match = source.match(/^(---[ \t]*\r?\n)([\s\S]*?)(\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$))/);
+    if (!match) return false;
+
+    let changed = false;
+    const body = match[2].replace(/^([ \t]*)(cover|cover_dir|coverDir|cover-dir|coverdir|CoverDIR)([ \t]*:[ \t]*)(.*)$/gmi, (line, indent, key, separator, rawValue) => {
+      const value = String(rawValue || '').trim().replace(/^['"]|['"]$/g, '');
+      if (!this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
+        return line;
+      }
+      changed = true;
+      return `${indent}${key}${separator}''`;
+    });
+
+    if (!changed) return false;
+    await vault.modify(activeFile, `${match[1]}${body}${match[3]}${source.slice(match[0].length)}`);
+    return true;
+  }
+
   async clearInvalidPublishMetaAfterCleanup(activeFile, cleanedDirPath) {
     if (!activeFile || !cleanedDirPath) return null;
 
@@ -1715,24 +1781,14 @@ class AppleStyleView extends ItemView {
     if (!cleanedDir) return null;
 
     try {
-      await this.app.fileManager.processFrontMatter(activeFile, (frontmatter) => {
-        if (!frontmatter || typeof frontmatter !== 'object') return;
-
-        const coverMap = this.getFrontmatterKeyMap(frontmatter, ['cover']);
-        const coverDirMap = this.getFrontmatterKeyMap(frontmatter, ['cover_dir', 'coverDir', 'cover-dir', 'coverdir', 'CoverDIR']);
-
-        for (const [key, value] of Object.entries(coverMap)) {
-          if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
-            frontmatter[key] = '';
-          }
-        }
-
-        for (const [key, value] of Object.entries(coverDirMap)) {
-          if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
-            frontmatter[key] = '';
-          }
-        }
-      });
+      const processFrontMatter = this.app?.fileManager?.['processFrontMatter'];
+      if (typeof processFrontMatter === 'function') {
+        await processFrontMatter.call(this.app.fileManager, activeFile, (frontmatter) => {
+          this.clearInvalidPublishMetaInFrontmatter(frontmatter, cleanedDir);
+        });
+      } else {
+        await this.clearInvalidPublishMetaByTextFallback(activeFile, cleanedDir);
+      }
     } catch (error) {
       return `资源已删除，但清理 frontmatter 中失效的 cover/cover_dir 失败: ${error.message}`;
     }
@@ -3776,8 +3832,7 @@ class AppleStyleView extends ItemView {
     this.currentHtml = html;
     this.aiPreviewApplied = true;
     if (this.previewContainer) {
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Render sanitized AI layout HTML into the live article preview container
-      this.previewContainer.innerHTML = html;
+      setElementHtml(this.previewContainer, html);
       this.previewContainer.scrollTop = scrollTop;
       this.previewContainer.addClass('apple-has-content');
     }
@@ -3815,8 +3870,7 @@ class AppleStyleView extends ItemView {
     const scrollTop = this.previewContainer.scrollTop;
     this.currentHtml = this.baseRenderedHtml;
     this.aiPreviewApplied = false;
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Restore sanitized base Markdown render HTML into the live preview container
-    this.previewContainer.innerHTML = this.baseRenderedHtml;
+    setElementHtml(this.previewContainer, this.baseRenderedHtml);
     this.previewContainer.scrollTop = scrollTop;
     this.previewContainer.addClass('apple-has-content');
     this.syncPreviewPresentationMode();
@@ -4251,11 +4305,7 @@ class AppleStyleView extends ItemView {
     digestSection.createEl('label', { text: '文章摘要（可选）', cls: 'wechat-modal-label' });
 
     // 自动提取文章前 45 字作为默认摘要
-    const tempDiv = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse current sanitized preview HTML to derive a plain-text draft digest
-    tempDiv.innerHTML = this.currentHtml || '';
-    // 使用 innerText 可以更好地处理换行，但为了安全起见，还是用 textContent 并清理空格
-    const autoDigest = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 45);
+    const autoDigest = htmlToText(this.currentHtml || '').replace(/\s+/g, ' ').trim().substring(0, 45);
 
     // 摘要逻辑：优先使用缓存 -> frontmatter.excerpt -> 自动提取
     const initialDigest = cachedState?.digest !== undefined
@@ -5495,8 +5545,7 @@ class AppleStyleView extends ItemView {
 
       // 滚动位置保持 (Scroll Preservation)
       const scrollTop = this.previewContainer.scrollTop;
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Render sanitized Markdown HTML into the live preview container while preserving scroll position
-      this.previewContainer.innerHTML = html;
+      setElementHtml(this.previewContainer, html);
       this.previewContainer.scrollTop = scrollTop;
 
       this.previewContainer.addClass('apple-has-content'); // 添加内容状态类
@@ -5577,8 +5626,7 @@ class AppleStyleView extends ItemView {
    */
   renderHTML(html) {
     this.previewContainer.empty();
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Render sanitized Markdown HTML into the plugin preview panel
-    this.previewContainer.innerHTML = html;
+    setElementHtml(this.previewContainer, html);
   }
 
   copyRichHTMLBySelection(htmlContent) {
@@ -5590,9 +5638,7 @@ class AppleStyleView extends ItemView {
     }
     const activeElement = document.activeElement;
 
-    const tempContainer = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert final sanitized clipboard HTML into an offscreen selection container for rich copy fallback
-    tempContainer.innerHTML = htmlContent;
+    const tempContainer = createHtmlContainer('div', htmlContent);
     tempContainer.setCssStyles({
       position: 'fixed',
       left: '-9999px',
@@ -5701,17 +5747,13 @@ class AppleStyleView extends ItemView {
   }
 
   async prepareHtmlForWechatDraft(html) {
-    const tempDiv = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML for WeChat draft post-processing
-    tempDiv.innerHTML = html || '';
+    const tempDiv = createHtmlContainer('div', html || '');
     await this.enhanceHtmlForWechatPublishing(tempDiv);
     return tempDiv.innerHTML;
   }
 
   async prepareHtmlForWechatsyncArticle(html) {
-    const tempDiv = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML for Wechatsync image and code-block processing
-    tempDiv.innerHTML = html || '';
+    const tempDiv = createHtmlContainer('div', html || '');
     await this.processImagesToDataURL(tempDiv);
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
@@ -5729,9 +5771,7 @@ class AppleStyleView extends ItemView {
   // call processImagesToDataURL.
   async prepareHtmlForWechatsyncArticleViaBridge(html, assets = []) {
     const mapped = mapAppUrlImagesToAssetUrls(html || '', assets);
-    const tempDiv = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized bridge publish HTML after app URL to asset URL mapping
-    tempDiv.innerHTML = mapped;
+    const tempDiv = createHtmlContainer('div', mapped);
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
   }
@@ -5817,13 +5857,10 @@ class AppleStyleView extends ItemView {
       })[0];
 
     if (codeLinesNode) {
-      const scratch = document.createElement('div');
       return (codeLinesNode.innerHTML || '')
         .split(/<br\s*\/?>/i)
         .map((lineHtml) => {
-          // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Decode one sanitized code-line HTML fragment into text for Wechatsync plain code export
-          scratch.innerHTML = lineHtml || '';
-          return (scratch.textContent || '').replace(/\u00a0/g, ' ');
+          return htmlToText(lineHtml || '').replace(/\u00a0/g, ' ');
         })
         .join('\n');
     }
@@ -5936,12 +5973,11 @@ class AppleStyleView extends ItemView {
         const toolbar = document.createElement('section');
         const toolbarStyle = 'display:block !important;background:#161b22 !important;padding:6px 10px 6px 10px !important;border:none !important;border-bottom:1px solid #30363d !important;border-radius:8px 8px 0 0 !important;line-height:1 !important;box-sizing:border-box !important;width:100% !important;';
         toolbar.setAttribute('style', toolbarStyle);
-        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Build fixed Mac window controls HTML with static spans required for WeChat clipboard fidelity
-        toolbar.innerHTML = [
+        setElementHtml(toolbar, [
         '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ff5f57 !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>',
         '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ffbd2e !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>',
         '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#28c840 !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>',
-      ].join('');
+      ].join(''));
         pre.appendChild(toolbar);
       }
 
@@ -5954,18 +5990,16 @@ class AppleStyleView extends ItemView {
         const codeInnerHtml = codeLineParts.map((lineHtml) => lineHtml || '&nbsp;').join('<br/>');
         const codeWithLineNumbersStyle = 'display:block !important;width:100% !important;min-width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;background:transparent !important;color:#f0f6fc !important;font-family:inherit !important;font-size:13px !important;line-height:1.75 !important;white-space:normal !important;overflow:visible !important;text-indent:0 !important;margin:0 !important;';
         code.setAttribute('style', codeWithLineNumbersStyle);
-        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Recompose sanitized highlighted code HTML with fixed line-number markup for WeChat clipboard scrolling
-        code.innerHTML = `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;margin:0 !important;">
+        setElementHtml(code, `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;margin:0 !important;">
           <section class="line-numbers" style="text-align:right !important;padding:12px 0 !important;border-right:1px solid rgba(255,255,255,0.1) !important;user-select:none !important;background:transparent !important;flex:0 0 auto !important;min-width:3.5em !important;box-sizing:border-box !important;margin:0 !important;">${lineNumbersHtml}</section>
           <section class="code-scroll" style="flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;-webkit-overflow-scrolling:touch !important;padding:12px 12px 12px 16px !important;min-width:0 !important;box-sizing:border-box !important;margin:0 !important;">
             <section style="white-space:pre !important;min-width:max-content !important;line-height:1.75 !important;font-size:13px !important;margin:0 !important;">${codeInnerHtml}</section>
           </section>
-        </section>`;
+        </section>`);
       } else {
         const codeScrollableStyle = 'display:block !important;width:max-content !important;min-width:100% !important;max-width:none !important;padding:12px !important;box-sizing:border-box !important;background:transparent !important;color:#f0f6fc !important;font-family:inherit !important;font-size:13px !important;line-height:1.75 !important;white-space:nowrap !important;overflow:visible !important;text-indent:0 !important;margin:0 !important;';
         code.setAttribute('style', codeScrollableStyle);
-        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Preserve sanitized highlighted code span HTML in clipboard output
-        code.innerHTML = codeLinesHtml;
+        setElementHtml(code, codeLinesHtml);
       }
       pre.appendChild(code);
 
@@ -6006,9 +6040,7 @@ class AppleStyleView extends ItemView {
     try {
       const exportHtml = this.getCurrentExportHtml() || this.currentHtml;
       // 创建临时的 DOM 容器来解析和处理图片
-      const tempDiv = document.createElement('div');
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized export HTML so images, Mermaid, and code blocks can be transformed before clipboard write
-      tempDiv.innerHTML = exportHtml;
+      const tempDiv = createHtmlContainer('div', exportHtml);
 
       // 处理本地图片：转换为 JPEG Base64
       // 返回 true 表示有图片被处理了
@@ -6021,10 +6053,7 @@ class AppleStyleView extends ItemView {
 
       const htmlContent = cleanedHtml;
       window.__OWC_LAST_CLIPBOARD_HTML = htmlContent;
-      const plainDiv = document.createElement('div');
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse final sanitized clipboard HTML to capture its plain-text debug snapshot
-      plainDiv.innerHTML = cleanedHtml;
-      window.__OWC_LAST_CLIPBOARD_TEXT = plainDiv.textContent || '';
+      window.__OWC_LAST_CLIPBOARD_TEXT = htmlToText(cleanedHtml);
       const expectedPlainText = this.normalizeClipboardText(window.__OWC_LAST_CLIPBOARD_TEXT);
 
       const mobile = isMobileClient(this.app);
@@ -7322,7 +7351,7 @@ class AppleStylePlugin extends Plugin {
       }
     }
 
-    this.app.workspace.revealLeaf(leaf);
+    await revealLeafCompat(this.app.workspace, leaf);
   }
 
   getConverterView() {

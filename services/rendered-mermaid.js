@@ -1,4 +1,5 @@
 const { isMathJaxSvg, rasterizeSvgToPngDataUrl } = require('./svg-rasterizer');
+const { setElementHtml } = require('./dom-utils');
 
 const MERMAID_COMPAT_THEME = {
   theme: 'base',
@@ -320,8 +321,9 @@ function convertMermaidForeignObjectContainers(svg) {
     const style = parent.getAttribute('style');
     if (xmlns) section.setAttribute('xmlns', xmlns);
     if (style) section.setAttribute('style', style);
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Preserve Mermaid-rendered label HTML while moving it into a WeChat-safe section wrapper
-    section.innerHTML = parent.innerHTML;
+    while (parent.firstChild) {
+      section.appendChild(parent.firstChild);
+    }
 
     grand.setAttribute('data-owc-mermaid-label-host', 'true');
     grand.replaceChildren(section);
@@ -519,8 +521,7 @@ async function renderMermaidCodeBlocks(root, options = {}) {
       const host = document.createElement('div');
       host.setAttribute('class', 'mermaid');
       host.setAttribute('data-obsidian-wechat-mermaid', 'true');
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert SVG returned by Mermaid render API so it can be normalized and rasterized before publishing
-      host.innerHTML = svg;
+      setElementHtml(host, svg);
       normalizeRenderedMermaidDiagrams(host);
 
       if (typeof renderResult?.bindFunctions === 'function') {

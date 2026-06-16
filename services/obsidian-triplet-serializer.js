@@ -1,3 +1,5 @@
+const { createHtmlContainer, htmlToText, setElementHtml } = require('./dom-utils');
+
 function appendInlineStyle(el, styleText) {
   if (!el || !styleText) return;
   const existing = el.getAttribute('style') || '';
@@ -124,9 +126,7 @@ function convertObsidianCalloutsToLegacy(container, converter) {
     }
     if (!openHtml) continue;
 
-    const host = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Convert sanitized Obsidian callout content into legacy converter callout HTML for WeChat parity
-    host.innerHTML = `${openHtml}${contentHtml}</section></section>`;
+    const host = createHtmlContainer('div', `${openHtml}${contentHtml}</section></section>`);
 
     const replacementNodes = Array.from(host.childNodes);
     if (replacementNodes.length === 0) continue;
@@ -272,8 +272,9 @@ function normalizeLegacyTagAliases(container) {
         del.setAttribute(attr.name, attr.value);
       });
     }
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Preserve sanitized strikethrough child markup while normalizing legacy delete tags
-    del.innerHTML = sEl.innerHTML;
+    while (sEl.firstChild) {
+      del.appendChild(sEl.firstChild);
+    }
     sEl.replaceWith(del);
   }
 }
@@ -596,9 +597,7 @@ function convertPreBlocks(container, converter) {
     const lang = langMatch ? langMatch[1] : 'text';
     const content = codeEl ? codeEl.textContent || '' : pre.textContent || '';
 
-    const wrapper = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert sanitized converter-created code block HTML so it can replace Obsidian pre blocks
-    wrapper.innerHTML = converter.createCodeBlock(content, lang);
+    const wrapper = createHtmlContainer('div', converter.createCodeBlock(content, lang));
     const replacement = wrapper.firstElementChild;
     if (replacement) {
       pre.replaceWith(replacement);
@@ -1246,7 +1245,6 @@ function applyLegacyTypographerParity(container, converter) {
   if (typeof document === 'undefined') return;
 
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  const decodeHost = document.createElement('div');
   const interestingPattern = /["']|\.{3}|---?|\+-|\((?:c|r|tm)\)/i;
 
   let node = walker.nextNode();
@@ -1269,9 +1267,7 @@ function applyLegacyTypographerParity(container, converter) {
     }
     if (!rendered || rendered === original) continue;
 
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Decode sanitized markdown-it inline render output back to text for punctuation normalization
-    decodeHost.innerHTML = rendered;
-    const normalized = String(decodeHost.textContent || '');
+    const normalized = htmlToText(rendered);
     if (normalized && normalized !== original) {
       current.textContent = normalized;
     }
@@ -1309,7 +1305,7 @@ function renderUnresolvedMathFormulas(container, converter) {
     // Check if there are actual math patterns (not just escaped dollar signs)
     // Pattern: $$...$$ for block, $...$ for inline (not preceded/followed by $)
     const hasBlockMath = /\$\$[\s\S]+?\$\$/.test(text);
-    const hasInlineMath = /(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/.test(text);
+    const hasInlineMath = /(^|[^\$])\$(?!\$)([^\$\n]+?)\$(?!\$)/.test(text);
     if (!hasBlockMath && !hasInlineMath) continue;
 
     // Use markdown-it to render the text with math
@@ -1318,12 +1314,11 @@ function renderUnresolvedMathFormulas(container, converter) {
       // For block math, we need to handle it differently
       if (hasBlockMath) {
         // Create a temporary container and use full render for block math
-        const tempDiv = document.createElement('div');
+        const tempDiv = createHtmlContainer('div');
         // Wrap block math in paragraph-like structure for rendering
         const wrappedText = text.replace(/\$\$([\s\S]+?)\$\$/g, '\n$$\n$1\n$$\n');
         const fullRendered = converter.md.render(wrappedText);
-        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert sanitized MathJax block HTML rendered by markdown-it before moving nodes into the article DOM
-        tempDiv.innerHTML = fullRendered;
+        setElementHtml(tempDiv, fullRendered);
 
         // Extract the rendered content
         const fragment = document.createDocumentFragment();
@@ -1335,9 +1330,7 @@ function renderUnresolvedMathFormulas(container, converter) {
         // Inline math only - use renderInline
         rendered = converter.md.renderInline(text);
         if (rendered && rendered !== text) {
-          const tempDiv = document.createElement('div');
-          // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert sanitized MathJax inline HTML rendered by markdown-it before moving nodes into the article DOM
-          tempDiv.innerHTML = rendered;
+          const tempDiv = createHtmlContainer('div', rendered);
           const fragment = document.createDocumentFragment();
           while (tempDiv.firstChild) {
             fragment.appendChild(tempDiv.firstChild);
@@ -1438,8 +1431,11 @@ function serializeObsidianRenderedHtml({
   }
 
   const container = document.createElement('div');
-  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Clone Obsidian-rendered sanitized root HTML before serializer transformations mutate it
-  container.innerHTML = root ? root.innerHTML : '';
+  if (root) {
+    Array.from(root.childNodes || []).forEach((node) => {
+      container.appendChild(node.cloneNode(true));
+    });
+  }
 
   materializeImageEmbedPlaceholders(container, converter);
   promoteImageEmbedAltHints(container);

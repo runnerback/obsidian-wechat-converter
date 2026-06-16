@@ -160,6 +160,19 @@ juice/lib/utils.js:
 var require_dependency_loader = __commonJS({
   "services/dependency-loader.js"(exports2, module2) {
     var { embeddedDependencyScripts } = require_generated_embedded_deps();
+    function executeRenderRuntimeScript(code) {
+      const script = String(code || "");
+      if (!script)
+        return void 0;
+      if (typeof document === "undefined") {
+        throw new Error("DOM document is required to execute render runtime scripts");
+      }
+      const scriptEl = document.createElement("script");
+      scriptEl.textContent = script;
+      (document.head || document.documentElement).appendChild(scriptEl);
+      scriptEl.remove();
+      return void 0;
+    }
     function getAvatarSrc(settings = {}) {
       if (!settings.enableWatermark)
         return "";
@@ -275,7 +288,7 @@ var require_dependency_loader = __commonJS({
       app,
       adapter,
       basePath,
-      execute = (code) => (0, eval)(code),
+      execute = executeRenderRuntimeScript,
       logger = console,
       embeddedScripts = embeddedDependencyScripts
     }) {
@@ -293,6 +306,7 @@ var require_dependency_loader = __commonJS({
     module2.exports = {
       getAvatarSrc,
       toThemeOptions,
+      executeRenderRuntimeScript,
       loadConverterDependencies,
       buildRenderRuntime: buildRenderRuntime2,
       readEmbeddedOrFile
@@ -364,9 +378,78 @@ var require_path_utils = __commonJS({
   }
 });
 
+// services/dom-utils.js
+var require_dom_utils = __commonJS({
+  "services/dom-utils.js"(exports2, module2) {
+    function parseHtmlFragment(html = "") {
+      if (typeof document === "undefined") {
+        return null;
+      }
+      const fragment = document.createDocumentFragment();
+      const source = String(html || "");
+      if (!source)
+        return fragment;
+      if (typeof DOMParser === "function") {
+        const parsed = new DOMParser().parseFromString(source, "text/html");
+        while (parsed.body.firstChild) {
+          fragment.appendChild(parsed.body.firstChild);
+        }
+        return fragment;
+      }
+      const range = document.createRange();
+      range.selectNode(document.body);
+      return range.createContextualFragment(source);
+    }
+    function appendHtmlFragment(element, html = "") {
+      if (!element)
+        return element;
+      const fragment = parseHtmlFragment(html);
+      if (fragment) {
+        element.appendChild(fragment);
+      }
+      return element;
+    }
+    function setElementHtml2(element, html = "") {
+      if (!element)
+        return element;
+      const fragment = parseHtmlFragment(html);
+      if (typeof element.replaceChildren === "function") {
+        element.replaceChildren();
+      } else {
+        while (element.firstChild) {
+          element.removeChild(element.firstChild);
+        }
+      }
+      if (fragment) {
+        element.appendChild(fragment);
+      }
+      return element;
+    }
+    function createHtmlContainer2(tagName = "div", html = "") {
+      if (typeof document === "undefined")
+        return null;
+      const container = document.createElement(tagName);
+      setElementHtml2(container, html);
+      return container;
+    }
+    function htmlToText2(html = "") {
+      const container = createHtmlContainer2("div", html);
+      return container ? container.textContent || "" : "";
+    }
+    module2.exports = {
+      appendHtmlFragment,
+      createHtmlContainer: createHtmlContainer2,
+      htmlToText: htmlToText2,
+      parseHtmlFragment,
+      setElementHtml: setElementHtml2
+    };
+  }
+});
+
 // services/obsidian-triplet-serializer.js
 var require_obsidian_triplet_serializer = __commonJS({
   "services/obsidian-triplet-serializer.js"(exports2, module2) {
+    var { createHtmlContainer: createHtmlContainer2, htmlToText: htmlToText2, setElementHtml: setElementHtml2 } = require_dom_utils();
     function appendInlineStyle(el, styleText) {
       if (!el || !styleText)
         return;
@@ -477,8 +560,7 @@ var require_obsidian_triplet_serializer = __commonJS({
         }
         if (!openHtml)
           continue;
-        const host = document.createElement("div");
-        host.innerHTML = `${openHtml}${contentHtml}</section></section>`;
+        const host = createHtmlContainer2("div", `${openHtml}${contentHtml}</section></section>`);
         const replacementNodes = Array.from(host.childNodes);
         if (replacementNodes.length === 0)
           continue;
@@ -669,7 +751,9 @@ var require_obsidian_triplet_serializer = __commonJS({
             del.setAttribute(attr.name, attr.value);
           });
         }
-        del.innerHTML = sEl.innerHTML;
+        while (sEl.firstChild) {
+          del.appendChild(sEl.firstChild);
+        }
         sEl.replaceWith(del);
       }
     }
@@ -977,8 +1061,7 @@ var require_obsidian_triplet_serializer = __commonJS({
         const langMatch = className.match(/language-([\w-]+)/);
         const lang = langMatch ? langMatch[1] : "text";
         const content = codeEl ? codeEl.textContent || "" : pre.textContent || "";
-        const wrapper = document.createElement("div");
-        wrapper.innerHTML = converter.createCodeBlock(content, lang);
+        const wrapper = createHtmlContainer2("div", converter.createCodeBlock(content, lang));
         const replacement = wrapper.firstElementChild;
         if (replacement) {
           pre.replaceWith(replacement);
@@ -1568,7 +1651,6 @@ var require_obsidian_triplet_serializer = __commonJS({
       if (typeof document === "undefined")
         return;
       const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-      const decodeHost = document.createElement("div");
       const interestingPattern = /["']|\.{3}|---?|\+-|\((?:c|r|tm)\)/i;
       let node = walker.nextNode();
       while (node) {
@@ -1590,8 +1672,7 @@ var require_obsidian_triplet_serializer = __commonJS({
         }
         if (!rendered || rendered === original)
           continue;
-        decodeHost.innerHTML = rendered;
-        const normalized = String(decodeHost.textContent || "");
+        const normalized = htmlToText2(rendered);
         if (normalized && normalized !== original) {
           current.textContent = normalized;
         }
@@ -1622,16 +1703,16 @@ var require_obsidian_triplet_serializer = __commonJS({
         if (!text.includes("$"))
           continue;
         const hasBlockMath = /\$\$[\s\S]+?\$\$/.test(text);
-        const hasInlineMath = /(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/.test(text);
+        const hasInlineMath = /(^|[^\$])\$(?!\$)([^\$\n]+?)\$(?!\$)/.test(text);
         if (!hasBlockMath && !hasInlineMath)
           continue;
         let rendered;
         try {
           if (hasBlockMath) {
-            const tempDiv = document.createElement("div");
+            const tempDiv = createHtmlContainer2("div");
             const wrappedText = text.replace(/\$\$([\s\S]+?)\$\$/g, "\n$$\n$1\n$$\n");
             const fullRendered = converter.md.render(wrappedText);
-            tempDiv.innerHTML = fullRendered;
+            setElementHtml2(tempDiv, fullRendered);
             const fragment = document.createDocumentFragment();
             while (tempDiv.firstChild) {
               fragment.appendChild(tempDiv.firstChild);
@@ -1640,8 +1721,7 @@ var require_obsidian_triplet_serializer = __commonJS({
           } else {
             rendered = converter.md.renderInline(text);
             if (rendered && rendered !== text) {
-              const tempDiv = document.createElement("div");
-              tempDiv.innerHTML = rendered;
+              const tempDiv = createHtmlContainer2("div", rendered);
               const fragment = document.createDocumentFragment();
               while (tempDiv.firstChild) {
                 fragment.appendChild(tempDiv.firstChild);
@@ -1730,7 +1810,11 @@ var require_obsidian_triplet_serializer = __commonJS({
         throw new Error("Triplet serializer requires DOM environment");
       }
       const container = document.createElement("div");
-      container.innerHTML = root ? root.innerHTML : "";
+      if (root) {
+        Array.from(root.childNodes || []).forEach((node) => {
+          container.appendChild(node.cloneNode(true));
+        });
+      }
       materializeImageEmbedPlaceholders(container, converter);
       promoteImageEmbedAltHints(container);
       convertObsidianImageSwipeCallouts(container);
@@ -2027,7 +2111,7 @@ var require_chinese_punctuation = __commonJS({
     }
     function normalizeParentheses(text) {
       let output = text.replace(/([\p{sc=Han}])\(([^()\n]+?)\)/gu, "$1\uFF08$2\uFF09");
-      output = output.replace(/(?<=[\p{sc=Han}“”‘’])\(([^()\n]+?)\)/gu, "\uFF08$1\uFF09");
+      output = output.replace(/([\p{sc=Han}“”‘’])\(([^()\n]+?)\)/gu, "$1\uFF08$2\uFF09");
       output = output.replace(/\(([^()\n]+?)\)(?=[\p{sc=Han}])/gu, "\uFF08$1\uFF09");
       return output;
     }
@@ -2229,6 +2313,7 @@ var require_svg_rasterizer = __commonJS({
       };
     }
     function prepareSvgClone(svgElement) {
+      var _a;
       const clonedSvg = svgElement.cloneNode(true);
       const { logicalWidth, logicalHeight, rawStyle } = getSvgLogicalSize(svgElement);
       inlineSvgComputedStyles(svgElement, clonedSvg);
@@ -2236,7 +2321,7 @@ var require_svg_rasterizer = __commonJS({
         clonedSvg.setAttribute("fill", "#333333");
         if (clonedSvg.style) {
           const mathSvgColor = "#333333";
-          clonedSvg.style.color = mathSvgColor;
+          (_a = clonedSvg.setCssStyles) == null ? void 0 : _a.call(clonedSvg, { color: mathSvgColor });
         }
         clonedSvg.querySelectorAll("*").forEach((el) => {
           if (el.getAttribute("fill") === "currentColor" || !el.getAttribute("fill")) {
@@ -2338,6 +2423,7 @@ var require_svg_rasterizer = __commonJS({
 var require_rendered_mermaid = __commonJS({
   "services/rendered-mermaid.js"(exports2, module2) {
     var { isMathJaxSvg, rasterizeSvgToPngDataUrl } = require_svg_rasterizer();
+    var { setElementHtml: setElementHtml2 } = require_dom_utils();
     var MERMAID_COMPAT_THEME = {
       theme: "base",
       flowchart: {
@@ -2793,7 +2879,7 @@ ${normalized}`;
           const host = document.createElement("div");
           host.setAttribute("class", "mermaid");
           host.setAttribute("data-obsidian-wechat-mermaid", "true");
-          host.innerHTML = svg;
+          setElementHtml2(host, svg);
           normalizeRenderedMermaidDiagrams(host);
           if (typeof (renderResult == null ? void 0 : renderResult.bindFunctions) === "function") {
             renderResult.bindFunctions(host);
@@ -3329,13 +3415,13 @@ var require_obsidian_triplet_renderer = __commonJS({
           return match;
         }
       });
-      const inlineMathPattern = /(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g;
-      output = output.replace(inlineMathPattern, (match, formula) => {
+      const inlineMathPattern = /(^|[^\$])\$(?!\$)([^\$\n]+?)\$(?!\$)/g;
+      output = output.replace(inlineMathPattern, (match, prefix, formula) => {
         const placeholder = generateMathPlaceholder("INLINE");
         try {
           const rendered = converter.md.renderInline(`$${formula}$`);
           formulas.push({ placeholder, rendered, isBlock: false });
-          return placeholder;
+          return `${prefix}${placeholder}`;
         } catch (error) {
           return match;
         }
@@ -4215,6 +4301,7 @@ var require_obsidian_triplet_renderer = __commonJS({
 // services/native-renderer.js
 var require_native_renderer = __commonJS({
   "services/native-renderer.js"(exports2, module2) {
+    var { createHtmlContainer: createHtmlContainer2 } = require_dom_utils();
     function isSafeRawImageSrc(src) {
       if (!src || typeof src !== "string")
         return false;
@@ -4285,8 +4372,7 @@ var require_native_renderer = __commonJS({
       if (typeof document === "undefined" || typeof html !== "string" || html.length === 0) {
         return html;
       }
-      const container = document.createElement("div");
-      container.innerHTML = html;
+      const container = createHtmlContainer2("div", html);
       Array.from(container.querySelectorAll("img")).forEach((img) => {
         const inFigure = !!img.closest("figure");
         const isMathImage = img.classList.contains("math-formula-image");
@@ -6099,6 +6185,7 @@ var require_ai_layout = __commonJS({
       getAiLayoutSharedResources,
       validateAiLayoutPayload
     } = require_ai_layout_skill_bundle();
+    var { createHtmlContainer: createHtmlContainer2 } = require_dom_utils();
     var AI_LAYOUT_SCHEMA_VERSION2 = 1;
     var AI_PROVIDER_KINDS2 = {
       OPENAI_COMPATIBLE: "openai-compatible",
@@ -7435,8 +7522,7 @@ var require_ai_layout = __commonJS({
       const source = coerceString(html);
       if (!source || typeof document === "undefined")
         return source;
-      const container = document.createElement("div");
-      container.innerHTML = source;
+      const container = createHtmlContainer2("div", source);
       const isInsideCodeChrome = (element) => {
         if (!element || typeof element.closest !== "function")
           return false;
@@ -7503,8 +7589,7 @@ var require_ai_layout = __commonJS({
       if (!html || typeof document === "undefined") {
         return { sections: [] };
       }
-      const container = document.createElement("div");
-      container.innerHTML = String(html || "");
+      const container = createHtmlContainer2("div", String(html || ""));
       const root = container.children.length === 1 ? container.firstElementChild : container;
       const childNodes = Array.from((root == null ? void 0 : root.childNodes) || []).filter((node) => node.nodeType !== 3 || /\S/.test(node.textContent || ""));
       const sections = [];
@@ -8186,8 +8271,7 @@ var require_ai_layout = __commonJS({
     function extractImageRefsFromHtml2(html) {
       if (typeof document === "undefined" || !html)
         return [];
-      const container = document.createElement("div");
-      container.innerHTML = html;
+      const container = createHtmlContainer2("div", html);
       const figures = Array.from(container.querySelectorAll("figure"));
       const refs = [];
       figures.forEach((figure, index) => {
@@ -8794,8 +8878,7 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
         const normalizedHtml = coerceString(html);
         if (!normalizedHtml || typeof document === "undefined")
           return /* @__PURE__ */ new Set();
-        const container = document.createElement("div");
-        container.innerHTML = normalizedHtml;
+        const container = createHtmlContainer2("div", normalizedHtml);
         return new Set(
           Array.from(container.querySelectorAll("img")).map((img) => coerceString(img.getAttribute("src") || img.src)).filter(Boolean)
         );
@@ -9165,12 +9248,12 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
 // services/wechat-sync.js
 var require_wechat_sync = __commonJS({
   "services/wechat-sync.js"(exports2, module2) {
+    var { createHtmlContainer: createHtmlContainer2 } = require_dom_utils();
     function replaceUnuploadedDraftImagesWithPlaceholders(html) {
       if (typeof document === "undefined") {
         return { html, imageSources: [] };
       }
-      const div = document.createElement("div");
-      div.innerHTML = html || "";
+      const div = createHtmlContainer2("div", html || "");
       const imageSources = [];
       Array.from(div.querySelectorAll("img")).forEach((img) => {
         const src = String(img.getAttribute("src") || "").trim();
@@ -11123,6 +11206,7 @@ var require_wechat_draft_cache = __commonJS({
 // services/wechat-media.js
 var require_wechat_media = __commonJS({
   "services/wechat-media.js"(exports2, module2) {
+    var { createHtmlContainer: createHtmlContainer2, setElementHtml: setElementHtml2 } = require_dom_utils();
     function hashBytesFNV1a(bytes) {
       let hash = 2166136261;
       for (let i = 0; i < bytes.length; i++) {
@@ -11162,8 +11246,7 @@ var require_wechat_media = __commonJS({
       cacheNamespace = "",
       onImageFailure = null
     }) {
-      const div = document.createElement("div");
-      div.innerHTML = html;
+      const div = createHtmlContainer2("div", html);
       const imgs = Array.from(div.querySelectorAll("img"));
       const uniqueUrls = /* @__PURE__ */ new Set();
       const urlMap = /* @__PURE__ */ new Map();
@@ -11291,7 +11374,7 @@ var require_wechat_media = __commonJS({
         top: "0",
         width: "800px"
       });
-      container.innerHTML = html;
+      setElementHtml2(container, html);
       document.body.appendChild(container);
       try {
         const mathNodes = Array.from(container.querySelectorAll("svg"));
@@ -11388,9 +11471,9 @@ var require_wechat_media = __commonJS({
 // services/wechat-html-cleaner.js
 var require_wechat_html_cleaner = __commonJS({
   "services/wechat-html-cleaner.js"(exports2, module2) {
+    var { createHtmlContainer: createHtmlContainer2 } = require_dom_utils();
     function cleanHtmlForDraft(html) {
-      const div = document.createElement("div");
-      div.innerHTML = html;
+      const div = createHtmlContainer2("div", html);
       const decodeFragment = (value) => {
         try {
           return decodeURIComponent(value);
@@ -11586,7 +11669,9 @@ var require_wechat_html_cleaner = __commonJS({
         const normalizedStyle = cleanedStyle ? `${cleanedStyle}${cleanedStyle.trim().endsWith(";") ? "" : ";"}` : "";
         const extraStyle = firstNode.tagName === "CODE" ? " margin:0 2px !important; vertical-align:baseline;" : "";
         span.setAttribute("style", `${normalizedStyle}display:inline !important; width:auto !important; float:none !important;${extraStyle}`);
-        span.innerHTML = firstNode.innerHTML;
+        while (firstNode.firstChild) {
+          span.appendChild(firstNode.firstChild);
+        }
         firstNode.replaceWith(span);
       };
       const collapseLeadingBreakAfterInlinePrefixInListItem = (li) => {
@@ -14427,6 +14512,23 @@ var { rasterizeSvgToPngBlob } = require_svg_rasterizer();
 var { createObsidianFetchAdapter } = require_obsidian_fetch_adapter();
 var { stripMarkdownFrontmatter } = require_markdown_utils();
 var { mapAppUrlImagesToAssetUrls } = require_article_image_assets();
+var { createHtmlContainer, htmlToText, setElementHtml } = require_dom_utils();
+function revealLeafCompat(workspace, leaf) {
+  if (!workspace || !leaf)
+    return Promise.resolve();
+  const revealLeaf = workspace["revealLeaf"];
+  if (typeof revealLeaf === "function") {
+    return revealLeaf.call(workspace, leaf);
+  }
+  if (typeof workspace.setActiveLeaf === "function") {
+    workspace.setActiveLeaf(leaf, { focus: true });
+    return Promise.resolve();
+  }
+  if (typeof leaf.open === "function") {
+    leaf.open();
+  }
+  return Promise.resolve();
+}
 var APPLE_STYLE_VIEW = "apple-style-converter";
 var APPLE_STYLE_VIEW_TITLE = "Obsidian \u53D1\u5E03\u52A9\u624B";
 var OBSIDIAN_PUBLISHER_PRO_URL = "https://xiaoweibox.top/obsidian-publisher/pro/";
@@ -15657,8 +15759,7 @@ var AppleStyleView = class extends ItemView {
   getFirstImageFromArticle() {
     if (!this.currentHtml)
       return null;
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = this.currentHtml;
+    const tempDiv = createHtmlContainer("div", this.currentHtml);
     const imgs = Array.from(tempDiv.querySelectorAll("img"));
     for (const img of imgs) {
       if (img.alt === "logo")
@@ -15773,29 +15874,68 @@ var AppleStyleView = class extends ItemView {
       return true;
     return this.isPathInsideDirectoryByTail(normalized, cleanedDir);
   }
+  clearInvalidPublishMetaInFrontmatter(frontmatter, cleanedDir) {
+    if (!frontmatter || typeof frontmatter !== "object")
+      return false;
+    let changed = false;
+    const coverMap = this.getFrontmatterKeyMap(frontmatter, ["cover"]);
+    const coverDirMap = this.getFrontmatterKeyMap(frontmatter, ["cover_dir", "coverDir", "cover-dir", "coverdir", "CoverDIR"]);
+    for (const [key, value] of Object.entries(coverMap)) {
+      if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
+        frontmatter[key] = "";
+        changed = true;
+      }
+    }
+    for (const [key, value] of Object.entries(coverDirMap)) {
+      if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
+        frontmatter[key] = "";
+        changed = true;
+      }
+    }
+    return changed;
+  }
+  async clearInvalidPublishMetaByTextFallback(activeFile, cleanedDir) {
+    var _a;
+    const vault = (_a = this.app) == null ? void 0 : _a.vault;
+    if (!vault || typeof vault.read !== "function" || typeof vault.modify !== "function") {
+      return false;
+    }
+    const source = await vault.read(activeFile);
+    if (typeof source !== "string" || !source.startsWith("---"))
+      return false;
+    const match = source.match(/^(---[ \t]*\r?\n)([\s\S]*?)(\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$))/);
+    if (!match)
+      return false;
+    let changed = false;
+    const body = match[2].replace(/^([ \t]*)(cover|cover_dir|coverDir|cover-dir|coverdir|CoverDIR)([ \t]*:[ \t]*)(.*)$/gmi, (line, indent, key, separator, rawValue) => {
+      const value = String(rawValue || "").trim().replace(/^['"]|['"]$/g, "");
+      if (!this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
+        return line;
+      }
+      changed = true;
+      return `${indent}${key}${separator}''`;
+    });
+    if (!changed)
+      return false;
+    await vault.modify(activeFile, `${match[1]}${body}${match[3]}${source.slice(match[0].length)}`);
+    return true;
+  }
   async clearInvalidPublishMetaAfterCleanup(activeFile, cleanedDirPath) {
+    var _a, _b;
     if (!activeFile || !cleanedDirPath)
       return null;
     const cleanedDir = this.normalizeVaultPath(cleanedDirPath);
     if (!cleanedDir)
       return null;
     try {
-      await this.app.fileManager.processFrontMatter(activeFile, (frontmatter) => {
-        if (!frontmatter || typeof frontmatter !== "object")
-          return;
-        const coverMap = this.getFrontmatterKeyMap(frontmatter, ["cover"]);
-        const coverDirMap = this.getFrontmatterKeyMap(frontmatter, ["cover_dir", "coverDir", "cover-dir", "coverdir", "CoverDIR"]);
-        for (const [key, value] of Object.entries(coverMap)) {
-          if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
-            frontmatter[key] = "";
-          }
-        }
-        for (const [key, value] of Object.entries(coverDirMap)) {
-          if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
-            frontmatter[key] = "";
-          }
-        }
-      });
+      const processFrontMatter = (_b = (_a = this.app) == null ? void 0 : _a.fileManager) == null ? void 0 : _b["processFrontMatter"];
+      if (typeof processFrontMatter === "function") {
+        await processFrontMatter.call(this.app.fileManager, activeFile, (frontmatter) => {
+          this.clearInvalidPublishMetaInFrontmatter(frontmatter, cleanedDir);
+        });
+      } else {
+        await this.clearInvalidPublishMetaByTextFallback(activeFile, cleanedDir);
+      }
     } catch (error) {
       return `\u8D44\u6E90\u5DF2\u5220\u9664\uFF0C\u4F46\u6E05\u7406 frontmatter \u4E2D\u5931\u6548\u7684 cover/cover_dir \u5931\u8D25: ${error.message}`;
     }
@@ -17694,7 +17834,7 @@ var AppleStyleView = class extends ItemView {
     this.currentHtml = html;
     this.aiPreviewApplied = true;
     if (this.previewContainer) {
-      this.previewContainer.innerHTML = html;
+      setElementHtml(this.previewContainer, html);
       this.previewContainer.scrollTop = scrollTop;
       this.previewContainer.addClass("apple-has-content");
     }
@@ -17732,7 +17872,7 @@ var AppleStyleView = class extends ItemView {
     const scrollTop = this.previewContainer.scrollTop;
     this.currentHtml = this.baseRenderedHtml;
     this.aiPreviewApplied = false;
-    this.previewContainer.innerHTML = this.baseRenderedHtml;
+    setElementHtml(this.previewContainer, this.baseRenderedHtml);
     this.previewContainer.scrollTop = scrollTop;
     this.previewContainer.addClass("apple-has-content");
     this.syncPreviewPresentationMode();
@@ -18108,9 +18248,7 @@ var AppleStyleView = class extends ItemView {
     });
     const digestSection = advancedBody.createDiv({ cls: "wechat-modal-section" });
     digestSection.createEl("label", { text: "\u6587\u7AE0\u6458\u8981\uFF08\u53EF\u9009\uFF09", cls: "wechat-modal-label" });
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = this.currentHtml || "";
-    const autoDigest = (tempDiv.textContent || "").replace(/\s+/g, " ").trim().substring(0, 45);
+    const autoDigest = htmlToText(this.currentHtml || "").replace(/\s+/g, " ").trim().substring(0, 45);
     const initialDigest = (cachedState == null ? void 0 : cachedState.digest) !== void 0 ? cachedState.digest : frontmatterMeta.excerpt || autoDigest;
     const digestInput = digestSection.createEl("textarea", {
       cls: "wechat-modal-digest-input",
@@ -19229,7 +19367,7 @@ var AppleStyleView = class extends ItemView {
       this.lastRenderFailureNoticeKey = "";
       this.sessionCoverBase64 = null;
       const scrollTop = this.previewContainer.scrollTop;
-      this.previewContainer.innerHTML = html;
+      setElementHtml(this.previewContainer, html);
       this.previewContainer.scrollTop = scrollTop;
       this.previewContainer.addClass("apple-has-content");
       this.syncPreviewPresentationMode();
@@ -19299,7 +19437,7 @@ var AppleStyleView = class extends ItemView {
    */
   renderHTML(html) {
     this.previewContainer.empty();
-    this.previewContainer.innerHTML = html;
+    setElementHtml(this.previewContainer, html);
   }
   copyRichHTMLBySelection(htmlContent) {
     var _a;
@@ -19311,8 +19449,7 @@ var AppleStyleView = class extends ItemView {
       previousRanges.push(selection.getRangeAt(i).cloneRange());
     }
     const activeElement = document.activeElement;
-    const tempContainer = document.createElement("div");
-    tempContainer.innerHTML = htmlContent;
+    const tempContainer = createHtmlContainer("div", htmlContent);
     tempContainer.setCssStyles({
       position: "fixed",
       left: "-9999px",
@@ -19410,14 +19547,12 @@ var AppleStyleView = class extends ItemView {
     }
   }
   async prepareHtmlForWechatDraft(html) {
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = html || "";
+    const tempDiv = createHtmlContainer("div", html || "");
     await this.enhanceHtmlForWechatPublishing(tempDiv);
     return tempDiv.innerHTML;
   }
   async prepareHtmlForWechatsyncArticle(html) {
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = html || "";
+    const tempDiv = createHtmlContainer("div", html || "");
     await this.processImagesToDataURL(tempDiv);
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
@@ -19434,8 +19569,7 @@ var AppleStyleView = class extends ItemView {
   // call processImagesToDataURL.
   async prepareHtmlForWechatsyncArticleViaBridge(html, assets = []) {
     const mapped = mapAppUrlImagesToAssetUrls(html || "", assets);
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = mapped;
+    const tempDiv = createHtmlContainer("div", mapped);
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
   }
@@ -19508,10 +19642,8 @@ var AppleStyleView = class extends ItemView {
       return score(b) - score(a);
     })[0];
     if (codeLinesNode) {
-      const scratch = document.createElement("div");
       return (codeLinesNode.innerHTML || "").split(/<br\s*\/?>/i).map((lineHtml) => {
-        scratch.innerHTML = lineHtml || "";
-        return (scratch.textContent || "").replace(/\u00a0/g, " ");
+        return htmlToText(lineHtml || "").replace(/\u00a0/g, " ");
       }).join("\n");
     }
     const codeEl = codePre.querySelector("code");
@@ -19607,11 +19739,11 @@ var AppleStyleView = class extends ItemView {
         const toolbar = document.createElement("section");
         const toolbarStyle = "display:block !important;background:#161b22 !important;padding:6px 10px 6px 10px !important;border:none !important;border-bottom:1px solid #30363d !important;border-radius:8px 8px 0 0 !important;line-height:1 !important;box-sizing:border-box !important;width:100% !important;";
         toolbar.setAttribute("style", toolbarStyle);
-        toolbar.innerHTML = [
+        setElementHtml(toolbar, [
           '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ff5f57 !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>',
           '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ffbd2e !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>',
           '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#28c840 !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>'
-        ].join("");
+        ].join(""));
         pre.appendChild(toolbar);
       }
       const code = document.createElement("code");
@@ -19623,16 +19755,16 @@ var AppleStyleView = class extends ItemView {
         const codeInnerHtml = codeLineParts.map((lineHtml) => lineHtml || "&nbsp;").join("<br/>");
         const codeWithLineNumbersStyle = "display:block !important;width:100% !important;min-width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;background:transparent !important;color:#f0f6fc !important;font-family:inherit !important;font-size:13px !important;line-height:1.75 !important;white-space:normal !important;overflow:visible !important;text-indent:0 !important;margin:0 !important;";
         code.setAttribute("style", codeWithLineNumbersStyle);
-        code.innerHTML = `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;margin:0 !important;">
+        setElementHtml(code, `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;margin:0 !important;">
           <section class="line-numbers" style="text-align:right !important;padding:12px 0 !important;border-right:1px solid rgba(255,255,255,0.1) !important;user-select:none !important;background:transparent !important;flex:0 0 auto !important;min-width:3.5em !important;box-sizing:border-box !important;margin:0 !important;">${lineNumbersHtml}</section>
           <section class="code-scroll" style="flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;-webkit-overflow-scrolling:touch !important;padding:12px 12px 12px 16px !important;min-width:0 !important;box-sizing:border-box !important;margin:0 !important;">
             <section style="white-space:pre !important;min-width:max-content !important;line-height:1.75 !important;font-size:13px !important;margin:0 !important;">${codeInnerHtml}</section>
           </section>
-        </section>`;
+        </section>`);
       } else {
         const codeScrollableStyle = "display:block !important;width:max-content !important;min-width:100% !important;max-width:none !important;padding:12px !important;box-sizing:border-box !important;background:transparent !important;color:#f0f6fc !important;font-family:inherit !important;font-size:13px !important;line-height:1.75 !important;white-space:nowrap !important;overflow:visible !important;text-indent:0 !important;margin:0 !important;";
         code.setAttribute("style", codeScrollableStyle);
-        code.innerHTML = codeLinesHtml;
+        setElementHtml(code, codeLinesHtml);
       }
       pre.appendChild(code);
       block.replaceWith(pre);
@@ -19666,16 +19798,13 @@ var AppleStyleView = class extends ItemView {
     }
     try {
       const exportHtml = this.getCurrentExportHtml() || this.currentHtml;
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = exportHtml;
+      const tempDiv = createHtmlContainer("div", exportHtml);
       const processed = await this.processImagesToDataURL(tempDiv);
       await this.enhanceHtmlForWechatPublishing(tempDiv);
       const cleanedHtml = this.cleanHtmlForDraft(tempDiv.innerHTML);
       const htmlContent = cleanedHtml;
       window.__OWC_LAST_CLIPBOARD_HTML = htmlContent;
-      const plainDiv = document.createElement("div");
-      plainDiv.innerHTML = cleanedHtml;
-      window.__OWC_LAST_CLIPBOARD_TEXT = plainDiv.textContent || "";
+      window.__OWC_LAST_CLIPBOARD_TEXT = htmlToText(cleanedHtml);
       const expectedPlainText = this.normalizeClipboardText(window.__OWC_LAST_CLIPBOARD_TEXT);
       const mobile = isMobileClient(this.app);
       let copied = false;
@@ -20698,7 +20827,7 @@ var AppleStylePlugin = class extends Plugin {
         await leaf.setViewState(this.toConverterViewState(currentViewState || {}, { active: true }));
       }
     }
-    this.app.workspace.revealLeaf(leaf);
+    await revealLeafCompat(this.app.workspace, leaf);
   }
   getConverterView() {
     const leaves = this.app.workspace.getLeavesOfType(APPLE_STYLE_VIEW);

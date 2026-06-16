@@ -1,8 +1,8 @@
+const { createHtmlContainer } = require('./dom-utils');
+
 function cleanHtmlForDraft(html) {
 
-    const div = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML so draft-specific cleanup can normalize tags and layout
-    div.innerHTML = html;
+    const div = createHtmlContainer('div', html);
 
     const decodeFragment = (value) => {
       try {
@@ -230,8 +230,9 @@ function cleanHtmlForDraft(html) {
         ? ' margin:0 2px !important; vertical-align:baseline;'
         : '';
       span.setAttribute('style', `${normalizedStyle}display:inline !important; width:auto !important; float:none !important;${extraStyle}`);
-      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Preserve sanitized inline label markup while converting its wrapper tag to span
-      span.innerHTML = firstNode.innerHTML;
+      while (firstNode.firstChild) {
+        span.appendChild(firstNode.firstChild);
+      }
       firstNode.replaceWith(span);
     };
 

@@ -12,6 +12,7 @@ const {
   getAiLayoutSharedResources,
   validateAiLayoutPayload,
 } = require('./ai-layout-skill-bundle');
+const { createHtmlContainer } = require('./dom-utils');
 
 const AI_LAYOUT_SCHEMA_VERSION = 1;
 
@@ -1483,9 +1484,7 @@ function remapPreservedFragmentColors(html = '', tokens = {}) {
   const source = coerceString(html);
   if (!source || typeof document === 'undefined') return source;
 
-  const container = document.createElement('div');
-  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized preserved section HTML so AI layout colors can be remapped without changing source markdown
-  container.innerHTML = source;
+  const container = createHtmlContainer('div', source);
 
   const isInsideCodeChrome = (element) => {
     if (!element || typeof element.closest !== 'function') return false;
@@ -1553,9 +1552,7 @@ function extractRenderedSectionFragments(html = '') {
     return { sections: [] };
   }
 
-  const container = document.createElement('div');
-  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered HTML into DOM sections for AI layout fragment extraction
-  container.innerHTML = String(html || '');
+  const container = createHtmlContainer('div', String(html || ''));
   const root = container.children.length === 1 ? container.firstElementChild : container;
   const childNodes = Array.from(root?.childNodes || []).filter((node) => (
     node.nodeType !== 3 || /\S/.test(node.textContent || '')
@@ -2282,9 +2279,7 @@ function buildLayoutResult(rawLayout = {}, context = {}) {
 
 function extractImageRefsFromHtml(html) {
   if (typeof document === 'undefined' || !html) return [];
-  const container = document.createElement('div');
-  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML to extract figure image references for AI layout generation
-  container.innerHTML = html;
+  const container = createHtmlContainer('div', html);
   const figures = Array.from(container.querySelectorAll('figure'));
   const refs = [];
 
@@ -2963,9 +2958,7 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
   const collectImageSrcsFromHtml = (html = '') => {
     const normalizedHtml = coerceString(html);
     if (!normalizedHtml || typeof document === 'undefined') return new Set();
-    const container = document.createElement('div');
-    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered section HTML to collect image sources already present in article fragments
-    container.innerHTML = normalizedHtml;
+    const container = createHtmlContainer('div', normalizedHtml);
     return new Set(
       Array.from(container.querySelectorAll('img'))
         .map((img) => coerceString(img.getAttribute('src') || img.src))

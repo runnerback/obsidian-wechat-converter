@@ -262,7 +262,7 @@ function normalizePeriods(text) {
 
 function normalizeParentheses(text) {
   let output = text.replace(/([\p{sc=Han}])\(([^()\n]+?)\)/gu, '$1（$2）');
-  output = output.replace(/(?<=[\p{sc=Han}“”‘’])\(([^()\n]+?)\)/gu, '（$1）');
+  output = output.replace(/([\p{sc=Han}“”‘’])\(([^()\n]+?)\)/gu, '$1（$2）');
   output = output.replace(/\(([^()\n]+?)\)(?=[\p{sc=Han}])/gu, '（$1）');
   return output;
 }

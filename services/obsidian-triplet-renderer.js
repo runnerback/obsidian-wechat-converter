@@ -468,16 +468,15 @@ function preRenderMathFormulas(markdown, converter) {
     }
   });
 
-  // Then, handle inline math ($...$) - single $ not $$
-  // Use negative lookbehind/lookahead to avoid matching $$
-  const inlineMathPattern = /(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g;
-  output = output.replace(inlineMathPattern, (match, formula) => {
+  // Then, handle inline math ($...$) - single $ not $$.
+  const inlineMathPattern = /(^|[^\$])\$(?!\$)([^\$\n]+?)\$(?!\$)/g;
+  output = output.replace(inlineMathPattern, (match, prefix, formula) => {
     const placeholder = generateMathPlaceholder('INLINE');
     try {
       // Render using renderInline for inline math
       const rendered = converter.md.renderInline(`$${formula}$`);
       formulas.push({ placeholder, rendered, isBlock: false });
-      return placeholder;
+      return `${prefix}${placeholder}`;
     } catch (error) {
       return match;
     }
@@ -1365,7 +1364,6 @@ async function waitForTripletDomToSettle(root, options = {}) {
   // while still catching delayed async embed insertion after render.
   if (unresolved === 0 && renderedMermaid === 0 && pendingMermaid === 0 && initialObserveMs > 0) {
     while (Date.now() - start < initialObserveMs) {
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
       unresolved = countUnresolvedImageEmbeds(root);
       renderedMermaid = observeMermaid ? countRenderedMermaidDiagrams(root) : 0;
@@ -1391,7 +1389,6 @@ async function waitForTripletDomToSettle(root, options = {}) {
     } else {
       stableCount = 0;
     }
-    // eslint-disable-next-line no-await-in-loop
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 }

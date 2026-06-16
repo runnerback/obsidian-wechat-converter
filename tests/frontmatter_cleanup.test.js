@@ -64,6 +64,8 @@ describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () 
       vault: {
         getAbstractFileByPath: vi.fn((p) => files.get(p) || null),
         getResourcePath: vi.fn((file) => `app://local/${file.path}`),
+        read: vi.fn().mockResolvedValue(''),
+        modify: vi.fn().mockResolvedValue(undefined),
         trash: vi.fn().mockResolvedValue(undefined),
         delete: vi.fn().mockResolvedValue(undefined),
       },
@@ -239,6 +241,34 @@ describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () 
 
     expect(frontmatter.cover).toBe('');
     expect(frontmatter.cover_dir).toBe('');
+  });
+
+  it('should fallback to text-based frontmatter cleanup on Obsidian versions without processFrontMatter', async () => {
+    delete view.app.fileManager.processFrontMatter;
+    view.app.vault.read.mockResolvedValue([
+      '---',
+      'title: Example',
+      'cover: published/post_img/post-cover.jpg',
+      'cover_dir: published/post_img',
+      'excerpt: keep me',
+      '---',
+      '',
+      'Body',
+    ].join('\n'));
+
+    const warning = await view.clearInvalidPublishMetaAfterCleanup(activeFile, 'published/post_img');
+
+    expect(warning).toBeNull();
+    expect(view.app.vault.modify).toHaveBeenCalledWith(activeFile, [
+      '---',
+      'title: Example',
+      "cover: ''",
+      "cover_dir: ''",
+      'excerpt: keep me',
+      '---',
+      '',
+      'Body',
+    ].join('\n'));
   });
 
   it('should not clear remote/data URL values in frontmatter after cleanup', async () => {
