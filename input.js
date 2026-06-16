@@ -64,6 +64,20 @@ const { stripMarkdownFrontmatter } = require('./services/markdown-utils');
 const { mapAppUrlImagesToAssetUrls } = require('./services/article-image-assets');
 const { createHtmlContainer, htmlToText, setElementHtml } = require('./services/dom-utils');
 
+function getActiveDocumentCompat() {
+  if (typeof window !== 'undefined' && window.activeDocument) return window.activeDocument;
+  if (typeof globalThis !== 'undefined' && globalThis.activeDocument) return globalThis.activeDocument;
+  if (typeof document !== 'undefined') return document;
+  return null;
+}
+
+function getActiveWindowCompat() {
+  if (typeof window !== 'undefined' && window.activeWindow) return window.activeWindow;
+  if (typeof globalThis !== 'undefined' && globalThis.activeWindow) return globalThis.activeWindow;
+  if (typeof window !== 'undefined') return window;
+  return null;
+}
+
 function revealLeafCompat(workspace, leaf) {
   if (!workspace || !leaf) return Promise.resolve();
   const revealLeaf = workspace['revealLeaf'];
@@ -89,6 +103,41 @@ function setPluginSettings(plugin, settings) {
   if (!plugin || typeof plugin !== 'object') return settings;
   plugin['settings'] = settings;
   return settings;
+}
+
+function setDestructiveButtonCompat(button) {
+  if (!button) return button;
+  const setDestructive = button['setDestructive'];
+  if (typeof setDestructive === 'function') {
+    return setDestructive.call(button);
+  }
+  const setWarning = button['setWarning'];
+  if (typeof setWarning === 'function') {
+    return setWarning.call(button);
+  }
+  return button;
+}
+
+function dataUrlToBlob(dataUrl) {
+  const source = String(dataUrl || '');
+  const match = source.match(/^data:([^;,]*)(;base64)?,([\s\S]*)$/i);
+  if (!match) {
+    throw new Error('无效的 data URL 图片来源');
+  }
+  const mimeType = match[1] || 'application/octet-stream';
+  const isBase64 = !!match[2];
+  const payload = match[3] || '';
+  let binary;
+  if (isBase64) {
+    binary = atob(payload);
+  } else {
+    binary = decodeURIComponent(payload);
+  }
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
 }
 
 // 视图类型标识
@@ -1826,7 +1875,8 @@ class AppleStyleView extends ItemView {
     if (!normalized) return false;
     if (normalized === '.') return false;
     if (normalized.includes('..')) return false;
-    if (normalized === '.obsidian' || normalized.startsWith('.obsidian/')) return false;
+    const configDir = this.normalizeVaultPath(this.app?.vault?.configDir || '.obsidian');
+    if (configDir && (normalized === configDir || normalized.startsWith(`${configDir}/`))) return false;
     return true;
   }
 
@@ -3058,15 +3108,17 @@ class AppleStyleView extends ItemView {
   }
 
   copyPlainTextBySelection(text) {
-    if (typeof document?.execCommand !== 'function') return false;
-    const selection = window.getSelection?.();
+    const activeDocument = getActiveDocumentCompat();
+    const activeWindow = getActiveWindowCompat();
+    if (!activeDocument || typeof activeDocument.execCommand !== 'function') return false;
+    const selection = activeWindow?.getSelection?.();
     if (!selection) return false;
     const previousRanges = [];
     for (let i = 0; i < selection.rangeCount; i += 1) {
       previousRanges.push(selection.getRangeAt(i).cloneRange());
     }
-    const activeElement = document.activeElement;
-    const tempEl = document.createElement('textarea');
+    const activeElement = activeDocument.activeElement;
+    const tempEl = activeDocument.createElement('textarea');
     tempEl.value = text;
     tempEl.setAttribute('readonly', 'readonly');
     tempEl.setCssStyles({
@@ -3074,12 +3126,12 @@ class AppleStyleView extends ItemView {
       left: '-9999px',
       top: '0',
     });
-    document.body.appendChild(tempEl);
+    activeDocument.body.appendChild(tempEl);
     tempEl.select();
 
     let success = false;
     try {
-      success = document.execCommand('copy');
+      success = activeDocument.execCommand('copy');
     } catch {
       success = false;
     } finally {
@@ -5167,10 +5219,9 @@ class AppleStyleView extends ItemView {
    * 将各种形式的 src (Base64, URL, 路径) 转为 Blob
    */
   async srcToBlob(src) {
-    // Base64 可以直接用 fetch 转换
+    // Base64/data URL 图片直接本地解析，避免对 data: URL 发起 fetch。
     if (src.startsWith('data:')) {
-      const resp = await fetch(src);
-      return await resp.blob();
+      return dataUrlToBlob(src);
     }
 
     // Obsidian 本地资源 (app:// 或 capacitor://) 可以直接 fetch
@@ -5601,15 +5652,18 @@ class AppleStyleView extends ItemView {
   }
 
   copyRichHTMLBySelection(htmlContent) {
-    const selection = window.getSelection?.();
-    if (!selection || typeof document.execCommand !== 'function') return false;
+    const activeDocument = getActiveDocumentCompat();
+    const activeWindow = getActiveWindowCompat();
+    const selection = activeWindow?.getSelection?.();
+    if (!activeDocument || !selection || typeof activeDocument.execCommand !== 'function') return false;
     const previousRanges = [];
     for (let i = 0; i < selection.rangeCount; i += 1) {
       previousRanges.push(selection.getRangeAt(i).cloneRange());
     }
-    const activeElement = document.activeElement;
+    const activeElement = activeDocument.activeElement;
 
-    const tempContainer = createHtmlContainer('div', htmlContent);
+    const tempContainer = activeDocument.createElement('div');
+    setElementHtml(tempContainer, htmlContent);
     tempContainer.setCssStyles({
       position: 'fixed',
       left: '-9999px',
@@ -5618,15 +5672,15 @@ class AppleStyleView extends ItemView {
       pointerEvents: 'none',
       background: '#fff',
     });
-    document.body.appendChild(tempContainer);
+    activeDocument.body.appendChild(tempContainer);
 
     let success = false;
     try {
-      const range = document.createRange();
+      const range = activeDocument.createRange();
       range.selectNodeContents(tempContainer);
       selection.removeAllRanges();
       selection.addRange(range);
-      success = document.execCommand('copy');
+      success = activeDocument.execCommand('copy');
     } catch {
       success = false;
     } finally {
@@ -6278,6 +6332,37 @@ class AppleStyleSettingTab extends PluginSettingTab {
     }
   }
 
+  confirmDestructiveAction({ title, message, confirmText = '确认', cancelText = '取消' }) {
+    const { Modal } = require('obsidian');
+    return new Promise((resolve) => {
+      const modal = new Modal(this.app);
+      let settled = false;
+      const settle = (value) => {
+        if (settled) return;
+        settled = true;
+        modal.close();
+        resolve(value);
+      };
+
+      modal.titleEl.setText(title || '确认操作');
+      const body = modal.contentEl.createDiv({ cls: 'wechat-confirm-modal' });
+      body.createEl('p', { text: message || '确定要继续吗？' });
+      const actions = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
+      actions.createEl('button', { text: cancelText }).onclick = () => settle(false);
+      const confirmBtn = actions.createEl('button', { text: confirmText, cls: 'mod-warning' });
+      confirmBtn.onclick = () => settle(true);
+      const originalOnClose = modal.onClose?.bind(modal);
+      modal.onClose = () => {
+        if (typeof originalOnClose === 'function') originalOnClose();
+        if (!settled) {
+          settled = true;
+          resolve(false);
+        }
+      };
+      modal.open();
+    });
+  }
+
   display() {
     const { containerEl } = this;
     containerEl.empty();
@@ -6385,15 +6470,15 @@ class AppleStyleSettingTab extends PluginSettingTab {
       }));
 
     if (this.plugin.settings.avatarBase64) {
-      uploadSetting.addButton(button => button
-        .setButtonText('清除')
-        .setWarning()
-        .onClick(async () => {
-          this.plugin.settings.avatarBase64 = '';
-          await this.plugin.saveSettings();
-          new Notice('已清除本地头像');
-          this.display();
-        }));
+      uploadSetting.addButton((button) => {
+        setDestructiveButtonCompat(button.setButtonText('清除'))
+          .onClick(async () => {
+            this.plugin.settings.avatarBase64 = '';
+            await this.plugin.saveSettings();
+            new Notice('已清除本地头像');
+            this.display();
+          });
+      });
     }
 
     new Setting(containerEl)
@@ -6473,17 +6558,21 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
         const deleteBtn = actions.createEl('button', { text: '删除', cls: 'wechat-btn-small wechat-btn-danger' });
         deleteBtn.onclick = async () => {
-          if (confirm(`确定要删除账号 "${account.name}" 吗？`)) {
-            this.plugin.settings.wechatAccounts = accounts.filter(a => a.id !== account.id);
-            // 如果删除的是默认账号，自动选择第一个
-            if (account.id === defaultId && this.plugin.settings.wechatAccounts.length > 0) {
-              this.plugin.settings.defaultAccountId = this.plugin.settings.wechatAccounts[0].id;
-            } else if (this.plugin.settings.wechatAccounts.length === 0) {
-              this.plugin.settings.defaultAccountId = '';
-            }
-            await this.plugin.saveSettings();
-            this.display();
+          const confirmed = await this.confirmDestructiveAction({
+            title: '删除公众号账号',
+            message: `确定要删除账号 "${account.name}" 吗？`,
+            confirmText: '删除',
+          });
+          if (!confirmed) return;
+          this.plugin.settings.wechatAccounts = accounts.filter(a => a.id !== account.id);
+          // 如果删除的是默认账号，自动选择第一个
+          if (account.id === defaultId && this.plugin.settings.wechatAccounts.length > 0) {
+            this.plugin.settings.defaultAccountId = this.plugin.settings.wechatAccounts[0].id;
+          } else if (this.plugin.settings.wechatAccounts.length === 0) {
+            this.plugin.settings.defaultAccountId = '';
           }
+          await this.plugin.saveSettings();
+          this.display();
         };
       }
     }
@@ -6783,16 +6872,20 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
         const deleteBtn = actions.createEl('button', { text: '删除', cls: 'wechat-btn-small wechat-btn-danger' });
         deleteBtn.onclick = async () => {
-          if (confirm(`确定要删除 AI Provider "${provider.name}" 吗？`)) {
-            this.plugin.settings.ai.providers = providers.filter((item) => item.id !== provider.id);
-            if (provider.id === defaultProviderId) {
-              const nextRunnableProvider = this.plugin.settings.ai.providers.find((item) => item.enabled !== false && isAiProviderRunnable(item));
-              this.plugin.settings.ai.defaultProviderId = nextRunnableProvider?.id || '';
-            }
-            await this.plugin.saveSettings();
-            this.refreshOpenConverterAiState();
-            this.display();
+          const confirmed = await this.confirmDestructiveAction({
+            title: '删除 AI Provider',
+            message: `确定要删除 AI Provider "${provider.name}" 吗？`,
+            confirmText: '删除',
+          });
+          if (!confirmed) return;
+          this.plugin.settings.ai.providers = providers.filter((item) => item.id !== provider.id);
+          if (provider.id === defaultProviderId) {
+            const nextRunnableProvider = this.plugin.settings.ai.providers.find((item) => item.enabled !== false && isAiProviderRunnable(item));
+            this.plugin.settings.ai.defaultProviderId = nextRunnableProvider?.id || '';
           }
+          await this.plugin.saveSettings();
+          this.refreshOpenConverterAiState();
+          this.display();
         };
       }
     }
@@ -6849,17 +6942,22 @@ class AppleStyleSettingTab extends PluginSettingTab {
         : '当前还没有缓存的 AI 编排结果。');
 
     if (cachedLayoutCount > 0) {
-      cacheSetting.addButton((button) => button
-        .setButtonText('清空缓存')
-        .setWarning()
-        .onClick(async () => {
-          if (!confirm(`确定要清空 ${cachedDocCount} 篇文章、共 ${cachedLayoutCount} 份 AI 编排缓存吗？`)) return;
-          this.plugin.settings.ai.articleLayoutsByPath = {};
-          await this.plugin.saveSettings();
-          this.refreshOpenConverterAiState();
-          new Notice('已清空 AI 编排缓存');
-          this.display();
-        }));
+      cacheSetting.addButton((button) => {
+        setDestructiveButtonCompat(button.setButtonText('清空缓存'))
+          .onClick(async () => {
+            const confirmed = await this.confirmDestructiveAction({
+              title: '清空 AI 编排缓存',
+              message: `确定要清空 ${cachedDocCount} 篇文章、共 ${cachedLayoutCount} 份 AI 编排缓存吗？`,
+              confirmText: '清空',
+            });
+            if (!confirmed) return;
+            this.plugin.settings.ai.articleLayoutsByPath = {};
+            await this.plugin.saveSettings();
+            this.refreshOpenConverterAiState();
+            new Notice('已清空 AI 编排缓存');
+            this.display();
+          });
+      });
     }
   }
 

@@ -9492,6 +9492,28 @@ var require_wechatsync_bridge = __commonJS({
     var HELLO_ERROR_TOO_MANY_CLIENTS = "too_many_clients";
     var DEFAULT_MAX_CLIENTS = 4;
     var MAX_CONNECTED_CLIENT_REGISTRY = 20;
+    function getBridgeTimerWindow() {
+      if (typeof window !== "undefined" && window)
+        return window;
+      if (typeof globalThis !== "undefined" && globalThis)
+        return globalThis;
+      return null;
+    }
+    function setBridgeTimeout(handler, ms) {
+      const timerWindow = getBridgeTimerWindow();
+      if (timerWindow && typeof timerWindow.setTimeout === "function") {
+        return timerWindow.setTimeout(handler, ms);
+      }
+      return null;
+    }
+    function clearBridgeTimeout(timer) {
+      if (!timer)
+        return;
+      const timerWindow = getBridgeTimerWindow();
+      if (timerWindow && typeof timerWindow.clearTimeout === "function") {
+        timerWindow.clearTimeout(timer);
+      }
+    }
     function isUnsupportedBridgeMethodError(error = {}) {
       const message = String((error == null ? void 0 : error.message) || error || "");
       return /unknown method|unknown tool|method not found|not supported|unsupported/i.test(message);
@@ -9501,7 +9523,7 @@ var require_wechatsync_bridge = __commonJS({
       return ["EXTENSION_NOT_CONNECTED", "EXTENSION_NOT_AUTHENTICATED", "BRIDGE_UNAVAILABLE", "BRIDGE_REQUEST_TIMEOUT"].includes(code);
     }
     function sleep2(ms) {
-      return new Promise((resolve) => setTimeout(resolve, ms));
+      return new Promise((resolve) => setBridgeTimeout(resolve, ms));
     }
     async function retryRecoverableBridgeOperation(operation, options = {}) {
       var _a;
@@ -9838,6 +9860,11 @@ var require_wechatsync_bridge = __commonJS({
       });
     }
     function defaultConnectionIdFactory() {
+      const timerWindow = getBridgeTimerWindow();
+      const windowCrypto = timerWindow == null ? void 0 : timerWindow.crypto;
+      if (windowCrypto && typeof windowCrypto.randomUUID === "function") {
+        return windowCrypto.randomUUID();
+      }
       try {
         const nodeCrypto = require("crypto");
         if (typeof nodeCrypto.randomUUID === "function") {
@@ -9876,8 +9903,8 @@ var require_wechatsync_bridge = __commonJS({
       function scheduleRegistryChange() {
         if (!onClientRegistryChange)
           return;
-        clearTimeout(_clientRegistryDebounceTimer);
-        _clientRegistryDebounceTimer = setTimeout(() => {
+        clearBridgeTimeout(_clientRegistryDebounceTimer);
+        _clientRegistryDebounceTimer = setBridgeTimeout(() => {
           onClientRegistryChange(connectedClients.map((c) => ({ ...c })));
         }, 1e3);
       }
@@ -10039,7 +10066,7 @@ var require_wechatsync_bridge = __commonJS({
         if (!pending)
           return;
         if (pending.helloTimeout)
-          clearTimeout(pending.helloTimeout);
+          clearBridgeTimeout(pending.helloTimeout);
         pendingConnections.delete(connectionId);
       }
       function registerSession(pending, hello, origin) {
@@ -10055,7 +10082,7 @@ var require_wechatsync_bridge = __commonJS({
           closeWs(existing.ws, "hello_takeover");
           connectionIdToInstanceId.delete(existing.connectionId);
           for (const [, req] of existing.pendingRequests.entries()) {
-            clearTimeout(req.timeout);
+            clearBridgeTimeout(req.timeout);
             req.reject(createReadableBridgeError(new Error("Session replaced by reconnect.")));
           }
           existing.pendingRequests.clear();
@@ -10178,7 +10205,7 @@ var require_wechatsync_bridge = __commonJS({
           });
           return;
         }
-        clearTimeout(pending.timeout);
+        clearBridgeTimeout(pending.timeout);
         session.pendingRequests.delete(message.id);
         if (message.error) {
           const errorMessage = message.error.message || message.error.error || String(message.error);
@@ -10211,7 +10238,7 @@ var require_wechatsync_bridge = __commonJS({
         };
         pendingConnections.set(connectionId, pending);
         debug("Extension connected (pending hello)", { connectionId, origin });
-        pending.helloTimeout = setTimeout(() => {
+        pending.helloTimeout = setBridgeTimeout(() => {
           if (!pendingConnections.has(connectionId))
             return;
           rejectHello(pending, HELLO_ERROR_TIMEOUT, { timeoutMs: helloTimeoutMs });
@@ -10236,7 +10263,7 @@ var require_wechatsync_bridge = __commonJS({
             const session = sessions.get(instanceId);
             if (session) {
               for (const [, req] of session.pendingRequests.entries()) {
-                clearTimeout(req.timeout);
+                clearBridgeTimeout(req.timeout);
                 req.reject(createReadableBridgeError(new Error("Extension disconnected.")));
               }
               session.pendingRequests.clear();
@@ -10394,7 +10421,7 @@ var require_wechatsync_bridge = __commonJS({
       async function stop() {
         for (const session of sessions.values()) {
           for (const [id, req] of session.pendingRequests.entries()) {
-            clearTimeout(req.timeout);
+            clearBridgeTimeout(req.timeout);
             req.reject(new Error(`Request cancelled: ${id}`));
           }
           session.pendingRequests.clear();
@@ -10405,7 +10432,7 @@ var require_wechatsync_bridge = __commonJS({
         primaryClientId = null;
         for (const pending of pendingConnections.values()) {
           if (pending.helloTimeout)
-            clearTimeout(pending.helloTimeout);
+            clearBridgeTimeout(pending.helloTimeout);
           closeWs(pending.ws, "stop");
         }
         pendingConnections.clear();
@@ -10423,14 +10450,14 @@ var require_wechatsync_bridge = __commonJS({
           return Promise.resolve();
         return new Promise((resolve, reject) => {
           let wrappedResolve;
-          const timeout = setTimeout(() => {
+          const timeout = setBridgeTimeout(() => {
             const index = connectionResolvers.indexOf(wrappedResolve);
             if (index >= 0)
               connectionResolvers.splice(index, 1);
             reject(createReadableBridgeError(new Error("timeout:no_extension")));
           }, timeoutMs);
           wrappedResolve = () => {
-            clearTimeout(timeout);
+            clearBridgeTimeout(timeout);
             resolve();
           };
           connectionResolvers.push(wrappedResolve);
@@ -10456,7 +10483,7 @@ var require_wechatsync_bridge = __commonJS({
           message.token = token;
         const timeoutMs = Number.isFinite(Number(options2.timeoutMs)) && Number(options2.timeoutMs) > 0 ? Number(options2.timeoutMs) : requestTimeoutMs;
         return new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
+          const timeout = setBridgeTimeout(() => {
             session.pendingRequests.delete(id);
             debug("Request timed out", { id, method, timeoutMs });
             reject(createReadableBridgeError(new Error(`Request timeout: ${method}`)));
@@ -10673,13 +10700,16 @@ var require_wechatsync_bridge = __commonJS({
       HELLO_ERROR_DUPLICATE_SESSION,
       HELLO_ERROR_TOO_MANY_CLIENTS,
       DEFAULT_MAX_CLIENTS,
+      clearBridgeTimeout,
       createReadableBridgeError,
       createWechatSyncBridgeService: createWechatSyncBridgeService2,
+      defaultConnectionIdFactory,
       isOriginAllowedForWebSocket,
       isRecoverableBridgeConnectionError,
       isUnsupportedBridgeMethodError,
       parseWebSocketFrames,
-      retryRecoverableBridgeOperation
+      retryRecoverableBridgeOperation,
+      setBridgeTimeout
     };
   }
 });
@@ -14536,6 +14566,24 @@ var { createObsidianFetchAdapter } = require_obsidian_fetch_adapter();
 var { stripMarkdownFrontmatter } = require_markdown_utils();
 var { mapAppUrlImagesToAssetUrls } = require_article_image_assets();
 var { createHtmlContainer, htmlToText, setElementHtml } = require_dom_utils();
+function getActiveDocumentCompat() {
+  if (typeof window !== "undefined" && window.activeDocument)
+    return window.activeDocument;
+  if (typeof globalThis !== "undefined" && globalThis.activeDocument)
+    return globalThis.activeDocument;
+  if (typeof document !== "undefined")
+    return document;
+  return null;
+}
+function getActiveWindowCompat() {
+  if (typeof window !== "undefined" && window.activeWindow)
+    return window.activeWindow;
+  if (typeof globalThis !== "undefined" && globalThis.activeWindow)
+    return globalThis.activeWindow;
+  if (typeof window !== "undefined")
+    return window;
+  return null;
+}
 function revealLeafCompat(workspace, leaf) {
   if (!workspace || !leaf)
     return Promise.resolve();
@@ -14562,6 +14610,40 @@ function setPluginSettings(plugin, settings) {
     return settings;
   plugin["settings"] = settings;
   return settings;
+}
+function setDestructiveButtonCompat(button) {
+  if (!button)
+    return button;
+  const setDestructive = button["setDestructive"];
+  if (typeof setDestructive === "function") {
+    return setDestructive.call(button);
+  }
+  const setWarning = button["setWarning"];
+  if (typeof setWarning === "function") {
+    return setWarning.call(button);
+  }
+  return button;
+}
+function dataUrlToBlob(dataUrl) {
+  const source = String(dataUrl || "");
+  const match = source.match(/^data:([^;,]*)(;base64)?,([\s\S]*)$/i);
+  if (!match) {
+    throw new Error("\u65E0\u6548\u7684 data URL \u56FE\u7247\u6765\u6E90");
+  }
+  const mimeType = match[1] || "application/octet-stream";
+  const isBase64 = !!match[2];
+  const payload = match[3] || "";
+  let binary;
+  if (isBase64) {
+    binary = atob(payload);
+  } else {
+    binary = decodeURIComponent(payload);
+  }
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
 }
 var APPLE_STYLE_VIEW = "apple-style-converter";
 var APPLE_STYLE_VIEW_TITLE = "Obsidian \u53D1\u5E03\u52A9\u624B";
@@ -16016,6 +16098,7 @@ var AppleStyleView = class extends ItemView {
    * 清理目录安全校验：禁止空路径、上跳路径、系统配置目录等危险路径
    */
   isSafeCleanupDirPath(vaultPath) {
+    var _a, _b;
     const normalized = this.normalizeVaultPath(vaultPath);
     if (!normalized)
       return false;
@@ -16023,7 +16106,8 @@ var AppleStyleView = class extends ItemView {
       return false;
     if (normalized.includes(".."))
       return false;
-    if (normalized === ".obsidian" || normalized.startsWith(".obsidian/"))
+    const configDir = this.normalizeVaultPath(((_b = (_a = this.app) == null ? void 0 : _a.vault) == null ? void 0 : _b.configDir) || ".obsidian");
+    if (configDir && (normalized === configDir || normalized.startsWith(`${configDir}/`)))
       return false;
     return true;
   }
@@ -17187,17 +17271,19 @@ var AppleStyleView = class extends ItemView {
   }
   copyPlainTextBySelection(text) {
     var _a;
-    if (typeof (document == null ? void 0 : document.execCommand) !== "function")
+    const activeDocument = getActiveDocumentCompat();
+    const activeWindow = getActiveWindowCompat();
+    if (!activeDocument || typeof activeDocument.execCommand !== "function")
       return false;
-    const selection = (_a = window.getSelection) == null ? void 0 : _a.call(window);
+    const selection = (_a = activeWindow == null ? void 0 : activeWindow.getSelection) == null ? void 0 : _a.call(activeWindow);
     if (!selection)
       return false;
     const previousRanges = [];
     for (let i = 0; i < selection.rangeCount; i += 1) {
       previousRanges.push(selection.getRangeAt(i).cloneRange());
     }
-    const activeElement = document.activeElement;
-    const tempEl = document.createElement("textarea");
+    const activeElement = activeDocument.activeElement;
+    const tempEl = activeDocument.createElement("textarea");
     tempEl.value = text;
     tempEl.setAttribute("readonly", "readonly");
     tempEl.setCssStyles({
@@ -17205,11 +17291,11 @@ var AppleStyleView = class extends ItemView {
       left: "-9999px",
       top: "0"
     });
-    document.body.appendChild(tempEl);
+    activeDocument.body.appendChild(tempEl);
     tempEl.select();
     let success = false;
     try {
-      success = document.execCommand("copy");
+      success = activeDocument.execCommand("copy");
     } catch (e) {
       success = false;
     } finally {
@@ -19085,8 +19171,7 @@ var AppleStyleView = class extends ItemView {
    */
   async srcToBlob(src) {
     if (src.startsWith("data:")) {
-      const resp = await fetch(src);
-      return await resp.blob();
+      return dataUrlToBlob(src);
     }
     if (src.startsWith("app://") || src.startsWith("capacitor://")) {
       const resp = await fetch(src);
@@ -19467,15 +19552,18 @@ var AppleStyleView = class extends ItemView {
   }
   copyRichHTMLBySelection(htmlContent) {
     var _a;
-    const selection = (_a = window.getSelection) == null ? void 0 : _a.call(window);
-    if (!selection || typeof document.execCommand !== "function")
+    const activeDocument = getActiveDocumentCompat();
+    const activeWindow = getActiveWindowCompat();
+    const selection = (_a = activeWindow == null ? void 0 : activeWindow.getSelection) == null ? void 0 : _a.call(activeWindow);
+    if (!activeDocument || !selection || typeof activeDocument.execCommand !== "function")
       return false;
     const previousRanges = [];
     for (let i = 0; i < selection.rangeCount; i += 1) {
       previousRanges.push(selection.getRangeAt(i).cloneRange());
     }
-    const activeElement = document.activeElement;
-    const tempContainer = createHtmlContainer("div", htmlContent);
+    const activeElement = activeDocument.activeElement;
+    const tempContainer = activeDocument.createElement("div");
+    setElementHtml(tempContainer, htmlContent);
     tempContainer.setCssStyles({
       position: "fixed",
       left: "-9999px",
@@ -19484,14 +19572,14 @@ var AppleStyleView = class extends ItemView {
       pointerEvents: "none",
       background: "#fff"
     });
-    document.body.appendChild(tempContainer);
+    activeDocument.body.appendChild(tempContainer);
     let success = false;
     try {
-      const range = document.createRange();
+      const range = activeDocument.createRange();
       range.selectNodeContents(tempContainer);
       selection.removeAllRanges();
       selection.addRange(range);
-      success = document.execCommand("copy");
+      success = activeDocument.execCommand("copy");
     } catch (e) {
       success = false;
     } finally {
@@ -20037,6 +20125,38 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       view.refreshAiLayoutPanel();
     }
   }
+  confirmDestructiveAction({ title, message, confirmText = "\u786E\u8BA4", cancelText = "\u53D6\u6D88" }) {
+    const { Modal } = require("obsidian");
+    return new Promise((resolve) => {
+      var _a;
+      const modal = new Modal(this.app);
+      let settled = false;
+      const settle = (value) => {
+        if (settled)
+          return;
+        settled = true;
+        modal.close();
+        resolve(value);
+      };
+      modal.titleEl.setText(title || "\u786E\u8BA4\u64CD\u4F5C");
+      const body = modal.contentEl.createDiv({ cls: "wechat-confirm-modal" });
+      body.createEl("p", { text: message || "\u786E\u5B9A\u8981\u7EE7\u7EED\u5417\uFF1F" });
+      const actions = modal.contentEl.createDiv({ cls: "wechat-modal-buttons" });
+      actions.createEl("button", { text: cancelText }).onclick = () => settle(false);
+      const confirmBtn = actions.createEl("button", { text: confirmText, cls: "mod-warning" });
+      confirmBtn.onclick = () => settle(true);
+      const originalOnClose = (_a = modal.onClose) == null ? void 0 : _a.bind(modal);
+      modal.onClose = () => {
+        if (typeof originalOnClose === "function")
+          originalOnClose();
+        if (!settled) {
+          settled = true;
+          resolve(false);
+        }
+      };
+      modal.open();
+    });
+  }
   display() {
     const { containerEl } = this;
     containerEl.empty();
@@ -20104,12 +20224,14 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         input.click();
       }));
       if (this.plugin.settings.avatarBase64) {
-        uploadSetting.addButton((button) => button.setButtonText("\u6E05\u9664").setWarning().onClick(async () => {
-          this.plugin.settings.avatarBase64 = "";
-          await this.plugin.saveSettings();
-          new Notice("\u5DF2\u6E05\u9664\u672C\u5730\u5934\u50CF");
-          this.display();
-        }));
+        uploadSetting.addButton((button) => {
+          setDestructiveButtonCompat(button.setButtonText("\u6E05\u9664")).onClick(async () => {
+            this.plugin.settings.avatarBase64 = "";
+            await this.plugin.saveSettings();
+            new Notice("\u5DF2\u6E05\u9664\u672C\u5730\u5934\u50CF");
+            this.display();
+          });
+        });
       }
       new Setting(containerEl2).setName("\u5934\u50CF URL\uFF08\u5907\u7528\uFF09").setDesc("\u5982\u672A\u4E0A\u4F20\u672C\u5730\u5934\u50CF\uFF0C\u5C06\u4F7F\u7528\u6B64 URL").addText((text) => text.setPlaceholder("https://example.com/avatar.jpg").setValue(this.plugin.settings.avatarUrl).onChange(async (value) => {
         this.plugin.settings.avatarUrl = value;
@@ -20166,16 +20288,21 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
           };
           const deleteBtn = actions.createEl("button", { text: "\u5220\u9664", cls: "wechat-btn-small wechat-btn-danger" });
           deleteBtn.onclick = async () => {
-            if (confirm(`\u786E\u5B9A\u8981\u5220\u9664\u8D26\u53F7 "${account.name}" \u5417\uFF1F`)) {
-              this.plugin.settings.wechatAccounts = accounts.filter((a) => a.id !== account.id);
-              if (account.id === defaultId && this.plugin.settings.wechatAccounts.length > 0) {
-                this.plugin.settings.defaultAccountId = this.plugin.settings.wechatAccounts[0].id;
-              } else if (this.plugin.settings.wechatAccounts.length === 0) {
-                this.plugin.settings.defaultAccountId = "";
-              }
-              await this.plugin.saveSettings();
-              this.display();
+            const confirmed = await this.confirmDestructiveAction({
+              title: "\u5220\u9664\u516C\u4F17\u53F7\u8D26\u53F7",
+              message: `\u786E\u5B9A\u8981\u5220\u9664\u8D26\u53F7 "${account.name}" \u5417\uFF1F`,
+              confirmText: "\u5220\u9664"
+            });
+            if (!confirmed)
+              return;
+            this.plugin.settings.wechatAccounts = accounts.filter((a) => a.id !== account.id);
+            if (account.id === defaultId && this.plugin.settings.wechatAccounts.length > 0) {
+              this.plugin.settings.defaultAccountId = this.plugin.settings.wechatAccounts[0].id;
+            } else if (this.plugin.settings.wechatAccounts.length === 0) {
+              this.plugin.settings.defaultAccountId = "";
             }
+            await this.plugin.saveSettings();
+            this.display();
           };
         }
       }
@@ -20399,16 +20526,21 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
         };
         const deleteBtn = actions.createEl("button", { text: "\u5220\u9664", cls: "wechat-btn-small wechat-btn-danger" });
         deleteBtn.onclick = async () => {
-          if (confirm(`\u786E\u5B9A\u8981\u5220\u9664 AI Provider "${provider.name}" \u5417\uFF1F`)) {
-            this.plugin.settings.ai.providers = providers.filter((item) => item.id !== provider.id);
-            if (provider.id === defaultProviderId) {
-              const nextRunnableProvider = this.plugin.settings.ai.providers.find((item) => item.enabled !== false && isAiProviderRunnable(item));
-              this.plugin.settings.ai.defaultProviderId = (nextRunnableProvider == null ? void 0 : nextRunnableProvider.id) || "";
-            }
-            await this.plugin.saveSettings();
-            this.refreshOpenConverterAiState();
-            this.display();
+          const confirmed = await this.confirmDestructiveAction({
+            title: "\u5220\u9664 AI Provider",
+            message: `\u786E\u5B9A\u8981\u5220\u9664 AI Provider "${provider.name}" \u5417\uFF1F`,
+            confirmText: "\u5220\u9664"
+          });
+          if (!confirmed)
+            return;
+          this.plugin.settings.ai.providers = providers.filter((item) => item.id !== provider.id);
+          if (provider.id === defaultProviderId) {
+            const nextRunnableProvider = this.plugin.settings.ai.providers.find((item) => item.enabled !== false && isAiProviderRunnable(item));
+            this.plugin.settings.ai.defaultProviderId = (nextRunnableProvider == null ? void 0 : nextRunnableProvider.id) || "";
           }
+          await this.plugin.saveSettings();
+          this.refreshOpenConverterAiState();
+          this.display();
         };
       }
     }
@@ -20445,15 +20577,22 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
     }, 0);
     const cacheSetting = new Setting(advancedArea).setName("AI \u7F16\u6392\u7F13\u5B58").setDesc(cachedLayoutCount > 0 ? `\u5F53\u524D\u5DF2\u7F13\u5B58 ${cachedDocCount} \u7BC7\u6587\u7AE0\u3001\u5171 ${cachedLayoutCount} \u4EFD\u7F16\u6392\u98CE\u683C\u7ED3\u679C\u3002` : "\u5F53\u524D\u8FD8\u6CA1\u6709\u7F13\u5B58\u7684 AI \u7F16\u6392\u7ED3\u679C\u3002");
     if (cachedLayoutCount > 0) {
-      cacheSetting.addButton((button) => button.setButtonText("\u6E05\u7A7A\u7F13\u5B58").setWarning().onClick(async () => {
-        if (!confirm(`\u786E\u5B9A\u8981\u6E05\u7A7A ${cachedDocCount} \u7BC7\u6587\u7AE0\u3001\u5171 ${cachedLayoutCount} \u4EFD AI \u7F16\u6392\u7F13\u5B58\u5417\uFF1F`))
-          return;
-        this.plugin.settings.ai.articleLayoutsByPath = {};
-        await this.plugin.saveSettings();
-        this.refreshOpenConverterAiState();
-        new Notice("\u5DF2\u6E05\u7A7A AI \u7F16\u6392\u7F13\u5B58");
-        this.display();
-      }));
+      cacheSetting.addButton((button) => {
+        setDestructiveButtonCompat(button.setButtonText("\u6E05\u7A7A\u7F13\u5B58")).onClick(async () => {
+          const confirmed = await this.confirmDestructiveAction({
+            title: "\u6E05\u7A7A AI \u7F16\u6392\u7F13\u5B58",
+            message: `\u786E\u5B9A\u8981\u6E05\u7A7A ${cachedDocCount} \u7BC7\u6587\u7AE0\u3001\u5171 ${cachedLayoutCount} \u4EFD AI \u7F16\u6392\u7F13\u5B58\u5417\uFF1F`,
+            confirmText: "\u6E05\u7A7A"
+          });
+          if (!confirmed)
+            return;
+          this.plugin.settings.ai.articleLayoutsByPath = {};
+          await this.plugin.saveSettings();
+          this.refreshOpenConverterAiState();
+          new Notice("\u5DF2\u6E05\u7A7A AI \u7F16\u6392\u7F13\u5B58");
+          this.display();
+        });
+      });
     }
   }
   /**

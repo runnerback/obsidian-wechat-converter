@@ -17,6 +17,9 @@ if (!globalThis.__obsidianSettingNamesRegistry) {
 if (!globalThis.__obsidianButtonRegistry) {
   globalThis.__obsidianButtonRegistry = [];
 }
+if (!globalThis.__obsidianModalRegistry) {
+  globalThis.__obsidianModalRegistry = [];
+}
 
 // Sentinel exposed on globalThis so tests can assert that the resolver patch
 // is wired up correctly: `expect(globalThis.__obsidianMockLoaded).toBe(true)`.
@@ -51,11 +54,20 @@ function makeButtonMock() {
       this.clickHandler = handler;
       return this;
     },
-    setWarning() { return this; },
+    setWarning() {
+      this.warning = true;
+      return this;
+    },
     setCta() { return this; },
     setTooltip() { return this; },
     then: undefined,
   };
+  if (!globalThis.__obsidianDisableSetDestructiveForButtons) {
+    button.setDestructive = function setDestructive() {
+      this.destructive = true;
+      return this;
+    };
+  }
   globalThis.__obsidianButtonRegistry.push(button);
   return button;
 }
@@ -153,9 +165,16 @@ class ModalMock {
     this.titleEl = applyExtensions(document.createElement('h2'));
     this.contentEl = applyExtensions(document.createElement('div'));
     this.modalEl = applyExtensions(document.createElement('div'));
+    globalThis.__obsidianModalRegistry.push(this);
   }
   open() { this.isOpen = true; }
-  close() { this.isOpen = false; }
+  close() {
+    const wasOpen = this.isOpen;
+    this.isOpen = false;
+    if (wasOpen && typeof this.onClose === 'function') {
+      this.onClose();
+    }
+  }
   onOpen() {}
   onClose() {}
 }

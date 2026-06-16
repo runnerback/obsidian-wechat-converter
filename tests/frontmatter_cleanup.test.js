@@ -147,6 +147,14 @@ describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () 
     expect(view.isSafeCleanupDirPath('')).toBe(false);
   });
 
+  it('should block the active Obsidian config dir when the vault uses a custom configDir', () => {
+    view.app.vault.configDir = '.config/obsidian-mobile';
+
+    expect(view.isSafeCleanupDirPath('.config/obsidian-mobile')).toBe(false);
+    expect(view.isSafeCleanupDirPath('.config/obsidian-mobile/plugins')).toBe(false);
+    expect(view.isSafeCleanupDirPath('.obsidian')).toBe(true);
+  });
+
   it('should cleanup configured directory after sync success', async () => {
     plugin.settings.cleanupAfterSync = true;
     plugin.settings.cleanupUseSystemTrash = true;
