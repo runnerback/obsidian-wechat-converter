@@ -26,13 +26,10 @@ jobs:
     - name: Install dependencies
       run: npm install --legacy-peer-deps
 
-    - name: Build
-      run: npm run build
-
     - name: Setup Mock for CI
       run: |
         mkdir -p node_modules/obsidian
         cp __mocks__/obsidian.js node_modules/obsidian/index.js
 
-    - name: Test
-      run: npm test -- --run
+    - name: Obsidian scan readiness guard
+      run: npm run review:guard

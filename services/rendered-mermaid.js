@@ -170,7 +170,7 @@ function estimateMermaidTextUnits(text) {
   for (const ch of String(text || '')) {
     if (/\s/.test(ch)) {
       units += 0.35;
-    } else if (/[\x00-\x7F]/.test(ch)) {
+    } else if (/[\u0000-\u007F]/.test(ch)) {
       units += /[A-Z0-9]/.test(ch) ? 0.72 : 0.58;
     } else {
       units += 1;

@@ -83,6 +83,21 @@ const AI_PROVIDER_KIND_DEFAULTS = {
   },
 };
 
+function getActiveTimerApi() {
+  if (typeof window !== 'undefined' && window?.setTimeout && window?.clearTimeout) {
+    return window;
+  }
+  return globalThis;
+}
+
+function setAiLayoutTimeout(callback, delay) {
+  return getActiveTimerApi().setTimeout(callback, delay);
+}
+
+function clearAiLayoutTimeout(timer) {
+  return getActiveTimerApi().clearTimeout(timer);
+}
+
 function createDefaultAiSettings() {
   return {
     enabled: true,
@@ -2476,7 +2491,7 @@ async function requestOpenAICompatibleLayout({
   fetchImpl,
 }) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetchImpl(`${provider.baseUrl}/chat/completions`, {
@@ -2516,7 +2531,7 @@ async function requestOpenAICompatibleLayout({
     }
     throw error;
   } finally {
-    clearTimeout(timer);
+    clearAiLayoutTimeout(timer);
   }
 }
 
@@ -2531,7 +2546,7 @@ async function requestGeminiLayout({
   fetchImpl,
 }) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const messages = buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs });
@@ -2587,7 +2602,7 @@ async function requestGeminiLayout({
     }
     throw error;
   } finally {
-    clearTimeout(timer);
+    clearAiLayoutTimeout(timer);
   }
 }
 
@@ -2602,7 +2617,7 @@ async function requestAnthropicLayout({
   fetchImpl,
 }) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const messages = buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs });
@@ -2653,7 +2668,7 @@ async function requestAnthropicLayout({
     }
     throw error;
   } finally {
-    clearTimeout(timer);
+    clearAiLayoutTimeout(timer);
   }
 }
 

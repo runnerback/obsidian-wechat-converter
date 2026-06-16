@@ -924,10 +924,9 @@ class AppleStyleView extends ItemView {
     // 监听编辑器内容变化 (实时预览)
     const debounce = (func, wait) => {
       let timeout;
-      return function (...args) {
-        const context = this;
+      return (...args) => {
         window.clearTimeout(timeout);
-        timeout = window.setTimeout(() => func.apply(context, args), wait);
+        timeout = window.setTimeout(() => func(...args), wait);
       };
     };
 
@@ -5226,7 +5225,7 @@ class AppleStyleView extends ItemView {
 
     // Obsidian 本地资源 (app:// 或 capacitor://) 可以直接 fetch
     if (src.startsWith('app://') || src.startsWith('capacitor://')) {
-      const resp = await fetch(src);
+      const resp = await window.fetch(src);
       return await resp.blob();
     }
 
@@ -6163,7 +6162,7 @@ class AppleStyleView extends ItemView {
     try {
       // CRITICAL FIX: app:// 资源在 Electron 中可以直接 fetch！
       // 我们不需要反向查找 TFile，直接 fetch(img.src) 拿 blob 即可！
-      const response = await fetch(img.src);
+      const response = await window.fetch(img.src);
       const blob = await response.blob();
 
       // 检查大小警告
@@ -6620,7 +6619,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
         .onChange(async (value) => {
           if (this.isAbsolutePathLike(value)) {
             if (!hasWarnedAbsoluteCleanupPath) {
-              new Notice('⚠️ 清理目录请填写 vault 内相对路径，不要使用绝对路径（如 /Users/... 或 C:\...）');
+              new Notice('⚠️ 清理目录请填写 vault 内相对路径，不要使用绝对路径（如 /Users/... 或 C:\\...）');
               hasWarnedAbsoluteCleanupPath = true;
             }
           } else {
@@ -7447,7 +7446,6 @@ class AppleStylePlugin extends Plugin {
 
     const http = require('http');
     this._wechatSyncBridgeCacheKey = cacheKey;
-    const self = this;
     this._wechatSyncBridgeService = createWechatSyncBridgeService({
       http,
       port: settings.port,
@@ -7455,14 +7453,14 @@ class AppleStylePlugin extends Plugin {
       allowRemote: settings.allowRemote,
       serverVersion: this.manifest?.version || '',
       initialConnectedClients: settings.connectedClients || [],
-      async onClientRegistryChange(clients) {
-        const currentSettings = getPluginSettings(self);
+      onClientRegistryChange: async (clients) => {
+        const currentSettings = getPluginSettings(this);
         currentSettings['multiPlatformSync'] = normalizeMultiPlatformSyncSettings({
           ...currentSettings['multiPlatformSync'],
           connectedClients: clients,
         });
-        await self.saveSettings();
-        self.app?.setting?.activeTab?.display?.();
+        await this.saveSettings();
+        this.app?.setting?.activeTab?.display?.();
       },
     });
     return this._wechatSyncBridgeService;

@@ -924,7 +924,7 @@ var require_obsidian_triplet_serializer = __commonJS({
       if (!container)
         return;
       const hasExplicitProtocol = (value) => /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(String(value || ""));
-      const hasNonAscii = (value) => /[^\x00-\x7F]/.test(String(value || ""));
+      const hasNonAscii = (value) => /[^\u0000-\u007F]/.test(String(value || ""));
       const canonicalizeRelativeHrefForLegacyParity = (href) => {
         const value = String(href || "").trim();
         if (!value)
@@ -2579,7 +2579,7 @@ ${normalized}`;
       for (const ch of String(text || "")) {
         if (/\s/.test(ch)) {
           units += 0.35;
-        } else if (/[\x00-\x7F]/.test(ch)) {
+        } else if (/[\u0000-\u007F]/.test(ch)) {
           units += /[A-Z0-9]/.test(ch) ? 0.72 : 0.58;
         } else {
           units += 1;
@@ -6288,6 +6288,18 @@ var require_ai_layout = __commonJS({
         model: "claude-3-5-haiku-latest"
       }
     };
+    function getActiveTimerApi() {
+      if (typeof window !== "undefined" && (window == null ? void 0 : window.setTimeout) && (window == null ? void 0 : window.clearTimeout)) {
+        return window;
+      }
+      return globalThis;
+    }
+    function setAiLayoutTimeout(callback, delay) {
+      return getActiveTimerApi().setTimeout(callback, delay);
+    }
+    function clearAiLayoutTimeout(timer) {
+      return getActiveTimerApi().clearTimeout(timer);
+    }
     function createDefaultAiSettings2() {
       return {
         enabled: true,
@@ -8476,7 +8488,7 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
       fetchImpl
     }) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
       try {
         const response = await fetchImpl(`${provider.baseUrl}/chat/completions`, {
           method: "POST",
@@ -8513,7 +8525,7 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
         }
         throw error;
       } finally {
-        clearTimeout(timer);
+        clearAiLayoutTimeout(timer);
       }
     }
     async function requestGeminiLayout({
@@ -8528,7 +8540,7 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
     }) {
       var _a2, _b;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
       try {
         const messages = buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs });
         const systemInstruction = String(((_a2 = messages[0]) == null ? void 0 : _a2.content) || "").trim();
@@ -8579,7 +8591,7 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
         }
         throw error;
       } finally {
-        clearTimeout(timer);
+        clearAiLayoutTimeout(timer);
       }
     }
     async function requestAnthropicLayout({
@@ -8594,7 +8606,7 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
     }) {
       var _a2, _b;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
       try {
         const messages = buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs });
         const systemInstruction = String(((_a2 = messages[0]) == null ? void 0 : _a2.content) || "").trim();
@@ -8642,7 +8654,7 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
         }
         throw error;
       } finally {
-        clearTimeout(timer);
+        clearAiLayoutTimeout(timer);
       }
     }
     async function generateArticleLayout2({
@@ -15276,10 +15288,9 @@ var AppleStyleView = class extends ItemView {
     );
     const debounce = (func, wait) => {
       let timeout;
-      return function(...args) {
-        const context = this;
+      return (...args) => {
         window.clearTimeout(timeout);
-        timeout = window.setTimeout(() => func.apply(context, args), wait);
+        timeout = window.setTimeout(() => func(...args), wait);
       };
     };
     const debouncedConvert = debounce(async () => {
@@ -19174,7 +19185,7 @@ var AppleStyleView = class extends ItemView {
       return dataUrlToBlob(src);
     }
     if (src.startsWith("app://") || src.startsWith("capacitor://")) {
-      const resp = await fetch(src);
+      const resp = await window.fetch(src);
       return await resp.blob();
     }
     if (src.startsWith("http")) {
@@ -19986,7 +19997,7 @@ var AppleStyleView = class extends ItemView {
   }
   async convertImageToLocally(img) {
     try {
-      const response = await fetch(img.src);
+      const response = await window.fetch(img.src);
       const blob = await response.blob();
       if (blob.size > 10 * 1024 * 1024) {
         new Notice(`\u26A0\uFE0F \u53D1\u73B0\u5927\u56FE (${(blob.size / 1024 / 1024).toFixed(1)}MB)\uFF0C\u5904\u7406\u53EF\u80FD\u8F83\u6162`, 5e3);
@@ -20330,7 +20341,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       new Setting(containerEl2).setName("\u6E05\u7406\u76EE\u5F55").setDesc("\u586B\u5199 vault \u5185\u76F8\u5BF9\u8DEF\u5F84\uFF08\u4E0D\u8981\u586B /Users/... \u8FD9\u7C7B\u7EDD\u5BF9\u8DEF\u5F84\uFF09\uFF0C\u652F\u6301 {{note}} \u5360\u4F4D\u7B26\uFF0C\u4F8B\u5982 published/{{note}}_img\u3002").addText((text) => text.setPlaceholder("published/{{note}}_img").setValue(this.plugin.settings.cleanupDirTemplate || "").onChange(async (value) => {
         if (this.isAbsolutePathLike(value)) {
           if (!hasWarnedAbsoluteCleanupPath) {
-            new Notice("\u26A0\uFE0F \u6E05\u7406\u76EE\u5F55\u8BF7\u586B\u5199 vault \u5185\u76F8\u5BF9\u8DEF\u5F84\uFF0C\u4E0D\u8981\u4F7F\u7528\u7EDD\u5BF9\u8DEF\u5F84\uFF08\u5982 /Users/... \u6216 C:...\uFF09");
+            new Notice("\u26A0\uFE0F \u6E05\u7406\u76EE\u5F55\u8BF7\u586B\u5199 vault \u5185\u76F8\u5BF9\u8DEF\u5F84\uFF0C\u4E0D\u8981\u4F7F\u7528\u7EDD\u5BF9\u8DEF\u5F84\uFF08\u5982 /Users/... \u6216 C:\\...\uFF09");
             hasWarnedAbsoluteCleanupPath = true;
           }
         } else {
@@ -21016,7 +21027,6 @@ var AppleStylePlugin = class extends Plugin {
     }
     const http = require("http");
     this._wechatSyncBridgeCacheKey = cacheKey;
-    const self = this;
     this._wechatSyncBridgeService = createWechatSyncBridgeService({
       http,
       port: settings.port,
@@ -21024,15 +21034,15 @@ var AppleStylePlugin = class extends Plugin {
       allowRemote: settings.allowRemote,
       serverVersion: ((_b = this.manifest) == null ? void 0 : _b.version) || "",
       initialConnectedClients: settings.connectedClients || [],
-      async onClientRegistryChange(clients) {
+      onClientRegistryChange: async (clients) => {
         var _a2, _b2, _c, _d;
-        const currentSettings = getPluginSettings(self);
+        const currentSettings = getPluginSettings(this);
         currentSettings["multiPlatformSync"] = normalizeMultiPlatformSyncSettings({
           ...currentSettings["multiPlatformSync"],
           connectedClients: clients
         });
-        await self.saveSettings();
-        (_d = (_c = (_b2 = (_a2 = self.app) == null ? void 0 : _a2.setting) == null ? void 0 : _b2.activeTab) == null ? void 0 : _c.display) == null ? void 0 : _d.call(_c);
+        await this.saveSettings();
+        (_d = (_c = (_b2 = (_a2 = this.app) == null ? void 0 : _a2.setting) == null ? void 0 : _b2.activeTab) == null ? void 0 : _c.display) == null ? void 0 : _d.call(_c);
       }
     });
     return this._wechatSyncBridgeService;
