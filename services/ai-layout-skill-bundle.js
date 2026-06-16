@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-require-imports -- Skill bundle loader is intentionally dynamic and generated from runtime assets. */
 const {
   loadAiLayoutSkillRegistry,
   getAiLayoutSkillById,

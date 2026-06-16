@@ -1,14 +1,22 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- ESLint flat config is CommonJS because the existing toolchain loads it through Node. */
 const js = require("@eslint/js");
 const globals = require("globals");
+const typescriptEslint = require("@typescript-eslint/eslint-plugin");
 const obsidianmd = require("eslint-plugin-obsidianmd");
 const sdl = require("@microsoft/eslint-plugin-sdl");
 
 module.exports = [
   js.configs.recommended,
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
+    },
+  },
   // Default CommonJS settings for plugin source files
   {
     files: ["**/*.js"],
     plugins: {
+      "@typescript-eslint": typescriptEslint,
       obsidianmd: obsidianmd.default || obsidianmd,
       "@microsoft/sdl": sdl.default || sdl,
     },

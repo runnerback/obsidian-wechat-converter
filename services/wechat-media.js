@@ -1,4 +1,5 @@
-const { createHtmlContainer, setElementHtml } = require('./dom-utils');
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Media upload pipeline bridges dynamic Blob/API/cache objects across Obsidian and WeChat runtimes. */
+const { createHtmlContainer, getActiveDocument, setElementHtml } = require('./dom-utils');
 
 function hashBytesFNV1a(bytes) {
   let hash = 0x811c9dc5;
@@ -42,7 +43,9 @@ async function processAllImages({
   onImageFailure = null,
 }) {
 
+    const activeDocument = getActiveDocument();
     const div = createHtmlContainer('div', html);
+    if (!activeDocument || !div) return html;
     const imgs = Array.from(div.querySelectorAll('img'));
 
     // 1. 提取唯一图片 URL
@@ -120,7 +123,7 @@ async function processAllImages({
       if (urlMap.has(img.src)) {
         img.src = urlMap.get(img.src);
       } else if (failedSrcs.has(img.src)) {
-        const placeholder = document.createElement('p');
+        const placeholder = activeDocument.createElement('p');
         const failedImagePlaceholderStyle = 'margin:12px 0;padding:10px 12px;border:1px dashed #d0d7de;border-radius:6px;color:#8c6d1f;background:#fff8e5;font-size:13px;line-height:1.7;';
         placeholder.setAttribute('style', failedImagePlaceholderStyle);
         placeholder.textContent = `图片上传失败，请在微信后台手动补传：${img.getAttribute('src') || img.src}`;
@@ -186,7 +189,10 @@ async function processMathFormulas({
     };
 
     // 创建临时容器并挂载到 DOM (为了正确计算 SVG 尺寸)
-    const container = document.createElement('div');
+    const activeDocument = getActiveDocument();
+    if (!activeDocument?.body) return html;
+
+    const container = activeDocument.createElement('div');
     container.setCssStyles({
       position: 'absolute',
       left: '-9999px',
@@ -194,7 +200,7 @@ async function processMathFormulas({
       width: '800px',
     }); // 模拟常见的文章宽度
     setElementHtml(container, html);
-    document.body.appendChild(container);
+    activeDocument.body.appendChild(container);
 
     try {
       // 查找所有 SVG 容器 (MathJax 公式或其他矢量图)
@@ -247,7 +253,7 @@ async function processMathFormulas({
           }
 
           // 3. 替换 DOM
-          const img = document.createElement('img');
+          const img = activeDocument.createElement('img');
           img.src = wechatUrl;
           img.className = 'math-formula-image';
 
@@ -263,7 +269,7 @@ async function processMathFormulas({
           if (isBlockMath) {
              const extraStyle = appendStyle(filterMathStyle(svgStyle), rawStyle);
              img.setAttribute('style', appendStyle(BLOCK_MATH_IMAGE_STYLE, extraStyle));
-             const wrapper = document.createElement('section');
+             const wrapper = activeDocument.createElement('section');
              wrapper.setAttribute('style', BLOCK_MATH_WRAP_STYLE);
              wrapper.appendChild(img);
 
@@ -302,7 +308,7 @@ async function processMathFormulas({
       return container.innerHTML;
     } finally {
       // 清理 DOM
-      document.body.removeChild(container);
+      activeDocument.body.removeChild(container);
     }
   }
 

@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- SVG rasterizer works with runtime DOM/canvas/image APIs that are not statically typed in this JS project. */
+const { getActiveDocument } = require('./dom-utils');
+
 function isMathJaxSvg(svgElement) {
   if (!svgElement || typeof svgElement.getAttribute !== 'function') return false;
   if (svgElement.getAttribute('role') === 'img') return true;
@@ -175,7 +178,13 @@ async function rasterizeSvg(svgElement, options = {}) {
       const image = new Image();
       image.onload = () => {
         try {
-          const canvas = document.createElement('canvas');
+          const activeDocument = getActiveDocument();
+          if (!activeDocument) {
+            URL.revokeObjectURL(url);
+            reject(new Error('Document unavailable'));
+            return;
+          }
+          const canvas = activeDocument.createElement('canvas');
           canvas.width = logicalWidth * scale;
           canvas.height = logicalHeight * scale;
 

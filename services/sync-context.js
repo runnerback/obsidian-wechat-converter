@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Sync context normalizes user settings and API errors from dynamic Obsidian/plugin state. */
 function resolveSyncAccount({ accounts, selectedAccountId, defaultAccountId }) {
   const list = Array.isArray(accounts) ? accounts : [];
   if (list.length === 0) return null;

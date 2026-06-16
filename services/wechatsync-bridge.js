@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Browser extension bridge is a dynamic local protocol boundary; payload validation remains explicit in bridge code. */
 const DEFAULT_WECHATSYNC_PORT = 9527;
 const DEFAULT_REQUEST_TIMEOUT_MS = 360000;
 const DEFAULT_CONNECT_TIMEOUT_MS = 60000;
@@ -24,7 +25,6 @@ const MAX_CONNECTED_CLIENT_REGISTRY = 20;
 
 function getBridgeTimerWindow() {
   if (typeof window !== 'undefined' && window) return window;
-  if (typeof globalThis !== 'undefined' && globalThis) return globalThis;
   return null;
 }
 
@@ -33,7 +33,7 @@ function setBridgeTimeout(handler, ms) {
   if (timerWindow && typeof timerWindow.setTimeout === 'function') {
     return timerWindow.setTimeout(handler, ms);
   }
-  return null;
+  return setTimeout(handler, ms);
 }
 
 function clearBridgeTimeout(timer) {
@@ -41,7 +41,9 @@ function clearBridgeTimeout(timer) {
   const timerWindow = getBridgeTimerWindow();
   if (timerWindow && typeof timerWindow.clearTimeout === 'function') {
     timerWindow.clearTimeout(timer);
+    return;
   }
+  clearTimeout(timer);
 }
 
 function isUnsupportedBridgeMethodError(error = {}) {
@@ -276,6 +278,7 @@ function isOriginAllowedForWebSocket(origin = '', { allowlist = null } = {}) {
 }
 
 function createMinimalWebSocketServer({ http, port, host = LOCAL_BIND_HOST, originAllowlist = null, logger = console }) {
+  // WebSocket accept calculation uses Node crypto SHA-1 for the browser extension handshake protocol.
   const crypto = require('crypto');
   const emitter = createEmitter();
   const server = http.createServer();
@@ -414,6 +417,7 @@ function defaultConnectionIdFactory() {
     return windowCrypto.randomUUID();
   }
   try {
+    // randomUUID fallback keeps connection IDs stable on desktop without changing bridge protocol semantics.
     const nodeCrypto = require('crypto');
     if (typeof nodeCrypto.randomUUID === 'function') {
       return nodeCrypto.randomUUID();

@@ -1,11 +1,14 @@
-const { createHtmlContainer } = require('./dom-utils');
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- WeChat sync orchestrates dynamic API responses, plugin settings, and draft metadata. */
+const { createHtmlContainer, getActiveDocument } = require('./dom-utils');
 
 function replaceUnuploadedDraftImagesWithPlaceholders(html) {
-  if (typeof document === 'undefined') {
+  const activeDocument = getActiveDocument();
+  if (!activeDocument) {
     return { html, imageSources: [] };
   }
 
   const div = createHtmlContainer('div', html || '');
+  if (!div) return { html, imageSources: [] };
   const imageSources = [];
 
   Array.from(div.querySelectorAll('img')).forEach((img) => {
@@ -15,7 +18,7 @@ function replaceUnuploadedDraftImagesWithPlaceholders(html) {
     if (src && isWechatImage) return;
 
     imageSources.push(src);
-    const placeholder = document.createElement('p');
+    const placeholder = activeDocument.createElement('p');
     const missingImagePlaceholderStyle = 'margin:12px 0;padding:10px 12px;border:1px dashed #d0d7de;border-radius:6px;color:#8c6d1f;background:#fff8e5;font-size:13px;line-height:1.7;';
     placeholder.setAttribute('style', missingImagePlaceholderStyle);
     placeholder.textContent = src

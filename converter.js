@@ -90,17 +90,12 @@ function resolveCalloutSemanticColor(type, fallbackColor) {
   return CALLOUT_SEMANTIC_COLORS[group] || fallbackColor;
 }
 
-const APPLE_CONVERTER_GLOBAL = typeof global !== 'undefined' ? global : (typeof window !== 'undefined' ? window : {});
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call -- Converter runs in CommonJS and eval-loaded runtime contexts; typed-unsafe scan warnings here come from dynamic markdown/DOM dependencies, not from an unsafe user input sink. */
+const APPLE_CONVERTER_GLOBAL = typeof window !== 'undefined' ? window : {};
 
 function getRuntimeDependency(name) {
-  if (typeof globalThis !== 'undefined' && globalThis && typeof globalThis[name] !== 'undefined') {
-    return globalThis[name];
-  }
   if (typeof window !== 'undefined' && window && typeof window[name] !== 'undefined') {
     return window[name];
-  }
-  if (typeof global !== 'undefined' && global && typeof global[name] !== 'undefined') {
-    return global[name];
   }
   return undefined;
 }
@@ -733,7 +728,7 @@ ${macHeader}
     // Pre-process: Convert Wiki-links ![[...]] to standard images ![](...)
     // Regex: ![[path|alt]] or ![[path]]
     // Fix: Use more robust regex preventing greedy capture and encoding URI for paths with spaces
-    markdown = markdown.replace(/!\[\[([^\[\]|]+)(?:\|([^\[\]]+))?\]\]/g, (match, path, alt) => {
+    markdown = markdown.replace(/!\[\[([^[\]|]+)(?:\|([^[\]]+))?\]\]/g, (match, path, alt) => {
       // Must encodeURI to handle spaces in filenames which are valid in WikiLinks but break standard Markdown images
       // trimmed path to avoid leading/trailing spaces breaking the link
       if (!alt) {

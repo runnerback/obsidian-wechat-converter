@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Mermaid integration consumes dynamic Mermaid/DOM SVG output and rasterizes it for WeChat compatibility. */
 const { isMathJaxSvg, rasterizeSvgToPngDataUrl } = require('./svg-rasterizer');
-const { setElementHtml } = require('./dom-utils');
+const { getActiveDocument, setElementHtml } = require('./dom-utils');
 
 const MERMAID_COMPAT_THEME = {
   theme: 'base',
@@ -209,7 +210,8 @@ function wrapMermaidLabelText(text, maxUnits) {
 }
 
 function flattenMermaidForeignObjectLabels(svg) {
-  if (!svg || typeof svg.querySelectorAll !== 'function' || typeof document === 'undefined') return 0;
+  const activeDocument = getActiveDocument();
+  if (!svg || typeof svg.querySelectorAll !== 'function' || !activeDocument) return 0;
 
   const foreignObjects = Array.from(svg.querySelectorAll('foreignObject'));
   let flattened = 0;
@@ -242,7 +244,7 @@ function flattenMermaidForeignObjectLabels(svg) {
     const lineHeight = Math.max(fontSize * 1.2, 14);
     const startY = centerY - ((lines.length - 1) * lineHeight) / 2;
 
-    const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    const textEl = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'text');
     textEl.setAttribute('x', String(centerX));
     textEl.setAttribute('text-anchor', 'middle');
     textEl.setAttribute('fill', fill);
@@ -253,7 +255,7 @@ function flattenMermaidForeignObjectLabels(svg) {
     textEl.setAttribute('style', readableTextStyle);
 
     lines.forEach((line, index) => {
-      const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      const tspan = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'tspan');
       tspan.setAttribute('x', String(centerX));
       tspan.setAttribute('y', String(startY + (index * lineHeight) + (fontSize * 0.35)));
       tspan.textContent = line;
@@ -320,7 +322,8 @@ function unwrapMermaidHtmlLabelParagraphs(svg) {
 }
 
 function convertMermaidForeignObjectContainers(svg) {
-  if (!svg || typeof svg.querySelectorAll !== 'function' || typeof document === 'undefined') return 0;
+  const activeDocument = getActiveDocument();
+  if (!svg || typeof svg.querySelectorAll !== 'function' || !activeDocument) return 0;
   const labelNodes = Array.from(svg.querySelectorAll('.nodeLabel, .edgeLabel'));
   let count = 0;
 
@@ -331,7 +334,7 @@ function convertMermaidForeignObjectContainers(svg) {
     if (grand.getAttribute('data-owc-mermaid-label-host') === 'true') continue;
     if (grand.tagName.toLowerCase() !== 'foreignobject') continue;
 
-    const section = document.createElement('section');
+    const section = activeDocument.createElement('section');
     const xmlns = parent.getAttribute('xmlns');
     const style = parent.getAttribute('style');
     if (xmlns) section.setAttribute('xmlns', xmlns);
@@ -435,7 +438,9 @@ async function convertRenderedMermaidDiagramsToImages(root, options = {}) {
 
       if (!result?.dataUrl) continue;
 
-      const img = document.createElement('img');
+      const activeDocument = getActiveDocument();
+      if (!activeDocument) continue;
+      const img = activeDocument.createElement('img');
       img.setAttribute('src', result.dataUrl);
       img.setAttribute('alt', 'Mermaid diagram');
       img.setAttribute('class', 'mermaid-diagram-image');
@@ -505,7 +510,7 @@ function resolveMermaidApi(options = {}) {
   if (options.mermaidApi && typeof options.mermaidApi.render === 'function') {
     return options.mermaidApi;
   }
-  const globalApi = globalThis?.mermaid || (typeof window !== 'undefined' ? window.mermaid : null);
+  const globalApi = typeof window !== 'undefined' ? window.mermaid : null;
   if (globalApi && typeof globalApi.render === 'function') {
     return globalApi;
   }
@@ -534,7 +539,9 @@ async function renderMermaidCodeBlocks(root, options = {}) {
       const svg = typeof renderResult === 'string' ? renderResult : renderResult?.svg || '';
       if (!svg) continue;
 
-      const host = document.createElement('div');
+      const activeDocument = getActiveDocument();
+      if (!activeDocument) continue;
+      const host = activeDocument.createElement('div');
       host.setAttribute('class', 'mermaid');
       host.setAttribute('data-obsidian-wechat-mermaid', 'true');
       setElementHtml(host, svg);
@@ -581,7 +588,9 @@ async function rasterizeRenderedMermaidDiagrams(root, options = {}) {
         flattenMermaidForeignObjectLabels(svg);
         result = await rasterizeSvg(svg, { scale });
       }
-      const img = document.createElement('img');
+      const activeDocument = getActiveDocument();
+      if (!activeDocument) continue;
+      const img = activeDocument.createElement('img');
       img.setAttribute('src', result.dataUrl);
       img.setAttribute('alt', 'Mermaid diagram');
       img.setAttribute('class', 'mermaid-diagram-image');

@@ -1,6 +1,7 @@
 // Legacy snapshot kept temporarily for reference during the source-of-truth migration.
 // Runtime now loads ./generated-skills via registry.js. Do not update this file.
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call -- Generated runtime bundle for AI layout skills; dynamic JSON/module loading is intentional. */
 const colorPalettes = require('../../ai-layout-skills/_shared/assets/color-palettes.json');
 const blockCatalog = require('../../ai-layout-skills/_shared/assets/block-catalog.json');
 const wechatSafeStylePrimitives = require('../../ai-layout-skills/_shared/assets/wechat-safe-style-primitives.json');

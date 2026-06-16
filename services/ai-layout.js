@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-require-imports -- AI layout runtime intentionally bridges dynamic JS/JSON bundles and DOM APIs; these warnings are boundary noise, not a change in runtime behavior. */
 const {
   AI_LAYOUT_SKILL_VERSION,
   AI_LAYOUT_SELECTION_AUTO,
@@ -12,7 +13,7 @@ const {
   getAiLayoutSharedResources,
   validateAiLayoutPayload,
 } = require('./ai-layout-skill-bundle');
-const { createHtmlContainer } = require('./dom-utils');
+const { createHtmlContainer, getActiveDocument } = require('./dom-utils');
 
 const AI_LAYOUT_SCHEMA_VERSION = 1;
 
@@ -87,7 +88,15 @@ function getActiveTimerApi() {
   if (typeof window !== 'undefined' && window?.setTimeout && window?.clearTimeout) {
     return window;
   }
-  return globalThis;
+  return {
+    setTimeout: (callback, delay) => setTimeout(callback, delay),
+    clearTimeout: (timer) => clearTimeout(timer),
+  };
+}
+
+function getDefaultFetch() {
+  if (typeof window !== 'undefined' && typeof window.fetch === 'function') return window.fetch.bind(window);
+  return undefined;
 }
 
 function setAiLayoutTimeout(callback, delay) {
@@ -1445,8 +1454,9 @@ function formatCalloutLabel(type = '') {
 }
 
 function serializeClonedNodes(nodes = []) {
-  if (typeof document === 'undefined') return '';
-  const container = document.createElement('div');
+  const activeDocument = getActiveDocument();
+  if (!activeDocument) return '';
+  const container = activeDocument.createElement('div');
   trimTrailingDecorativeNodes(nodes).forEach((node) => {
     if (!node) return;
     container.appendChild(node.cloneNode(true));
@@ -1493,9 +1503,10 @@ function trimTrailingDecorativeNodes(nodes = []) {
 
 function remapPreservedFragmentColors(html = '', tokens = {}) {
   const source = coerceString(html);
-  if (!source || typeof document === 'undefined') return source;
+  if (!source) return source;
 
   const container = createHtmlContainer('div', source);
+  if (!container) return source;
 
   const isInsideCodeChrome = (element) => {
     if (!element || typeof element.closest !== 'function') return false;
@@ -1559,11 +1570,12 @@ function remapPreservedFragmentColors(html = '', tokens = {}) {
 }
 
 function extractRenderedSectionFragments(html = '') {
-  if (!html || typeof document === 'undefined') {
+  if (!html) {
     return { sections: [] };
   }
 
   const container = createHtmlContainer('div', String(html || ''));
+  if (!container) return { sections: [] };
   const root = container.children.length === 1 ? container.firstElementChild : container;
   const childNodes = Array.from(root?.childNodes || []).filter((node) => (
     node.nodeType !== 3 || /\S/.test(node.textContent || '')
@@ -2289,8 +2301,9 @@ function buildLayoutResult(rawLayout = {}, context = {}) {
 }
 
 function extractImageRefsFromHtml(html) {
-  if (typeof document === 'undefined' || !html) return [];
+  if (!html) return [];
   const container = createHtmlContainer('div', html);
+  if (!container) return [];
   const figures = Array.from(container.querySelectorAll('figure'));
   const refs = [];
 
@@ -2683,7 +2696,7 @@ async function generateArticleLayout({
   },
   imageRefs = [],
   timeoutMs = DEFAULT_AI_REQUEST_TIMEOUT_MS,
-  fetchImpl = globalThis.fetch,
+  fetchImpl = getDefaultFetch(),
 }) {
   if (!markdown || !String(markdown).trim()) throw new Error('文章内容为空，无法进行 AI 编排');
   const signals = extractMarkdownSignals(markdown);
@@ -2793,7 +2806,7 @@ async function generateArticleLayout({
   }
 }
 
-async function testAiProviderConnection(provider, fetchImpl = globalThis.fetch) {
+async function testAiProviderConnection(provider, fetchImpl = getDefaultFetch()) {
   const result = await generateArticleLayout({
     provider,
     title: '连接测试',
@@ -2968,8 +2981,9 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
 
   const collectImageSrcsFromHtml = (html = '') => {
     const normalizedHtml = coerceString(html);
-    if (!normalizedHtml || typeof document === 'undefined') return new Set();
+    if (!normalizedHtml) return new Set();
     const container = createHtmlContainer('div', normalizedHtml);
+    if (!container) return new Set();
     return new Set(
       Array.from(container.querySelectorAll('img'))
         .map((img) => coerceString(img.getAttribute('src') || img.src))

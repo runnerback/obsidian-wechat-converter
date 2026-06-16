@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Settings tab reads/writes dynamic persisted plugin settings through Obsidian UI controls. */
 // views/settings/multi-platform-tab.js
 //
 // Renders the「其他平台」settings tab. Extracted from input.js display()

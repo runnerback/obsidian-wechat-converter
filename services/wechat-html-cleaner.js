@@ -1,8 +1,12 @@
-const { createHtmlContainer } = require('./dom-utils');
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Draft cleaner transforms dynamic DOM nodes created from sanitized rendered HTML. */
+const { createHtmlContainer, getActiveDocument } = require('./dom-utils');
 
 function cleanHtmlForDraft(html) {
 
+    const activeDocument = getActiveDocument();
+    if (!activeDocument) return html;
     const div = createHtmlContainer('div', html);
+    if (!div) return html;
 
     const decodeFragment = (value) => {
       try {
@@ -35,7 +39,7 @@ function cleanHtmlForDraft(html) {
       root.querySelectorAll('a[href]').forEach((anchor) => {
         if (!isTagLikeFragmentLink(anchor)) return;
 
-        const fragment = document.createDocumentFragment();
+        const fragment = activeDocument.createDocumentFragment();
         while (anchor.firstChild) {
           fragment.appendChild(anchor.firstChild);
         }
@@ -114,7 +118,7 @@ function cleanHtmlForDraft(html) {
         }
 
         if (node.nodeType === Node.ELEMENT_NODE) {
-          if (sawBreak) paragraph.insertBefore(document.createTextNode(' '), node);
+          if (sawBreak) paragraph.insertBefore(activeDocument.createTextNode(' '), node);
           return;
         }
       }
@@ -142,13 +146,13 @@ function cleanHtmlForDraft(html) {
       );
       if (!allInlineParagraphs) return;
 
-      const fragment = document.createDocumentFragment();
+      const fragment = activeDocument.createDocumentFragment();
       meaningfulChildren.forEach((paragraph, index) => {
         while (paragraph.firstChild) {
           fragment.appendChild(paragraph.firstChild);
         }
         if (index < meaningfulChildren.length - 1) {
-          fragment.appendChild(document.createTextNode(' '));
+          fragment.appendChild(activeDocument.createTextNode(' '));
         }
       });
 
@@ -192,7 +196,7 @@ function cleanHtmlForDraft(html) {
         }
 
         if (node.nodeType === Node.ELEMENT_NODE) {
-          if (sawBreak) li.insertBefore(document.createTextNode(' '), node);
+          if (sawBreak) li.insertBefore(activeDocument.createTextNode(' '), node);
           return;
         }
       }
@@ -216,7 +220,7 @@ function cleanHtmlForDraft(html) {
       if (!firstNode || firstNode.nodeType !== Node.ELEMENT_NODE) return;
       if (!['STRONG', 'CODE'].includes(firstNode.tagName)) return;
 
-      const span = document.createElement('span');
+      const span = activeDocument.createElement('span');
       const currentStyle = firstNode.getAttribute('style') || '';
       const cleanedStyle = currentStyle
         .replace(/display\s*:\s*[^;]+;?/gi, '')
@@ -288,7 +292,7 @@ function cleanHtmlForDraft(html) {
           if (!text) continue;
           if (!sawBreak) return;
           if (prefixEndsAscii || /^[A-Za-z0-9]/.test(text)) {
-            li.insertBefore(document.createTextNode(' '), node);
+            li.insertBefore(activeDocument.createTextNode(' '), node);
           }
           return;
         }
@@ -323,7 +327,7 @@ function cleanHtmlForDraft(html) {
       if (!text.trim()) return;
       if (/[：:]$/.test(firstText) || /^\s*[：:]/.test(text)) return;
 
-      const span = document.createElement('span');
+      const span = activeDocument.createElement('span');
       const inlineContinuationStyle = 'display:inline !important;';
       span.setAttribute('style', inlineContinuationStyle);
       span.textContent = text;
@@ -357,7 +361,7 @@ function cleanHtmlForDraft(html) {
       // Only bundle short leading chunks (e.g. "登录用"+"的用户名", "SSH 端口"+"（通常是 22）").
       if (secondText.length > 16) return;
 
-      const bundle = document.createElement('span');
+      const bundle = activeDocument.createElement('span');
       const noWrapBundleStyle = 'display:inline-block; white-space:nowrap;';
       bundle.setAttribute('style', noWrapBundleStyle);
 
@@ -387,7 +391,7 @@ function cleanHtmlForDraft(html) {
       const hasColon = /[：:]$/.test(firstText) || /^\s*[：:]/.test(secondText);
       if (!hasColon) return;
 
-      const wrapper = document.createElement('span');
+      const wrapper = activeDocument.createElement('span');
       const liStyle = li.getAttribute('style') || '';
       const lineHeightMatch = liStyle.match(/line-height:\s*[^;]+/i);
       const lineHeight = lineHeightMatch ? `${lineHeightMatch[0]};` : '';
@@ -420,7 +424,7 @@ function cleanHtmlForDraft(html) {
       if (first.lastChild && first.lastChild.nodeType === Node.TEXT_NODE) {
         first.lastChild.textContent = first.lastChild.textContent.replace(/\s*$/, ' ');
       } else {
-        first.appendChild(document.createTextNode(' '));
+        first.appendChild(activeDocument.createTextNode(' '));
       }
 
       while (second.firstChild) {
@@ -477,7 +481,7 @@ function cleanHtmlForDraft(html) {
 
       if (hasBlock) return;
 
-      const wrapper = document.createElement('span');
+      const wrapper = activeDocument.createElement('span');
       const liStyle = li.getAttribute('style') || '';
       const lineHeightMatch = liStyle.match(/line-height:\s*[^;]+/i);
       const lineHeight = lineHeightMatch ? `${lineHeightMatch[0]};` : '';
@@ -499,7 +503,7 @@ function cleanHtmlForDraft(html) {
     };
 
     const buildPseudoItems = (list, depth) => {
-      const fragment = document.createDocumentFragment();
+      const fragment = activeDocument.createDocumentFragment();
       const isOrdered = list.tagName === 'OL';
       let index = 1;
 
@@ -512,7 +516,7 @@ function cleanHtmlForDraft(html) {
 
         const liStyle = li.getAttribute('style') || '';
         const indent = Math.max(0, depth - 1) * 20;
-        const wrapper = document.createElement('p');
+        const wrapper = activeDocument.createElement('p');
         wrapper.setAttribute(
           'style',
           `${liStyle} margin:0 0 4px ${indent}px; padding:0;`
@@ -524,7 +528,7 @@ function cleanHtmlForDraft(html) {
           if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'P') {
             const children = Array.from(node.childNodes);
             if (children.length && contentNodes.length) {
-              contentNodes.push(document.createTextNode(' '));
+              contentNodes.push(activeDocument.createTextNode(' '));
             }
             children.forEach(child => contentNodes.push(child));
             return;
@@ -567,7 +571,7 @@ function cleanHtmlForDraft(html) {
           if (firstText) {
             firstText.textContent = markerText + firstText.textContent;
           } else {
-            contentNodes.unshift(document.createTextNode(markerText));
+            contentNodes.unshift(activeDocument.createTextNode(markerText));
           }
 
           contentNodes.forEach(node => wrapper.appendChild(node));

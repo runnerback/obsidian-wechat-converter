@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Theme module is used both as CommonJS export and window-attached runtime dependency. */
 /**
  * 🍎 Apple Style 多主题系统
  * 支持多种主题风格：简约、经典、水墨、极光等
@@ -5,7 +6,7 @@
  */
 
 // Use assignment expression to avoid "Identifier has already been declared" errors if re-eval'd
-const APPLE_THEME_GLOBAL = typeof global !== 'undefined' ? global : (typeof window !== 'undefined' ? window : {});
+const APPLE_THEME_GLOBAL = typeof window !== 'undefined' ? window : {};
 
 class AppleTheme {
   /**

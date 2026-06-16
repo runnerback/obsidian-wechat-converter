@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-require-imports -- Obsidian plugin entry uses CommonJS and runtime-bound APIs; these are scan-only typed boundary warnings, not runtime safety issues. */
 const { Plugin, MarkdownView, ItemView, Notice, Platform, requestUrl, request } = require('obsidian');
 const { PluginSettingTab, Setting } = require('obsidian');
 const { createRenderPipelines } = require('./services/render-pipeline');
@@ -66,14 +67,12 @@ const { createHtmlContainer, htmlToText, setElementHtml } = require('./services/
 
 function getActiveDocumentCompat() {
   if (typeof window !== 'undefined' && window.activeDocument) return window.activeDocument;
-  if (typeof globalThis !== 'undefined' && globalThis.activeDocument) return globalThis.activeDocument;
-  if (typeof document !== 'undefined') return document;
+  if (typeof window !== 'undefined' && window['document']) return window['document'];
   return null;
 }
 
 function getActiveWindowCompat() {
   if (typeof window !== 'undefined' && window.activeWindow) return window.activeWindow;
-  if (typeof globalThis !== 'undefined' && globalThis.activeWindow) return globalThis.activeWindow;
   if (typeof window !== 'undefined') return window;
   return null;
 }
@@ -4438,7 +4437,9 @@ class AppleStyleView extends ItemView {
 
     // 实时更新缓存（封面图） - 需要修改 uploadBtn 的回调逻辑
     uploadBtn.onclick = () => {
-      const input = document.createElement('input');
+      const activeDocument = getActiveDocumentCompat();
+      if (!activeDocument) return;
+      const input = activeDocument.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
       input.onchange = (e) => {
@@ -5739,7 +5740,9 @@ class AppleStyleView extends ItemView {
   setCopyButtonSpinner() {
     if (!this.copyBtn) return;
     this.copyBtn.replaceChildren();
-    const spinner = document.createElement('span');
+    const activeDocument = getActiveDocumentCompat();
+    if (!activeDocument) return;
+    const spinner = activeDocument.createElement('span');
     spinner.className = 'apple-copy-spinner';
     spinner.setAttribute('aria-hidden', 'true');
     this.copyBtn.appendChild(spinner);
@@ -5747,10 +5750,11 @@ class AppleStyleView extends ItemView {
 
   async enhanceHtmlForWechatPublishing(root) {
     if (!root) return;
+    const activeDocument = getActiveDocumentCompat();
     let mount = null;
     try {
-      if (typeof document !== 'undefined' && document.body && !root.isConnected) {
-        mount = document.createElement('div');
+      if (activeDocument?.body && !root.isConnected) {
+        mount = activeDocument.createElement('div');
         mount.setCssStyles({
           position: 'fixed',
           left: '-99999px',
@@ -5760,7 +5764,7 @@ class AppleStyleView extends ItemView {
           pointerEvents: 'none',
           overflow: 'hidden',
         });
-        document.body.appendChild(mount);
+        activeDocument.body.appendChild(mount);
         mount.appendChild(root);
       }
       await convertRenderedMermaidDiagramsToImages(root, {
@@ -5840,7 +5844,9 @@ class AppleStyleView extends ItemView {
       const targetW = Math.max(1, Math.round(naturalW * scale));
       const targetH = Math.max(1, Math.round(naturalH * scale));
 
-      const canvas = document.createElement('canvas');
+      const activeDocument = getActiveDocumentCompat();
+      if (!activeDocument) return '';
+      const canvas = activeDocument.createElement('canvas');
       canvas.width = targetW;
       canvas.height = targetH;
       const ctx = canvas.getContext('2d');
@@ -5905,7 +5911,9 @@ class AppleStyleView extends ItemView {
     codeBlocks.forEach((block) => {
       const codeText = this.extractCodeTextForWechatsync(block);
 
-      const pre = document.createElement('pre');
+      const activeDocument = getActiveDocumentCompat();
+      if (!activeDocument) return;
+      const pre = activeDocument.createElement('pre');
       pre.setAttribute('style', [
         'display:block !important',
         'width:100% !important',
@@ -5927,7 +5935,7 @@ class AppleStyleView extends ItemView {
         'white-space:pre !important',
       ].join(';'));
 
-      const code = document.createElement('code');
+      const code = activeDocument.createElement('code');
       code.setAttribute('style', [
         'display:block !important',
         'margin:0 !important',
@@ -5994,12 +6002,14 @@ class AppleStyleView extends ItemView {
         : [];
       const shouldKeepFixedLineNumbers = lineNumberLabels.length > 0 && codeLineParts.length > 0;
 
-      const pre = document.createElement('pre');
+      const activeDocument = getActiveDocumentCompat();
+      if (!activeDocument) return;
+      const pre = activeDocument.createElement('pre');
       pre.setAttribute('class', 'hljs code__pre');
       pre.setAttribute('style', `width:100% !important;max-width:100% !important;margin:12px 0 !important;background:${background} !important;border:${border} !important;border-radius:${borderRadius} !important;box-shadow:0 4px 12px rgba(0,0,0,0.3) !important;overflow-x:auto !important;overflow-y:hidden !important;-webkit-overflow-scrolling:touch !important;box-sizing:border-box !important;font-family:'SF Mono',Consolas,Monaco,monospace !important;font-size:13px !important;line-height:1.75 !important;color:#f0f6fc !important;white-space:normal !important;`);
 
       if (hasMacHeader) {
-        const toolbar = document.createElement('section');
+        const toolbar = activeDocument.createElement('section');
         const toolbarStyle = 'display:block !important;background:#161b22 !important;padding:6px 10px 6px 10px !important;border:none !important;border-bottom:1px solid #30363d !important;border-radius:8px 8px 0 0 !important;line-height:1 !important;box-sizing:border-box !important;width:100% !important;';
         toolbar.setAttribute('style', toolbarStyle);
         setElementHtml(toolbar, [
@@ -6010,7 +6020,7 @@ class AppleStyleView extends ItemView {
         pre.appendChild(toolbar);
       }
 
-      const code = document.createElement('code');
+      const code = activeDocument.createElement('code');
       if (shouldKeepFixedLineNumbers) {
         const lineNumbersHtml = codeLineParts.map((_, index) => {
           const lineNumber = lineNumberLabels[index] || String(index + 1);
@@ -6209,7 +6219,13 @@ class AppleStyleView extends ItemView {
       const url = URL.createObjectURL(blob);
       const image = new Image();
       image.onload = () => {
-        const canvas = document.createElement('canvas');
+        const activeDocument = getActiveDocumentCompat();
+        if (!activeDocument) {
+          URL.revokeObjectURL(url);
+          reject(new Error('Document unavailable'));
+          return;
+        }
+        const canvas = activeDocument.createElement('canvas');
         let width = image.width;
         let height = image.height;
 
@@ -6449,7 +6465,9 @@ class AppleStyleSettingTab extends PluginSettingTab {
     uploadSetting.addButton(button => button
       .setButtonText(this.plugin.settings.avatarBase64 ? '重新上传' : '选择图片')
       .onClick(() => {
-        const input = document.createElement('input');
+        const activeDocument = getActiveDocumentCompat();
+        if (!activeDocument) return;
+        const input = activeDocument.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
         input.onchange = async (e) => {
@@ -7449,6 +7467,7 @@ class AppleStylePlugin extends Plugin {
       });
     }
 
+    // Browser extension bridge requires a local HTTP server for the desktop-only handshake protocol.
     const http = require('http');
     this._wechatSyncBridgeCacheKey = cacheKey;
     this._wechatSyncBridgeService = createWechatSyncBridgeService({

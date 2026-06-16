@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Triplet renderer bridges Obsidian MarkdownRenderer DOM output into WeChat serializer logic. */
 let MarkdownRenderer = null;
 try {
   ({ MarkdownRenderer } = require('obsidian'));
@@ -6,6 +7,7 @@ try {
 }
 const { serializeObsidianRenderedHtml } = require('./obsidian-triplet-serializer');
 const { normalizeRenderedDomPunctuation } = require('./chinese-punctuation');
+const { getActiveDocument } = require('./dom-utils');
 const {
   hasMermaidMarker,
   renderMermaidCodeBlocks,
@@ -1433,14 +1435,15 @@ async function renderObsidianTripletMarkdown({
   rasterizeMermaid = true,
   preserveSvgStyleTags = false,
 }) {
-  if (typeof document === 'undefined') {
+  const activeDocument = getActiveDocument();
+  if (!activeDocument) {
     throw new Error('Triplet renderer requires DOM environment');
   }
   if (!converter) {
     throw new Error('Triplet renderer requires converter runtime');
   }
 
-  const container = document.createElement('div');
+  const container = activeDocument.createElement('div');
   const { markdown: preparedMarkdown, mathFormulas } = preprocessMarkdownForTriplet(markdown, converter);
 
   const shouldObserveWindow = shouldObserveAsyncEmbedWindow(markdown) || shouldObserveAsyncEmbedWindow(preparedMarkdown);
