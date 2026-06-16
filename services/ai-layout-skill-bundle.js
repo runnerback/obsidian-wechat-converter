@@ -6,7 +6,6 @@ const {
 } = require('./ai-layout-runtime/registry');
 
 const AI_LAYOUT_SELECTION_AUTO = 'auto';
-const registry = loadAiLayoutSkillRegistry();
 const shared = getAiLayoutSharedResources();
 
 const AI_LAYOUT_SKILL_VERSION = shared.version || '2026.03.25-alpha.1';

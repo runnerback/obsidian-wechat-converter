@@ -54,10 +54,25 @@ function normalizeMermaidPreviewHost(host) {
   });
 }
 
+function setCssStylesCompat(el, styles = {}) {
+  if (!el || !styles) return;
+  if (typeof el.setCssStyles === 'function') {
+    el.setCssStyles(styles);
+    return;
+  }
+  const declarations = Object.entries(styles)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([property, value]) => `${property.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)}:${value};`)
+    .join('');
+  if (declarations) {
+    appendInlineStyle(el, declarations);
+  }
+}
+
 function normalizeMermaidPreviewSvg(svg) {
   if (!svg || typeof svg.setAttribute !== 'function') return;
   svg.classList?.add?.('owc-mermaid-diagram');
-  Object.assign(svg.style, {
+  setCssStylesCompat(svg, {
     display: 'block',
     width: '100%',
     maxWidth: '100%',
@@ -121,7 +136,7 @@ function inlineMermaidSvgStyles(svg) {
           } else {
             targets = Array.from(svg.querySelectorAll(selector));
           }
-        } catch (error) {
+        } catch {
           continue;
         }
 
@@ -356,6 +371,7 @@ function prepareRenderedMermaidDiagramsForWechat(root) {
   const svgs = Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg);
   for (const svg of svgs) {
     unwrapMermaidHtmlLabelParagraphs(svg);
+    convertMermaidForeignObjectContainers(svg);
     flattenMermaidForeignObjectLabels(svg);
     enforceMermaidTextReadability(svg);
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');

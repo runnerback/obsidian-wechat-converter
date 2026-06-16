@@ -821,10 +821,6 @@ function getStylePackById(id) {
   return getColorPaletteById(id);
 }
 
-function getColorPaletteTokenPack(id) {
-  return getColorPaletteById(id);
-}
-
 function getArticleLayoutSelectionState(entry, selection = {}, defaults = {}) {
   const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
   if (!normalizedEntry) return null;
@@ -3281,8 +3277,6 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
             )}
             ${preservedSubsectionHtml || `${subsectionParagraphs}${subsectionBullets}${subsectionCallouts}`}
           `;
-          const subsectionRailWidth = isTutorialCards ? 3 : 2;
-          const subsectionRailGap = isTutorialCards ? 12 : 14;
           const subsectionContentHtml = subsectionHasAccentRail
             ? (isDraft && isTutorialCards
               ? subsectionInnerHtml

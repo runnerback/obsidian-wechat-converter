@@ -7,7 +7,7 @@ function cleanHtmlForDraft(html) {
     const decodeFragment = (value) => {
       try {
         return decodeURIComponent(value);
-      } catch (error) {
+      } catch {
         return value;
       }
     };

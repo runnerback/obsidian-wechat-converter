@@ -121,7 +121,7 @@ describe('renderWechatsyncConnectionStatusBar - DOM contract', () => {
   it('renders an action button and wires onClick handler', () => {
     const parent = createObsidianLikeElement('div');
     const onClick = vi.fn();
-    const { bar, actionButton } = renderWechatsyncConnectionStatusBar(parent, {
+    const { actionButton } = renderWechatsyncConnectionStatusBar(parent, {
       dotLabel: '未连接',
       dotClass: 'is-error',
       text: '上次失败',

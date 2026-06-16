@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 // Alias configured in vitest.config.mjs handles the mock
 const { AppleStyleView } = require('../input.js');

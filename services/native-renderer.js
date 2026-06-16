@@ -10,7 +10,7 @@ function isSafeRawImageSrc(src) {
   try {
     const parsed = new URL(trimmed);
     return safeProtocols.includes(parsed.protocol);
-  } catch (error) {
+  } catch {
     // Raw HTML <img src="relative/path"> bypasses converter path resolution and
     // frequently becomes broken icons in WeChat preview, so native path removes it.
     return false;

@@ -159,14 +159,12 @@ async function runRound({ corpus, measure, options }) {
   const warmupFixture = corpus[0]?.fixture || 'control-micro.md';
   const warmupMarkdown = readFixture(warmupFixture);
   for (let i = 0; i < options.warmup; i += 1) {
-    // eslint-disable-next-line no-await-in-loop
     await measure(warmupMarkdown, `warmup/${i}.md`);
   }
 
   const openSamples = [];
   for (const sample of corpus) {
     const markdown = readFixture(sample.fixture);
-    // eslint-disable-next-line no-await-in-loop
     const elapsed = await measure(markdown, sample.sourcePath || sample.fixture);
     openSamples.push(elapsed);
   }
@@ -181,7 +179,6 @@ async function runRound({ corpus, measure, options }) {
   for (let i = 0; i < options.switchIterations; i += 1) {
     const sample = switchFixtures[i % switchFixtures.length];
     const markdown = readFixture(sample.fixture);
-    // eslint-disable-next-line no-await-in-loop
     const elapsed = await measure(markdown, sample.sourcePath || sample.fixture);
     switchSamples.push(elapsed);
   }
@@ -190,7 +187,6 @@ async function runRound({ corpus, measure, options }) {
   const editBase = readFixture(corpus[0]?.fixture || 'control-main.md');
   for (let i = 0; i < options.editIterations; i += 1) {
     const edited = `${editBase}\n\n<!-- synthetic-edit-${i} -->\n`;
-    // eslint-disable-next-line no-await-in-loop
     const elapsed = await measure(edited, corpus[0]?.sourcePath || 'fixtures/control-main.md');
     editSamples.push(elapsed);
   }
@@ -240,7 +236,6 @@ async function main() {
 
   const rounds = [];
   for (let i = 0; i < options.rounds; i += 1) {
-    // eslint-disable-next-line no-await-in-loop
     const round = await runRound({ corpus, measure, options });
     rounds.push(round);
   }

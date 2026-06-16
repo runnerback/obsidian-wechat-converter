@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import http from 'node:http';
 import net from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';

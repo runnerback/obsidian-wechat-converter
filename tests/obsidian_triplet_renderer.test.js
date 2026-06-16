@@ -12,10 +12,9 @@ vi.mock('obsidian', () => ({
 }));
 
 const { createLegacyConverter } = require('./helpers/render-runtime');
-const {
-  neutralizeUnsafeMarkdownLinks,
-  neutralizePlainWikilinks,
-  normalizeWechatUnsafeTaskListMarkers,
+  const {
+    neutralizeUnsafeMarkdownLinks,
+    normalizeWechatUnsafeTaskListMarkers,
   preprocessMarkdownForTriplet,
   injectHardBreaksForLegacyParity,
   shouldObserveAsyncEmbedWindow,

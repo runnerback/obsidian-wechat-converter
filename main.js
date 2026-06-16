@@ -150,7 +150,7 @@ juice/lib/utils.js:
 */
 `,
         "theme": "/**\n * \u{1F34E} Apple Style \u591A\u4E3B\u9898\u7CFB\u7EDF\n * \u652F\u6301\u591A\u79CD\u4E3B\u9898\u98CE\u683C\uFF1A\u7B80\u7EA6\u3001\u7ECF\u5178\u3001\u6C34\u58A8\u3001\u6781\u5149\u7B49\n * \u8BBE\u8BA1\u7406\u5FF5\uFF1A\u514B\u5236\u3001\u4F18\u96C5\u3001\u6CE8\u91CD\u7EC6\u8282\n */\n\n// Use assignment expression to avoid \"Identifier has already been declared\" errors if re-eval'd\nwindow.AppleTheme = class AppleTheme {\n  /**\n   * \u{1F3A8} \u4E3B\u9898\u8272\u677F - 8\u79CD\u9884\u8BBE\u989C\u8272\n   */\n  static THEME_COLORS = {\n    blue: '#0366d6',\n    green: '#28a745',\n    purple: '#6f42c1',\n    orange: '#fd7e14',\n    teal: '#20c997',\n    rose: '#e83e8c',\n    ruby: '#dc3545',\n    slate: '#6c757d',\n  };\n\n  /**\n   * \u{1F3A8} \u6807\u9898\u4E13\u7528\u6DF1\u8272\u677F (Tone-on-Tone)\n   * \u76F8\u6BD4\u4E3B\u9898\u8272\u52A0\u6DF1 15-20%\uFF0C\u7528\u4E8E\u6807\u9898\u4EE5\u589E\u52A0\u89C6\u89C9\u7A33\u91CD\u611F\uFF0C\u907F\u514D\u4E0E\u6B63\u6587\u9AD8\u4EAE\u8272\u51B2\u7A81\n   */\n  static THEME_COLORS_DEEP = {\n    blue: '#004795',    // Deep Blue\n    green: '#1e7e34',   // Deep Green\n    purple: '#4a2b82',  // Deep Purple\n    orange: '#c75e0b',  // Deep Orange\n    teal: '#158765',    // Deep Teal\n    rose: '#b81f66',    // Deep Rose\n    ruby: '#a81825',    // Deep Ruby\n    slate: '#495057',   // Deep Slate\n  };\n\n  /**\n   * \u{1F4D0} \u5B57\u4F53\u5927\u5C0F\u7CFB\u7EDF - 5\u6863\n   */\n  static FONT_SIZES = {\n    1: { base: 14, h1: 26, h2: 20, h3: 16, h4: 14, h5: 14, h6: 14, code: 12, caption: 12 },\n    2: { base: 15, h1: 28, h2: 21, h3: 17, h4: 15, h5: 15, h6: 15, code: 13, caption: 12 },\n    3: { base: 16, h1: 30, h2: 22, h3: 18, h4: 16, h5: 16, h6: 16, code: 14, caption: 13 }, // \u63A8\u8350\n    4: { base: 17, h1: 32, h2: 24, h3: 19, h4: 17, h5: 17, h6: 17, code: 15, caption: 14 },\n    5: { base: 18, h1: 34, h2: 26, h3: 20, h4: 18, h5: 18, h6: 18, code: 16, caption: 14 },\n  };\n\n  /**\n   * \u{1F524} \u5B57\u4F53\u6808\n   */\n  static FONTS = {\n    'sans-serif': `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif`,\n    'serif': `'Times New Roman', Georgia, 'SimSun', serif`,\n    'monospace': `'SF Mono', Consolas, 'Liberation Mono', Menlo, Courier, monospace`,\n  };\n\n  /**\n   * \u{1F3A8} \u4E3B\u9898\u914D\u7F6E - \u6BCF\u79CD\u4E3B\u9898\u7684\u72EC\u7279\u914D\u8272\u548C\u89C4\u5219\n   */\n  static THEME_CONFIGS = {\n\n    github: {\n      name: '\u7B80\u7EA6',\n      lineHeight: 1.82,\n      paragraphGap: 18,\n      h1Decoration: 'none',\n      h2Decoration: 'none',\n      h3Decoration: 'bottom-line-left',\n      h4Decoration: 'none',\n      headingWeight: 800,\n      headingLetterSpacing: 0,\n      textColor: '#3e3e3e',\n      headingColor: '#3e3e3e',\n\n      linkDecoration: 'underline',\n      blockquoteBorderWidth: 4,\n      tableHeaderBg: '#f6f8fa',\n      tableCellPadding: 10,\n      figurePadding: 8,\n      figureBorderColor: '#e8eaed',\n      // Removed blockquoteBorderColor to allow theme color (was #d0d7de)\n      // Removed blockquoteBg to allow theme color tint (was #ffffff)\n    },\n    wechat: {\n      name: '\u7ECF\u5178',\n      lineHeight: 1.8,\n      paragraphGap: 24,\n      h1Decoration: 'classic-title',\n      h2Decoration: 'classic-title',\n      h3Decoration: 'classic-subhead',\n      h4Decoration: 'classic-minor',\n      headingWeight: 700,\n      headingLetterSpacing: 0,\n      textColor: '#3e3e3e',\n      headingColor: '#3e3e3e',\n      linkDecoration: 'none',\n      blockquoteBorderWidth: 4,\n      blockquoteBg: '#f8fafc',\n      blockquoteStyle: 'soft',\n    },\n    serif: {\n      name: '\u4F18\u96C5',\n      lineHeight: 1.8,\n      paragraphGap: 20,\n      h1Decoration: 'editorial-h1',      // \u6742\u5FD7\u5927\u6807\u9898 (\u91D1\u7EBF)\n      h2Decoration: 'editorial-h1',      // H2 \u6B64\u65F6\u4E5F\u662F\u91D1\u7EBF (Level 2 = Level 1)\n      h3Decoration: 'editorial-h2',      // H3 \u4F7F\u7528\u539F H2 \u6837\u5F0F (\u659C\u4F53\uFF0C\u73B0\u5728\u7684 helper \u5DF2\u5F3A\u5236\u5DE6\u5BF9\u9F50)\n      h4Decoration: 'editorial-h3',      // H4 \u4F7F\u7528\u539F H3 (\u5DE6\u5BF9\u9F50\u4E0B\u5212\u7EBF)\n      headingWeight: 700,\n      headingLetterSpacing: 1,           // \u4F18\u96C5\u4E3B\u9898\u589E\u52A0\u5B57\u95F4\u8DDD\n      textColor: '#3e3e3e',\n      headingColor: '#3e3e3e',\n      linkDecoration: 'none',\n      blockquoteBorderWidth: 0,          // \u5C45\u4E2D\u6837\u5F0F\u4E0D\u9700\u8981\u5DE6\u8FB9\u6846\n      blockquoteStyle: 'center',         // \u65B0\u589E\uFF1A\u5C45\u4E2D\u5F15\u7528\n    },\n    paper: {\n      name: '\u7EB8\u5F20\u957F\u6587',\n      lineHeight: 1.9,\n      paragraphGap: 22,\n      shiftHeadingDecorationsDown: true,\n      h1Decoration: 'paper-title',\n      h2Decoration: 'paper-chapter',\n      h3Decoration: 'paper-section',\n      h4Decoration: 'paper-kicker',\n      h5Decoration: 'simple',\n      h6Decoration: 'quiet',\n      headingWeight: 700,\n      headingLetterSpacing: 0,\n      textColor: '#3f3a33',\n      headingColor: '#3e3e3e',\n      sectionBg: '#fffdf8',\n      sectionSidePaddingOffset: 6,\n      mutedTextColor: '#786f63',\n      linkDecoration: 'none',\n      blockquoteBorderWidth: 0,\n      blockquoteBg: '#f7f1e7',\n      blockquoteStyle: 'paper',\n      tableHeaderBg: '#f7f1e7',\n      tableBorderColor: '#e6dccd',\n      figureBorderColor: '#eadfce',\n    },\n    grid: {\n      name: '\u7F51\u683C\u6587\u6863',\n      lineHeight: 1.82,\n      paragraphGap: 20,\n      shiftHeadingDecorationsDown: true,\n      h1Decoration: 'grid-title',\n      h2Decoration: 'grid-chapter',\n      h3Decoration: 'grid-section',\n      h4Decoration: 'grid-kicker',\n      h5Decoration: 'light-bg',\n      h6Decoration: 'quiet',\n      headingWeight: 800,\n      headingLetterSpacing: 0,\n      textColor: '#344054',\n      headingColor: '#263238',\n      sectionBgStyle: 'grid',\n      sectionBg: '#ffffff',\n      sectionSidePaddingOffset: 6,\n      sectionBgSize: '18px 18px',\n      gridLineAlpha: '09',\n      mutedTextColor: '#667085',\n      linkDecoration: 'none',\n      blockquoteBorderWidth: 4,\n      blockquoteBg: '#f6f9fc',\n      blockquoteStyle: 'soft',\n      blockquoteTextColor: '#4b5565',\n      tableHeaderBg: '#f3f7fb',\n      tableBorderColor: '#dbe5ef',\n    },\n    typo: {\n      name: 'Typo',\n      lineHeight: 1.92,\n      paragraphGap: 22,\n      shiftHeadingDecorationsDown: true,\n      h1Decoration: 'typo-title',\n      h2Decoration: 'typo-title',\n      h3Decoration: 'typo-section',\n      h4Decoration: 'typo-subhead',\n      h5Decoration: 'dashed-bottom',\n      h6Decoration: 'quiet',\n      headingWeight: 700,\n      headingLetterSpacing: 0,\n      textColor: '#333333',\n      headingColor: '#222222',\n      mutedTextColor: '#6b6b6b',\n      linkDecoration: 'underline',\n      blockquoteBorderWidth: 2,\n      blockquoteBg: '#fafafa',\n      blockquoteStyle: 'soft',\n      paragraphTextIndent: '2em',\n      tableHeaderBg: '#f7f7f7',\n      figureBorderColor: '#ededed',\n    },\n    media: {\n      name: '\u6E05\u723D\u5A92\u4F53',\n      lineHeight: 1.86,\n      paragraphGap: 18,\n      shiftHeadingDecorationsDown: true,\n      h1Decoration: 'media-title',\n      h2Decoration: 'media-chapter',\n      h3Decoration: 'media-section',\n      h4Decoration: 'left-border',\n      h5Decoration: 'light-bg',\n      h6Decoration: 'quiet',\n      headingWeight: 700,\n      headingLetterSpacing: 0,\n      textColor: '#3b4648',\n      headingColor: '#263238',\n      mutedTextColor: '#667476',\n      linkDecoration: 'none',\n      blockquoteBorderWidth: 3,\n      blockquoteBg: '#f3fbf8',\n      blockquoteStyle: 'soft',\n      tableHeaderBg: '#f3fbf8',\n      tableBorderColor: '#dbeee8',\n      figureBorderColor: '#dcefeb',\n    },\n    colorful: {\n      name: '\u5F69\u8272\u5F3A\u8C03',\n      lineHeight: 1.82,\n      paragraphGap: 20,\n      shiftHeadingDecorationsDown: true,\n      h1Decoration: 'colorful-title',\n      h2Decoration: 'colorful-chapter',\n      h3Decoration: 'colorful-section',\n      h4Decoration: 'colorful-kicker',\n      h5Decoration: 'light-bg',\n      h6Decoration: 'quiet',\n      headingWeight: 800,\n      headingLetterSpacing: 0,\n      textColor: '#3e3e3e',\n      headingColor: '#3e3e3e',\n      mutedTextColor: '#6b7280',\n      linkDecoration: 'none',\n      blockquoteBorderWidth: 4,\n      blockquoteBg: '#fffaf5',\n      blockquoteStyle: 'soft',\n      tableHeaderBg: '#fff8ed',\n      figureBorderColor: '#f0e4d4',\n      strongBg: true,\n    },\n  };\n\n  /**\n   * \u{1F4D0} \u95F4\u8DDD\u7CFB\u7EDF - 8px \u57FA\u51C6\n   */\n  static SPACING = {\n    xs: 4,\n    sm: 8,\n    md: 16,\n    lg: 24,\n    xl: 32,\n    xxl: 48,\n  };\n\n  /**\n   * \u{1F3AF} \u5706\u89D2\u7CFB\u7EDF\n   */\n  static RADIUS = {\n    sm: 4,\n    md: 8,\n    lg: 12,\n  };\n\n  static QUOTE_CALLOUT_NEUTRAL_BG = '#f9f9f9';\n  static QUOTE_NEUTRAL_BORDER = '#d9d9d9';\n\n  /**\n   * \u5F53\u524D\u914D\u7F6E\n   */\n  constructor(options = {}) {\n    this.themeName = options.theme || 'github';\n    this.themeColor = options.themeColor || 'blue';\n    this.customColor = options.customColor || null;\n    this.quoteCalloutStyleMode = options.quoteCalloutStyleMode || 'theme';\n    this.fontFamily = options.fontFamily || 'sans-serif';\n    this.fontSize = options.fontSize || 3;\n    this.macCodeBlock = options.macCodeBlock !== false;\n    this.codeLineNumber = options.codeLineNumber || false;\n    // \u4FA7\u8FB9\u8DDD\u8BBE\u7F6E (\u9ED8\u8BA4 16px)\n    this.sidePadding = options.sidePadding !== undefined ? options.sidePadding : 16;\n    // \u6807\u9898\u67D3\u8272\u8BBE\u7F6E\n    this.coloredHeader = options.coloredHeader || false;\n  }\n\n  /**\n   * \u83B7\u53D6\u5F53\u524D\u4E3B\u9898\u8272\u503C\n   */\n  getThemeColorValue() {\n    if (this.themeColor === 'custom' && this.customColor) {\n      return this.customColor;\n    }\n    return AppleTheme.THEME_COLORS[this.themeColor] || AppleTheme.THEME_COLORS.blue;\n  }\n\n  /**\n   * \u83B7\u53D6\u6807\u9898\u4E13\u7528\u6DF1\u8272\u503C\n   */\n  getHeadingColorValue() {\n    // 1. \u5982\u679C\u672A\u5F00\u542F\u6807\u9898\u67D3\u8272\uFF0C\u8FD4\u56DE\u9ED8\u8BA4\u6DF1\u7070\n    if (!this.coloredHeader) {\n      return '#3e3e3e';\n    }\n\n    // 2. \u81EA\u5B9A\u4E49\u989C\u8272\uFF1A\u81EA\u52A8\u8BA1\u7B97\u53D8\u6DF1 20%\n    if (this.themeColor === 'custom' && this.customColor) {\n      return this.adjustColorBrightness(this.customColor, -20);\n    }\n\n    // 3. \u9884\u8BBE\u989C\u8272\uFF1A\u8FD4\u56DE\u6DF1\u8272\u677F\u5BF9\u5E94\u503C\n    return AppleTheme.THEME_COLORS_DEEP[this.themeColor] || AppleTheme.THEME_COLORS_DEEP.blue;\n  }\n\n  /**\n   * \u8F85\u52A9\uFF1A\u8C03\u6574 Hex \u989C\u8272\u4EAE\u5EA6\n   * @param {string} hex - #RRGGBB\n   * @param {number} percent - -100 to 100\n   */\n  adjustColorBrightness(hex, percent) {\n    hex = hex.replace(/^#/, '');\n    let r = parseInt(hex.substring(0, 2), 16);\n    let g = parseInt(hex.substring(2, 4), 16);\n    let b = parseInt(hex.substring(4, 6), 16);\n\n    r = Math.round(r * (100 + percent) / 100);\n    g = Math.round(g * (100 + percent) / 100);\n    b = Math.round(b * (100 + percent) / 100);\n\n    r = (r < 255) ? r : 255;\n    g = (g < 255) ? g : 255;\n    b = (b < 255) ? b : 255;\n\n    // Pad with 0 if necessary\n    const rr = ((r.toString(16).length === 1) ? '0' + r.toString(16) : r.toString(16));\n    const gg = ((g.toString(16).length === 1) ? '0' + g.toString(16) : g.toString(16));\n    const bb = ((b.toString(16).length === 1) ? '0' + b.toString(16) : b.toString(16));\n\n    return `#${rr}${gg}${bb}`;\n  }\n\n  /**\n   * \u83B7\u53D6\u5F53\u524D\u4E3B\u9898\u914D\u7F6E\n   */\n  getThemeConfig() {\n    return AppleTheme.THEME_CONFIGS[this.themeName] || AppleTheme.THEME_CONFIGS.github;\n  }\n\n  /**\n   * \u83B7\u53D6\u5B57\u4F53\u5C3A\u5BF8\u914D\u7F6E\n   */\n  getSizes() {\n    return AppleTheme.FONT_SIZES[this.fontSize] || AppleTheme.FONT_SIZES[3];\n  }\n\n  /**\n   * \u83B7\u53D6\u5B57\u4F53\u6808\n   */\n  getFontFamily() {\n    return AppleTheme.FONTS[this.fontFamily] || AppleTheme.FONTS['sans-serif'];\n  }\n\n  getQuoteCalloutStyleMode() {\n    return this.quoteCalloutStyleMode === 'neutral' ? 'neutral' : 'theme';\n  }\n\n  /**\n   * \u83B7\u53D6\u5143\u7D20\u6837\u5F0F\n   * @param {string} tagName - HTML \u6807\u7B7E\u540D\n   * @returns {string} - CSS \u6837\u5F0F\u5B57\u7B26\u4E32\n   */\n  getStyle(tagName) {\n    const config = this.getThemeConfig();\n    const sizes = this.getSizes();\n    const font = this.getFontFamily();\n    const color = this.getThemeColorValue();\n    const quoteCalloutStyleMode = this.getQuoteCalloutStyleMode();\n    const s = AppleTheme.SPACING;\n    const r = AppleTheme.RADIUS;\n\n    // \u6807\u9898\u989C\u8272\u903B\u8F91\uFF1A\u4F7F\u7528\u4E13\u95E8\u7684\u6DF1\u8272\u7CFB\u6807\u9898\u8272\n    // \u6CE8\u610F\uFF1A\u67D0\u4E9B\u7279\u6B8A\u4E3B\u9898\u88C5\u9970(h1Decoration)\u53EF\u80FD\u5DF2\u7ECF\u5305\u542B\u4E86\u989C\u8272\u8BBE\u7F6E\uFF0C\u8FD9\u91CC\u4E3B\u8981\u9488\u5BF9\u6587\u5B57\u672C\u8EAB\n    const textColor = config.textColor;\n    const mutedTextColor = config.mutedTextColor;\n    const headingColor = this.getHeadingColorValue();\n    const sectionSidePadding = this.getSectionSidePadding(config);\n\n    switch (tagName) {\n      case 'section':\n        // \u4F7F\u7528\u914D\u7F6E\u7684 sidePadding\n        if (config.sectionBgStyle !== 'grid') {\n          return this.joinStyleStrings(\n            `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; padding: 20px ${sectionSidePadding}px; background: ${config.sectionBg || '#ffffff'}; ${this.getSectionBoxSizingStyle(config)}max-width: 100%; word-wrap: break-word; text-align: justify`\n          );\n        }\n\n        return this.joinStyleStrings(\n          `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; padding: 20px ${sectionSidePadding}px; box-sizing: border-box; max-width: 100%; word-wrap: break-word; text-align: justify`,\n          `background-color: ${config.sectionBg || '#ffffff'}`,\n          `background-image: linear-gradient(${this.hexToRgba(color, config.gridLineAlpha || '09')} 1px, transparent 1px), linear-gradient(90deg, ${this.hexToRgba(color, config.gridLineAlpha || '09')} 1px, transparent 1px)`,\n          config.sectionBgSize ? `background-size: ${config.sectionBgSize}` : ''\n        );\n\n      case 'h1': return this.getH1Style(config.h1Decoration, color, sizes.h1, font, headingColor, config);\n      case 'h2':\n        return config.shiftHeadingDecorationsDown\n          ? this.getH1Style(config.h1Decoration, color, sizes.h2, font, headingColor, config)\n          : this.getH2Style(config.h2Decoration, color, sizes.h2, font, headingColor, config);\n      case 'h3':\n        return config.shiftHeadingDecorationsDown\n          ? this.getH2Style(config.h2Decoration, color, sizes.h3, font, headingColor, config)\n          : this.getH3Style(config.h3Decoration, color, sizes.h3, font, headingColor, config);\n      case 'h4':\n        return config.shiftHeadingDecorationsDown\n          ? this.getH3Style(config.h3Decoration, color, sizes.h4, font, headingColor, config)\n          : this.getH4Style(config.h4Decoration, color, sizes.h4, font, headingColor);\n\n      case 'h5':\n        return this.getH5Style(config.h5Decoration, color, sizes.h5, font, headingColor);\n      case 'h6':\n        return this.getH6Style(config.h6Decoration, color, sizes.h6, font, headingColor, mutedTextColor);\n\n      case 'p':\n        return this.joinStyleStrings(\n          `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 0 0 ${config.paragraphGap}px 0; text-align: justify; letter-spacing: 0`,\n          config.paragraphTextIndent ? `text-indent: ${config.paragraphTextIndent}` : ''\n        );\n\n\n\n\n\n      case 'blockquote':\n        if (config.blockquoteStyle === 'center') {\n          const centeredBackground = quoteCalloutStyleMode === 'neutral'\n            ? AppleTheme.QUOTE_CALLOUT_NEUTRAL_BG\n            : (config.blockquoteBg || color + '1F');\n          const centeredRuleColor = quoteCalloutStyleMode === 'neutral'\n            ? AppleTheme.QUOTE_NEUTRAL_BORDER\n            : `${color}55`;\n          return `font-family: ${AppleTheme.FONTS.serif}; font-size: ${sizes.base}px; line-height: 1.85; color: #4f4a45; background: ${centeredBackground}; width: 92%; box-sizing: border-box; margin: 24px auto; padding: 18px 20px; text-align: justify; border-top: 1px solid ${centeredRuleColor}; border-bottom: 1px solid ${centeredRuleColor}; border-radius: ${r.sm}px;`;\n        }\n        if (config.blockquoteStyle === 'paper') {\n          const paperBg = quoteCalloutStyleMode === 'neutral'\n            ? AppleTheme.QUOTE_CALLOUT_NEUTRAL_BG\n            : (config.blockquoteBg || color + '1F');\n          const paperBorder = quoteCalloutStyleMode === 'neutral'\n            ? AppleTheme.QUOTE_NEUTRAL_BORDER\n            : `${color}99`;\n          return `font-family: ${AppleTheme.FONTS.serif}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: #5f574c; background: ${paperBg}; margin: 22px 0 22px 8px; padding: 16px 18px; border-left: 3px solid ${paperBorder}; border-radius: ${r.sm}px; text-align: justify;`;\n        }\n        if (config.blockquoteStyle === 'soft') {\n          const softBg = quoteCalloutStyleMode === 'neutral'\n            ? AppleTheme.QUOTE_CALLOUT_NEUTRAL_BG\n            : (config.blockquoteBg || color + '14');\n          const softTextColor = config.blockquoteTextColor || '#595959';\n          const softBorderColor = quoteCalloutStyleMode === 'neutral'\n            ? AppleTheme.QUOTE_NEUTRAL_BORDER\n            : `${color}99`;\n          const softBorderWidth = this.themeName === 'wechat'\n            ? 3\n            : (config.blockquoteBorderWidth || 4);\n          return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${softTextColor}; background: ${softBg}; margin: ${s.md}px 0 ${s.md}px 8px; padding: ${s.md}px; border-left: ${softBorderWidth}px solid ${softBorderColor}; border-radius: ${r.sm}px;`;\n        }\n\n        if (quoteCalloutStyleMode === 'neutral') {\n          const neutralBorderWidth = this.themeName === 'wechat'\n            ? 3\n            : (config.blockquoteBorderWidth || 4);\n          return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: #595959; background: ${AppleTheme.QUOTE_CALLOUT_NEUTRAL_BG}; margin: ${s.md}px 0 ${s.md}px 8px; padding: ${s.md}px; border-left: ${neutralBorderWidth}px solid ${AppleTheme.QUOTE_NEUTRAL_BORDER}; border-radius: ${r.sm}px;`;\n        }\n\n        // \u7ECF\u5178\u4E3B\u9898\uFF08wechat\uFF09\uFF1A\u4F7F\u7528\u66F4\u7EC6\u7684\u8FB9\u6846\u548C\u66F4\u6D45\u7684\u989C\u8272\uFF0C\u4E0E H3 \u533A\u5206\n        // H3: 4px \u4E3B\u9898\u8272 100% \u5DE6\u8FB9\u6846\uFF0C\u9876\u683C\n        // \u5F15\u7528\u5757: 3px \u4E3B\u9898\u8272 60% \u5DE6\u8FB9\u6846\uFF0C\u7F29\u8FDB 4px\n        if (this.themeName === 'wechat') {\n          return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: #595959; background: ${config.blockquoteBg || color + '1F'}; margin: ${s.md}px 0 ${s.md}px 4px; padding: ${s.md}px; border-left: 3px solid ${color}99; border-radius: 3px;`;\n        }\n\n        // Standard Blockquote: Restoring Italic and adjusting padding/background to match the screenshot\n        // Background: Light opacity of theme color (1F) for better visibility\n        // Border: Solid theme color\n        // Font: Normal (removed italic) for better legibility on mobile\n        return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: #595959; background: ${config.blockquoteBg || color + '1F'}; margin: ${s.md}px 0; padding: ${s.md}px; border-left: ${config.blockquoteBorderWidth}px solid ${config.blockquoteBorderColor || color}; border-radius: 3px;`;\n\n      case 'pre':\n        return `background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: ${r.md}px; padding: ${s.md}px; margin: ${s.md}px 0; overflow-x: auto; font-family: ${AppleTheme.FONTS.monospace}; font-size: ${sizes.code}px; line-height: 1.6; color: #24292e;`;\n\n      case 'code':\n        return `background: ${color}1A; color: ${color}; padding: 2px 4px; border-radius: 3px; font-family: ${AppleTheme.FONTS.monospace}; font-size: ${sizes.code}px;`;\n\n      case 'ul':\n        return `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 12px 0; padding-left: 20px; list-style-type: disc;`;\n      case 'ol':\n        return `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 12px 0; padding-left: 20px; list-style-type: decimal;`;\n      case 'li':\n        return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 4px 0;`;\n      case 'li-task':\n        return `font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; margin: 4px 0; list-style-type: none; margin-left: -20px;`;\n      case 'li p':\n        return `margin: 0; padding: 0; line-height: ${config.lineHeight};`;\n\n\n\n\n      case 'figure':\n        // Fix: Restoring wireframe (border/padding) & balanced spacing (20px top/bottom)\n        // No shadow for cleaner look\n        return `display: block; margin: 20px 0; text-align: center; border: 1px solid ${config.figureBorderColor || '#e1e4e8'}; border-radius: ${r.md}px; padding: ${config.figurePadding || 10}px;`;\n\n      case 'figcaption':\n        return `font-size: ${sizes.caption}px; color: #999; text-align: center; margin-top: ${s.sm}px;`;\n\n      case 'img':\n        return `display: block; margin: 0 auto; max-width: 100%; border-radius: 4px;`;\n\n      case 'a':\n        return `color: ${color}; text-decoration: ${config.linkDecoration}; border-bottom: ${config.linkDecoration === 'none' ? `1px dashed ${color}` : 'none'};`;\n\n      case 'table-wrapper':\n        return `display: block; box-sizing: border-box; width: 100%; max-width: 100%; overflow-x: scroll; overflow-y: hidden; -webkit-overflow-scrolling: touch; margin: ${s.md}px 0; padding-bottom: 10px;`;\n      case 'table':\n        return `border-collapse: collapse; width: 720px; min-width: 100%; max-width: none; table-layout: auto; border: 1px solid ${config.tableBorderColor || '#e1e4e8'};`;\n      case 'th':\n        return `background: ${config.tableHeaderBg || color + '1F'}; font-weight: bold; color: ${textColor}; border: 1px solid ${config.tableBorderColor || '#e1e4e8'}; padding: ${config.tableCellPadding || 12}px; text-align: left; white-space: nowrap; word-break: keep-all; overflow-wrap: normal;`;\n      case 'td':\n        return `border: 1px solid ${config.tableBorderColor || '#e1e4e8'}; padding: ${config.tableCellPadding || 12}px; text-align: left; white-space: nowrap; word-break: keep-all; overflow-wrap: normal;`;\n      case 'thead':\n        return `background: #f6f8fa;`;\n\n      case 'hr':\n        return `border: 0; border-top: 1px solid rgba(0,0,0,0.08); margin: 40px 0;`;\n\n      case 'strong':\n        return config.strongBg\n          ? `font-weight: bold; color: ${color}; background: ${color}18; padding: 0 3px; border-radius: 3px;`\n          : `font-weight: bold; color: ${color};`;\n      case 'em':\n        return `font-style: italic;`;\n      case 'del':\n        return `text-decoration: line-through; color: #999;`;\n\n      case 'avatar-header':\n        return `margin: 0 0 ${s.sm}px 0 !important; display: flex !important; align-items: center !important; justify-content: flex-start !important; width: 100%; flex-direction: row !important; flex-wrap: nowrap !important; text-align: left !important;`;\n      case 'avatar':\n        return `display: inline-block !important; vertical-align: middle !important; margin: 0 !important; width: 32px !important; height: 32px !important; border-radius: 50%; object-fit: cover; border: 1px solid #e8e8ed; flex-shrink: 0;`;\n      case 'avatar-caption':\n        return `display: inline-block !important; vertical-align: middle !important; font-size: ${sizes.caption}px; color: #666; margin-left: 10px; line-height: 1.4; text-align: left !important;`;\n\n      default:\n        return '';\n    }\n  }\n\n  // === Helper Methods ===\n\n  getH1Style(type, color, fontSize, font, headingColor, config = {}) {\n    const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 30px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.2;`;\n    switch (type) {\n      case 'editorial-h1': // Magazine Style: Forced Serif + Golden Line\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 30px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.2;\n          background-image: linear-gradient(to right, transparent, ${color}, transparent);\n          background-size: 100px 1px;\n          background-repeat: no-repeat;\n          background-position: bottom center;\n          padding-bottom: 20px; letter-spacing: 1px;`;\n      case 'bottom-line':\n        // Pure CSS centered short line using linear-gradient (simulating image)\n        return `${base}\n          background-image: linear-gradient(to right, ${color}, ${color});\n          background-size: 80px 3px;\n          background-repeat: no-repeat;\n          background-position: bottom center;\n          padding-bottom: 15px;`;\n      case 'border-box':\n        return `${base} border: 1px solid ${color}; padding: 10px 20px; border-radius: 4px; display: inline-block; width: auto;`;\n      case 'classic-title':\n        return `${base} margin: 34px auto 22px; padding: 0; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 120px 2px; background-repeat: no-repeat; background-position: bottom center; padding-bottom: 14px;`;\n      case 'paper-title':\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 24px; color: ${headingColor}; text-align: center; line-height: 1.35; letter-spacing: 1px; border-top: 2px solid ${color}; border-bottom: 1px solid ${color}66; padding: 16px 0 14px;`;\n      case 'grid-title':\n        return `${base} text-align: left; border: 1px solid ${color}55; border-radius: 4px; padding: 10px 12px; background: ${color}0F;`;\n      case 'typo-title':\n        return `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: 700; margin: 34px auto 22px; color: ${headingColor}; text-align: left; line-height: 1.28; border-bottom: 1px solid #d8d8d8; padding-bottom: 14px;`;\n      case 'media-title':\n        return `${base} text-align: left; color: ${headingColor}; background-image: linear-gradient(to right, ${color}, ${color}33); background-size: 100% 2px; background-repeat: no-repeat; background-position: bottom left; padding-bottom: 14px;`;\n      case 'colorful-title':\n        return `${base} color: #ffffff; background: ${color}; padding: 12px 18px; border-radius: 6px; box-shadow: 6px 6px 0 ${color}33;`;\n      default: // none or unknown\n        return this.joinStyleStrings(base, config.headingLetterSpacing ? `letter-spacing: ${config.headingLetterSpacing}px` : '');\n    }\n  }\n\n  getH2Style(type, color, fontSize, font, headingColor, config = {}) {\n    const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 32px auto 16px; text-align: center; color: ${headingColor}; line-height: 1.25;`;\n    switch (type) {\n      case 'editorial-h1': // Golden Line (Shifted from H1)\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 32px auto 16px; color: ${headingColor}; text-align: center; line-height: 1.2;\n          background-image: linear-gradient(to right, transparent, ${color}, transparent);\n          background-size: 100px 1px;\n          background-repeat: no-repeat;\n          background-position: bottom center;\n          padding-bottom: 20px; letter-spacing: 1px;`;\n      case 'editorial-h2': // Magazine Subtitle\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: normal; margin: 32px auto 16px; text-align: center; color: ${headingColor}; line-height: 1.4; font-style: italic; letter-spacing: 1px;`;\n      case 'bottom-line':\n        // Pure CSS centered short line (thinner/shorter for H2)\n        return `${base}\n           background-image: linear-gradient(to right, ${color}, ${color});\n           background-size: 50px 2px;\n           background-repeat: no-repeat;\n           background-position: bottom center;\n           padding-bottom: 12px;`;\n      case 'filled-pill':\n        return `${base} background-color: ${color}; color: #fff; padding: 5px 20px; border-radius: 20px; display: inline-block; width: auto;`;\n      case 'bottom-line-center':\n        return `${base} display: inline-block; border-bottom: 1px solid ${color}; padding-bottom: 5px; width: auto;`;\n      case 'classic-title':\n        return `${base} margin: 34px auto 20px; padding: 0; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 120px 2px; background-repeat: no-repeat; background-position: bottom center; padding-bottom: 14px;`;\n      case 'paper-title':\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.35; letter-spacing: 1px; border-top: 2px solid ${color}; border-bottom: 1px solid ${color}66; padding: 14px 0 12px;`;\n      case 'paper-chapter':\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.35; letter-spacing: 1.5px; border-bottom: 2px solid ${color}; padding-bottom: 12px;`;\n      case 'grid-title':\n        return `${base} text-align: left; border: 1px solid ${color}55; border-radius: 4px; padding: 10px 12px; background: ${color}0F;`;\n      case 'grid-chapter':\n        return `${base} text-align: left; border-left: 3px solid ${color}; border-radius: 0 4px 4px 0; padding: 8px 12px; background: ${color}08;`;\n      case 'typo-title':\n        return `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: 700; margin: 34px 0 18px; color: ${headingColor}; text-align: left; line-height: 1.3; background-image: linear-gradient(#d8d8d8, #d8d8d8); background-size: 40% 1px; background-repeat: no-repeat; background-position: bottom left; padding-bottom: 12px;`;\n      case 'media-title':\n        return `${base} text-align: left; color: ${headingColor}; background-image: linear-gradient(to right, ${color}, ${color}33); background-size: 100% 2px; background-repeat: no-repeat; background-position: bottom left; padding-bottom: 12px;`;\n      case 'media-chapter':\n        return `${base} text-align: left; color: ${headingColor}; background-image: linear-gradient(to right, ${color}, transparent); background-size: 60% 2px; background-repeat: no-repeat; background-position: bottom left; padding-bottom: 12px;`;\n      case 'colorful-title':\n        return `${base} color: #ffffff; background: ${color}; padding: 10px 16px; border-radius: 6px; box-shadow: 5px 5px 0 ${color}33;`;\n      case 'colorful-chapter':\n        return `${base} text-align: left; border-left: 4px solid ${color}; background: ${color}12; padding: 10px 14px; border-radius: 0 4px 4px 0;`;\n      case 'paper-section':\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px 0 16px; color: ${headingColor}; text-align: left; line-height: 1.35; border-bottom: 1px solid ${color}55; padding-bottom: 8px;`;\n      case 'grid-section':\n        return `${base} text-align: left; border-bottom: 1px solid ${color}66; padding: 4px 0 8px;`;\n      case 'typo-section':\n        return `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: 700; margin: 34px 0 16px; color: ${headingColor}; text-align: left; line-height: 1.35;`;\n      case 'media-section':\n        return `${base} display: inline-block; width: auto; text-align: left; background: ${color}14; border: 1px solid ${color}33; padding: 6px 12px; border-radius: 2px;`;\n      case 'colorful-section':\n        return `${base} display: inline-block; width: auto; text-align: left; background: ${color}18; border-bottom: 3px solid ${color}; padding: 6px 10px 5px; border-radius: 4px 4px 0 0;`;\n      default:\n        return this.joinStyleStrings(base, config.headingLetterSpacing ? `letter-spacing: ${config.headingLetterSpacing}px` : '');\n    }\n  }\n\n  getH3Style(type, color, fontSize, font, headingColor, config = {}) {\n    const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 20px 0 12px; text-align: left; color: ${headingColor}; line-height: 1.3;`;\n    switch (type) {\n      case 'editorial-h2': // Italic Serif (Left Aligned for H3)\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: normal; margin: 24px 0 12px; text-align: left; color: ${headingColor}; line-height: 1.4; font-style: italic; letter-spacing: 1px;`;\n      case 'editorial-h3': // Magazine Section: Forced Serif + Left Underline\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 24px 0 12px; text-align: left; color: ${headingColor}; line-height: 1.3;\n           border-bottom: 1px solid ${color}; padding-bottom: 4px; display: inline-block; width: auto; letter-spacing: 0.5px;`;\n      case 'left-border':\n        return `${base} border-left: 4px solid ${color}; padding-left: 10px;`;\n      case 'bottom-line-left':\n        return `${base} display: inline-block; border-bottom: 2px solid ${color}; padding-bottom: 2px; margin-right: auto;`;\n      case 'classic-subhead':\n        return `${base} border-left: 3px solid ${color}; background: ${color}0A; padding: 6px 10px; margin: 24px 0 12px;`;\n      case 'paper-section':\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 28px 0 14px; color: ${headingColor}; text-align: left; line-height: 1.35; border-top: 1px solid ${color}55; padding-top: 8px;`;\n      case 'grid-section':\n        return `${base} background-image: linear-gradient(${color}, ${color}); background-size: 3px 55%; background-position: left center; background-repeat: no-repeat; padding-left: 12px;`;\n      case 'typo-section':\n        return `${base} font-weight: 700; margin: 28px 0 14px; line-height: 1.35; border-left: 2px solid #d8d8d8; padding-left: 10px;`;\n      case 'media-section':\n        return `${base} display: inline-block; width: auto; background: ${color}14; border: 1px solid ${color}33; padding: 5px 10px; border-radius: 2px;`;\n      case 'colorful-section':\n        return `${base} display: inline-block; width: auto; background: ${color}18; border-bottom: 2px solid ${color}; padding: 5px 9px 4px; border-radius: 4px 4px 0 0;`;\n      case 'paper-kicker':\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 24px 0 12px; color: ${headingColor}; text-align: left; line-height: 1.35; padding-left: 10px; border-left: 3px double ${color};`;\n      case 'typo-subhead':\n        return `${base} font-weight: 700; color: ${headingColor};`;\n      default:\n        return this.joinStyleStrings(base, config.headingLetterSpacing ? `letter-spacing: ${config.headingLetterSpacing}px` : '');\n    }\n  }\n\n  getH4Style(type, color, fontSize, font, headingColor) {\n    const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 15px 0 10px; text-align: left; color: ${headingColor}; line-height: 1.35;`;\n    switch (type) {\n      case 'editorial-h3': // Inherit H3 style for H4\n        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 15px 0 10px; text-align: left; color: ${headingColor}; line-height: 1.35;\n           border-bottom: 1px solid ${color}; padding-bottom: 3px; display: inline-block; width: auto; letter-spacing: 0.5px;`;\n      case 'simple': // Simple Bold (User Font)\n        // Use headingColor (Deep) instead of color (Bright)\n        return `${base}`;\n      case 'light-bg':\n        // Background uses bright color tint (low opacity), Text uses deep headingColor\n        return `${base} background-color: ${color}15; padding: 4px 8px; border-radius: 4px; display: inline-block;`;\n      case 'classic-minor':\n        return `${base} border-left: 2px solid ${color}55; padding-left: 8px;`;\n      case 'left-border':\n        return `${base} border-left: 3px solid ${color}; padding-left: 9px;`;\n      case 'bottom-line-left':\n        return `${base} display: inline-block; border-bottom: 2px solid ${color}; padding-bottom: 2px; margin-right: auto;`;\n      case 'paper-kicker':\n        return `font-family: ${AppleTheme.FONTS.serif}; display: inline-block; font-size: ${fontSize}px; font-weight: bold; margin: 22px 0 10px; color: ${headingColor}; text-align: left; line-height: 1.35; border-bottom: 1px double ${color}99; padding-bottom: 2px;`;\n      case 'grid-kicker':\n        return `${base} display: inline-block; border-bottom: 1px dashed ${color}44; padding-bottom: 2px;`;\n      case 'typo-subhead':\n        return `${base} font-weight: 700; letter-spacing: 1.5px;`;\n      case 'colorful-kicker':\n        return `${base} color: ${color}; background: ${color}12; padding: 4px 8px; border-radius: 4px; display: inline-block;`;\n      case 'italic-serif':\n        return `${base} font-style: italic; font-family: serif; border-bottom: 1px dashed #ccc; display: inline-block; padding-bottom: 2px;`;\n      default:\n        return base;\n    }\n  }\n\n  getH5Style(type, color, fontSize, font, headingColor) {\n    if (!type) {\n      return `font-family: ${font}; font-size: ${fontSize}px; font-weight: bold; color: ${headingColor}; margin: 10px 0; text-align: left; line-height: 1.4;`;\n    }\n    const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; color: ${headingColor}; margin: 12px 0 8px; text-align: left; line-height: 1.4;`;\n    switch (type) {\n      case 'light-bg':\n        return `${base} background-color: ${color}12; padding: 3px 7px; border-radius: 4px; display: inline-block;`;\n      case 'dashed-bottom':\n        return `${base} font-weight: 600; border-bottom: 1px dashed ${color}33; display: inline-block; padding-bottom: 1px;`;\n      case 'simple':\n      default:\n        return base;\n    }\n  }\n\n  getH6Style(type, color, fontSize, font, headingColor, mutedColor = '#6b7280') {\n    if (!type) {\n      return `font-family: ${font}; font-size: ${fontSize}px; font-weight: bold; color: ${headingColor}; margin: 10px 0; text-align: left; line-height: 1.4;`;\n    }\n    const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; color: ${headingColor}; margin: 10px 0 6px; text-align: left; line-height: 1.4;`;\n    switch (type) {\n      case 'quiet':\n        return `${base} color: ${mutedColor}; font-weight: 600;`;\n      default:\n        return base;\n    }\n  }\n\n  hexToRgba(hexColor, alphaHex = 'ff') {\n    const normalized = String(hexColor || '').trim().replace(/^#/, '');\n    if (!/^[0-9a-f]{6}$/i.test(normalized)) {\n      return hexColor;\n    }\n    const alpha = Number.parseInt(String(alphaHex || 'ff'), 16);\n    const clampedAlpha = Number.isFinite(alpha) ? Math.max(0, Math.min(255, alpha)) : 255;\n    const r = Number.parseInt(normalized.slice(0, 2), 16);\n    const g = Number.parseInt(normalized.slice(2, 4), 16);\n    const b = Number.parseInt(normalized.slice(4, 6), 16);\n    return `rgba(${r}, ${g}, ${b}, ${(clampedAlpha / 255).toFixed(3)})`;\n  }\n\n  joinStyleStrings(...styles) {\n    return styles\n      .map((style) => (style || '').trim())\n      .filter(Boolean)\n      .map((style) => style.endsWith(';') ? style : `${style};`)\n      .join(' ');\n  }\n\n  getSectionSidePadding(config = {}) {\n    const configuredPadding = Number(this.sidePadding);\n    const themeOffset = Number(config.sectionSidePaddingOffset || 0);\n    const safeConfiguredPadding = Number.isFinite(configuredPadding) ? configuredPadding : 16;\n    const safeThemeOffset = Number.isFinite(themeOffset) ? themeOffset : 0;\n    return safeConfiguredPadding + safeThemeOffset;\n  }\n\n  getSectionBoxSizingStyle(config = {}) {\n    return config.sectionSidePaddingOffset ? 'box-sizing: border-box; ' : '';\n  }\n\n  /**\n   * \u66F4\u65B0\u914D\u7F6E\n   */\n  update(options) {\n    if (options.theme !== undefined) this.themeName = options.theme;\n    if (options.themeColor !== undefined) this.themeColor = options.themeColor;\n    if (options.customColor !== undefined) this.customColor = options.customColor;\n    if (options.quoteCalloutStyleMode !== undefined) this.quoteCalloutStyleMode = options.quoteCalloutStyleMode;\n    if (options.fontFamily !== undefined) this.fontFamily = options.fontFamily;\n    if (options.fontSize !== undefined) this.fontSize = options.fontSize;\n    if (options.macCodeBlock !== undefined) this.macCodeBlock = options.macCodeBlock;\n    if (options.codeLineNumber !== undefined) this.codeLineNumber = options.codeLineNumber;\n    if (options.sidePadding !== undefined) this.sidePadding = options.sidePadding;\n    if (options.coloredHeader !== undefined) this.coloredHeader = options.coloredHeader;\n  }\n\n  /**\n   * \u83B7\u53D6\u4E3B\u9898\u5217\u8868\n   */\n  static getThemeList() {\n    return Object.entries(AppleTheme.THEME_CONFIGS).map(([key, config]) => ({\n      value: key,\n      label: config.name,\n    }));\n  }\n\n  /**\n   * \u83B7\u53D6\u4E3B\u9898\u8272\u5217\u8868\n   */\n  static getColorList() {\n    return Object.entries(AppleTheme.THEME_COLORS).map(([key, value]) => ({\n      value: key,\n      color: value,\n    }));\n  }\n}\n\n// \u5BFC\u51FA\u5230\u5168\u5C40\u4F5C\u7528\u57DF\nwindow.AppleTheme = AppleTheme;\n",
-        "converter": "/**\n * \u{1F34E} Apple Style Markdown \u8F6C\u6362\u5668\n * \u76F4\u63A5\u7167\u6284 wechat-tool \u7684\u4EE3\u7801\u5757\u5B9E\u73B0\n * \u9488\u5BF9\u5FAE\u4FE1\u516C\u4F17\u53F7\u4F18\u5316\uFF1A\u4F7F\u7528 section \u7ED3\u6784\uFF0C\u589E\u5F3A\u517C\u5BB9\u6027\n */\n\n// Callout \u56FE\u6807\u914D\u7F6E\uFF08\u989C\u8272\u8DDF\u968F\u4E3B\u9898\u8272\uFF09\nconst CALLOUT_ICONS = {\n  // \u4FE1\u606F\u7C7B\n  note: { icon: '\u2139\uFE0F', label: '\u5907\u6CE8' },\n  info: { icon: '\u2139\uFE0F', label: '\u4FE1\u606F' },\n  todo: { icon: '\u2611\uFE0F', label: '\u5F85\u529E' },\n  // \u6458\u8981\u7C7B\n  abstract: { icon: '\u{1F4C4}', label: '\u6458\u8981' },\n  summary: { icon: '\u{1F4C4}', label: '\u6458\u8981' },\n  tldr: { icon: '\u{1F4C4}', label: 'TL;DR' },\n  // \u63D0\u793A\u7C7B\n  tip: { icon: '\u{1F4A1}', label: '\u63D0\u793A' },\n  hint: { icon: '\u{1F4A1}', label: '\u63D0\u793A' },\n  important: { icon: '\u{1F4A1}', label: '\u91CD\u8981' },\n  // \u6210\u529F\u7C7B\n  success: { icon: '\u2705', label: '\u6210\u529F' },\n  check: { icon: '\u2705', label: '\u5B8C\u6210' },\n  done: { icon: '\u2705', label: '\u5B8C\u6210' },\n  // \u95EE\u9898\u7C7B\n  question: { icon: '\u2753', label: '\u95EE\u9898' },\n  help: { icon: '\u2753', label: '\u5E2E\u52A9' },\n  faq: { icon: '\u2753', label: 'FAQ' },\n  // \u8B66\u544A\u7C7B\n  warning: { icon: '\u26A0\uFE0F', label: '\u8B66\u544A' },\n  caution: { icon: '\u26A0\uFE0F', label: '\u6CE8\u610F' },\n  attention: { icon: '\u26A0\uFE0F', label: '\u6CE8\u610F' },\n  // \u5931\u8D25/\u5371\u9669\u7C7B\n  failure: { icon: '\u274C', label: '\u5931\u8D25' },\n  fail: { icon: '\u274C', label: '\u5931\u8D25' },\n  missing: { icon: '\u274C', label: '\u7F3A\u5931' },\n  danger: { icon: '\u{1F6A8}', label: '\u5371\u9669' },\n  error: { icon: '\u274C', label: '\u9519\u8BEF' },\n  bug: { icon: '\u{1F41B}', label: 'Bug' },\n  // \u5F15\u7528\u7C7B\n  quote: { icon: '\u{1F4AC}', label: '\u5F15\u7528' },\n  cite: { icon: '\u{1F4DD}', label: '\u5F15\u7528' },\n  // \u793A\u4F8B\u7C7B\n  example: { icon: '\u{1F4CB}', label: '\u793A\u4F8B' },\n};\n\nconst CALLOUT_SEMANTIC_GROUPS = {\n  note: 'info',\n  info: 'info',\n  todo: 'info',\n  abstract: 'info',\n  summary: 'info',\n  tldr: 'info',\n  tip: 'tip',\n  hint: 'tip',\n  important: 'tip',\n  success: 'success',\n  check: 'success',\n  done: 'success',\n  question: 'question',\n  help: 'question',\n  faq: 'question',\n  warning: 'warning',\n  caution: 'warning',\n  attention: 'warning',\n  failure: 'danger',\n  fail: 'danger',\n  missing: 'danger',\n  danger: 'danger',\n  error: 'danger',\n  bug: 'danger',\n  quote: 'quote',\n  cite: 'quote',\n  example: 'quote',\n};\n\nconst CALLOUT_SEMANTIC_COLORS = {\n  info: '#2f6fdd',\n  tip: '#1f8c7a',\n  success: '#2d8a4a',\n  question: '#7251b5',\n  warning: '#b26a00',\n  danger: '#c44747',\n  quote: '#5f6b7a',\n};\n\nfunction resolveCalloutSemanticColor(type, fallbackColor) {\n  const key = String(type || '').trim().toLowerCase();\n  const group = CALLOUT_SEMANTIC_GROUPS[key] || 'info';\n  return CALLOUT_SEMANTIC_COLORS[group] || fallbackColor;\n}\n\nwindow.AppleStyleConverter = class AppleStyleConverter {\n  constructor(theme, avatarUrl = '', showImageCaption = true, app = null, sourcePath = '') {\n    this.theme = theme;\n    this.avatarUrl = avatarUrl;\n    this.showImageCaption = showImageCaption;\n    this.app = app; // Obsidian App instance\n    this.sourcePath = sourcePath; // Current file path for relative resolution\n    this.md = null;\n    this.hljs = null;\n  }\n\n  async initMarkdownIt() {\n    if (this.md) return;\n    if (typeof markdownit === 'undefined') throw new Error('markdown-it \u672A\u52A0\u8F7D');\n    this.hljs = typeof hljs !== 'undefined' ? hljs : null;\n    this.md = markdownit({ html: true, breaks: true, linkify: true, typographer: true });\n\n    // Enable MathJax if available\n    if (window.ObsidianWechatMath) {\n      window.ObsidianWechatMath(this.md);\n    }\n\n    this.setupRenderRules();\n  }\n\n  reinit() { this.md = null; }\n\n  updateConfig(config) {\n    if (config.showImageCaption !== undefined) {\n      this.showImageCaption = config.showImageCaption;\n    }\n    if (config.avatarUrl !== undefined) {\n      this.avatarUrl = config.avatarUrl;\n    }\n  }\n\n  updateSourcePath(path) {\n    this.sourcePath = path;\n  }\n\n  resolveImagePath(src) {\n    if (!this.app) return src;\n    // IF remote url, bypass\n    if (/^(https?:\\/\\/|data:)/i.test(src)) return src;\n\n    try {\n      // Markdown-it might encode the URL (e.g. %20 for space), but Obsidian expects decoded paths\n      const linkPath = decodeURI(src);\n      const sourcePath = this.sourcePath;\n      // Resolve using Obsidian's standard API\n      const tFile = this.app.metadataCache.getFirstLinkpathDest(linkPath, sourcePath);\n      if (tFile) {\n        return this.app.vault.getResourcePath(tFile);\n      }\n    } catch (e) {\n      console.error('Image resolution failed:', src, e);\n    }\n    return src;\n  }\n\n  setupRenderRules() {\n    // Callout & Blockquote \u667A\u80FD\u68C0\u6D4B\u6E32\u67D3\n    this.md.renderer.rules.blockquote_open = (tokens, idx, options, env, self) => {\n      // \u67E5\u627E blockquote \u5185\u7684\u7B2C\u4E00\u4E2A\u6587\u672C\u5185\u5BB9\uFF0C\u68C0\u6D4B\u662F\u5426\u4E3A callout \u8BED\u6CD5\n      const calloutInfo = this.detectCallout(tokens, idx);\n\n      // \u4F7F\u7528\u6808\u7BA1\u7406 callout \u72B6\u6001\uFF0C\u652F\u6301\u5D4C\u5957\n      if (!env._calloutStack) env._calloutStack = [];\n      env._calloutStack.push(calloutInfo);\n\n      if (calloutInfo) {\n        return this.renderCalloutOpen(calloutInfo);\n      }\n      // \u666E\u901A blockquote\n      return `<blockquote style=\"${this.getInlineStyle('blockquote')}\">`;\n    };\n\n    this.md.renderer.rules.blockquote_close = (tokens, idx, options, env, self) => {\n      const calloutInfo = env._calloutStack ? env._calloutStack.pop() : null;\n      if (calloutInfo) {\n        return `</section></section>`; // \u5173\u95ED\u5185\u5BB9\u533A\u548C\u5916\u5C42\u5BB9\u5668\n      }\n      return `</blockquote>`;\n    };\n\n    this.md.renderer.rules.paragraph_open = (tokens, idx) => {\n      if (tokens[idx].hidden) return '';\n      return `<p style=\"${this.getInlineStyle('p')}\">`;\n    };\n\n    this.md.renderer.rules.paragraph_close = (tokens, idx) => {\n      if (tokens[idx].hidden) return '';\n      return `</p>`;\n    };\n    this.md.renderer.rules.heading_open = (tokens, idx) => `<${tokens[idx].tag} style=\"${this.getInlineStyle(tokens[idx].tag)}\">`;\n    this.md.renderer.rules.bullet_list_open = () => `<ul style=\"${this.getInlineStyle('ul')}\">`;\n    this.md.renderer.rules.ordered_list_open = () => `<ol style=\"${this.getInlineStyle('ol')}\">`;\n    const isTaskListItem = (tokens, idx) => {\n      for (let i = idx + 1; i < tokens.length; i++) {\n        const token = tokens[i];\n        if (token.type === 'list_item_close') break;\n        if (token.type === 'inline') {\n          const content = token.content || '';\n          if (content.startsWith('\u2611') || content.startsWith('\u25A1') || content.startsWith('\u2610')) {\n            return {\n              isTask: true,\n              checked: content.startsWith('\u2611'),\n              token: token\n            };\n          }\n          break;\n        }\n      }\n      return null;\n    };\n\n    this.md.renderer.rules.list_item_open = (tokens, idx) => {\n      const taskInfo = isTaskListItem(tokens, idx);\n      if (taskInfo) {\n        const inlineToken = taskInfo.token;\n        const themeColor = this.theme.getThemeColorValue() || '#576b95';\n        \n        if (inlineToken.children && inlineToken.children.length > 0) {\n          const firstChild = inlineToken.children[0];\n          if (firstChild.type === 'text' && (firstChild.content.startsWith('\u2611') || firstChild.content.startsWith('\u25A1') || firstChild.content.startsWith('\u2610'))) {\n            const content = firstChild.content;\n            const restText = content.slice(1);\n            \n            const newChildren = [];\n            \n            if (taskInfo.checked) {\n              newChildren.push({\n                type: 'html_inline',\n                content: `<span style=\"display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: #8f959e; line-height: 1;\">\u2611</span>`\n              });\n              newChildren.push({\n                type: 'html_inline',\n                content: `<span style=\"text-decoration: line-through; color: #8f959e;\">`\n              });\n              newChildren.push({\n                type: 'text',\n                content: restText.trimStart()\n              });\n              for (let j = 1; j < inlineToken.children.length; j++) {\n                newChildren.push(inlineToken.children[j]);\n              }\n              newChildren.push({\n                type: 'html_inline',\n                content: `</span>`\n              });\n            } else {\n              newChildren.push({\n                type: 'html_inline',\n                content: `<span style=\"display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: ${themeColor}; line-height: 1;\">\u2610</span>`\n              });\n              newChildren.push({\n                type: 'text',\n                content: restText.trimStart()\n              });\n              for (let j = 1; j < inlineToken.children.length; j++) {\n                newChildren.push(inlineToken.children[j]);\n              }\n            }\n            inlineToken.children = newChildren;\n          }\n        } else {\n          const content = inlineToken.content;\n          const restText = content.slice(1);\n          if (taskInfo.checked) {\n            inlineToken.content = `<span style=\"display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: #8f959e; line-height: 1;\">\u2611</span><span style=\"text-decoration: line-through; color: #8f959e;\">${restText.trimStart()}</span>`;\n          } else {\n            inlineToken.content = `<span style=\"display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: ${themeColor}; line-height: 1;\">\u2610</span>${restText.trimStart()}`;\n          }\n        }\n        \n        return `<li style=\"${this.getInlineStyle('li-task')}\">`;\n      }\n      return `<li style=\"${this.getInlineStyle('li')}\">`;\n    };\n\n    this.md.renderer.rules.code_inline = (tokens, idx) =>\n      `<code style=\"${this.getInlineStyle('code')}\">${this.escapeHtml(tokens[idx].content)}</code>`;\n\n    this.md.renderer.rules.fence = (tokens, idx) => {\n      const content = tokens[idx].content;\n      const lang = tokens[idx].info || 'text';\n      return this.createCodeBlock(content, lang);\n    };\n\n    this.md.renderer.rules.link_open = (tokens, idx) => {\n      const href = tokens[idx].attrGet('href');\n      const safeHref = this.validateLink(href);\n      return `<a href=\"${safeHref}\" style=\"${this.getInlineStyle('a')}\">`;\n    };\n    this.md.renderer.rules.strong_open = () => `<strong style=\"${this.getInlineStyle('strong')}\">`;\n    this.md.renderer.rules.em_open = () => `<em style=\"${this.getInlineStyle('em')}\">`;\n    this.md.renderer.rules.s_open = () => `<del style=\"${this.getInlineStyle('del')}\">`;\n\n    this.md.renderer.rules.image = (tokens, idx) => {\n      let src = tokens[idx].attrGet('src');\n      const alt = tokens[idx].content;\n\n      // Resolve Local Path for Preview\n      src = this.resolveImagePath(src);\n\n\n      let caption = '';\n\n      if (alt) {\n        caption = alt;\n        const stripped = caption.replace(/\\|\\s*\\d+(x\\d+)?\\s*$/, '');\n        caption = stripped || caption;\n        caption = caption.replace(/\\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i, '');\n      }\n\n\n      if (this.avatarUrl) {\n        // \u6C34\u5370\u6A21\u5F0F\uFF1A\u663E\u793A\u5934\u50CF + \u56FE\u7247\u540D\u79F0\uFF0C\u4F7F\u7528\u5E26\u8FB9\u6846\u7684\u6837\u5F0F\n        const avatarHeaderStyle = this.getInlineStyle('avatar-header');\n        const spacerStyle = 'display:block;height:8px;line-height:8px;font-size:0;';\n        // Fix: Force text-align: left for the figure container in watermark mode to prevent centering\n        // We strip the default text-align: center from the figure style and add text-align: left\n        let figureStyle = this.getInlineStyle('figure');\n        figureStyle = figureStyle.replace('text-align: center;', 'text-align: left;');\n\n        return `<figure style=\"${figureStyle}\"><div style=\"${avatarHeaderStyle}\"><img src=\"${this.avatarUrl}\" alt=\"logo\" style=\"${this.getInlineStyle('avatar')}\"><span style=\"${this.getInlineStyle('avatar-caption')}\">${caption}</span></div><section style=\"${spacerStyle}\">&nbsp;</section><img src=\"${src}\" alt=\"${alt}\" style=\"${this.getInlineStyle('img')}\"></figure>`;\n      }\n\n      // \u975E\u6C34\u5370\u6A21\u5F0F\uFF1A\u65E0\u8FB9\u6846\u6837\u5F0F\n      const simpleFigureStyle = 'display:block;margin:16px 0;text-align:center;';\n      if (this.showImageCaption && caption) {\n        return `<figure style=\"${simpleFigureStyle}\"><img src=\"${src}\" alt=\"${alt}\" style=\"${this.getInlineStyle('img')}\"><figcaption style=\"${this.getInlineStyle('figcaption')}\">${caption}</figcaption></figure>`;\n      } else {\n        return `<figure style=\"${simpleFigureStyle}\"><img src=\"${src}\" alt=\"${alt}\" style=\"${this.getInlineStyle('img')}\"></figure>`;\n      }\n    };\n\n    this.md.renderer.rules.hr = () => `<hr style=\"${this.getInlineStyle('hr')}\">`;\n    this.md.renderer.rules.table_open = (tokens, idx) => `<section style=\"${this.getInlineStyle('table-wrapper')}\"><table style=\"${this.getTableStyle(tokens, idx)}\">`;\n    this.md.renderer.rules.table_close = () => `</table></section>`;\n    this.md.renderer.rules.thead_open = () => `<thead style=\"${this.getInlineStyle('thead')}\">`;\n    this.md.renderer.rules.th_open = () => `<th style=\"${this.getInlineStyle('th')}\">`;\n    this.md.renderer.rules.td_open = () => `<td style=\"${this.getInlineStyle('td')}\">`;\n  }\n\n  getTableColumnCount(tokens, tableIdx) {\n    if (!Array.isArray(tokens)) return 0;\n\n    let rowOpen = false;\n    let count = 0;\n    for (let i = tableIdx + 1; i < tokens.length; i += 1) {\n      const token = tokens[i];\n      if (!token) continue;\n      if (token.type === 'table_close') break;\n      if (token.type === 'tr_open') {\n        rowOpen = true;\n        count = 0;\n        continue;\n      }\n      if (token.type === 'tr_close' && rowOpen) {\n        if (count > 0) return count;\n        rowOpen = false;\n        continue;\n      }\n      if (!rowOpen || (token.type !== 'th_open' && token.type !== 'td_open')) continue;\n\n      const colspanAttr = typeof token.attrGet === 'function' ? token.attrGet('colspan') : null;\n      const colspan = Number.parseInt(colspanAttr || '1', 10);\n      count += Number.isFinite(colspan) && colspan > 0 ? colspan : 1;\n    }\n\n    return count;\n  }\n\n  getTableMinWidth(tokens, tableIdx) {\n    const columns = this.getTableColumnCount(tokens, tableIdx);\n    if (!columns) return 720;\n    const width = columns <= 2 ? (columns * 180 + 80) : (columns * 230 + 80);\n    return Math.max(360, Math.min(1200, width));\n  }\n\n  getTableStyle(tokens, tableIdx) {\n    const baseStyle = this.getInlineStyle('table');\n    const minWidth = this.getTableMinWidth(tokens, tableIdx);\n    const withoutWidth = baseStyle\n      .replace(/(?:^|;)\\s*width\\s*:\\s*[^;]+;?/gi, ';')\n      .replace(/(?:^|;)\\s*min-width\\s*:\\s*[^;]+;?/gi, ';')\n      .replace(/(?:^|;)\\s*max-width\\s*:\\s*[^;]+;?/gi, ';')\n      .replace(/;{2,}/g, ';')\n      .replace(/^\\s*;\\s*/, '')\n      .trim();\n    const normalized = withoutWidth && !withoutWidth.endsWith(';') ? `${withoutWidth};` : withoutWidth;\n    return `width: ${minWidth}px; min-width: 100%; max-width: none; ${normalized}`;\n  }\n\n  /**\n   * \u68C0\u6D4B blockquote \u662F\u5426\u4E3A Callout \u8BED\u6CD5\n   * \u5E76\u6E05\u7406 marker \u6807\u8BC6\u7B26\n   * @param {Array} tokens - markdown-it tokens\n   * @param {number} idx - blockquote_open \u7684\u7D22\u5F15\n   * @returns {Object|null} - callout \u4FE1\u606F { type, title, icon, label } \u6216 null\n   */\n  detectCallout(tokens, idx) {\n    // \u67E5\u627E blockquote \u5185\u7684\u7B2C\u4E00\u4E2A inline token\n    for (let i = idx + 1; i < tokens.length; i++) {\n      if (tokens[i].type === 'blockquote_close') break;\n      if (tokens[i].type === 'inline' && tokens[i].content) {\n        // \u53EA\u53D6\u7B2C\u4E00\u884C\u5185\u5BB9\u8FDB\u884C\u5339\u914D\n        const firstLine = tokens[i].content.split('\\n')[0];\n        // \u652F\u6301\u81EA\u5B9A\u4E49 callout \u7C7B\u578B\uFF08\u5305\u542B\u4E2D\u6587\u3001\u8FDE\u5B57\u7B26\u7B49\uFF09\uFF0C\u4F8B\u5982 [!\u5B66\u4E60\u7814\u7A76] / [!custom-type]\n        const match = firstLine.match(/^\\[!\\s*([^\\]\\r\\n]+?)\\s*\\](?:\\s+(.*))?/);\n        if (match) {\n          const rawType = match[1].trim();\n          if (!rawType || !/\\S/u.test(rawType)) return null;\n          const type = rawType.toLowerCase();\n          const customTitle = match[2] ? match[2].trim() : null;\n          const mappedConfig = CALLOUT_ICONS[type];\n          const config = mappedConfig || { icon: CALLOUT_ICONS.note.icon, label: type };\n          const defaultTitle = type.charAt(0).toUpperCase() + type.slice(1);\n\n          // --- \u5728 Token \u9636\u6BB5\u6E05\u7406 Marker ---\n          // 1. \u66F4\u65B0 content\uFF1A\u79FB\u9664\u5305\u542B marker \u7684\u7B2C\u4E00\u884C\n          const lines = tokens[i].content.split('\\n');\n          lines.shift();\n          tokens[i].content = lines.join('\\n');\n\n          // 2. \u66F4\u65B0 children\uFF1A\u540C\u6B65\u79FB\u9664\u7B2C\u4E00\u884C\u5BF9\u5E94\u7684 tokens\n          if (tokens[i].children) {\n            const breakIdx = tokens[i].children.findIndex(c => c.type === 'softbreak' || c.type === 'hardbreak');\n            if (breakIdx !== -1) {\n              // \u79FB\u9664\u7B2C\u4E00\u4E2A\u6362\u884C\u7B26\u53CA\u5176\u4E4B\u524D\u7684\u6240\u6709\u5185\u5BB9\n              tokens[i].children = tokens[i].children.slice(breakIdx + 1);\n            } else {\n              // \u53EA\u6709\u4E00\u884C\uFF0C\u76F4\u63A5\u6E05\u7A7A\n              tokens[i].children = [];\n            }\n          }\n\n          // 3. \u5982\u679C\u8BE5\u6BB5\u843D\u53D8\u4E3A\u7A7A\uFF08\u8BF4\u660E marker \u72EC\u5360\u4E00\u884C\uFF09\uFF0C\u9690\u85CF\u8BE5\u6BB5\u843D\u5BB9\u5668\n          if (tokens[i].content.trim() === '') {\n            if (i > 0 && tokens[i-1].type === 'paragraph_open') tokens[i-1].hidden = true;\n            tokens[i].hidden = true; // \u9690\u85CF inline token \u672C\u8EAB\n            if (i < tokens.length - 1 && tokens[i+1].type === 'paragraph_close') tokens[i+1].hidden = true;\n          }\n\n          return {\n            type,\n            title: customTitle || defaultTitle,\n            icon: config.icon,\n            label: config.label,\n          };\n        }\n        break; // \u53EA\u68C0\u67E5\u7B2C\u4E00\u4E2A inline\n      }\n    }\n    return null;\n  }\n\n  /**\n   * \u6E32\u67D3 Callout \u5F00\u59CB\u6807\u7B7E\n   * @param {Object} calloutInfo - { type, title, icon }\n   * @returns {string} - HTML \u5B57\u7B26\u4E32\n   */\n  renderCalloutOpen(calloutInfo) {\n    const color = this.theme.getThemeColorValue();\n    const sizes = this.theme.getSizes();\n    const font = this.theme.getFontFamily();\n    const quoteCalloutStyleMode = typeof this.theme.getQuoteCalloutStyleMode === 'function'\n      ? this.theme.getQuoteCalloutStyleMode()\n      : 'theme';\n\n    if (quoteCalloutStyleMode === 'neutral') {\n      return this.renderCalloutOpenNeutral(calloutInfo, color, sizes, font);\n    }\n\n    const safeTitle = this.escapeHtml(String(calloutInfo.title ?? ''));\n    const accentColor = resolveCalloutSemanticColor(calloutInfo?.type, color);\n\n    const containerStyle = `\n      margin: 16px 0 16px 8px;\n      background: ${accentColor}0D;\n      border: 1px solid ${accentColor}24;\n      border-radius: 4px;\n      overflow: hidden;\n    `.replace(/\\s+/g, ' ').trim();\n\n    const headerStyle = `\n      display: flex;\n      align-items: center;\n      padding: 8px 12px;\n      background: ${accentColor}14;\n      border-bottom: 1px solid ${accentColor}24;\n      font-weight: bold;\n      font-size: ${sizes.base}px;\n      font-family: ${font};\n      color: ${accentColor};\n    `.replace(/\\s+/g, ' ').trim();\n\n    const iconStyle = `margin-right: 8px; font-size: ${sizes.base + 2}px; color: ${accentColor};`;\n    const titleStyle = `flex: 1; color: ${accentColor};`;\n\n    const contentStyle = `\n      padding: 12px 16px;\n      font-size: ${sizes.base}px;\n      line-height: 1.8;\n      color: #595959;\n      background: ${accentColor}0D;\n    `.replace(/\\s+/g, ' ').trim();\n\n    return `<section style=\"${containerStyle}\">\n      <section style=\"${headerStyle}\">\n        <span style=\"${iconStyle}\">${calloutInfo.icon}</span>\n        <span style=\"${titleStyle}\">${safeTitle}</span>\n      </section>\n      <section style=\"${contentStyle}\">`;\n  }\n\n  renderCalloutOpenNeutral(calloutInfo, themeColor, sizes, font) {\n    const safeTitle = this.escapeHtml(String(calloutInfo.title ?? ''));\n    const accentColor = resolveCalloutSemanticColor(calloutInfo?.type, themeColor);\n\n    const containerStyle = `\n      margin: 16px 0 16px 8px;\n      background: #f9f9f9;\n      border: 1px solid ${accentColor}24;\n      border-radius: 4px;\n      overflow: hidden;\n    `.replace(/\\s+/g, ' ').trim();\n\n    const headerStyle = `\n      display: flex;\n      align-items: center;\n      padding: 8px 12px;\n      background: ${accentColor}14;\n      border-bottom: 1px solid ${accentColor}24;\n      font-weight: bold;\n      font-size: ${sizes.base}px;\n      font-family: ${font};\n      color: ${accentColor};\n    `.replace(/\\s+/g, ' ').trim();\n\n    const iconStyle = `margin-right: 8px; font-size: ${sizes.base + 2}px; color: ${accentColor};`;\n    const titleStyle = `flex: 1; color: ${accentColor};`;\n    const contentStyle = `\n      padding: 12px 16px;\n      font-size: ${sizes.base}px;\n      line-height: 1.8;\n      color: #595959;\n      background: #f9f9f9;\n    `.replace(/\\s+/g, ' ').trim();\n\n    return `<section style=\"${containerStyle}\">\n      <section style=\"${headerStyle}\">\n        <span style=\"${iconStyle}\">${calloutInfo.icon}</span>\n        <span style=\"${titleStyle}\">${safeTitle}</span>\n      </section>\n      <section style=\"${contentStyle}\">`;\n  }\n\n  highlightCode(code, lang) {\n    if (!this.hljs) return this.escapeHtml(code);\n    try {\n      if (lang && this.hljs.getLanguage(lang)) return this.hljs.highlight(code, { language: lang }).value;\n      return this.hljs.highlightAuto(code).value;\n    } catch (e) { return this.escapeHtml(code); }\n  }\n\n  /**\n   * \u683C\u5F0F\u5316\u9AD8\u4EAE\u4EE3\u7801\uFF08\u53C2\u8003 wechat-tool formatHighlightedCode\uFF09\n   */\n  formatHighlightedCode(html, preserveNewlines = false) {\n    let formatted = html;\n    // \u5C06 span \u4E4B\u95F4\u7684\u7A7A\u683C\u79FB\u5230 span \u5185\u90E8\n    formatted = formatted.replace(/(<span[^>]*>[^<]*<\\/span>)(\\s+)(<span[^>]*>[^<]*<\\/span>)/g,\n      (_, span1, spaces, span2) => span1 + span2.replace(/^(<span[^>]*>)/, `$1${spaces}`));\n    formatted = formatted.replace(/(\\s+)(<span[^>]*>)/g,\n      (_, spaces, span) => span.replace(/^(<span[^>]*>)/, `$1${spaces}`));\n    // \u66FF\u6362\u5236\u8868\u7B26\u4E3A4\u4E2A\u7A7A\u683C\n    formatted = formatted.replace(/\\t/g, '    ');\n\n    // wechat-tool \u7684\u903B\u8F91\uFF1A\u5982\u679C\u662F lineNumbers \u6A21\u5F0F\uFF08preserveNewlines=false\uFF09\uFF0C\u5C06\u7A7A\u683C\u8F6C\u4E3A &nbsp;\n    // \u5982\u679C\u4E0D\u662F\uFF08preserveNewlines=true\uFF09\uFF0C\u5C06\u6362\u884C\u8F6C\u4E3A <br/> \u4E14\u7A7A\u683C\u8F6C\u4E3A &nbsp;\n    if (preserveNewlines) {\n      formatted = formatted\n        .replace(/\\r\\n/g, '<br/>')\n        .replace(/\\n/g, '<br/>')\n        .replace(/(>[^<]+)|(^[^<]+)/g, str => str.replace(/\\s/g, '&nbsp;'));\n    } else {\n      formatted = formatted.replace(/(>[^<]+)|(^[^<]+)/g, str => str.replace(/\\s/g, '&nbsp;'));\n    }\n    return formatted;\n  }\n\n  inlineHighlightStyles(html) {\n    const map = {\n      'hljs-keyword': 'color:#ff7b72 !important;', 'hljs-built_in': 'color:#ffa657 !important;',\n      'hljs-type': 'color:#ffa657 !important;', 'hljs-literal': 'color:#79c0ff !important;',\n      'hljs-number': 'color:#79c0ff !important;', 'hljs-string': 'color:#a5d6ff !important;',\n      'hljs-symbol': 'color:#a5d6ff !important;', 'hljs-comment': 'color:#8b949e !important;font-style:italic !important;',\n      'hljs-doctag': 'color:#8b949e !important;', 'hljs-meta': 'color:#ffa657 !important;',\n      'hljs-attr': 'color:#79c0ff !important;', 'hljs-attribute': 'color:#79c0ff !important;',\n      'hljs-name': 'color:#7ee787 !important;', 'hljs-tag': 'color:#7ee787 !important;',\n      'hljs-selector-tag': 'color:#7ee787 !important;', 'hljs-selector-class': 'color:#d2a8ff !important;',\n      'hljs-selector-id': 'color:#79c0ff !important;', 'hljs-variable': 'color:#ffa657 !important;',\n      'hljs-template-variable': 'color:#ffa657 !important;', 'hljs-params': 'color:#e6e6e6 !important;',\n      'hljs-function': 'color:#d2a8ff !important;', 'hljs-title': 'color:#d2a8ff !important;',\n      'hljs-punctuation': 'color:#e6e6e6 !important;', 'hljs-property': 'color:#79c0ff !important;',\n      'hljs-operator': 'color:#ff7b72 !important;', 'hljs-regexp': 'color:#a5d6ff !important;',\n      'hljs-subst': 'color:#e6e6e6 !important;',\n    };\n\n    // \u6539\u8FDB\uFF1A\u5904\u7406 class \u5C5E\u6027\u5305\u542B\u591A\u4E2A\u7C7B\u540D\u7684\u60C5\u51B5\n    return html.replace(/class=\"([^\"]*)\"/g, (match, classNames) => {\n      const classes = classNames.split(/\\s+/);\n      let styles = '';\n      for (const cls of classes) {\n        if (map[cls]) {\n          styles += map[cls];\n        }\n      }\n      return styles ? `style=\"${styles}\"` : match;\n    }).replace(/class=\"[^\"]*\"/g, ''); // \u518D\u6B21\u6E05\u7406\u672A\u5339\u914D\u7684 class\n  }\n\n  /**\n   * \u521B\u5EFA\u4EE3\u7801\u5757 - \u7167\u6284 wechat-tool \u7684\u5B9E\u73B0\n   * \u4F7F\u7528 wechat-tool \u7684\u989C\u8272\u548C\u7ED3\u6784\n   */\n  createCodeBlock(content, lang) {\n    const showMac = this.theme.macCodeBlock;\n    const showLineNum = this.theme.codeLineNumber;\n\n    // wechat-tool \u7684\u989C\u8272\u914D\u7F6E\uFF08GitHub Dark \u4E3B\u9898\uFF09\n    const background = '#0d1117';  // GitHub Dark \u80CC\u666F\n    const color = '#f0f6fc';       // GitHub Dark \u6587\u5B57\n    const barBackground = '#161b22'; // \u5DE5\u5177\u680F\u80CC\u666F\n    const borderColor = '#30363d';   // \u8FB9\u6846\u989C\u8272\n\n    let lines = content.replace(/\\r\\n/g, '\\n').split('\\n');\n    while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();\n\n    // Mac \u5934\u90E8\n    // \u5173\u952E\u4FEE\u6B63\uFF1A\u4F7F\u7528 section \u800C\u4E0D\u662F div\uFF0C\u589E\u5F3A\u5728\u516C\u4F17\u53F7\u4E2D\u7684\u517C\u5BB9\u6027\n    const macHeader = showMac ? `<section style=\"display:block !important;background:${barBackground} !important;padding:6px 10px 6px 10px !important;border:none !important;border-bottom:1px solid ${borderColor} !important;border-radius:8px 8px 0 0 !important;line-height:1 !important;\">\n      <span style=\"display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ff5f57 !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;vertical-align:top !important;\"></span>\n      <span style=\"display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ffbd2e !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;vertical-align:top !important;\"></span>\n      <span style=\"display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#28c840 !important;font-size:0 !important;line-height:0 !important;vertical-align:top !important;\"></span>\n    </section>` : '';\n\n    // \u7EDF\u4E00\u884C\u9AD8\u548C\u5B57\u4F53\u53D8\u91CF\n    const lineHeight = '1.75';\n    // const fontSize = '13px';\n\n    let codeHtml;\n\n    if (showLineNum) {\n      // \u5E26\u884C\u53F7\uFF1A\u9010\u884C\u5904\u7406\n      const highlightedLines = lines.map(lineRaw => {\n        const lineHtml = this.highlightCode(lineRaw, lang);\n        const styled = this.inlineHighlightStyles(lineHtml);\n        // \u6CE8\u610F\uFF1A\u8FD9\u91CC formatHighlightedCode \u7B2C\u4E8C\u4E2A\u53C2\u6570\u4E3A false\uFF0C\u4E0D\u5305\u542B <br>\uFF0C\u4E0D\u5305\u542B &nbsp; (\u9664\u975E\u5185\u90E8\u903B\u8F91\u5904\u7406)\n        // \u5B9E\u9645\u4E0A formatHighlightedCode \u7B2C\u4E8C\u4E2A\u53C2\u6570\u4E3A false \u65F6\uFF0C\u53EA\u505A\u7A7A\u683C\u5904\u7406\n        // wechat-tool \u4E2D\uFF1A return formatted === '' ? '&nbsp;' : formatted\n        const formatted = this.formatHighlightedCode(styled, false);\n        return formatted === '' ? '&nbsp;' : formatted;\n      });\n\n      // \u884C\u53F7\u5217\n      const lineNumbersHtml = highlightedLines.map((_, idx) =>\n        `<section style=\"height:1.75em !important;line-height:${lineHeight} !important;padding:0 12px 0 12px !important;font-size:13px !important;color:#95989C !important;text-align:right !important;white-space:nowrap !important;vertical-align:top !important;margin:0 !important;\">${idx + 1}</section>`\n      ).join('');\n\n      // \u4EE3\u7801\u5185\u5BB9\n      // \u5173\u952E\u6539\u52A8\uFF1A\u56DE\u5F52 wechat-tool \u539F\u59CB\u65B9\u6848 \u2014\u2014 \u4F7F\u7528 <br> \u62FC\u63A5\u4EE3\u7801\u884C\uFF0C\u800C\u4E0D\u662F div \u5206\u5272\n      // \u8FD9\u6837\u53F3\u4FA7\u5C31\u662F\u4E00\u4E2A\u5355\u4E00\u7684\u6587\u672C\u6D41\uFF0C\u9AD8\u5EA6\u4E25\u683C\u7531 line-height \u63A7\u5236\n      const codeInnerHtml = highlightedLines.join('<br/>');\n\n      const codeLinesHtml = `<section style=\"white-space:nowrap !important;display:inline-block !important;min-width:100% !important;line-height:${lineHeight} !important;font-size:13px !important;\">${codeInnerHtml}</section>`;\n\n      // \u884C\u53F7\u5217\u5BB9\u5668\u6837\u5F0F\n      const lineNumberColumnStyles = `text-align:right !important;padding:12px 0 12px 0 !important;border-right:1px solid rgba(255,255,255,0.1) !important;user-select:none !important;background:transparent !important;flex:0 0 auto !important;min-width:3.5em !important;margin:0 !important;`;\n\n      // \u6CE8\u610F flex \u5BB9\u5668\u7684 padding 0\uFF0C\u5185\u90E8 padding \u5206\u522B\u5728 lineNumberColumn \u548C code section\n      codeHtml = `<section style=\"display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;padding:0 !important;margin:0 !important;\">\n        <section style=\"${lineNumberColumnStyles}\">${lineNumbersHtml}</section>\n        <section style=\"flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;padding:12px 12px 12px 16px !important;margin:0 !important;min-width:0 !important;\">${codeLinesHtml}</section>\n      </section>`;\n    } else {\n      // \u65E0\u884C\u53F7\n      const highlighted = this.highlightCode(lines.join('\\n'), lang);\n      const styled = this.inlineHighlightStyles(highlighted);\n      // preserveNewlines=true -> \u5305\u542B <br>\n      const formatted = this.formatHighlightedCode(styled, true);\n      // \u6539\u52A8\uFF1Awhite-space: nowrap !important\n      const codeLinesHtml = `<section style=\"white-space:nowrap !important;display:inline-block !important;min-width:100% !important;word-break:keep-all !important;overflow-wrap:normal !important;line-height:${lineHeight} !important;font-size:13px !important;margin:0 !important;\">${formatted}</section>`;\n\n      codeHtml = `<section style=\"display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;padding:0 !important;margin:0 !important;\">\n        <section style=\"flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;padding:12px !important;min-width:0 !important;margin:0 !important;\">${codeLinesHtml}</section>\n      </section>`;\n    }\n\n    // \u5916\u5C42\u5BB9\u5668\n    return `<section class=\"code-snippet__fix\" style=\"width:100% !important;margin:12px 0 !important;background:${background} !important;border:1px solid ${borderColor} !important;border-radius:8px !important;overflow:hidden !important;box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;display:block !important;\">\n${macHeader}\n<section style=\"padding:0 !important;border:none !important;background:${background} !important;color:${color} !important;font-family:'SF Mono',Consolas,Monaco,monospace !important;font-size:13px !important;line-height:${lineHeight} !important;white-space:nowrap !important;overflow-x:auto !important;display:block !important;\">\n<pre style=\"margin:0 !important;padding:0 !important;background:${background} !important;font-family:inherit !important;font-size:13px !important;line-height:inherit !important;color:${color} !important;white-space:nowrap !important;overflow-x:visible !important;display:inline-block !important;min-width:100% !important;\">${codeHtml}</pre>\n</section>\n</section>`;\n  }\n\n  getInlineStyle(tagName) { return this.theme.getStyle(tagName); }\n  stripFrontmatter(md) { return md.replace(/^---\\n[\\s\\S]*?\\n---\\n?/, ''); }\n\n\n  async convert(markdown) {\n    if (!this.md) await this.initMarkdownIt();\n\n    // \u4FEE\u590D\uFF1A\u79FB\u9664\u5757\u7EA7\u516C\u5F0F $$ \u524D\u9762\u7684\u7F29\u8FDB\uFF0C\u907F\u514D\u88AB\u8BEF\u8BC6\u522B\u4E3A\u4EE3\u7801\u5757\n    // \u4EC5\u5339\u914D\u884C\u9996\u7684\u7A7A\u767D + $$\uFF0C\u4E0D\u5F71\u54CD\u5176\u4ED6\u7F29\u8FDB\n    markdown = markdown.replace(/^[\\t ]+(\\$\\$)/gm, '$1');\n\n    // Pre-process: Convert Wiki-links ![[...]] to standard images ![](...)\n    // Regex: ![[path|alt]] or ![[path]]\n    // Fix: Use more robust regex preventing greedy capture and encoding URI for paths with spaces\n    markdown = markdown.replace(/!\\[\\[([^\\[\\]|]+)(?:\\|([^\\[\\]]+))?\\]\\]/g, (match, path, alt) => {\n      // Must encodeURI to handle spaces in filenames which are valid in WikiLinks but break standard Markdown images\n      // trimmed path to avoid leading/trailing spaces breaking the link\n      if (!alt) {\n        const filename = path.trim().split('/').pop().replace(/\\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i, '') || path.trim();\n        return `![${filename}](${encodeURI(path.trim())})`;\n      }\n      return `![${alt}](${encodeURI(path.trim())})`;\n    });\n\n\n\n    let html = this.md.render(this.stripFrontmatter(markdown));\n    html = this.fixListParagraphs(html);\n    html = this.unwrapFigures(html); // Fix: Remove <p> wrappers from <figure> to prevent empty lines\n    html = this.removeBlockquoteParagraphMargins(html); // Fix: Remove margins from <p> inside <blockquote> for vertical centering\n    html = this.fixMathJaxTags(html); // Fix: Replace <mjx-container> with WeChat-compatible tags\n    html = this.sanitizeHtml(html); // Final security pass: Neutralize XSS and dangerous tags\n    return `<section style=\"${this.getInlineStyle('section')}\">${html}</section>`;\n  }\n\n  fixMathJaxTags(html) {\n    if (!html.includes('mjx-container')) return html;\n\n    // Fix: Remove assistive MathML (hidden text that shows up in WeChat)\n    html = html.replace(/<mjx-assistive-mml[^>]*>[\\s\\S]*?<\\/mjx-assistive-mml>/gi, '');\n\n    const normalizeMathPositionStyles = (markup) => String(markup || '').replace(\n      /style=\"([^\"]*)\"/gi,\n      (_match, styleText) => {\n        let style = String(styleText || '');\n        let topValue = null;\n        style = style.replace(/(^|;)\\s*top\\s*:\\s*([^;\"]+)\\s*;?/i, (_m, prefix, value) => {\n          topValue = String(value || '').trim();\n          return prefix || '';\n        });\n        if (!topValue) return `style=\"${style}\"`;\n\n        if (/transform\\s*:/i.test(style)) {\n          style = style.replace(\n            /transform\\s*:\\s*([^;\"]+)/i,\n            (_m, value) => `transform:${String(value || '').trim()} translateY(${topValue})`\n          );\n        } else {\n          style = `${style}${style.trim().endsWith(';') || !style.trim() ? '' : ';'}transform: translateY(${topValue});`;\n        }\n        return `style=\"${style}\"`;\n      }\n    );\n\n    const appendSvgStyle = (markup, extraStyle) => String(markup || '').replace(/<svg([^>]*)>/i, (_m, svgAttrs) => {\n      if (svgAttrs.includes('style=\"')) {\n        return `<svg${svgAttrs.replace('style=\"', `style=\"${extraStyle}`)}>`;\n      }\n      return `<svg${svgAttrs} style=\"${extraStyle}\">`;\n    });\n\n    // Replace <mjx-container> with <section> (block) or <span> (inline)\n    // WeChat strips custom tags like mjx-container but keeps SVG content\n    return html.replace(/<mjx-container([^>]*)>(.*?)<\\/mjx-container>/gs, (match, attrs, content) => {\n      // Check for block display mode\n      // MathJax 3 usually adds display=\"true\" or class=\"MathJax CtxtMenu_Attached_0\" with separate style\n      const isBlock = attrs.includes('display=\"true\"') || attrs.includes('display: true');\n\n      const tag = isBlock ? 'section' : 'span';\n\n      // Inline math needs vertical alignment adjustment\n      // Block math needs centering and scaling (not scrolling) as per WeChat behavior\n      const style = isBlock\n        ? 'display:block; width:100%; margin:1em auto; text-align:center; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;'\n        : 'display:inline-block; vertical-align:middle; transform:translateY(-0.12em); margin:0 1px; line-height:1;';\n\n      content = normalizeMathPositionStyles(content);\n\n      // \u5173\u952E\u4FEE\u590D\uFF1A\u7ED9\u5757\u7EA7\u516C\u5F0F\u7684 SVG \u6DFB\u52A0 max-width: 100% \u548C height: auto\n      // \u8FD9\u6837\u5728\u624B\u673A\u4E0A\u9884\u89C8\u65F6\uFF0C\u516C\u5F0F\u4F1A\u6309\u6BD4\u4F8B\u7F29\u5C0F\u4EE5\u9002\u5E94\u5C4F\u5E55\uFF0C\u800C\u4E0D\u662F\u88AB\u906E\u6321\u6216\u9700\u8981\u6EDA\u52A8\n      // \u8FD9\u7B26\u5408\u5FAE\u4FE1\u516C\u4F17\u53F7\u7684\u9ED8\u8BA4\u6E32\u67D3\u884C\u4E3A\n      if (isBlock) {\n        content = appendSvgStyle(content, 'display:block; margin:0 auto; max-width:100%; height:auto; ');\n      } else {\n        content = content.replace(/vertical-align\\s*:\\s*[^;\"]+;?/gi, '');\n        content = appendSvgStyle(content, 'display:inline-block; max-width:300vw !important; height:auto; vertical-align:middle; ');\n      }\n\n      return `<${tag} data-owc-math=\"${isBlock ? 'block' : 'inline'}\" style=\"${style}\">${content}</${tag}>`;\n    });\n  }\n\n  fixListParagraphs(html) {\n    const style = this.getInlineStyle('li p');\n    return html.replace(/<li[^>]*>[\\s\\S]*?<\\/li>/g, m => m.replace(/<p style=\"[^\"]*\">/g, `<p style=\"${style}\">`));\n  }\n\n  replaceStyleDeclaration(styleText, property, value) {\n    const style = String(styleText || '');\n    const declaration = `${property}: ${value}`;\n    const propertyPattern = new RegExp(`(^|;)\\\\s*${property}\\\\s*:\\\\s*[^;\"]*`, 'i');\n\n    if (propertyPattern.test(style)) {\n      return style.replace(propertyPattern, (_match, prefix) => `${prefix ? `${prefix} ` : ''}${declaration}`);\n    }\n\n    const normalizedStyle = style.trim().replace(/;?\\s*$/, '');\n    return normalizedStyle ? `${normalizedStyle}; ${declaration}` : declaration;\n  }\n\n  /**\n   * Keep blockquote padding in control while preserving intentional blank lines.\n   * A blank line inside Markdown blockquotes renders as multiple paragraphs.\n   */\n  removeBlockquoteParagraphMargins(html) {\n    const containerTags = new Set([\n      'blockquote', 'section', 'div', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tfoot',\n      'tr', 'th', 'td', 'ul', 'ol', 'li', 'pre', 'article', 'aside',\n    ]);\n    const voidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);\n    const blockquoteStack = [];\n    const replacements = [];\n    const tagPattern = /<\\/?([a-zA-Z][\\w:-]*)(?:\\s[^<>]*)?>/g;\n\n    let match;\n    while ((match = tagPattern.exec(html)) !== null) {\n      const rawTag = match[0];\n      const tagName = String(match[1] || '').toLowerCase();\n      const isClosing = /^<\\//.test(rawTag);\n      const isSelfClosing = /\\/\\s*>$/.test(rawTag) || voidTags.has(tagName);\n\n      if (tagName === 'blockquote') {\n        if (isClosing) {\n          const frame = blockquoteStack.pop();\n          if (frame) {\n            const paragraphCount = frame.paragraphs.length;\n            frame.paragraphs.forEach((paragraph, index) => {\n              const isLastParagraph = index === paragraphCount - 1;\n              const marginValue = paragraphCount > 1 && !isLastParagraph ? '0 0 0.8em 0' : '0';\n              const updatedStyle = this.replaceStyleDeclaration(paragraph.styleText, 'margin', marginValue);\n              replacements.push({\n                start: paragraph.start,\n                end: paragraph.end,\n                value: paragraph.rawTag.replace(/style=\"([^\"]*)\"/, `style=\"${updatedStyle}\"`),\n              });\n            });\n          }\n          if (blockquoteStack.length > 0) {\n            const parentFrame = blockquoteStack[blockquoteStack.length - 1];\n            parentFrame.containerDepth = Math.max(0, parentFrame.containerDepth - 1);\n          }\n        } else {\n          if (blockquoteStack.length > 0) {\n            blockquoteStack[blockquoteStack.length - 1].containerDepth += 1;\n          }\n          blockquoteStack.push({ containerDepth: 0, paragraphs: [] });\n        }\n        continue;\n      }\n\n      if (blockquoteStack.length === 0) continue;\n\n      const frame = blockquoteStack[blockquoteStack.length - 1];\n      if (!isClosing && tagName === 'p') {\n        const styleMatch = rawTag.match(/\\bstyle=\"([^\"]*)\"/);\n        if (styleMatch && frame.containerDepth === 0) {\n          frame.paragraphs.push({\n            start: match.index,\n            end: match.index + rawTag.length,\n            rawTag,\n            styleText: styleMatch[1],\n          });\n        } else if (styleMatch) {\n          const updatedStyle = this.replaceStyleDeclaration(styleMatch[1], 'margin', '0');\n          replacements.push({\n            start: match.index,\n            end: match.index + rawTag.length,\n            value: rawTag.replace(/style=\"([^\"]*)\"/, `style=\"${updatedStyle}\"`),\n          });\n        }\n        continue;\n      }\n\n      if (!containerTags.has(tagName) || tagName === 'p') continue;\n      if (isClosing) {\n        frame.containerDepth = Math.max(0, frame.containerDepth - 1);\n      } else if (!isSelfClosing) {\n        frame.containerDepth += 1;\n      }\n    }\n\n    return replacements\n      .sort((a, b) => b.start - a.start)\n      .reduce((output, replacement) => (\n        output.slice(0, replacement.start) + replacement.value + output.slice(replacement.end)\n      ), html);\n  }\n\n  /**\n   * Fix: Unwrap <figure> from <p> tags\n   * Markdown-it wraps images in <p> by default, but <figure> inside <p> is invalid.\n   * Browsers (and WeChat) handle this by splitting the <p> into two empty <p>s above and below,\n   * causing unwanted empty lines. This regex removes the wrapping <p>.\n   */\n  unwrapFigures(html) {\n    // Logic: Match <p ...> <figure>...</figure> </p> and replace with <figure>...</figure>\n    return html.replace(/<p[^>]*>\\s*(<figure[\\s\\S]*?<\\/figure>)\\s*<\\/p>/gi, '$1');\n  }\n\n  validateLink(url, isImage = false) {\n    if (!url) return '#';\n    const value = String(url).trim();\n    if (!value) return '#';\n\n    // Keep legacy parity: allow raw data:image src in image context.\n    // Non-image data: remains blocked.\n    if (/^data:/i.test(value)) {\n      if (!isImage) return '#unsafe';\n      return /^data:image\\//i.test(value) ? value : '#';\n    }\n\n    // Allow safe protocols\n    const safeProtocols = ['http:', 'https:', 'obsidian:', 'mailto:', 'tel:', 'app:', 'capacitor:'];\n\n    try {\n      // URL constructor might fail for some internal links or malformed data URIs\n      const parsed = new URL(value);\n      if (safeProtocols.includes(parsed.protocol)) {\n        return value;\n      }\n    } catch (e) {\n      // Handle relative paths or Obsidian internal links that URL() can't parse\n      if (value.startsWith('#') || value.startsWith('/') || !value.includes(':')) return value;\n    }\n    return '#'; // Block javascript: and other dangerous protocols\n  }\n\n  sanitizeHtml(html) {\n    // 1. Remove dangerous tags and their content\n    let sanitized = html.replace(/<(script|iframe|object|embed|form|input|button|style)[^>]*>[\\s\\S]*?<\\/\\1>/gi, '');\n    // 2. Remove self-closing dangerous tags\n    sanitized = sanitized.replace(/<(script|iframe|object|embed|form|input|button|style)[^>]*\\/?>/gi, '');\n    // 3. Remove document wrapper tags/comments that may appear when users paste browser fragments.\n    sanitized = sanitized.replace(/<!--[\\s\\S]*?-->/g, '');\n    sanitized = sanitized.replace(/<\\/?(?:html|body|head|meta|title|link)[^>]*>/gi, '');\n    // 4. Remove all on* event handlers (e.g., onerror, onclick)\n    sanitized = sanitized.replace(/\\s+on\\w+\\s*=\\s*\"[^\"]*\"/gi, '');\n    sanitized = sanitized.replace(/\\s+on\\w+\\s*=\\s*'[^']*'/gi, '');\n    sanitized = sanitized.replace(/\\s+on\\w+\\s*=\\s*[^\\s>]+/gi, '');\n\n    // 5. Sanitize href and src in remaining HTML tags to prevent protocol bypass (e.g. <a href=\"javascript:...\")\n    sanitized = sanitized.replace(/<(a|img|source|video|audio|area)\\b([^>]*)>/gi, (match, tag, attrs) => {\n      const isImageTag = /^(img|source)$/i.test(tag);\n      let newAttrs = attrs.replace(/\\b(href|src)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))/gi, (attrMatch, attrName, qVal, sqVal, uVal) => {\n        const val = qVal || sqVal || uVal || '';\n        const safeVal = this.validateLink(val, isImageTag);\n        const quote = qVal !== undefined ? '\"' : (sqVal !== undefined ? \"'\" : '\"');\n        return `${attrName}=${quote}${safeVal}${quote}`;\n      });\n      return `<${tag}${newAttrs}>`;\n    });\n\n    return sanitized;\n  }\n\n  escapeHtml(text) {\n    return text.replace(/[&<>\"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#039;' }[m]));\n  }\n\n  extractFileName(src) {\n    if (!src) return '\u56FE\u7247';\n    return src.split('/').pop().split('\\\\').pop().replace(/\\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i, '') || '\u56FE\u7247';\n  }\n}\n\nwindow.AppleStyleConverter = AppleStyleConverter;\n"
+        "converter": "/**\n * \u{1F34E} Apple Style Markdown \u8F6C\u6362\u5668\n * \u76F4\u63A5\u7167\u6284 wechat-tool \u7684\u4EE3\u7801\u5757\u5B9E\u73B0\n * \u9488\u5BF9\u5FAE\u4FE1\u516C\u4F17\u53F7\u4F18\u5316\uFF1A\u4F7F\u7528 section \u7ED3\u6784\uFF0C\u589E\u5F3A\u517C\u5BB9\u6027\n */\n\n// Callout \u56FE\u6807\u914D\u7F6E\uFF08\u989C\u8272\u8DDF\u968F\u4E3B\u9898\u8272\uFF09\nconst CALLOUT_ICONS = {\n  // \u4FE1\u606F\u7C7B\n  note: { icon: '\u2139\uFE0F', label: '\u5907\u6CE8' },\n  info: { icon: '\u2139\uFE0F', label: '\u4FE1\u606F' },\n  todo: { icon: '\u2611\uFE0F', label: '\u5F85\u529E' },\n  // \u6458\u8981\u7C7B\n  abstract: { icon: '\u{1F4C4}', label: '\u6458\u8981' },\n  summary: { icon: '\u{1F4C4}', label: '\u6458\u8981' },\n  tldr: { icon: '\u{1F4C4}', label: 'TL;DR' },\n  // \u63D0\u793A\u7C7B\n  tip: { icon: '\u{1F4A1}', label: '\u63D0\u793A' },\n  hint: { icon: '\u{1F4A1}', label: '\u63D0\u793A' },\n  important: { icon: '\u{1F4A1}', label: '\u91CD\u8981' },\n  // \u6210\u529F\u7C7B\n  success: { icon: '\u2705', label: '\u6210\u529F' },\n  check: { icon: '\u2705', label: '\u5B8C\u6210' },\n  done: { icon: '\u2705', label: '\u5B8C\u6210' },\n  // \u95EE\u9898\u7C7B\n  question: { icon: '\u2753', label: '\u95EE\u9898' },\n  help: { icon: '\u2753', label: '\u5E2E\u52A9' },\n  faq: { icon: '\u2753', label: 'FAQ' },\n  // \u8B66\u544A\u7C7B\n  warning: { icon: '\u26A0\uFE0F', label: '\u8B66\u544A' },\n  caution: { icon: '\u26A0\uFE0F', label: '\u6CE8\u610F' },\n  attention: { icon: '\u26A0\uFE0F', label: '\u6CE8\u610F' },\n  // \u5931\u8D25/\u5371\u9669\u7C7B\n  failure: { icon: '\u274C', label: '\u5931\u8D25' },\n  fail: { icon: '\u274C', label: '\u5931\u8D25' },\n  missing: { icon: '\u274C', label: '\u7F3A\u5931' },\n  danger: { icon: '\u{1F6A8}', label: '\u5371\u9669' },\n  error: { icon: '\u274C', label: '\u9519\u8BEF' },\n  bug: { icon: '\u{1F41B}', label: 'Bug' },\n  // \u5F15\u7528\u7C7B\n  quote: { icon: '\u{1F4AC}', label: '\u5F15\u7528' },\n  cite: { icon: '\u{1F4DD}', label: '\u5F15\u7528' },\n  // \u793A\u4F8B\u7C7B\n  example: { icon: '\u{1F4CB}', label: '\u793A\u4F8B' },\n};\n\nconst CALLOUT_SEMANTIC_GROUPS = {\n  note: 'info',\n  info: 'info',\n  todo: 'info',\n  abstract: 'info',\n  summary: 'info',\n  tldr: 'info',\n  tip: 'tip',\n  hint: 'tip',\n  important: 'tip',\n  success: 'success',\n  check: 'success',\n  done: 'success',\n  question: 'question',\n  help: 'question',\n  faq: 'question',\n  warning: 'warning',\n  caution: 'warning',\n  attention: 'warning',\n  failure: 'danger',\n  fail: 'danger',\n  missing: 'danger',\n  danger: 'danger',\n  error: 'danger',\n  bug: 'danger',\n  quote: 'quote',\n  cite: 'quote',\n  example: 'quote',\n};\n\nconst CALLOUT_SEMANTIC_COLORS = {\n  info: '#2f6fdd',\n  tip: '#1f8c7a',\n  success: '#2d8a4a',\n  question: '#7251b5',\n  warning: '#b26a00',\n  danger: '#c44747',\n  quote: '#5f6b7a',\n};\n\nfunction resolveCalloutSemanticColor(type, fallbackColor) {\n  const key = String(type || '').trim().toLowerCase();\n  const group = CALLOUT_SEMANTIC_GROUPS[key] || 'info';\n  return CALLOUT_SEMANTIC_COLORS[group] || fallbackColor;\n}\n\nwindow.AppleStyleConverter = class AppleStyleConverter {\n  constructor(theme, avatarUrl = '', showImageCaption = true, app = null, sourcePath = '') {\n    this.theme = theme;\n    this.avatarUrl = avatarUrl;\n    this.showImageCaption = showImageCaption;\n    this.app = app; // Obsidian App instance\n    this.sourcePath = sourcePath; // Current file path for relative resolution\n    this.md = null;\n    this.hljs = null;\n  }\n\n  async initMarkdownIt() {\n    if (this.md) return;\n    if (typeof markdownit === 'undefined') throw new Error('markdown-it \u672A\u52A0\u8F7D');\n    this.hljs = typeof hljs !== 'undefined' ? hljs : null;\n    this.md = markdownit({ html: true, breaks: true, linkify: true, typographer: true });\n\n    // Enable MathJax if available\n    if (window.ObsidianWechatMath) {\n      window.ObsidianWechatMath(this.md);\n    }\n\n    this.setupRenderRules();\n  }\n\n  reinit() { this.md = null; }\n\n  updateConfig(config) {\n    if (config.showImageCaption !== undefined) {\n      this.showImageCaption = config.showImageCaption;\n    }\n    if (config.avatarUrl !== undefined) {\n      this.avatarUrl = config.avatarUrl;\n    }\n  }\n\n  updateSourcePath(path) {\n    this.sourcePath = path;\n  }\n\n  resolveImagePath(src) {\n    if (!this.app) return src;\n    // IF remote url, bypass\n    if (/^(https?:\\/\\/|data:)/i.test(src)) return src;\n\n    try {\n      // Markdown-it might encode the URL (e.g. %20 for space), but Obsidian expects decoded paths\n      const linkPath = decodeURI(src);\n      const sourcePath = this.sourcePath;\n      // Resolve using Obsidian's standard API\n      const tFile = this.app.metadataCache.getFirstLinkpathDest(linkPath, sourcePath);\n      if (tFile) {\n        return this.app.vault.getResourcePath(tFile);\n      }\n    } catch (e) {\n      console.error('Image resolution failed:', src, e);\n    }\n    return src;\n  }\n\n  setupRenderRules() {\n    // Callout & Blockquote \u667A\u80FD\u68C0\u6D4B\u6E32\u67D3\n    this.md.renderer.rules.blockquote_open = (tokens, idx, options, env, _self) => {\n      // \u67E5\u627E blockquote \u5185\u7684\u7B2C\u4E00\u4E2A\u6587\u672C\u5185\u5BB9\uFF0C\u68C0\u6D4B\u662F\u5426\u4E3A callout \u8BED\u6CD5\n      const calloutInfo = this.detectCallout(tokens, idx);\n\n      // \u4F7F\u7528\u6808\u7BA1\u7406 callout \u72B6\u6001\uFF0C\u652F\u6301\u5D4C\u5957\n      if (!env._calloutStack) env._calloutStack = [];\n      env._calloutStack.push(calloutInfo);\n\n      if (calloutInfo) {\n        return this.renderCalloutOpen(calloutInfo);\n      }\n      // \u666E\u901A blockquote\n      return `<blockquote style=\"${this.getInlineStyle('blockquote')}\">`;\n    };\n\n    this.md.renderer.rules.blockquote_close = (tokens, idx, options, env, _self) => {\n      const calloutInfo = env._calloutStack ? env._calloutStack.pop() : null;\n      if (calloutInfo) {\n        return `</section></section>`; // \u5173\u95ED\u5185\u5BB9\u533A\u548C\u5916\u5C42\u5BB9\u5668\n      }\n      return `</blockquote>`;\n    };\n\n    this.md.renderer.rules.paragraph_open = (tokens, idx) => {\n      if (tokens[idx].hidden) return '';\n      return `<p style=\"${this.getInlineStyle('p')}\">`;\n    };\n\n    this.md.renderer.rules.paragraph_close = (tokens, idx) => {\n      if (tokens[idx].hidden) return '';\n      return `</p>`;\n    };\n    this.md.renderer.rules.heading_open = (tokens, idx) => `<${tokens[idx].tag} style=\"${this.getInlineStyle(tokens[idx].tag)}\">`;\n    this.md.renderer.rules.bullet_list_open = () => `<ul style=\"${this.getInlineStyle('ul')}\">`;\n    this.md.renderer.rules.ordered_list_open = () => `<ol style=\"${this.getInlineStyle('ol')}\">`;\n    const isTaskListItem = (tokens, idx) => {\n      for (let i = idx + 1; i < tokens.length; i++) {\n        const token = tokens[i];\n        if (token.type === 'list_item_close') break;\n        if (token.type === 'inline') {\n          const content = token.content || '';\n          if (content.startsWith('\u2611') || content.startsWith('\u25A1') || content.startsWith('\u2610')) {\n            return {\n              isTask: true,\n              checked: content.startsWith('\u2611'),\n              token: token\n            };\n          }\n          break;\n        }\n      }\n      return null;\n    };\n\n    this.md.renderer.rules.list_item_open = (tokens, idx) => {\n      const taskInfo = isTaskListItem(tokens, idx);\n      if (taskInfo) {\n        const inlineToken = taskInfo.token;\n        const themeColor = this.theme.getThemeColorValue() || '#576b95';\n        \n        if (inlineToken.children && inlineToken.children.length > 0) {\n          const firstChild = inlineToken.children[0];\n          if (firstChild.type === 'text' && (firstChild.content.startsWith('\u2611') || firstChild.content.startsWith('\u25A1') || firstChild.content.startsWith('\u2610'))) {\n            const content = firstChild.content;\n            const restText = content.slice(1);\n            \n            const newChildren = [];\n            \n            if (taskInfo.checked) {\n              newChildren.push({\n                type: 'html_inline',\n                content: `<span style=\"display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: #8f959e; line-height: 1;\">\u2611</span>`\n              });\n              newChildren.push({\n                type: 'html_inline',\n                content: `<span style=\"text-decoration: line-through; color: #8f959e;\">`\n              });\n              newChildren.push({\n                type: 'text',\n                content: restText.trimStart()\n              });\n              for (let j = 1; j < inlineToken.children.length; j++) {\n                newChildren.push(inlineToken.children[j]);\n              }\n              newChildren.push({\n                type: 'html_inline',\n                content: `</span>`\n              });\n            } else {\n              newChildren.push({\n                type: 'html_inline',\n                content: `<span style=\"display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: ${themeColor}; line-height: 1;\">\u2610</span>`\n              });\n              newChildren.push({\n                type: 'text',\n                content: restText.trimStart()\n              });\n              for (let j = 1; j < inlineToken.children.length; j++) {\n                newChildren.push(inlineToken.children[j]);\n              }\n            }\n            inlineToken.children = newChildren;\n          }\n        } else {\n          const content = inlineToken.content;\n          const restText = content.slice(1);\n          if (taskInfo.checked) {\n            inlineToken.content = `<span style=\"display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: #8f959e; line-height: 1;\">\u2611</span><span style=\"text-decoration: line-through; color: #8f959e;\">${restText.trimStart()}</span>`;\n          } else {\n            inlineToken.content = `<span style=\"display: inline-block; font-size: 1.15em; font-weight: bold; margin-right: 6px; vertical-align: -0.05em; color: ${themeColor}; line-height: 1;\">\u2610</span>${restText.trimStart()}`;\n          }\n        }\n        \n        return `<li style=\"${this.getInlineStyle('li-task')}\">`;\n      }\n      return `<li style=\"${this.getInlineStyle('li')}\">`;\n    };\n\n    this.md.renderer.rules.code_inline = (tokens, idx) =>\n      `<code style=\"${this.getInlineStyle('code')}\">${this.escapeHtml(tokens[idx].content)}</code>`;\n\n    this.md.renderer.rules.fence = (tokens, idx) => {\n      const content = tokens[idx].content;\n      const lang = tokens[idx].info || 'text';\n      return this.createCodeBlock(content, lang);\n    };\n\n    this.md.renderer.rules.link_open = (tokens, idx) => {\n      const href = tokens[idx].attrGet('href');\n      const safeHref = this.validateLink(href);\n      return `<a href=\"${safeHref}\" style=\"${this.getInlineStyle('a')}\">`;\n    };\n    this.md.renderer.rules.strong_open = () => `<strong style=\"${this.getInlineStyle('strong')}\">`;\n    this.md.renderer.rules.em_open = () => `<em style=\"${this.getInlineStyle('em')}\">`;\n    this.md.renderer.rules.s_open = () => `<del style=\"${this.getInlineStyle('del')}\">`;\n\n    this.md.renderer.rules.image = (tokens, idx) => {\n      let src = tokens[idx].attrGet('src');\n      const alt = tokens[idx].content;\n\n      // Resolve Local Path for Preview\n      src = this.resolveImagePath(src);\n\n\n      let caption = '';\n\n      if (alt) {\n        caption = alt;\n        const stripped = caption.replace(/\\|\\s*\\d+(x\\d+)?\\s*$/, '');\n        caption = stripped || caption;\n        caption = caption.replace(/\\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i, '');\n      }\n\n\n      if (this.avatarUrl) {\n        // \u6C34\u5370\u6A21\u5F0F\uFF1A\u663E\u793A\u5934\u50CF + \u56FE\u7247\u540D\u79F0\uFF0C\u4F7F\u7528\u5E26\u8FB9\u6846\u7684\u6837\u5F0F\n        const avatarHeaderStyle = this.getInlineStyle('avatar-header');\n        const spacerStyle = 'display:block;height:8px;line-height:8px;font-size:0;';\n        // Fix: Force text-align: left for the figure container in watermark mode to prevent centering\n        // We strip the default text-align: center from the figure style and add text-align: left\n        let figureStyle = this.getInlineStyle('figure');\n        figureStyle = figureStyle.replace('text-align: center;', 'text-align: left;');\n\n        return `<figure style=\"${figureStyle}\"><div style=\"${avatarHeaderStyle}\"><img src=\"${this.avatarUrl}\" alt=\"logo\" style=\"${this.getInlineStyle('avatar')}\"><span style=\"${this.getInlineStyle('avatar-caption')}\">${caption}</span></div><section style=\"${spacerStyle}\">&nbsp;</section><img src=\"${src}\" alt=\"${alt}\" style=\"${this.getInlineStyle('img')}\"></figure>`;\n      }\n\n      // \u975E\u6C34\u5370\u6A21\u5F0F\uFF1A\u65E0\u8FB9\u6846\u6837\u5F0F\n      const simpleFigureStyle = 'display:block;margin:16px 0;text-align:center;';\n      if (this.showImageCaption && caption) {\n        return `<figure style=\"${simpleFigureStyle}\"><img src=\"${src}\" alt=\"${alt}\" style=\"${this.getInlineStyle('img')}\"><figcaption style=\"${this.getInlineStyle('figcaption')}\">${caption}</figcaption></figure>`;\n      } else {\n        return `<figure style=\"${simpleFigureStyle}\"><img src=\"${src}\" alt=\"${alt}\" style=\"${this.getInlineStyle('img')}\"></figure>`;\n      }\n    };\n\n    this.md.renderer.rules.hr = () => `<hr style=\"${this.getInlineStyle('hr')}\">`;\n    this.md.renderer.rules.table_open = (tokens, idx) => `<section style=\"${this.getInlineStyle('table-wrapper')}\"><table style=\"${this.getTableStyle(tokens, idx)}\">`;\n    this.md.renderer.rules.table_close = () => `</table></section>`;\n    this.md.renderer.rules.thead_open = () => `<thead style=\"${this.getInlineStyle('thead')}\">`;\n    this.md.renderer.rules.th_open = () => `<th style=\"${this.getInlineStyle('th')}\">`;\n    this.md.renderer.rules.td_open = () => `<td style=\"${this.getInlineStyle('td')}\">`;\n  }\n\n  getTableColumnCount(tokens, tableIdx) {\n    if (!Array.isArray(tokens)) return 0;\n\n    let rowOpen = false;\n    let count = 0;\n    for (let i = tableIdx + 1; i < tokens.length; i += 1) {\n      const token = tokens[i];\n      if (!token) continue;\n      if (token.type === 'table_close') break;\n      if (token.type === 'tr_open') {\n        rowOpen = true;\n        count = 0;\n        continue;\n      }\n      if (token.type === 'tr_close' && rowOpen) {\n        if (count > 0) return count;\n        rowOpen = false;\n        continue;\n      }\n      if (!rowOpen || (token.type !== 'th_open' && token.type !== 'td_open')) continue;\n\n      const colspanAttr = typeof token.attrGet === 'function' ? token.attrGet('colspan') : null;\n      const colspan = Number.parseInt(colspanAttr || '1', 10);\n      count += Number.isFinite(colspan) && colspan > 0 ? colspan : 1;\n    }\n\n    return count;\n  }\n\n  getTableMinWidth(tokens, tableIdx) {\n    const columns = this.getTableColumnCount(tokens, tableIdx);\n    if (!columns) return 720;\n    const width = columns <= 2 ? (columns * 180 + 80) : (columns * 230 + 80);\n    return Math.max(360, Math.min(1200, width));\n  }\n\n  getTableStyle(tokens, tableIdx) {\n    const baseStyle = this.getInlineStyle('table');\n    const minWidth = this.getTableMinWidth(tokens, tableIdx);\n    const withoutWidth = baseStyle\n      .replace(/(?:^|;)\\s*width\\s*:\\s*[^;]+;?/gi, ';')\n      .replace(/(?:^|;)\\s*min-width\\s*:\\s*[^;]+;?/gi, ';')\n      .replace(/(?:^|;)\\s*max-width\\s*:\\s*[^;]+;?/gi, ';')\n      .replace(/;{2,}/g, ';')\n      .replace(/^\\s*;\\s*/, '')\n      .trim();\n    const normalized = withoutWidth && !withoutWidth.endsWith(';') ? `${withoutWidth};` : withoutWidth;\n    return `width: ${minWidth}px; min-width: 100%; max-width: none; ${normalized}`;\n  }\n\n  /**\n   * \u68C0\u6D4B blockquote \u662F\u5426\u4E3A Callout \u8BED\u6CD5\n   * \u5E76\u6E05\u7406 marker \u6807\u8BC6\u7B26\n   * @param {Array} tokens - markdown-it tokens\n   * @param {number} idx - blockquote_open \u7684\u7D22\u5F15\n   * @returns {Object|null} - callout \u4FE1\u606F { type, title, icon, label } \u6216 null\n   */\n  detectCallout(tokens, idx) {\n    // \u67E5\u627E blockquote \u5185\u7684\u7B2C\u4E00\u4E2A inline token\n    for (let i = idx + 1; i < tokens.length; i++) {\n      if (tokens[i].type === 'blockquote_close') break;\n      if (tokens[i].type === 'inline' && tokens[i].content) {\n        // \u53EA\u53D6\u7B2C\u4E00\u884C\u5185\u5BB9\u8FDB\u884C\u5339\u914D\n        const firstLine = tokens[i].content.split('\\n')[0];\n        // \u652F\u6301\u81EA\u5B9A\u4E49 callout \u7C7B\u578B\uFF08\u5305\u542B\u4E2D\u6587\u3001\u8FDE\u5B57\u7B26\u7B49\uFF09\uFF0C\u4F8B\u5982 [!\u5B66\u4E60\u7814\u7A76] / [!custom-type]\n        const match = firstLine.match(/^\\[!\\s*([^\\]\\r\\n]+?)\\s*\\](?:\\s+(.*))?/);\n        if (match) {\n          const rawType = match[1].trim();\n          if (!rawType || !/\\S/u.test(rawType)) return null;\n          const type = rawType.toLowerCase();\n          const customTitle = match[2] ? match[2].trim() : null;\n          const mappedConfig = CALLOUT_ICONS[type];\n          const config = mappedConfig || { icon: CALLOUT_ICONS.note.icon, label: type };\n          const defaultTitle = type.charAt(0).toUpperCase() + type.slice(1);\n\n          // --- \u5728 Token \u9636\u6BB5\u6E05\u7406 Marker ---\n          // 1. \u66F4\u65B0 content\uFF1A\u79FB\u9664\u5305\u542B marker \u7684\u7B2C\u4E00\u884C\n          const lines = tokens[i].content.split('\\n');\n          lines.shift();\n          tokens[i].content = lines.join('\\n');\n\n          // 2. \u66F4\u65B0 children\uFF1A\u540C\u6B65\u79FB\u9664\u7B2C\u4E00\u884C\u5BF9\u5E94\u7684 tokens\n          if (tokens[i].children) {\n            const breakIdx = tokens[i].children.findIndex(c => c.type === 'softbreak' || c.type === 'hardbreak');\n            if (breakIdx !== -1) {\n              // \u79FB\u9664\u7B2C\u4E00\u4E2A\u6362\u884C\u7B26\u53CA\u5176\u4E4B\u524D\u7684\u6240\u6709\u5185\u5BB9\n              tokens[i].children = tokens[i].children.slice(breakIdx + 1);\n            } else {\n              // \u53EA\u6709\u4E00\u884C\uFF0C\u76F4\u63A5\u6E05\u7A7A\n              tokens[i].children = [];\n            }\n          }\n\n          // 3. \u5982\u679C\u8BE5\u6BB5\u843D\u53D8\u4E3A\u7A7A\uFF08\u8BF4\u660E marker \u72EC\u5360\u4E00\u884C\uFF09\uFF0C\u9690\u85CF\u8BE5\u6BB5\u843D\u5BB9\u5668\n          if (tokens[i].content.trim() === '') {\n            if (i > 0 && tokens[i-1].type === 'paragraph_open') tokens[i-1].hidden = true;\n            tokens[i].hidden = true; // \u9690\u85CF inline token \u672C\u8EAB\n            if (i < tokens.length - 1 && tokens[i+1].type === 'paragraph_close') tokens[i+1].hidden = true;\n          }\n\n          return {\n            type,\n            title: customTitle || defaultTitle,\n            icon: config.icon,\n            label: config.label,\n          };\n        }\n        break; // \u53EA\u68C0\u67E5\u7B2C\u4E00\u4E2A inline\n      }\n    }\n    return null;\n  }\n\n  /**\n   * \u6E32\u67D3 Callout \u5F00\u59CB\u6807\u7B7E\n   * @param {Object} calloutInfo - { type, title, icon }\n   * @returns {string} - HTML \u5B57\u7B26\u4E32\n   */\n  renderCalloutOpen(calloutInfo) {\n    const color = this.theme.getThemeColorValue();\n    const sizes = this.theme.getSizes();\n    const font = this.theme.getFontFamily();\n    const quoteCalloutStyleMode = typeof this.theme.getQuoteCalloutStyleMode === 'function'\n      ? this.theme.getQuoteCalloutStyleMode()\n      : 'theme';\n\n    if (quoteCalloutStyleMode === 'neutral') {\n      return this.renderCalloutOpenNeutral(calloutInfo, color, sizes, font);\n    }\n\n    const safeTitle = this.escapeHtml(String(calloutInfo.title ?? ''));\n    const accentColor = resolveCalloutSemanticColor(calloutInfo?.type, color);\n\n    const containerStyle = `\n      margin: 16px 0 16px 8px;\n      background: ${accentColor}0D;\n      border: 1px solid ${accentColor}24;\n      border-radius: 4px;\n      overflow: hidden;\n    `.replace(/\\s+/g, ' ').trim();\n\n    const headerStyle = `\n      display: flex;\n      align-items: center;\n      padding: 8px 12px;\n      background: ${accentColor}14;\n      border-bottom: 1px solid ${accentColor}24;\n      font-weight: bold;\n      font-size: ${sizes.base}px;\n      font-family: ${font};\n      color: ${accentColor};\n    `.replace(/\\s+/g, ' ').trim();\n\n    const iconStyle = `margin-right: 8px; font-size: ${sizes.base + 2}px; color: ${accentColor};`;\n    const titleStyle = `flex: 1; color: ${accentColor};`;\n\n    const contentStyle = `\n      padding: 12px 16px;\n      font-size: ${sizes.base}px;\n      line-height: 1.8;\n      color: #595959;\n      background: ${accentColor}0D;\n    `.replace(/\\s+/g, ' ').trim();\n\n    return `<section style=\"${containerStyle}\">\n      <section style=\"${headerStyle}\">\n        <span style=\"${iconStyle}\">${calloutInfo.icon}</span>\n        <span style=\"${titleStyle}\">${safeTitle}</span>\n      </section>\n      <section style=\"${contentStyle}\">`;\n  }\n\n  renderCalloutOpenNeutral(calloutInfo, themeColor, sizes, font) {\n    const safeTitle = this.escapeHtml(String(calloutInfo.title ?? ''));\n    const accentColor = resolveCalloutSemanticColor(calloutInfo?.type, themeColor);\n\n    const containerStyle = `\n      margin: 16px 0 16px 8px;\n      background: #f9f9f9;\n      border: 1px solid ${accentColor}24;\n      border-radius: 4px;\n      overflow: hidden;\n    `.replace(/\\s+/g, ' ').trim();\n\n    const headerStyle = `\n      display: flex;\n      align-items: center;\n      padding: 8px 12px;\n      background: ${accentColor}14;\n      border-bottom: 1px solid ${accentColor}24;\n      font-weight: bold;\n      font-size: ${sizes.base}px;\n      font-family: ${font};\n      color: ${accentColor};\n    `.replace(/\\s+/g, ' ').trim();\n\n    const iconStyle = `margin-right: 8px; font-size: ${sizes.base + 2}px; color: ${accentColor};`;\n    const titleStyle = `flex: 1; color: ${accentColor};`;\n    const contentStyle = `\n      padding: 12px 16px;\n      font-size: ${sizes.base}px;\n      line-height: 1.8;\n      color: #595959;\n      background: #f9f9f9;\n    `.replace(/\\s+/g, ' ').trim();\n\n    return `<section style=\"${containerStyle}\">\n      <section style=\"${headerStyle}\">\n        <span style=\"${iconStyle}\">${calloutInfo.icon}</span>\n        <span style=\"${titleStyle}\">${safeTitle}</span>\n      </section>\n      <section style=\"${contentStyle}\">`;\n  }\n\n  highlightCode(code, lang) {\n    if (!this.hljs) return this.escapeHtml(code);\n    try {\n      if (lang && this.hljs.getLanguage(lang)) return this.hljs.highlight(code, { language: lang }).value;\n      return this.hljs.highlightAuto(code).value;\n    } catch { return this.escapeHtml(code); }\n  }\n\n  /**\n   * \u683C\u5F0F\u5316\u9AD8\u4EAE\u4EE3\u7801\uFF08\u53C2\u8003 wechat-tool formatHighlightedCode\uFF09\n   */\n  formatHighlightedCode(html, preserveNewlines = false) {\n    let formatted = html;\n    // \u5C06 span \u4E4B\u95F4\u7684\u7A7A\u683C\u79FB\u5230 span \u5185\u90E8\n    formatted = formatted.replace(/(<span[^>]*>[^<]*<\\/span>)(\\s+)(<span[^>]*>[^<]*<\\/span>)/g,\n      (_, span1, spaces, span2) => span1 + span2.replace(/^(<span[^>]*>)/, `$1${spaces}`));\n    formatted = formatted.replace(/(\\s+)(<span[^>]*>)/g,\n      (_, spaces, span) => span.replace(/^(<span[^>]*>)/, `$1${spaces}`));\n    // \u66FF\u6362\u5236\u8868\u7B26\u4E3A4\u4E2A\u7A7A\u683C\n    formatted = formatted.replace(/\\t/g, '    ');\n\n    // wechat-tool \u7684\u903B\u8F91\uFF1A\u5982\u679C\u662F lineNumbers \u6A21\u5F0F\uFF08preserveNewlines=false\uFF09\uFF0C\u5C06\u7A7A\u683C\u8F6C\u4E3A &nbsp;\n    // \u5982\u679C\u4E0D\u662F\uFF08preserveNewlines=true\uFF09\uFF0C\u5C06\u6362\u884C\u8F6C\u4E3A <br/> \u4E14\u7A7A\u683C\u8F6C\u4E3A &nbsp;\n    if (preserveNewlines) {\n      formatted = formatted\n        .replace(/\\r\\n/g, '<br/>')\n        .replace(/\\n/g, '<br/>')\n        .replace(/(>[^<]+)|(^[^<]+)/g, str => str.replace(/\\s/g, '&nbsp;'));\n    } else {\n      formatted = formatted.replace(/(>[^<]+)|(^[^<]+)/g, str => str.replace(/\\s/g, '&nbsp;'));\n    }\n    return formatted;\n  }\n\n  inlineHighlightStyles(html) {\n    const map = {\n      'hljs-keyword': 'color:#ff7b72 !important;', 'hljs-built_in': 'color:#ffa657 !important;',\n      'hljs-type': 'color:#ffa657 !important;', 'hljs-literal': 'color:#79c0ff !important;',\n      'hljs-number': 'color:#79c0ff !important;', 'hljs-string': 'color:#a5d6ff !important;',\n      'hljs-symbol': 'color:#a5d6ff !important;', 'hljs-comment': 'color:#8b949e !important;font-style:italic !important;',\n      'hljs-doctag': 'color:#8b949e !important;', 'hljs-meta': 'color:#ffa657 !important;',\n      'hljs-attr': 'color:#79c0ff !important;', 'hljs-attribute': 'color:#79c0ff !important;',\n      'hljs-name': 'color:#7ee787 !important;', 'hljs-tag': 'color:#7ee787 !important;',\n      'hljs-selector-tag': 'color:#7ee787 !important;', 'hljs-selector-class': 'color:#d2a8ff !important;',\n      'hljs-selector-id': 'color:#79c0ff !important;', 'hljs-variable': 'color:#ffa657 !important;',\n      'hljs-template-variable': 'color:#ffa657 !important;', 'hljs-params': 'color:#e6e6e6 !important;',\n      'hljs-function': 'color:#d2a8ff !important;', 'hljs-title': 'color:#d2a8ff !important;',\n      'hljs-punctuation': 'color:#e6e6e6 !important;', 'hljs-property': 'color:#79c0ff !important;',\n      'hljs-operator': 'color:#ff7b72 !important;', 'hljs-regexp': 'color:#a5d6ff !important;',\n      'hljs-subst': 'color:#e6e6e6 !important;',\n    };\n\n    // \u6539\u8FDB\uFF1A\u5904\u7406 class \u5C5E\u6027\u5305\u542B\u591A\u4E2A\u7C7B\u540D\u7684\u60C5\u51B5\n    return html.replace(/class=\"([^\"]*)\"/g, (match, classNames) => {\n      const classes = classNames.split(/\\s+/);\n      let styles = '';\n      for (const cls of classes) {\n        if (map[cls]) {\n          styles += map[cls];\n        }\n      }\n      return styles ? `style=\"${styles}\"` : match;\n    }).replace(/class=\"[^\"]*\"/g, ''); // \u518D\u6B21\u6E05\u7406\u672A\u5339\u914D\u7684 class\n  }\n\n  /**\n   * \u521B\u5EFA\u4EE3\u7801\u5757 - \u7167\u6284 wechat-tool \u7684\u5B9E\u73B0\n   * \u4F7F\u7528 wechat-tool \u7684\u989C\u8272\u548C\u7ED3\u6784\n   */\n  createCodeBlock(content, lang) {\n    const showMac = this.theme.macCodeBlock;\n    const showLineNum = this.theme.codeLineNumber;\n\n    // wechat-tool \u7684\u989C\u8272\u914D\u7F6E\uFF08GitHub Dark \u4E3B\u9898\uFF09\n    const background = '#0d1117';  // GitHub Dark \u80CC\u666F\n    const color = '#f0f6fc';       // GitHub Dark \u6587\u5B57\n    const barBackground = '#161b22'; // \u5DE5\u5177\u680F\u80CC\u666F\n    const borderColor = '#30363d';   // \u8FB9\u6846\u989C\u8272\n\n    let lines = content.replace(/\\r\\n/g, '\\n').split('\\n');\n    while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();\n\n    // Mac \u5934\u90E8\n    // \u5173\u952E\u4FEE\u6B63\uFF1A\u4F7F\u7528 section \u800C\u4E0D\u662F div\uFF0C\u589E\u5F3A\u5728\u516C\u4F17\u53F7\u4E2D\u7684\u517C\u5BB9\u6027\n    const macHeader = showMac ? `<section style=\"display:block !important;background:${barBackground} !important;padding:6px 10px 6px 10px !important;border:none !important;border-bottom:1px solid ${borderColor} !important;border-radius:8px 8px 0 0 !important;line-height:1 !important;\">\n      <span style=\"display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ff5f57 !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;vertical-align:top !important;\"></span>\n      <span style=\"display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ffbd2e !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;vertical-align:top !important;\"></span>\n      <span style=\"display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#28c840 !important;font-size:0 !important;line-height:0 !important;vertical-align:top !important;\"></span>\n    </section>` : '';\n\n    // \u7EDF\u4E00\u884C\u9AD8\u548C\u5B57\u4F53\u53D8\u91CF\n    const lineHeight = '1.75';\n    // const fontSize = '13px';\n\n    let codeHtml;\n\n    if (showLineNum) {\n      // \u5E26\u884C\u53F7\uFF1A\u9010\u884C\u5904\u7406\n      const highlightedLines = lines.map(lineRaw => {\n        const lineHtml = this.highlightCode(lineRaw, lang);\n        const styled = this.inlineHighlightStyles(lineHtml);\n        // \u6CE8\u610F\uFF1A\u8FD9\u91CC formatHighlightedCode \u7B2C\u4E8C\u4E2A\u53C2\u6570\u4E3A false\uFF0C\u4E0D\u5305\u542B <br>\uFF0C\u4E0D\u5305\u542B &nbsp; (\u9664\u975E\u5185\u90E8\u903B\u8F91\u5904\u7406)\n        // \u5B9E\u9645\u4E0A formatHighlightedCode \u7B2C\u4E8C\u4E2A\u53C2\u6570\u4E3A false \u65F6\uFF0C\u53EA\u505A\u7A7A\u683C\u5904\u7406\n        // wechat-tool \u4E2D\uFF1A return formatted === '' ? '&nbsp;' : formatted\n        const formatted = this.formatHighlightedCode(styled, false);\n        return formatted === '' ? '&nbsp;' : formatted;\n      });\n\n      // \u884C\u53F7\u5217\n      const lineNumbersHtml = highlightedLines.map((_, idx) =>\n        `<section style=\"height:1.75em !important;line-height:${lineHeight} !important;padding:0 12px 0 12px !important;font-size:13px !important;color:#95989C !important;text-align:right !important;white-space:nowrap !important;vertical-align:top !important;margin:0 !important;\">${idx + 1}</section>`\n      ).join('');\n\n      // \u4EE3\u7801\u5185\u5BB9\n      // \u5173\u952E\u6539\u52A8\uFF1A\u56DE\u5F52 wechat-tool \u539F\u59CB\u65B9\u6848 \u2014\u2014 \u4F7F\u7528 <br> \u62FC\u63A5\u4EE3\u7801\u884C\uFF0C\u800C\u4E0D\u662F div \u5206\u5272\n      // \u8FD9\u6837\u53F3\u4FA7\u5C31\u662F\u4E00\u4E2A\u5355\u4E00\u7684\u6587\u672C\u6D41\uFF0C\u9AD8\u5EA6\u4E25\u683C\u7531 line-height \u63A7\u5236\n      const codeInnerHtml = highlightedLines.join('<br/>');\n\n      const codeLinesHtml = `<section style=\"white-space:nowrap !important;display:inline-block !important;min-width:100% !important;line-height:${lineHeight} !important;font-size:13px !important;\">${codeInnerHtml}</section>`;\n\n      // \u884C\u53F7\u5217\u5BB9\u5668\u6837\u5F0F\n      const lineNumberColumnStyles = `text-align:right !important;padding:12px 0 12px 0 !important;border-right:1px solid rgba(255,255,255,0.1) !important;user-select:none !important;background:transparent !important;flex:0 0 auto !important;min-width:3.5em !important;margin:0 !important;`;\n\n      // \u6CE8\u610F flex \u5BB9\u5668\u7684 padding 0\uFF0C\u5185\u90E8 padding \u5206\u522B\u5728 lineNumberColumn \u548C code section\n      codeHtml = `<section style=\"display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;padding:0 !important;margin:0 !important;\">\n        <section style=\"${lineNumberColumnStyles}\">${lineNumbersHtml}</section>\n        <section style=\"flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;padding:12px 12px 12px 16px !important;margin:0 !important;min-width:0 !important;\">${codeLinesHtml}</section>\n      </section>`;\n    } else {\n      // \u65E0\u884C\u53F7\n      const highlighted = this.highlightCode(lines.join('\\n'), lang);\n      const styled = this.inlineHighlightStyles(highlighted);\n      // preserveNewlines=true -> \u5305\u542B <br>\n      const formatted = this.formatHighlightedCode(styled, true);\n      // \u6539\u52A8\uFF1Awhite-space: nowrap !important\n      const codeLinesHtml = `<section style=\"white-space:nowrap !important;display:inline-block !important;min-width:100% !important;word-break:keep-all !important;overflow-wrap:normal !important;line-height:${lineHeight} !important;font-size:13px !important;margin:0 !important;\">${formatted}</section>`;\n\n      codeHtml = `<section style=\"display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;padding:0 !important;margin:0 !important;\">\n        <section style=\"flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;padding:12px !important;min-width:0 !important;margin:0 !important;\">${codeLinesHtml}</section>\n      </section>`;\n    }\n\n    // \u5916\u5C42\u5BB9\u5668\n    return `<section class=\"code-snippet__fix\" style=\"width:100% !important;margin:12px 0 !important;background:${background} !important;border:1px solid ${borderColor} !important;border-radius:8px !important;overflow:hidden !important;box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;display:block !important;\">\n${macHeader}\n<section style=\"padding:0 !important;border:none !important;background:${background} !important;color:${color} !important;font-family:'SF Mono',Consolas,Monaco,monospace !important;font-size:13px !important;line-height:${lineHeight} !important;white-space:nowrap !important;overflow-x:auto !important;display:block !important;\">\n<pre style=\"margin:0 !important;padding:0 !important;background:${background} !important;font-family:inherit !important;font-size:13px !important;line-height:inherit !important;color:${color} !important;white-space:nowrap !important;overflow-x:visible !important;display:inline-block !important;min-width:100% !important;\">${codeHtml}</pre>\n</section>\n</section>`;\n  }\n\n  getInlineStyle(tagName) { return this.theme.getStyle(tagName); }\n  stripFrontmatter(md) { return md.replace(/^---\\n[\\s\\S]*?\\n---\\n?/, ''); }\n\n\n  async convert(markdown) {\n    if (!this.md) await this.initMarkdownIt();\n\n    // \u4FEE\u590D\uFF1A\u79FB\u9664\u5757\u7EA7\u516C\u5F0F $$ \u524D\u9762\u7684\u7F29\u8FDB\uFF0C\u907F\u514D\u88AB\u8BEF\u8BC6\u522B\u4E3A\u4EE3\u7801\u5757\n    // \u4EC5\u5339\u914D\u884C\u9996\u7684\u7A7A\u767D + $$\uFF0C\u4E0D\u5F71\u54CD\u5176\u4ED6\u7F29\u8FDB\n    markdown = markdown.replace(/^[\\t ]+(\\$\\$)/gm, '$1');\n\n    // Pre-process: Convert Wiki-links ![[...]] to standard images ![](...)\n    // Regex: ![[path|alt]] or ![[path]]\n    // Fix: Use more robust regex preventing greedy capture and encoding URI for paths with spaces\n    markdown = markdown.replace(/!\\[\\[([^\\[\\]|]+)(?:\\|([^\\[\\]]+))?\\]\\]/g, (match, path, alt) => {\n      // Must encodeURI to handle spaces in filenames which are valid in WikiLinks but break standard Markdown images\n      // trimmed path to avoid leading/trailing spaces breaking the link\n      if (!alt) {\n        const filename = path.trim().split('/').pop().replace(/\\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i, '') || path.trim();\n        return `![${filename}](${encodeURI(path.trim())})`;\n      }\n      return `![${alt}](${encodeURI(path.trim())})`;\n    });\n\n\n\n    let html = this.md.render(this.stripFrontmatter(markdown));\n    html = this.fixListParagraphs(html);\n    html = this.unwrapFigures(html); // Fix: Remove <p> wrappers from <figure> to prevent empty lines\n    html = this.removeBlockquoteParagraphMargins(html); // Fix: Remove margins from <p> inside <blockquote> for vertical centering\n    html = this.fixMathJaxTags(html); // Fix: Replace <mjx-container> with WeChat-compatible tags\n    html = this.sanitizeHtml(html); // Final security pass: Neutralize XSS and dangerous tags\n    return `<section style=\"${this.getInlineStyle('section')}\">${html}</section>`;\n  }\n\n  fixMathJaxTags(html) {\n    if (!html.includes('mjx-container')) return html;\n\n    // Fix: Remove assistive MathML (hidden text that shows up in WeChat)\n    html = html.replace(/<mjx-assistive-mml[^>]*>[\\s\\S]*?<\\/mjx-assistive-mml>/gi, '');\n\n    const normalizeMathPositionStyles = (markup) => String(markup || '').replace(\n      /style=\"([^\"]*)\"/gi,\n      (_match, styleText) => {\n        let style = String(styleText || '');\n        let topValue = null;\n        style = style.replace(/(^|;)\\s*top\\s*:\\s*([^;\"]+)\\s*;?/i, (_m, prefix, value) => {\n          topValue = String(value || '').trim();\n          return prefix || '';\n        });\n        if (!topValue) return `style=\"${style}\"`;\n\n        if (/transform\\s*:/i.test(style)) {\n          style = style.replace(\n            /transform\\s*:\\s*([^;\"]+)/i,\n            (_m, value) => `transform:${String(value || '').trim()} translateY(${topValue})`\n          );\n        } else {\n          style = `${style}${style.trim().endsWith(';') || !style.trim() ? '' : ';'}transform: translateY(${topValue});`;\n        }\n        return `style=\"${style}\"`;\n      }\n    );\n\n    const appendSvgStyle = (markup, extraStyle) => String(markup || '').replace(/<svg([^>]*)>/i, (_m, svgAttrs) => {\n      if (svgAttrs.includes('style=\"')) {\n        return `<svg${svgAttrs.replace('style=\"', `style=\"${extraStyle}`)}>`;\n      }\n      return `<svg${svgAttrs} style=\"${extraStyle}\">`;\n    });\n\n    // Replace <mjx-container> with <section> (block) or <span> (inline)\n    // WeChat strips custom tags like mjx-container but keeps SVG content\n    return html.replace(/<mjx-container([^>]*)>(.*?)<\\/mjx-container>/gs, (match, attrs, content) => {\n      // Check for block display mode\n      // MathJax 3 usually adds display=\"true\" or class=\"MathJax CtxtMenu_Attached_0\" with separate style\n      const isBlock = attrs.includes('display=\"true\"') || attrs.includes('display: true');\n\n      const tag = isBlock ? 'section' : 'span';\n\n      // Inline math needs vertical alignment adjustment\n      // Block math needs centering and scaling (not scrolling) as per WeChat behavior\n      const style = isBlock\n        ? 'display:block; width:100%; margin:1em auto; text-align:center; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;'\n        : 'display:inline-block; vertical-align:middle; transform:translateY(-0.12em); margin:0 1px; line-height:1;';\n\n      content = normalizeMathPositionStyles(content);\n\n      // \u5173\u952E\u4FEE\u590D\uFF1A\u7ED9\u5757\u7EA7\u516C\u5F0F\u7684 SVG \u6DFB\u52A0 max-width: 100% \u548C height: auto\n      // \u8FD9\u6837\u5728\u624B\u673A\u4E0A\u9884\u89C8\u65F6\uFF0C\u516C\u5F0F\u4F1A\u6309\u6BD4\u4F8B\u7F29\u5C0F\u4EE5\u9002\u5E94\u5C4F\u5E55\uFF0C\u800C\u4E0D\u662F\u88AB\u906E\u6321\u6216\u9700\u8981\u6EDA\u52A8\n      // \u8FD9\u7B26\u5408\u5FAE\u4FE1\u516C\u4F17\u53F7\u7684\u9ED8\u8BA4\u6E32\u67D3\u884C\u4E3A\n      if (isBlock) {\n        content = appendSvgStyle(content, 'display:block; margin:0 auto; max-width:100%; height:auto; ');\n      } else {\n        content = content.replace(/vertical-align\\s*:\\s*[^;\"]+;?/gi, '');\n        content = appendSvgStyle(content, 'display:inline-block; max-width:300vw !important; height:auto; vertical-align:middle; ');\n      }\n\n      return `<${tag} data-owc-math=\"${isBlock ? 'block' : 'inline'}\" style=\"${style}\">${content}</${tag}>`;\n    });\n  }\n\n  fixListParagraphs(html) {\n    const style = this.getInlineStyle('li p');\n    return html.replace(/<li[^>]*>[\\s\\S]*?<\\/li>/g, m => m.replace(/<p style=\"[^\"]*\">/g, `<p style=\"${style}\">`));\n  }\n\n  replaceStyleDeclaration(styleText, property, value) {\n    const style = String(styleText || '');\n    const declaration = `${property}: ${value}`;\n    const propertyPattern = new RegExp(`(^|;)\\\\s*${property}\\\\s*:\\\\s*[^;\"]*`, 'i');\n\n    if (propertyPattern.test(style)) {\n      return style.replace(propertyPattern, (_match, prefix) => `${prefix ? `${prefix} ` : ''}${declaration}`);\n    }\n\n    const normalizedStyle = style.trim().replace(/;?\\s*$/, '');\n    return normalizedStyle ? `${normalizedStyle}; ${declaration}` : declaration;\n  }\n\n  /**\n   * Keep blockquote padding in control while preserving intentional blank lines.\n   * A blank line inside Markdown blockquotes renders as multiple paragraphs.\n   */\n  removeBlockquoteParagraphMargins(html) {\n    const containerTags = new Set([\n      'blockquote', 'section', 'div', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tfoot',\n      'tr', 'th', 'td', 'ul', 'ol', 'li', 'pre', 'article', 'aside',\n    ]);\n    const voidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);\n    const blockquoteStack = [];\n    const replacements = [];\n    const tagPattern = /<\\/?([a-zA-Z][\\w:-]*)(?:\\s[^<>]*)?>/g;\n\n    let match;\n    while ((match = tagPattern.exec(html)) !== null) {\n      const rawTag = match[0];\n      const tagName = String(match[1] || '').toLowerCase();\n      const isClosing = /^<\\//.test(rawTag);\n      const isSelfClosing = /\\/\\s*>$/.test(rawTag) || voidTags.has(tagName);\n\n      if (tagName === 'blockquote') {\n        if (isClosing) {\n          const frame = blockquoteStack.pop();\n          if (frame) {\n            const paragraphCount = frame.paragraphs.length;\n            frame.paragraphs.forEach((paragraph, index) => {\n              const isLastParagraph = index === paragraphCount - 1;\n              const marginValue = paragraphCount > 1 && !isLastParagraph ? '0 0 0.8em 0' : '0';\n              const updatedStyle = this.replaceStyleDeclaration(paragraph.styleText, 'margin', marginValue);\n              replacements.push({\n                start: paragraph.start,\n                end: paragraph.end,\n                value: paragraph.rawTag.replace(/style=\"([^\"]*)\"/, `style=\"${updatedStyle}\"`),\n              });\n            });\n          }\n          if (blockquoteStack.length > 0) {\n            const parentFrame = blockquoteStack[blockquoteStack.length - 1];\n            parentFrame.containerDepth = Math.max(0, parentFrame.containerDepth - 1);\n          }\n        } else {\n          if (blockquoteStack.length > 0) {\n            blockquoteStack[blockquoteStack.length - 1].containerDepth += 1;\n          }\n          blockquoteStack.push({ containerDepth: 0, paragraphs: [] });\n        }\n        continue;\n      }\n\n      if (blockquoteStack.length === 0) continue;\n\n      const frame = blockquoteStack[blockquoteStack.length - 1];\n      if (!isClosing && tagName === 'p') {\n        const styleMatch = rawTag.match(/\\bstyle=\"([^\"]*)\"/);\n        if (styleMatch && frame.containerDepth === 0) {\n          frame.paragraphs.push({\n            start: match.index,\n            end: match.index + rawTag.length,\n            rawTag,\n            styleText: styleMatch[1],\n          });\n        } else if (styleMatch) {\n          const updatedStyle = this.replaceStyleDeclaration(styleMatch[1], 'margin', '0');\n          replacements.push({\n            start: match.index,\n            end: match.index + rawTag.length,\n            value: rawTag.replace(/style=\"([^\"]*)\"/, `style=\"${updatedStyle}\"`),\n          });\n        }\n        continue;\n      }\n\n      if (!containerTags.has(tagName) || tagName === 'p') continue;\n      if (isClosing) {\n        frame.containerDepth = Math.max(0, frame.containerDepth - 1);\n      } else if (!isSelfClosing) {\n        frame.containerDepth += 1;\n      }\n    }\n\n    return replacements\n      .sort((a, b) => b.start - a.start)\n      .reduce((output, replacement) => (\n        output.slice(0, replacement.start) + replacement.value + output.slice(replacement.end)\n      ), html);\n  }\n\n  /**\n   * Fix: Unwrap <figure> from <p> tags\n   * Markdown-it wraps images in <p> by default, but <figure> inside <p> is invalid.\n   * Browsers (and WeChat) handle this by splitting the <p> into two empty <p>s above and below,\n   * causing unwanted empty lines. This regex removes the wrapping <p>.\n   */\n  unwrapFigures(html) {\n    // Logic: Match <p ...> <figure>...</figure> </p> and replace with <figure>...</figure>\n    return html.replace(/<p[^>]*>\\s*(<figure[\\s\\S]*?<\\/figure>)\\s*<\\/p>/gi, '$1');\n  }\n\n  validateLink(url, isImage = false) {\n    if (!url) return '#';\n    const value = String(url).trim();\n    if (!value) return '#';\n\n    // Keep legacy parity: allow raw data:image src in image context.\n    // Non-image data: remains blocked.\n    if (/^data:/i.test(value)) {\n      if (!isImage) return '#unsafe';\n      return /^data:image\\//i.test(value) ? value : '#';\n    }\n\n    // Allow safe protocols\n    const safeProtocols = ['http:', 'https:', 'obsidian:', 'mailto:', 'tel:', 'app:', 'capacitor:'];\n\n    try {\n      // URL constructor might fail for some internal links or malformed data URIs\n      const parsed = new URL(value);\n      if (safeProtocols.includes(parsed.protocol)) {\n        return value;\n      }\n    } catch {\n      // Handle relative paths or Obsidian internal links that URL() can't parse\n      if (value.startsWith('#') || value.startsWith('/') || !value.includes(':')) return value;\n    }\n    return '#'; // Block javascript: and other dangerous protocols\n  }\n\n  sanitizeHtml(html) {\n    // 1. Remove dangerous tags and their content\n    let sanitized = html.replace(/<(script|iframe|object|embed|form|input|button|style)[^>]*>[\\s\\S]*?<\\/\\1>/gi, '');\n    // 2. Remove self-closing dangerous tags\n    sanitized = sanitized.replace(/<(script|iframe|object|embed|form|input|button|style)[^>]*\\/?>/gi, '');\n    // 3. Remove document wrapper tags/comments that may appear when users paste browser fragments.\n    sanitized = sanitized.replace(/<!--[\\s\\S]*?-->/g, '');\n    sanitized = sanitized.replace(/<\\/?(?:html|body|head|meta|title|link)[^>]*>/gi, '');\n    // 4. Remove all on* event handlers (e.g., onerror, onclick)\n    sanitized = sanitized.replace(/\\s+on\\w+\\s*=\\s*\"[^\"]*\"/gi, '');\n    sanitized = sanitized.replace(/\\s+on\\w+\\s*=\\s*'[^']*'/gi, '');\n    sanitized = sanitized.replace(/\\s+on\\w+\\s*=\\s*[^\\s>]+/gi, '');\n\n    // 5. Sanitize href and src in remaining HTML tags to prevent protocol bypass (e.g. <a href=\"javascript:...\")\n    sanitized = sanitized.replace(/<(a|img|source|video|audio|area)\\b([^>]*)>/gi, (match, tag, attrs) => {\n      const isImageTag = /^(img|source)$/i.test(tag);\n      let newAttrs = attrs.replace(/\\b(href|src)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))/gi, (attrMatch, attrName, qVal, sqVal, uVal) => {\n        const val = qVal || sqVal || uVal || '';\n        const safeVal = this.validateLink(val, isImageTag);\n        const quote = qVal !== undefined ? '\"' : (sqVal !== undefined ? \"'\" : '\"');\n        return `${attrName}=${quote}${safeVal}${quote}`;\n      });\n      return `<${tag}${newAttrs}>`;\n    });\n\n    return sanitized;\n  }\n\n  escapeHtml(text) {\n    return text.replace(/[&<>\"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#039;' }[m]));\n  }\n\n  extractFileName(src) {\n    if (!src) return '\u56FE\u7247';\n    return src.split('/').pop().split('\\\\').pop().replace(/\\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i, '') || '\u56FE\u7247';\n  }\n}\n\nwindow.AppleStyleConverter = AppleStyleConverter;\n"
       }
     };
   }
@@ -396,9 +396,7 @@ var require_dom_utils = __commonJS({
         }
         return fragment;
       }
-      const range = document.createRange();
-      range.selectNode(document.body);
-      return range.createContextualFragment(source);
+      return fragment;
     }
     function appendHtmlFragment(element, html = "") {
       if (!element)
@@ -555,7 +553,7 @@ var require_obsidian_triplet_serializer = __commonJS({
         let openHtml = "";
         try {
           openHtml = converter.renderCalloutOpen(calloutInfo);
-        } catch (error) {
+        } catch (e) {
           continue;
         }
         if (!openHtml)
@@ -806,7 +804,7 @@ var require_obsidian_triplet_serializer = __commonJS({
         return "";
       try {
         return converter.getInlineStyle(tagName) || "";
-      } catch (error) {
+      } catch (e) {
         return "";
       }
     }
@@ -817,11 +815,11 @@ var require_obsidian_triplet_serializer = __commonJS({
         return text;
       try {
         return decodeURIComponent(text);
-      } catch (error) {
+      } catch (e) {
         return text;
       }
     }
-    function deriveImageCaption(converter, src = "", alt = "") {
+    function deriveImageCaption(converter, _src = "", alt = "") {
       let caption = alt || "";
       if (caption) {
         caption = safeDecodeCaption(caption);
@@ -942,7 +940,7 @@ var require_obsidian_triplet_serializer = __commonJS({
                 return `${parsed.protocol}//${parsed.host}`;
               }
               return parsed.href;
-            } catch (error) {
+            } catch (e) {
               return value;
             }
           }
@@ -951,7 +949,7 @@ var require_obsidian_triplet_serializer = __commonJS({
         let decoded = value;
         try {
           decoded = decodeURI(value);
-        } catch (error) {
+        } catch (e) {
         }
         return encodeURI(decoded);
       };
@@ -1043,7 +1041,7 @@ var require_obsidian_triplet_serializer = __commonJS({
           const parsed = new URL(value);
           const pathname = decodeURIComponent((parsed.pathname || "").replace(/^\/+/, ""));
           return pathname || value;
-        } catch (error) {
+        } catch (e) {
           return value.replace(/^app:\/\/obsidian\.md\/+/i, "");
         }
       }
@@ -1073,7 +1071,7 @@ var require_obsidian_triplet_serializer = __commonJS({
     function decodeImageSwipeValue(value) {
       try {
         return decodeURIComponent(String(value || ""));
-      } catch (error) {
+      } catch (e) {
         return String(value || "");
       }
     }
@@ -1667,7 +1665,7 @@ var require_obsidian_triplet_serializer = __commonJS({
         let rendered = "";
         try {
           rendered = converter.md.renderInline(original);
-        } catch (error) {
+        } catch (e) {
           continue;
         }
         if (!rendered || rendered === original)
@@ -1703,7 +1701,7 @@ var require_obsidian_triplet_serializer = __commonJS({
         if (!text.includes("$"))
           continue;
         const hasBlockMath = /\$\$[\s\S]+?\$\$/.test(text);
-        const hasInlineMath = /(^|[^\$])\$(?!\$)([^\$\n]+?)\$(?!\$)/.test(text);
+        const hasInlineMath = /(^|[^$])\$(?!\$)([^$\n]+?)\$(?!\$)/.test(text);
         if (!hasBlockMath && !hasInlineMath)
           continue;
         let rendered;
@@ -1729,7 +1727,7 @@ var require_obsidian_triplet_serializer = __commonJS({
               textNode.replaceWith(fragment);
             }
           }
-        } catch (error) {
+        } catch (e) {
           continue;
         }
       }
@@ -1757,7 +1755,7 @@ var require_obsidian_triplet_serializer = __commonJS({
         let matches = null;
         try {
           matches = converter.md.linkify.match(original);
-        } catch (error) {
+        } catch (e) {
           matches = null;
         }
         if (!Array.isArray(matches) || matches.length === 0)
@@ -1975,13 +1973,13 @@ var require_chinese_punctuation = __commonJS({
     function protectPathSegments(text, store) {
       let output = protectTokenWithTrailingPunctuation(
         text,
-        /(?:^|[\s(（\[【])((?:\.{0,2}\/|\/|~\/)[^\s"'<>|，。！？；：)）\]】]+)[,:;!?]?/gu,
+        /(?:^|[\s(（[【])((?:\.{0,2}\/|\/|~\/)[^\s"'<>|，。！？；：)）\]】]+)[,:;!?]?/gu,
         store
       );
-      output = output.replace(/(^|[\s(（\[【])((?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+(?:\.[A-Za-z0-9_-]+)?)([,:;!?]?)/gu, (match, prefix, token, trailing) => {
+      output = output.replace(/(^|[\s(（[【])((?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+(?:\.[A-Za-z0-9_-]+)?)([,:;!?]?)/gu, (match, prefix, token, trailing) => {
         return `${prefix}${store.protect(token)}${trailing || ""}`;
       });
-      output = output.replace(/(^|[\s(（\[【])([A-Za-z0-9_.-]+\.(?:md|txt|pdf|docx?|xlsx?|pptx?|csv|json|ya?ml|xml|html?|css|scss|js|jsx|ts|tsx|py|sh|bash|zsh|java|c|cc|cpp|go|rs|swift|kt|sql))(?:[,:;!?]?)/giu, (match, prefix, token) => {
+      output = output.replace(/(^|[\s(（[【])([A-Za-z0-9_.-]+\.(?:md|txt|pdf|docx?|xlsx?|pptx?|csv|json|ya?ml|xml|html?|css|scss|js|jsx|ts|tsx|py|sh|bash|zsh|java|c|cc|cpp|go|rs|swift|kt|sql))(?:[,:;!?]?)/giu, (match, prefix, token) => {
         const trailing = match.slice(prefix.length + token.length);
         return `${prefix}${store.protect(token)}${trailing}`;
       });
@@ -2008,10 +2006,10 @@ var require_chinese_punctuation = __commonJS({
       return output;
     }
     function protectCliSegments(text, store) {
-      let output = text.replace(/(^|[\s(（\[【])(-{1,2}[A-Za-z0-9][\w-]*)(?=$|[\s,.:;!?，。！？；：)）\]】])/gu, (match, prefix, token) => {
+      let output = text.replace(/(^|[\s(（[【])(-{1,2}[A-Za-z0-9][\w-]*)(?=$|[\s,.:;!?，。！？；：)）\]】])/gu, (match, prefix, token) => {
         return `${prefix}${store.protect(token)}`;
       });
-      output = output.replace(/(^|[\s(（\[【])([A-Za-z][\w-]*:[A-Za-z0-9][\w:.-]*)(?=$|[\s,.;!?，。！？；：)）\]】])/gu, (match, prefix, token) => {
+      output = output.replace(/(^|[\s(（[【])([A-Za-z][\w-]*:[A-Za-z0-9][\w:.-]*)(?=$|[\s,.;!?，。！？；：)）\]】])/gu, (match, prefix, token) => {
         return `${prefix}${store.protect(token)}`;
       });
       return output;
@@ -2478,12 +2476,24 @@ ${normalized}`;
         textAlign: "center"
       });
     }
+    function setCssStylesCompat(el, styles = {}) {
+      if (!el || !styles)
+        return;
+      if (typeof el.setCssStyles === "function") {
+        el.setCssStyles(styles);
+        return;
+      }
+      const declarations = Object.entries(styles).filter(([, value]) => value !== void 0 && value !== null && value !== "").map(([property, value]) => `${property.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)}:${value};`).join("");
+      if (declarations) {
+        appendInlineStyle(el, declarations);
+      }
+    }
     function normalizeMermaidPreviewSvg(svg) {
       var _a, _b;
       if (!svg || typeof svg.setAttribute !== "function")
         return;
       (_b = (_a = svg.classList) == null ? void 0 : _a.add) == null ? void 0 : _b.call(_a, "owc-mermaid-diagram");
-      Object.assign(svg.style, {
+      setCssStylesCompat(svg, {
         display: "block",
         width: "100%",
         maxWidth: "100%",
@@ -2539,7 +2549,7 @@ ${normalized}`;
               } else {
                 targets = Array.from(svg.querySelectorAll(selector));
               }
-            } catch (error) {
+            } catch (e) {
               continue;
             }
             for (const target of targets) {
@@ -2702,6 +2712,36 @@ ${normalized}`;
       }
       return count;
     }
+    function convertMermaidForeignObjectContainers(svg) {
+      if (!svg || typeof svg.querySelectorAll !== "function" || typeof document === "undefined")
+        return 0;
+      const labelNodes = Array.from(svg.querySelectorAll(".nodeLabel, .edgeLabel"));
+      let count = 0;
+      for (const label of labelNodes) {
+        const parent = label.parentElement;
+        const grand = parent == null ? void 0 : parent.parentElement;
+        if (!parent || !grand)
+          continue;
+        if (grand.getAttribute("data-owc-mermaid-label-host") === "true")
+          continue;
+        if (grand.tagName.toLowerCase() !== "foreignobject")
+          continue;
+        const section = document.createElement("section");
+        const xmlns = parent.getAttribute("xmlns");
+        const style = parent.getAttribute("style");
+        if (xmlns)
+          section.setAttribute("xmlns", xmlns);
+        if (style)
+          section.setAttribute("style", style);
+        while (parent.firstChild) {
+          section.appendChild(parent.firstChild);
+        }
+        grand.setAttribute("data-owc-mermaid-label-host", "true");
+        grand.replaceChildren(section);
+        count += 1;
+      }
+      return count;
+    }
     function enforceMermaidTextReadability(svg) {
       if (!svg || typeof svg.querySelectorAll !== "function")
         return 0;
@@ -2723,6 +2763,7 @@ ${normalized}`;
       const svgs = Array.from(root.querySelectorAll("svg")).filter(looksLikeMermaidSvg);
       for (const svg of svgs) {
         unwrapMermaidHtmlLabelParagraphs(svg);
+        convertMermaidForeignObjectContainers(svg);
         flattenMermaidForeignObjectLabels(svg);
         enforceMermaidTextReadability(svg);
         svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
@@ -2960,7 +3001,7 @@ var require_obsidian_triplet_renderer = __commonJS({
     var MarkdownRenderer = null;
     try {
       ({ MarkdownRenderer } = require("obsidian"));
-    } catch (error) {
+    } catch (e) {
       MarkdownRenderer = null;
     }
     var { serializeObsidianRenderedHtml } = require_obsidian_triplet_serializer();
@@ -3334,7 +3375,6 @@ var require_obsidian_triplet_renderer = __commonJS({
           let foundClose = false;
           while (i < line.length) {
             if (line[i] === "`") {
-              const closeStart = i;
               let closeLen = 0;
               while (i < line.length && line[i] === "`") {
                 closeLen++;
@@ -3411,18 +3451,18 @@ var require_obsidian_triplet_renderer = __commonJS({
           const cleaned = rendered.replace(/^<p>|<\/p>$/g, "").trim();
           formulas.push({ placeholder, rendered: cleaned, isBlock: true });
           return placeholder;
-        } catch (error) {
+        } catch (e) {
           return match;
         }
       });
-      const inlineMathPattern = /(^|[^\$])\$(?!\$)([^\$\n]+?)\$(?!\$)/g;
+      const inlineMathPattern = /(^|[^$])\$(?!\$)([^$\n]+?)\$(?!\$)/g;
       output = output.replace(inlineMathPattern, (match, prefix, formula) => {
         const placeholder = generateMathPlaceholder("INLINE");
         try {
           const rendered = converter.md.renderInline(`$${formula}$`);
           formulas.push({ placeholder, rendered, isBlock: false });
           return `${prefix}${placeholder}`;
-        } catch (error) {
+        } catch (e) {
           return match;
         }
       });
@@ -3461,7 +3501,7 @@ var require_obsidian_triplet_renderer = __commonJS({
       const value = String(src || "").trim();
       try {
         return encodeURI(decodeURI(value));
-      } catch (error) {
+      } catch (e) {
         return encodeURI(value);
       }
     }
@@ -4178,7 +4218,7 @@ var require_obsidian_triplet_renderer = __commonJS({
       }
       if (unresolved === 0 && renderedMermaid === 0 && pendingMermaid === 0 && initialObserveMs > 0) {
         while (Date.now() - start < initialObserveMs) {
-          await new Promise((resolve) => setTimeout(resolve, intervalMs));
+          await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
           unresolved = countUnresolvedImageEmbeds(root);
           renderedMermaid = observeMermaid ? countRenderedMermaidDiagrams(root) : 0;
           pendingMermaid = observeMermaid ? countPendingMermaidHosts(root) : 0;
@@ -4201,7 +4241,7 @@ var require_obsidian_triplet_renderer = __commonJS({
         } else {
           stableCount = 0;
         }
-        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
       }
     }
     async function renderByObsidianMarkdownRenderer({
@@ -4312,7 +4352,7 @@ var require_native_renderer = __commonJS({
       try {
         const parsed = new URL(trimmed);
         return safeProtocols.includes(parsed.protocol);
-      } catch (error) {
+      } catch (e) {
         return false;
       }
     }
@@ -5859,7 +5899,6 @@ var require_ai_layout_skill_bundle = __commonJS({
       getAiLayoutSharedResources
     } = require_registry();
     var AI_LAYOUT_SELECTION_AUTO2 = "auto";
-    var registry = loadAiLayoutSkillRegistry();
     var shared = getAiLayoutSharedResources();
     var AI_LAYOUT_SKILL_VERSION = shared.version || "2026.03.25-alpha.1";
     var AI_LAYOUT_FAMILIES = getAiLayoutSkillList().map((skill) => skill.id);
@@ -9127,8 +9166,6 @@ ${String((message == null ? void 0 : message.content) || "").trim()}`;
             )}
             ${preservedSubsectionHtml || `${subsectionParagraphs}${subsectionBullets}${subsectionCallouts}`}
           `;
-            const subsectionRailWidth = isTutorialCards ? 3 : 2;
-            const subsectionRailGap = isTutorialCards ? 12 : 14;
             const subsectionContentHtml = subsectionHasAccentRail ? isDraft && isTutorialCards ? subsectionInnerHtml : `<div style="${tutorialPreviewSubsectionContentPadding ? `padding:${tutorialPreviewSubsectionContentPadding};` : ""}">${subsectionInnerHtml}</div>` : subsectionInnerHtml;
             const subsectionWrapperTag = isTutorialCards && isDraft ? "section" : "div";
             return `<${subsectionWrapperTag} style="${subsectionContainerStyle}">
@@ -9438,7 +9475,7 @@ var require_wechat_sync = __commonJS({
 // services/wechatsync-bridge.js
 var require_wechatsync_bridge = __commonJS({
   "services/wechatsync-bridge.js"(exports2, module2) {
-    var DEFAULT_WECHATSYNC_PORT2 = 9527;
+    var DEFAULT_WECHATSYNC_PORT = 9527;
     var DEFAULT_REQUEST_TIMEOUT_MS = 36e4;
     var DEFAULT_CONNECT_TIMEOUT_MS = 6e4;
     var DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS = 6e4;
@@ -9466,7 +9503,7 @@ var require_wechatsync_bridge = __commonJS({
     function sleep2(ms) {
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
-    async function retryRecoverableBridgeOperation2(operation, options = {}) {
+    async function retryRecoverableBridgeOperation(operation, options = {}) {
       var _a;
       const {
         retries = 2,
@@ -9814,7 +9851,7 @@ var require_wechatsync_bridge = __commonJS({
       const {
         WebSocketServer,
         http,
-        port = DEFAULT_WECHATSYNC_PORT2,
+        port = DEFAULT_WECHATSYNC_PORT,
         token = "",
         requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
         connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
@@ -10624,7 +10661,7 @@ var require_wechatsync_bridge = __commonJS({
       };
     }
     module2.exports = {
-      DEFAULT_WECHATSYNC_PORT: DEFAULT_WECHATSYNC_PORT2,
+      DEFAULT_WECHATSYNC_PORT,
       DEFAULT_SYNC_REQUEST_TIMEOUT_MS,
       DEFAULT_HELLO_TIMEOUT_MS,
       LOCAL_BIND_HOST,
@@ -10642,7 +10679,7 @@ var require_wechatsync_bridge = __commonJS({
       isRecoverableBridgeConnectionError,
       isUnsupportedBridgeMethodError,
       parseWebSocketFrames,
-      retryRecoverableBridgeOperation: retryRecoverableBridgeOperation2
+      retryRecoverableBridgeOperation
     };
   }
 });
@@ -10694,7 +10731,7 @@ var require_wechatsync_results = __commonJS({
       { id: "eastmoney", name: "\u4E1C\u65B9\u8D22\u5BCC", homepage: "https://mp.eastmoney.com", capabilities: ["article", "draft", "image_upload", "cover"] },
       { id: "netease", name: "\u7F51\u6613\u53F7", homepage: "https://mp.163.com/#/article-publish", capabilities: ["article", "draft", "image_upload"] }
     ];
-    function getFallbackWechatsyncPlatforms2() {
+    function getFallbackWechatsyncPlatforms() {
       return FALLBACK_WECHATSYNC_PLATFORMS.map((platform) => ({ ...platform }));
     }
     function isPlatformNotFoundError(error = "") {
@@ -10751,7 +10788,7 @@ var require_wechatsync_results = __commonJS({
         return "unknown";
       return platform.authenticated ? "available" : "login_required";
     }
-    function getWechatsyncPlatformStatusBadge2(platform = {}, options = {}) {
+    function getWechatsyncPlatformStatusBadge(platform = {}, options = {}) {
       const status = getWechatsyncPlatformStatus(platform, options);
       if (status === "bridge_required")
         return { status, text: "\u9700\u8FDE\u63A5\u6D4F\u89C8\u5668\u63D2\u4EF6", cls: "is-bridge" };
@@ -10806,18 +10843,18 @@ var require_wechatsync_results = __commonJS({
         getPlatform: (platform) => platform
       });
     }
-    function buildWechatsyncPlatformCatalog2(options = {}) {
+    function buildWechatsyncPlatformCatalog(options = {}) {
       var _a;
       const {
-        fallbackPlatforms = getFallbackWechatsyncPlatforms2(),
+        fallbackPlatforms = getFallbackWechatsyncPlatforms(),
         supportedPlatforms = [],
         authSnapshotPlatforms = [],
         bridgeConnected = true
       } = options;
-      const normalizedSupported = normalizeWechatsyncPlatformList2(supportedPlatforms);
-      const basePlatforms = bridgeConnected && normalizedSupported.length ? normalizedSupported : normalizeWechatsyncPlatformList2(fallbackPlatforms);
+      const normalizedSupported = normalizeWechatsyncPlatformList(supportedPlatforms);
+      const basePlatforms = bridgeConnected && normalizedSupported.length ? normalizedSupported : normalizeWechatsyncPlatformList(fallbackPlatforms);
       const authById = new Map(
-        normalizeWechatsyncPlatformList2(authSnapshotPlatforms).map((platform) => [platform.id, platform])
+        normalizeWechatsyncPlatformList(authSnapshotPlatforms).map((platform) => [platform.id, platform])
       );
       const catalog = [];
       const seen = /* @__PURE__ */ new Set();
@@ -10858,9 +10895,9 @@ var require_wechatsync_results = __commonJS({
         platform: candidate.id
       });
     }
-    async function probeWechatsyncPlatformsIndividually2(bridge, options = {}) {
+    async function probeWechatsyncPlatformsIndividually(bridge, options = {}) {
       const {
-        candidates = getFallbackWechatsyncPlatforms2(),
+        candidates = getFallbackWechatsyncPlatforms(),
         timeoutMs = 6e3,
         concurrency = 4,
         logger = console
@@ -10899,16 +10936,16 @@ var require_wechatsync_results = __commonJS({
       }
       return Array.from(byId.values());
     }
-    function normalizeWechatsyncPlatformList2(response) {
+    function normalizeWechatsyncPlatformList(response) {
       const candidates = Array.isArray(response) ? response : Array.isArray(response == null ? void 0 : response.platforms) ? response.platforms : Array.isArray(response == null ? void 0 : response.result) ? response.result : Array.isArray(response == null ? void 0 : response.data) ? response.data : [];
       return candidates.map((platform) => normalizeWechatsyncPlatform2(platform)).filter(Boolean);
     }
-    function normalizeWechatsyncAuthSnapshot2(response = {}, fallbackPlatforms = []) {
+    function normalizeWechatsyncAuthSnapshot(response = {}, fallbackPlatforms = []) {
       const source = response && typeof response === "object" ? response : {};
       const fallbackById = new Map(
         (Array.isArray(fallbackPlatforms) ? fallbackPlatforms : []).map((platform) => normalizeWechatsyncPlatform2(platform)).filter(Boolean).map((platform) => [platform.id, platform])
       );
-      const platforms = normalizeWechatsyncPlatformList2(source).map((platform) => {
+      const platforms = normalizeWechatsyncPlatformList(source).map((platform) => {
         const fallback = fallbackById.get(platform.id) || {};
         return {
           ...fallback,
@@ -10926,9 +10963,9 @@ var require_wechatsync_results = __commonJS({
         platforms
       };
     }
-    function summarizeWechatsyncPlatformResponse2(response) {
+    function summarizeWechatsyncPlatformResponse(response) {
       const rawPlatforms = Array.isArray(response) ? response : Array.isArray(response == null ? void 0 : response.platforms) ? response.platforms : Array.isArray(response == null ? void 0 : response.result) ? response.result : Array.isArray(response == null ? void 0 : response.data) ? response.data : [];
-      const normalized = normalizeWechatsyncPlatformList2(response);
+      const normalized = normalizeWechatsyncPlatformList(response);
       return {
         responseKind: Array.isArray(response) ? "array" : typeof response,
         rawCount: rawPlatforms.length,
@@ -10954,10 +10991,10 @@ var require_wechatsync_results = __commonJS({
     function isWechatSyncAuthFailureMessage(message = "") {
       return /未登录|登录|auth|unauthori[sz]ed|forbidden|cookie|token|鉴权|401|403/i.test(String(message || ""));
     }
-    function isWechatSyncConnectionFailure2(error = {}) {
+    function isWechatSyncConnectionFailure(error = {}) {
       return ["AUTH_FAILED", "EXTENSION_NOT_CONNECTED", "EXTENSION_NOT_AUTHENTICATED", "BRIDGE_UNAVAILABLE", "PLATFORM_LIST_TIMEOUT"].includes(error == null ? void 0 : error.code);
     }
-    function normalizeWechatSyncResponseResults2(result) {
+    function normalizeWechatSyncResponseResults(result) {
       if (Array.isArray(result == null ? void 0 : result.results))
         return result.results.filter(Boolean);
       if (Array.isArray(result))
@@ -10967,7 +11004,7 @@ var require_wechatsync_results = __commonJS({
       return [];
     }
     function getMultiPlatformResultSummary2(results = [], requestedPlatformIds = [], fatalError = null) {
-      const normalizedResults = normalizeWechatSyncResponseResults2(results);
+      const normalizedResults = normalizeWechatSyncResponseResults(results);
       const successResults = normalizedResults.filter((item) => (item == null ? void 0 : item.success) === true);
       const failedResults = normalizedResults.filter((item) => (item == null ? void 0 : item.success) === false);
       const authFailedResults = failedResults.filter((item) => isWechatSyncAuthFailureMessage(getWechatSyncResultError2(item)));
@@ -10983,14 +11020,14 @@ var require_wechatsync_results = __commonJS({
         isAllSuccess: totalCount > 0 && !fatalError && successResults.length === totalCount
       };
     }
-    function updateCachedPlatformsAfterSync2(cachedPlatforms = [], results = []) {
+    function updateCachedPlatformsAfterSync(cachedPlatforms = [], results = []) {
       const byId = /* @__PURE__ */ new Map();
       for (const platform of cachedPlatforms) {
         const normalized = normalizeWechatsyncPlatform2(platform);
         if (normalized)
           byId.set(normalized.id, normalized);
       }
-      for (const result of normalizeWechatSyncResponseResults2(results)) {
+      for (const result of normalizeWechatSyncResponseResults(results)) {
         const platformId = getWechatSyncResultPlatformId2(result);
         if (!platformId || platformId === "weixin")
           continue;
@@ -11020,27 +11057,27 @@ var require_wechatsync_results = __commonJS({
     }
     module2.exports = {
       FEATURED_WECHATSYNC_PLATFORM_ORDER,
-      buildWechatsyncPlatformCatalog: buildWechatsyncPlatformCatalog2,
-      getFallbackWechatsyncPlatforms: getFallbackWechatsyncPlatforms2,
+      buildWechatsyncPlatformCatalog,
+      getFallbackWechatsyncPlatforms,
       getMultiPlatformResultSummary: getMultiPlatformResultSummary2,
       getWechatSyncResultError: getWechatSyncResultError2,
       getWechatSyncResultPlatformId: getWechatSyncResultPlatformId2,
       getWechatSyncResultUrl: getWechatSyncResultUrl2,
       getWechatsyncPlatformStatus,
-      getWechatsyncPlatformStatusBadge: getWechatsyncPlatformStatusBadge2,
+      getWechatsyncPlatformStatusBadge,
       isWechatSyncAuthFailureMessage,
-      isWechatSyncConnectionFailure: isWechatSyncConnectionFailure2,
-      normalizeWechatSyncResponseResults: normalizeWechatSyncResponseResults2,
-      normalizeWechatsyncAuthSnapshot: normalizeWechatsyncAuthSnapshot2,
+      isWechatSyncConnectionFailure,
+      normalizeWechatSyncResponseResults,
+      normalizeWechatsyncAuthSnapshot,
       normalizeWechatsyncCheckAuthResult,
       normalizeWechatsyncCapabilities,
-      normalizeWechatsyncPlatformList: normalizeWechatsyncPlatformList2,
+      normalizeWechatsyncPlatformList,
       normalizeWechatsyncPlatform: normalizeWechatsyncPlatform2,
-      probeWechatsyncPlatformsIndividually: probeWechatsyncPlatformsIndividually2,
+      probeWechatsyncPlatformsIndividually,
       sortWechatsyncPlatformItemsForDisplay: sortWechatsyncPlatformItemsForDisplay2,
       sortWechatsyncPlatformsForDisplay,
-      summarizeWechatsyncPlatformResponse: summarizeWechatsyncPlatformResponse2,
-      updateCachedPlatformsAfterSync: updateCachedPlatformsAfterSync2
+      summarizeWechatsyncPlatformResponse,
+      updateCachedPlatformsAfterSync
     };
   }
 });
@@ -11477,7 +11514,7 @@ var require_wechat_html_cleaner = __commonJS({
       const decodeFragment = (value) => {
         try {
           return decodeURIComponent(value);
-        } catch (error) {
+        } catch (e) {
           return value;
         }
       };
@@ -12136,7 +12173,7 @@ var require_obsidian_fetch_adapter = __commonJS({
           throw error;
         try {
           return JSON.parse(source.slice(startIndex, endIndex));
-        } catch (_) {
+        } catch (e) {
           throw error;
         }
       }
@@ -12931,16 +12968,16 @@ var require_article_image_assets = __commonJS({
 // services/wechatsync-settings.js
 var require_wechatsync_settings = __commonJS({
   "services/wechatsync-settings.js"(exports2, module2) {
-    var { DEFAULT_WECHATSYNC_PORT: DEFAULT_WECHATSYNC_PORT2 } = require_wechatsync_bridge();
+    var { DEFAULT_WECHATSYNC_PORT } = require_wechatsync_bridge();
     var {
-      buildWechatsyncPlatformCatalog: buildWechatsyncPlatformCatalog2,
-      getFallbackWechatsyncPlatforms: getFallbackWechatsyncPlatforms2,
+      buildWechatsyncPlatformCatalog,
+      getFallbackWechatsyncPlatforms,
       normalizeWechatsyncPlatform: normalizeWechatsyncPlatform2
     } = require_wechatsync_results();
     function createDefaultMultiPlatformSyncSettings2() {
       return {
         enabled: false,
-        port: DEFAULT_WECHATSYNC_PORT2,
+        port: DEFAULT_WECHATSYNC_PORT,
         token: "",
         allowRemote: false,
         supportedPlatforms: [],
@@ -12980,7 +13017,7 @@ var require_wechatsync_settings = __commonJS({
         return [];
       return value.map((entry) => normalizeConnectedClient(entry)).filter(Boolean);
     }
-    function normalizeWechatsyncPlatformId2(value = "") {
+    function normalizeWechatsyncPlatformId(value = "") {
       const id = String(value || "").trim().toLowerCase();
       if (id === "twitter")
         return "x";
@@ -12989,14 +13026,14 @@ var require_wechatsync_settings = __commonJS({
     function parseWechatsyncPlatformIds2(value = []) {
       const rawIds = Array.isArray(value) ? value : String(value || "").split(/[\s,，;；]+/);
       const seen = /* @__PURE__ */ new Set();
-      return rawIds.map((id) => normalizeWechatsyncPlatformId2(id)).filter((id) => {
+      return rawIds.map((id) => normalizeWechatsyncPlatformId(id)).filter((id) => {
         if (!id || seen.has(id))
           return false;
         seen.add(id);
         return true;
       });
     }
-    function mergeWechatsyncPlatformLists2(...lists) {
+    function mergeWechatsyncPlatformLists(...lists) {
       const byId = /* @__PURE__ */ new Map();
       for (const list of lists) {
         for (const platform of Array.isArray(list) ? list : []) {
@@ -13011,7 +13048,7 @@ var require_wechatsync_settings = __commonJS({
       }
       return Array.from(byId.values());
     }
-    function normalizeWechatSyncCapabilities2(value = {}) {
+    function normalizeWechatSyncCapabilities(value = {}) {
       const source = value && typeof value === "object" ? value : {};
       const knownKeys = [
         "enqueueSyncArticle",
@@ -13044,10 +13081,10 @@ var require_wechatsync_settings = __commonJS({
       return (normalized.connectedClients || []).some((client) => {
         if ((client == null ? void 0 : client.status) !== "connected")
           return false;
-        return normalizeWechatSyncCapabilities2(client.capabilities || {}).proLicensed === true;
+        return normalizeWechatSyncCapabilities(client.capabilities || {}).proLicensed === true;
       });
     }
-    function normalizeWechatSyncRecentTasks2(value = []) {
+    function normalizeWechatSyncRecentTasks(value = []) {
       const tasks = Array.isArray(value) ? value : [];
       const seen = /* @__PURE__ */ new Set();
       return tasks.map((task) => {
@@ -13063,7 +13100,7 @@ var require_wechatsync_settings = __commonJS({
         };
       }).filter(Boolean).slice(0, 10);
     }
-    function normalizeMultiPlatformConnection2(value = {}) {
+    function normalizeMultiPlatformConnection(value = {}) {
       const source = value && typeof value === "object" ? value : {};
       const status = ["connected", "failed", "untested"].includes(source.status) ? source.status : "untested";
       return {
@@ -13071,15 +13108,15 @@ var require_wechatsync_settings = __commonJS({
         checkedAt: Number.isFinite(Number(source.checkedAt)) ? Number(source.checkedAt) : 0,
         platforms: Array.isArray(source.platforms) ? source.platforms.map((platform) => normalizeWechatsyncPlatform2(platform)).filter(Boolean) : [],
         message: typeof source.message === "string" ? source.message : "",
-        capabilities: normalizeWechatSyncCapabilities2(source.capabilities)
+        capabilities: normalizeWechatSyncCapabilities(source.capabilities)
       };
     }
     function normalizeMultiPlatformSyncSettings2(value = {}) {
       const defaults = createDefaultMultiPlatformSyncSettings2();
       const source = value && typeof value === "object" ? value : {};
       const portNumber = Number(source.port);
-      const fallbackPlatformIds = new Set(getFallbackWechatsyncPlatforms2().map((platform) => platform.id));
-      const supportedPlatforms = mergeWechatsyncPlatformLists2(source.supportedPlatforms);
+      const fallbackPlatformIds = new Set(getFallbackWechatsyncPlatforms().map((platform) => platform.id));
+      const supportedPlatforms = mergeWechatsyncPlatformLists(source.supportedPlatforms);
       const supportedPlatformIds = new Set(supportedPlatforms.map((platform) => platform.id));
       const selectablePlatformIds = /* @__PURE__ */ new Set([...fallbackPlatformIds, ...supportedPlatformIds]);
       const selectedPlatforms = parseWechatsyncPlatformIds2(source.selectedPlatforms).filter((id) => selectablePlatformIds.has(id));
@@ -13090,15 +13127,15 @@ var require_wechatsync_settings = __commonJS({
         allowRemote: source.allowRemote === true,
         supportedPlatforms,
         selectedPlatforms,
-        connection: normalizeMultiPlatformConnection2(source.connection),
-        recentTasks: normalizeWechatSyncRecentTasks2(source.recentTasks),
+        connection: normalizeMultiPlatformConnection(source.connection),
+        recentTasks: normalizeWechatSyncRecentTasks(source.recentTasks),
         connectedClients: normalizeConnectedClients(source.connectedClients)
       };
     }
-    function getConfiguredWechatsyncPlatforms2(settings = {}, cachedPlatforms = []) {
+    function getConfiguredWechatsyncPlatforms(settings = {}, cachedPlatforms = []) {
       const normalizedSettings = normalizeMultiPlatformSyncSettings2(settings);
       const availableById = new Map(
-        mergeWechatsyncPlatformLists2(getFallbackWechatsyncPlatforms2(), normalizedSettings.supportedPlatforms).map((platform) => [platform.id, platform])
+        mergeWechatsyncPlatformLists(getFallbackWechatsyncPlatforms(), normalizedSettings.supportedPlatforms).map((platform) => [platform.id, platform])
       );
       const cachedById = new Map(
         (cachedPlatforms || []).map((platform) => normalizeWechatsyncPlatform2(platform)).filter(Boolean).map((platform) => [platform.id, platform])
@@ -13112,7 +13149,7 @@ var require_wechatsync_settings = __commonJS({
     function getAvailableWechatsyncPlatforms2(settings = {}) {
       var _a, _b;
       const normalizedSettings = normalizeMultiPlatformSyncSettings2(settings);
-      return buildWechatsyncPlatformCatalog2({
+      return buildWechatsyncPlatformCatalog({
         supportedPlatforms: normalizedSettings.supportedPlatforms,
         authSnapshotPlatforms: ((_a = normalizedSettings.connection) == null ? void 0 : _a.platforms) || [],
         bridgeConnected: ((_b = normalizedSettings.connection) == null ? void 0 : _b.status) === "connected"
@@ -13122,16 +13159,16 @@ var require_wechatsync_settings = __commonJS({
       createDefaultMultiPlatformSyncSettings: createDefaultMultiPlatformSyncSettings2,
       normalizeConnectedClient,
       normalizeConnectedClients,
-      normalizeWechatsyncPlatformId: normalizeWechatsyncPlatformId2,
+      normalizeWechatsyncPlatformId,
       parseWechatsyncPlatformIds: parseWechatsyncPlatformIds2,
-      mergeWechatsyncPlatformLists: mergeWechatsyncPlatformLists2,
-      normalizeWechatSyncCapabilities: normalizeWechatSyncCapabilities2,
+      mergeWechatsyncPlatformLists,
+      normalizeWechatSyncCapabilities,
       hasWechatSyncCapability: hasWechatSyncCapability2,
       hasWechatSyncProLicense,
-      normalizeWechatSyncRecentTasks: normalizeWechatSyncRecentTasks2,
-      normalizeMultiPlatformConnection: normalizeMultiPlatformConnection2,
+      normalizeWechatSyncRecentTasks,
+      normalizeMultiPlatformConnection,
       normalizeMultiPlatformSyncSettings: normalizeMultiPlatformSyncSettings2,
-      getConfiguredWechatsyncPlatforms: getConfiguredWechatsyncPlatforms2,
+      getConfiguredWechatsyncPlatforms,
       getAvailableWechatsyncPlatforms: getAvailableWechatsyncPlatforms2
     };
   }
@@ -13230,29 +13267,27 @@ var require_multi_platform_tab = __commonJS({
   "views/settings/multi-platform-tab.js"(exports2, module2) {
     var { Setting: Setting2, Notice: Notice2 } = require("obsidian");
     var {
-      DEFAULT_WECHATSYNC_PORT: DEFAULT_WECHATSYNC_PORT2,
-      retryRecoverableBridgeOperation: retryRecoverableBridgeOperation2,
+      DEFAULT_WECHATSYNC_PORT,
+      retryRecoverableBridgeOperation,
       isUnsupportedBridgeMethodError: isWechatSyncUnsupportedMethodError2
     } = require_wechatsync_bridge();
     var {
-      getFallbackWechatsyncPlatforms: getFallbackWechatsyncPlatforms2,
-      getWechatsyncPlatformStatusBadge: getWechatsyncPlatformStatusBadge2,
-      normalizeWechatsyncAuthSnapshot: normalizeWechatsyncAuthSnapshot2,
-      normalizeWechatsyncPlatformList: normalizeWechatsyncPlatformList2,
-      summarizeWechatsyncPlatformResponse: summarizeWechatsyncPlatformResponse2
+      getFallbackWechatsyncPlatforms,
+      getWechatsyncPlatformStatusBadge,
+      normalizeWechatsyncAuthSnapshot,
+      normalizeWechatsyncPlatformList,
+      summarizeWechatsyncPlatformResponse
     } = require_wechatsync_results();
     var {
       getAvailableWechatsyncPlatforms: getAvailableWechatsyncPlatforms2,
       hasWechatSyncProLicense,
-      mergeWechatsyncPlatformLists: mergeWechatsyncPlatformLists2,
+      mergeWechatsyncPlatformLists,
       normalizeMultiPlatformSyncSettings: normalizeMultiPlatformSyncSettings2,
-      normalizeWechatSyncCapabilities: normalizeWechatSyncCapabilities2,
+      normalizeWechatSyncCapabilities,
       parseWechatsyncPlatformIds: parseWechatsyncPlatformIds2
     } = require_wechatsync_settings();
     var {
-      describeWechatsyncConnectionState: describeWechatsyncConnectionState2,
-      formatWechatsyncCheckedAt: formatWechatsyncCheckedAt2,
-      renderWechatsyncConnectionStatusBar: renderWechatsyncConnectionStatusBar2
+      formatWechatsyncCheckedAt: formatWechatsyncCheckedAt2
     } = require_connection_status_bar();
     var OBSIDIAN_PUBLISHER_PRO_URL2 = "https://xiaoweibox.top/obsidian-publisher/pro/?from=obsidian-plugin";
     var OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL2 = "https://xiaoweibox.top/obsidian-publisher/guide/?from=obsidian-plugin#install-extension";
@@ -13325,11 +13360,11 @@ var require_multi_platform_tab = __commonJS({
       if (!multiPlatformSettings.enabled) {
         return;
       }
-      new Setting2(containerEl).setName("\u672C\u5730\u670D\u52A1\u7AEF\u53E3").setDesc("\u9ED8\u8BA4 9527\u3002\u53EA\u6709\u5F53\u6D4F\u89C8\u5668\u63D2\u4EF6\u4E2D\u7684\u672C\u5730\u670D\u52A1\u5730\u5740\u4F7F\u7528\u4E86\u5176\u4ED6\u7AEF\u53E3\u65F6\u624D\u9700\u8981\u4FEE\u6539\u3002").addText((text) => text.setPlaceholder(String(DEFAULT_WECHATSYNC_PORT2)).setValue(String(multiPlatformSettings.port)).onChange(async (value) => {
+      new Setting2(containerEl).setName("\u672C\u5730\u670D\u52A1\u7AEF\u53E3").setDesc("\u9ED8\u8BA4 9527\u3002\u53EA\u6709\u5F53\u6D4F\u89C8\u5668\u63D2\u4EF6\u4E2D\u7684\u672C\u5730\u670D\u52A1\u5730\u5740\u4F7F\u7528\u4E86\u5176\u4ED6\u7AEF\u53E3\u65F6\u624D\u9700\u8981\u4FEE\u6539\u3002").addText((text) => text.setPlaceholder(String(DEFAULT_WECHATSYNC_PORT)).setValue(String(multiPlatformSettings.port)).onChange(async (value) => {
         const nextPort = Number(value);
         plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings2({
           ...plugin.settings.multiPlatformSync,
-          port: Number.isInteger(nextPort) ? nextPort : DEFAULT_WECHATSYNC_PORT2,
+          port: Number.isInteger(nextPort) ? nextPort : DEFAULT_WECHATSYNC_PORT,
           connection: { status: "untested" }
         });
         await plugin.saveSettings();
@@ -13438,7 +13473,7 @@ var require_multi_platform_tab = __commonJS({
       }
       const getSupportedPlatformsFromExtension = async (bridge) => {
         const response = await bridge.listSupportedPlatforms({ timeoutMs: 1e4 });
-        return normalizeWechatsyncPlatformList2(response);
+        return normalizeWechatsyncPlatformList(response);
       };
       const getAuthSnapshotFromExtension = async (bridge, platforms = [], fallbackPlatforms = []) => {
         const response = await bridge.getAuthSnapshot({
@@ -13446,7 +13481,7 @@ var require_multi_platform_tab = __commonJS({
           maxAgeMs: 864e5,
           timeoutMs: 5e3
         });
-        return normalizeWechatsyncAuthSnapshot2(response, fallbackPlatforms);
+        return normalizeWechatsyncAuthSnapshot(response, fallbackPlatforms);
       };
       const hasExtensionPlatformList = Array.isArray(multiPlatformSettings.supportedPlatforms) && multiPlatformSettings.supportedPlatforms.length > 0 && ((_o = multiPlatformSettings.connection) == null ? void 0 : _o.status) === "connected";
       const availablePlatforms = getAvailableWechatsyncPlatforms2(multiPlatformSettings);
@@ -13456,7 +13491,7 @@ var require_multi_platform_tab = __commonJS({
       );
       const getPlatformAuthBadge = (platform = {}) => {
         var _a2;
-        return getWechatsyncPlatformStatusBadge2(platform, {
+        return getWechatsyncPlatformStatusBadge(platform, {
           bridgeConnected: ((_a2 = multiPlatformSettings.connection) == null ? void 0 : _a2.status) === "connected"
         });
       };
@@ -13559,7 +13594,7 @@ var require_multi_platform_tab = __commonJS({
           let health = null;
           let capabilities = {};
           try {
-            health = await retryRecoverableBridgeOperation2(async ({ attempt }) => {
+            health = await retryRecoverableBridgeOperation(async ({ attempt }) => {
               if (attempt > 0) {
                 console.debug("[Wechatsync] retrying health after bridge recovery window", { attempt });
               }
@@ -13582,7 +13617,7 @@ var require_multi_platform_tab = __commonJS({
               label: "settings health"
             });
             console.debug("[Wechatsync] health result", health);
-            capabilities = normalizeWechatSyncCapabilities2(health == null ? void 0 : health.capabilities);
+            capabilities = normalizeWechatSyncCapabilities(health == null ? void 0 : health.capabilities);
           } catch (healthError) {
             if (!isWechatSyncUnsupportedMethodError2(healthError))
               throw healthError;
@@ -13604,7 +13639,7 @@ var require_multi_platform_tab = __commonJS({
           }
           const selectedPlatformIds = parseWechatsyncPlatformIds2(currentBeforeTest.selectedPlatforms || []);
           const current = normalizeMultiPlatformSyncSettings2(plugin.settings.multiPlatformSync);
-          const nextPlatforms = normalizeWechatsyncPlatformList2(current.connection.platforms || []).filter((platform) => selectedPlatformIds.includes(platform.id));
+          const nextPlatforms = normalizeWechatsyncPlatformList(current.connection.platforms || []).filter((platform) => selectedPlatformIds.includes(platform.id));
           plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings2({
             ...current,
             supportedPlatforms: supportedPlatforms.length ? supportedPlatforms : current.supportedPlatforms,
@@ -13703,21 +13738,21 @@ var require_multi_platform_tab = __commonJS({
           const bridge = plugin.getWechatSyncBridgeService();
           await bridge.start();
           await bridge.waitForConnection(15e3);
-          const platformFallbacks = mergeWechatsyncPlatformLists2(
+          const platformFallbacks = mergeWechatsyncPlatformLists(
             current.supportedPlatforms,
             (_b2 = current.connection) == null ? void 0 : _b2.platforms,
-            getFallbackWechatsyncPlatforms2()
+            getFallbackWechatsyncPlatforms()
           );
           const authSnapshot = await getAuthSnapshotFromExtension(
             bridge,
             candidates.map((platform) => platform.id),
             platformFallbacks
           );
-          const cachedPlatforms = normalizeWechatsyncPlatformList2(authSnapshot.platforms || []);
+          const cachedPlatforms = normalizeWechatsyncPlatformList(authSnapshot.platforms || []);
           console.debug("[Wechatsync] selected platform cached auth snapshot summary", {
             elapsedMs: Date.now() - startedAt,
             checkedAt: authSnapshot.checkedAt,
-            ...summarizeWechatsyncPlatformResponse2(cachedPlatforms)
+            ...summarizeWechatsyncPlatformResponse(cachedPlatforms)
           });
           plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings2({
             ...current,
@@ -13760,22 +13795,22 @@ var require_multi_platform = __commonJS({
     var obsidian = require("obsidian");
     var { Notice: Notice2, Platform: Platform2 } = obsidian;
     var {
-      isWechatSyncConnectionFailure: isWechatSyncConnectionFailure2,
-      getWechatsyncPlatformStatusBadge: getWechatsyncPlatformStatusBadge2,
-      normalizeWechatSyncResponseResults: normalizeWechatSyncResponseResults2,
+      isWechatSyncConnectionFailure,
+      getWechatsyncPlatformStatusBadge,
+      normalizeWechatSyncResponseResults,
       normalizeWechatsyncPlatform: normalizeWechatsyncPlatform2,
-      summarizeWechatsyncPlatformResponse: summarizeWechatsyncPlatformResponse2,
-      updateCachedPlatformsAfterSync: updateCachedPlatformsAfterSync2
+      summarizeWechatsyncPlatformResponse,
+      updateCachedPlatformsAfterSync
     } = require_wechatsync_results();
     var {
       isUnsupportedBridgeMethodError: isWechatSyncUnsupportedMethodError2
     } = require_wechatsync_bridge();
     var {
       getAvailableWechatsyncPlatforms: getAvailableWechatsyncPlatforms2,
-      normalizeWechatSyncCapabilities: normalizeWechatSyncCapabilities2,
-      normalizeMultiPlatformConnection: normalizeMultiPlatformConnection2,
+      normalizeWechatSyncCapabilities,
+      normalizeMultiPlatformConnection,
       normalizeMultiPlatformSyncSettings: normalizeMultiPlatformSyncSettings2,
-      normalizeWechatSyncRecentTasks: normalizeWechatSyncRecentTasks2,
+      normalizeWechatSyncRecentTasks,
       parseWechatsyncPlatformIds: parseWechatsyncPlatformIds2
     } = require_wechatsync_settings();
     var {
@@ -13993,7 +14028,7 @@ var require_multi_platform = __commonJS({
     }
     async function detectQuotaPolicySupport(bridge, cachedConnection = {}) {
       var _a;
-      const cachedCapabilities = normalizeWechatSyncCapabilities2(cachedConnection.capabilities || {});
+      const cachedCapabilities = normalizeWechatSyncCapabilities(cachedConnection.capabilities || {});
       if (cachedCapabilities.quotaPolicy === true)
         return cachedCapabilities;
       if (!bridge || typeof bridge.health !== "function")
@@ -14002,7 +14037,7 @@ var require_multi_platform = __commonJS({
         const health = await bridge.health({ timeoutMs: 5e3 });
         return {
           ...cachedCapabilities,
-          ...normalizeWechatSyncCapabilities2((health == null ? void 0 : health.capabilities) || {})
+          ...normalizeWechatSyncCapabilities((health == null ? void 0 : health.capabilities) || {})
         };
       } catch (error) {
         if (isWechatSyncUnsupportedMethodError2(error))
@@ -14016,20 +14051,20 @@ var require_multi_platform = __commonJS({
     }
     function resolvePublishModalCapabilities(view, cachedConnection = {}) {
       var _a, _b;
-      const cachedCapabilities = normalizeWechatSyncCapabilities2(cachedConnection.capabilities || {});
+      const cachedCapabilities = normalizeWechatSyncCapabilities(cachedConnection.capabilities || {});
       const bridge = (_b = (_a = view == null ? void 0 : view.plugin) == null ? void 0 : _a.getWechatSyncBridgeService) == null ? void 0 : _b.call(_a);
       const activeClient = typeof (bridge == null ? void 0 : bridge.getActiveClientDescriptor) === "function" ? bridge.getActiveClientDescriptor() : null;
       if (activeClient == null ? void 0 : activeClient.capabilities) {
         return {
           ...cachedCapabilities,
-          ...normalizeWechatSyncCapabilities2(activeClient.capabilities)
+          ...normalizeWechatSyncCapabilities(activeClient.capabilities)
         };
       }
       const status = typeof (bridge == null ? void 0 : bridge.getStatus) === "function" ? bridge.getStatus() : null;
       const liveClient = Array.isArray(status == null ? void 0 : status.connectedClients) ? status.connectedClients.find((client) => (client == null ? void 0 : client.status) === "connected" && client.capabilities) : null;
       return {
         ...cachedCapabilities,
-        ...normalizeWechatSyncCapabilities2((liveClient == null ? void 0 : liveClient.capabilities) || {})
+        ...normalizeWechatSyncCapabilities((liveClient == null ? void 0 : liveClient.capabilities) || {})
       };
     }
     async function showMultiPlatformPublishModal2(view, options = {}) {
@@ -14042,9 +14077,9 @@ var require_multi_platform = __commonJS({
       const shouldOpenModal = !options.modal;
       const mobileSync = isMobileClient2(view.app);
       const bridgeSettings = normalizeMultiPlatformSyncSettings2(view.plugin.settings.multiPlatformSync);
-      const cachedConnection = bridgeSettings.connection || normalizeMultiPlatformConnection2();
+      const cachedConnection = bridgeSettings.connection || normalizeMultiPlatformConnection();
       view.preparePublishModalShell(modal, { mode: "multi", mobileSync });
-      const { wechatTab, multiPlatformTab } = view.createPublishModeTabs(modal, "multi");
+      const { wechatTab } = view.createPublishModeTabs(modal, "multi");
       wechatTab.onclick = () => {
         view.showSyncModal({ modal });
       };
@@ -14114,7 +14149,7 @@ var require_multi_platform = __commonJS({
         status: cachedConnection.status,
         checkedAt: cachedConnection.checkedAt,
         message: cachedConnection.message,
-        ...summarizeWechatsyncPlatformResponse2(cachedConnection.platforms)
+        ...summarizeWechatsyncPlatformResponse(cachedConnection.platforms)
       });
       const btnRow = modal.contentEl.createDiv({ cls: "wechat-modal-buttons" });
       const cancelBtn = btnRow.createEl("button", { text: "\u53D6\u6D88" });
@@ -14147,7 +14182,7 @@ var require_multi_platform = __commonJS({
           return;
         }
         for (const platform of normalizedPlatforms) {
-          const authInfo = getWechatsyncPlatformStatusBadge2(platform, { bridgeConnected: isBridgeReady });
+          const authInfo = getWechatsyncPlatformStatusBadge(platform, { bridgeConnected: isBridgeReady });
           const isSelected = isBridgeReady && modalSelectedPlatforms.has(platform.id);
           const row = platformListEl.createDiv({
             cls: `wechat-multiplatform-platform ${isSelected ? `${authInfo.cls} is-selected` : ""} ${!isBridgeReady ? "is-disabled" : ""}`.trim()
@@ -14349,20 +14384,20 @@ var require_multi_platform = __commonJS({
           if (result == null ? void 0 : result.syncId)
             notice.setMessage("\u5DF2\u6295\u9012\uFF0C\u6B63\u5728\u8BFB\u53D6\u63D2\u4EF6\u4EFB\u52A1\u72B6\u6001...");
           const taskSnapshot = (result == null ? void 0 : result.syncId) ? await view.getWechatsyncTaskSnapshot(bridge, result.syncId) : null;
-          const immediateResults = normalizeWechatSyncResponseResults2(result);
+          const immediateResults = normalizeWechatSyncResponseResults(result);
           const taskResults = Array.isArray(taskSnapshot == null ? void 0 : taskSnapshot.platforms) ? taskSnapshot.platforms.map((item) => ({
             platform: (item == null ? void 0 : item.id) || (item == null ? void 0 : item.platform),
             platformName: item == null ? void 0 : item.name,
             success: (item == null ? void 0 : item.success) === true || (item == null ? void 0 : item.status) === "success",
             error: (item == null ? void 0 : item.error) || (item == null ? void 0 : item.message) || ""
           })) : [];
-          const cachedPlatformsAfterSync = updateCachedPlatformsAfterSync2(
+          const cachedPlatformsAfterSync = updateCachedPlatformsAfterSync(
             ((_d = currentMultiPlatformSettings.connection) == null ? void 0 : _d.platforms) || [],
             immediateResults.length ? immediateResults : taskResults
           );
           notice.hide();
           modal.close();
-          const nextRecentTasks = (result == null ? void 0 : result.syncId) ? normalizeWechatSyncRecentTasks2([
+          const nextRecentTasks = (result == null ? void 0 : result.syncId) ? normalizeWechatSyncRecentTasks([
             {
               syncId: result.syncId,
               title,
@@ -14405,7 +14440,7 @@ var require_multi_platform = __commonJS({
             requestedPlatformIds
           });
           const displayMessage = (error == null ? void 0 : error.code) === "EXTENSION_NOT_AUTHENTICATED" ? '\u6D4F\u89C8\u5668\u63D2\u4EF6\u5DF2\u8FDE\u63A5\u4F46\u672A\u901A\u8FC7\u63E1\u624B\u8BA4\u8BC1\u3002\u5982\u679C\u4F60\u521A\u521A\u5728\u6D4F\u89C8\u5668\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u91CD\u7F6E\u8FC7\u4EE4\u724C\uFF0C\u8BF7\u5230\u672C\u63D2\u4EF6\u7684"\u591A\u5E73\u53F0\u540C\u6B65"\u8BBE\u7F6E\u9875\u7C98\u8D34\u65B0\u4EE4\u724C\uFF1B\u5426\u5219\u8BF7\u786E\u8BA4\u63D2\u4EF6\u5DF2\u5347\u7EA7\u5230\u652F\u6301\u5B89\u5168\u63E1\u624B\u7684\u7248\u672C\u3002' : (error == null ? void 0 : error.message) || "\u6D4F\u89C8\u5668\u63D2\u4EF6\u8FDE\u63A5\u5931\u8D25";
-          if (isWechatSyncConnectionFailure2(error)) {
+          if (isWechatSyncConnectionFailure(error)) {
             const currentMultiPlatformSettings = normalizeMultiPlatformSyncSettings2(view.plugin.settings.multiPlatformSync);
             view.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings2({
               ...currentMultiPlatformSettings,
@@ -14475,28 +14510,16 @@ var {
 } = require_ai_layout();
 var { createWechatSyncService } = require_wechat_sync();
 var {
-  DEFAULT_WECHATSYNC_PORT,
   createWechatSyncBridgeService,
-  isUnsupportedBridgeMethodError: isWechatSyncUnsupportedMethodError,
-  retryRecoverableBridgeOperation
+  isUnsupportedBridgeMethodError: isWechatSyncUnsupportedMethodError
 } = require_wechatsync_bridge();
 var {
-  buildWechatsyncPlatformCatalog,
-  getFallbackWechatsyncPlatforms,
   getMultiPlatformResultSummary,
   getWechatSyncResultError,
   getWechatSyncResultPlatformId,
   getWechatSyncResultUrl,
-  getWechatsyncPlatformStatusBadge,
-  isWechatSyncConnectionFailure,
-  normalizeWechatSyncResponseResults,
-  normalizeWechatsyncAuthSnapshot,
   normalizeWechatsyncPlatform,
-  normalizeWechatsyncPlatformList,
-  probeWechatsyncPlatformsIndividually,
-  sortWechatsyncPlatformItemsForDisplay,
-  summarizeWechatsyncPlatformResponse,
-  updateCachedPlatformsAfterSync
+  sortWechatsyncPlatformItemsForDisplay
 } = require_wechatsync_results();
 var { resolveSyncAccount, toSyncFriendlyMessage } = require_sync_context();
 var {
@@ -14529,6 +14552,17 @@ function revealLeafCompat(workspace, leaf) {
   }
   return Promise.resolve();
 }
+function getPluginSettings(plugin) {
+  if (!plugin || typeof plugin !== "object")
+    return {};
+  return plugin["settings"] || {};
+}
+function setPluginSettings(plugin, settings) {
+  if (!plugin || typeof plugin !== "object")
+    return settings;
+  plugin["settings"] = settings;
+  return settings;
+}
 var APPLE_STYLE_VIEW = "apple-style-converter";
 var APPLE_STYLE_VIEW_TITLE = "Obsidian \u53D1\u5E03\u52A9\u624B";
 var OBSIDIAN_PUBLISHER_PRO_URL = "https://xiaoweibox.top/obsidian-publisher/pro/";
@@ -14538,15 +14572,9 @@ var OBSIDIAN_PUBLISHER_BRIDGE_GUIDE_URL = `${OBSIDIAN_PUBLISHER_GUIDE_URL}?from=
 var MULTI_PLATFORM_TAB_LABEL = "\u5176\u4ED6\u5E73\u53F0\uFF08\u5C0F\u7EA2\u4E66/\u77E5\u4E4E/\u6296\u97F3\u7B49\uFF09";
 var {
   createDefaultMultiPlatformSyncSettings,
-  normalizeWechatsyncPlatformId,
   parseWechatsyncPlatformIds,
-  mergeWechatsyncPlatformLists,
-  normalizeWechatSyncCapabilities,
   hasWechatSyncCapability,
-  normalizeWechatSyncRecentTasks,
-  normalizeMultiPlatformConnection,
   normalizeMultiPlatformSyncSettings,
-  getConfiguredWechatsyncPlatforms,
   getAvailableWechatsyncPlatforms
 } = require_wechatsync_settings();
 var {
@@ -14579,12 +14607,10 @@ var IMAGE_SWIPE_COMMAND_COPY = {
   }
 };
 function getObsidianLocale(app = null) {
-  var _a, _b, _c, _d, _e, _f, _g, _h;
+  var _a, _b, _c, _d;
   const candidates = [
     (_b = (_a = app == null ? void 0 : app.vault) == null ? void 0 : _a.getConfig) == null ? void 0 : _b.call(_a, "language"),
     (_d = (_c = app == null ? void 0 : app.vault) == null ? void 0 : _c.getConfig) == null ? void 0 : _d.call(_c, "locale"),
-    typeof window !== "undefined" ? (_f = (_e = window.localStorage) == null ? void 0 : _e.getItem) == null ? void 0 : _f.call(_e, "language") : "",
-    typeof window !== "undefined" ? (_h = (_g = window.localStorage) == null ? void 0 : _g.getItem) == null ? void 0 : _h.call(_g, "obsidian-language") : "",
     typeof navigator !== "undefined" ? navigator.language : ""
   ];
   return String(candidates.find((value) => typeof value === "string" && value.trim()) || "").trim().toLowerCase();
@@ -14690,9 +14716,9 @@ function isMobileClient(app) {
   return !!(app == null ? void 0 : app.isMobile);
 }
 function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 11);
 }
-var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+var sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 async function pMap(array, mapper, concurrency = 3) {
   const results = [];
   const executing = [];
@@ -15114,7 +15140,7 @@ var AppleStyleView = class extends ItemView {
     const previewWrapper = container.createEl("div", {
       cls: `apple-preview-wrapper ${usePhoneFrame ? "mode-phone" : "mode-classic"}`
     });
-    previewWrapper.addEventListener("click", (e) => {
+    previewWrapper.addEventListener("click", () => {
       this.closeTransientPanels();
     });
     if (usePhoneFrame) {
@@ -15136,7 +15162,7 @@ var AppleStyleView = class extends ItemView {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (activeView)
       this.registerScrollSync(activeView);
-    setTimeout(async () => {
+    window.setTimeout(async () => {
       const activeView2 = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (activeView2 && this.converter) {
         await this.convertCurrent(true);
@@ -15170,8 +15196,8 @@ var AppleStyleView = class extends ItemView {
       let timeout;
       return function(...args) {
         const context = this;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
+        window.clearTimeout(timeout);
+        timeout = window.setTimeout(() => func.apply(context, args), wait);
       };
     };
     const debouncedConvert = debounce(async () => {
@@ -15193,10 +15219,10 @@ var AppleStyleView = class extends ItemView {
   }
   scheduleActiveLeafRender(activeViewOverride = null) {
     if (this.activeLeafRenderTimer) {
-      clearTimeout(this.activeLeafRenderTimer);
+      window.clearTimeout(this.activeLeafRenderTimer);
       this.activeLeafRenderTimer = null;
     }
-    this.activeLeafRenderTimer = setTimeout(() => {
+    this.activeLeafRenderTimer = window.setTimeout(() => {
       this.activeLeafRenderTimer = null;
       const activeView = activeViewOverride || this.app.workspace.getActiveViewOfType(MarkdownView);
       const sourceOverride = activeView && activeView.file ? {
@@ -15213,10 +15239,10 @@ var AppleStyleView = class extends ItemView {
   }
   scheduleSidePaddingPreview(delay = 120) {
     if (this.sidePaddingPreviewTimer) {
-      clearTimeout(this.sidePaddingPreviewTimer);
+      window.clearTimeout(this.sidePaddingPreviewTimer);
       this.sidePaddingPreviewTimer = null;
     }
-    this.sidePaddingPreviewTimer = setTimeout(() => {
+    this.sidePaddingPreviewTimer = window.setTimeout(() => {
       this.sidePaddingPreviewTimer = null;
       this.convertCurrent(true);
     }, delay);
@@ -15239,9 +15265,9 @@ var AppleStyleView = class extends ItemView {
     this.aiLayoutStaleSuppressPath = sourcePath;
     this.aiLayoutStaleSuppressUntil = Date.now() + AI_LAYOUT_SOURCE_SWITCH_STALE_SUPPRESS_MS;
     if (this.aiLayoutStaleSuppressTimer) {
-      clearTimeout(this.aiLayoutStaleSuppressTimer);
+      window.clearTimeout(this.aiLayoutStaleSuppressTimer);
     }
-    this.aiLayoutStaleSuppressTimer = setTimeout(() => {
+    this.aiLayoutStaleSuppressTimer = window.setTimeout(() => {
       this.aiLayoutStaleSuppressTimer = null;
       if (this.aiLayoutStaleSuppressPath === sourcePath && Date.now() >= this.aiLayoutStaleSuppressUntil) {
         this.aiLayoutStaleSuppressPath = "";
@@ -15353,7 +15379,7 @@ var AppleStyleView = class extends ItemView {
         }
       };
       if (typeof requestAnimationFrame === "function") {
-        const frameId = requestAnimationFrame(run);
+        const frameId = window.requestAnimationFrame(run);
         this.scrollSyncFrame = frameId;
         this.cancelScrollSyncFrame = () => {
           if (typeof cancelAnimationFrame === "function") {
@@ -15361,9 +15387,9 @@ var AppleStyleView = class extends ItemView {
           }
         };
       } else {
-        const timeoutId = setTimeout(run, 16);
+        const timeoutId = window.setTimeout(run, 16);
         this.scrollSyncFrame = timeoutId;
-        this.cancelScrollSyncFrame = () => clearTimeout(timeoutId);
+        this.cancelScrollSyncFrame = () => window.clearTimeout(timeoutId);
       }
     };
     this.editorScrollListener = () => {
@@ -15570,8 +15596,8 @@ var AppleStyleView = class extends ItemView {
         this.plugin.settings.sidePadding = val;
         this.theme.update({ sidePadding: val });
         if (this.saveTimeout)
-          clearTimeout(this.saveTimeout);
-        this.saveTimeout = setTimeout(async () => {
+          window.clearTimeout(this.saveTimeout);
+        this.saveTimeout = window.setTimeout(async () => {
           await this.plugin.saveSettings();
         }, 500);
         this.scheduleSidePaddingPreview(mobile ? 220 : 120);
@@ -15582,7 +15608,7 @@ var AppleStyleView = class extends ItemView {
         this.plugin.settings.sidePadding = val;
         this.theme.update({ sidePadding: val });
         if (this.sidePaddingPreviewTimer) {
-          clearTimeout(this.sidePaddingPreviewTimer);
+          window.clearTimeout(this.sidePaddingPreviewTimer);
           this.sidePaddingPreviewTimer = null;
         }
         await this.plugin.saveSettings();
@@ -15957,7 +15983,7 @@ var AppleStyleView = class extends ItemView {
       if (typeof file.extension !== "string")
         return null;
       return this.app.vault.getResourcePath(file);
-    } catch (error) {
+    } catch (e) {
       return null;
     }
   }
@@ -16070,7 +16096,7 @@ var AppleStyleView = class extends ItemView {
     };
     resetScroll();
     if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(resetScroll);
+      window.requestAnimationFrame(resetScroll);
     }
   }
   resetAiLayoutPanelViewState() {
@@ -16090,7 +16116,7 @@ var AppleStyleView = class extends ItemView {
     };
     resetScroll();
     if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(resetScroll);
+      window.requestAnimationFrame(resetScroll);
     }
   }
   togglePanel(overlay, button, onOpen) {
@@ -17184,7 +17210,7 @@ var AppleStyleView = class extends ItemView {
     let success = false;
     try {
       success = document.execCommand("copy");
-    } catch (error) {
+    } catch (e) {
       success = false;
     } finally {
       tempEl.remove();
@@ -17192,13 +17218,13 @@ var AppleStyleView = class extends ItemView {
       for (const prevRange of previousRanges) {
         try {
           selection.addRange(prevRange);
-        } catch (restoreError) {
+        } catch (e) {
         }
       }
       if (activeElement && typeof activeElement.focus === "function") {
         try {
           activeElement.focus({ preventScroll: true });
-        } catch (focusError) {
+        } catch (e) {
           activeElement.focus();
         }
       }
@@ -17238,7 +17264,7 @@ var AppleStyleView = class extends ItemView {
       if (!copied)
         throw new Error("clipboard unavailable");
       new Notice("\u2705 \u8C03\u8BD5\u5FEB\u7167\u5DF2\u590D\u5236");
-    } catch (error) {
+    } catch (e) {
       new Notice("\u274C \u8C03\u8BD5\u5FEB\u7167\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u526A\u8D34\u677F\u6743\u9650");
     }
   }
@@ -17265,7 +17291,7 @@ var AppleStyleView = class extends ItemView {
       if (!copied)
         throw new Error("clipboard unavailable");
       new Notice("\u2705 Prompt \u4E0A\u4E0B\u6587\u5DF2\u590D\u5236");
-    } catch (error) {
+    } catch (e) {
       new Notice("\u274C Prompt \u4E0A\u4E0B\u6587\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u526A\u8D34\u677F\u6743\u9650");
     }
   }
@@ -19295,11 +19321,11 @@ var AppleStyleView = class extends ItemView {
     if (showLoading) {
       this.loadingGeneration = generation;
       if (this.loadingVisibilityTimer) {
-        clearTimeout(this.loadingVisibilityTimer);
+        window.clearTimeout(this.loadingVisibilityTimer);
         this.loadingVisibilityTimer = null;
       }
       if (loadingDelay > 0) {
-        this.loadingVisibilityTimer = setTimeout(() => {
+        this.loadingVisibilityTimer = window.setTimeout(() => {
           if (this.loadingGeneration === generation) {
             this.setPreviewLoading(true, loadingText);
           }
@@ -19331,7 +19357,7 @@ var AppleStyleView = class extends ItemView {
         new Notice("\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A Markdown \u6587\u4EF6");
       if (showLoading && this.loadingGeneration === generation) {
         if (this.loadingVisibilityTimer) {
-          clearTimeout(this.loadingVisibilityTimer);
+          window.clearTimeout(this.loadingVisibilityTimer);
           this.loadingVisibilityTimer = null;
         }
         this.setPreviewLoading(false);
@@ -19344,7 +19370,7 @@ var AppleStyleView = class extends ItemView {
       this.completeAiLayoutSourceSwitch(sourcePath);
       if (showLoading && this.loadingGeneration === generation) {
         if (this.loadingVisibilityTimer) {
-          clearTimeout(this.loadingVisibilityTimer);
+          window.clearTimeout(this.loadingVisibilityTimer);
           this.loadingVisibilityTimer = null;
         }
         this.setPreviewLoading(false);
@@ -19412,7 +19438,7 @@ var AppleStyleView = class extends ItemView {
     } finally {
       if (showLoading && this.loadingGeneration === generation) {
         if (this.loadingVisibilityTimer) {
-          clearTimeout(this.loadingVisibilityTimer);
+          window.clearTimeout(this.loadingVisibilityTimer);
           this.loadingVisibilityTimer = null;
         }
         this.setPreviewLoading(false);
@@ -19425,10 +19451,10 @@ var AppleStyleView = class extends ItemView {
   onResize() {
     super.onResize();
     if (this.resizeTimeout)
-      clearTimeout(this.resizeTimeout);
+      window.clearTimeout(this.resizeTimeout);
     if (!this.containerEl.offsetParent)
       return;
-    this.resizeTimeout = setTimeout(() => {
+    this.resizeTimeout = window.setTimeout(() => {
       this.convertCurrent(true);
     }, 300);
   }
@@ -19466,20 +19492,20 @@ var AppleStyleView = class extends ItemView {
       selection.removeAllRanges();
       selection.addRange(range);
       success = document.execCommand("copy");
-    } catch (error) {
+    } catch (e) {
       success = false;
     } finally {
       selection.removeAllRanges();
       for (const prevRange of previousRanges) {
         try {
           selection.addRange(prevRange);
-        } catch (restoreError) {
+        } catch (e) {
         }
       }
       if (activeElement && typeof activeElement.focus === "function") {
         try {
           activeElement.focus({ preventScroll: true });
-        } catch (focusError) {
+        } catch (e) {
           activeElement.focus();
         }
       }
@@ -19777,7 +19803,7 @@ var AppleStyleView = class extends ItemView {
     try {
       const text = await navigator.clipboard.readText();
       return { supported: true, text: this.normalizeClipboardText(text) };
-    } catch (error) {
+    } catch (e) {
       return { supported: false, text: "" };
     }
   }
@@ -19799,7 +19825,7 @@ var AppleStyleView = class extends ItemView {
     try {
       const exportHtml = this.getCurrentExportHtml() || this.currentHtml;
       const tempDiv = createHtmlContainer("div", exportHtml);
-      const processed = await this.processImagesToDataURL(tempDiv);
+      await this.processImagesToDataURL(tempDiv);
       await this.enhanceHtmlForWechatPublishing(tempDiv);
       const cleanedHtml = this.cleanHtmlForDraft(tempDiv.innerHTML);
       const htmlContent = cleanedHtml;
@@ -19817,7 +19843,7 @@ var AppleStyleView = class extends ItemView {
       } else {
         try {
           copied = await this.copyRichHTMLByClipboard(htmlContent);
-        } catch (error) {
+        } catch (e) {
           copied = false;
         }
         if (!copied) {
@@ -19831,7 +19857,7 @@ var AppleStyleView = class extends ItemView {
       if (this.copyBtn) {
         this.copyBtn.classList.remove("is-copying");
         this.setCopyButtonIcon("check");
-        setTimeout(() => {
+        window.setTimeout(() => {
           if (this.copyBtn) {
             this.setCopyButtonIcon("copy");
           }
@@ -19866,7 +19892,7 @@ var AppleStyleView = class extends ItemView {
     const elapsed = Date.now() - startTime;
     const minDuration = 800;
     if (elapsed < minDuration) {
-      await new Promise((resolve) => setTimeout(resolve, minDuration - elapsed));
+      await new Promise((resolve) => window.setTimeout(resolve, minDuration - elapsed));
     }
     return true;
   }
@@ -19928,19 +19954,19 @@ var AppleStyleView = class extends ItemView {
   async onClose() {
     var _a;
     if (this.activeLeafRenderTimer) {
-      clearTimeout(this.activeLeafRenderTimer);
+      window.clearTimeout(this.activeLeafRenderTimer);
       this.activeLeafRenderTimer = null;
     }
     if (this.loadingVisibilityTimer) {
-      clearTimeout(this.loadingVisibilityTimer);
+      window.clearTimeout(this.loadingVisibilityTimer);
       this.loadingVisibilityTimer = null;
     }
     if (this.sidePaddingPreviewTimer) {
-      clearTimeout(this.sidePaddingPreviewTimer);
+      window.clearTimeout(this.sidePaddingPreviewTimer);
       this.sidePaddingPreviewTimer = null;
     }
     if (this.aiLayoutStaleSuppressTimer) {
-      clearTimeout(this.aiLayoutStaleSuppressTimer);
+      window.clearTimeout(this.aiLayoutStaleSuppressTimer);
       this.aiLayoutStaleSuppressTimer = null;
     }
     this.setPreviewLoading(false);
@@ -20838,7 +20864,8 @@ var AppleStylePlugin = class extends Plugin {
   }
   getWechatSyncBridgeService() {
     var _a, _b;
-    const settings = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    const pluginSettings = getPluginSettings(this);
+    const settings = normalizeMultiPlatformSyncSettings(pluginSettings["multiPlatformSync"]);
     const cacheKey = `${settings.port}:${settings.token}:${settings.allowRemote ? 1 : 0}`;
     if (this._wechatSyncBridgeService && this._wechatSyncBridgeCacheKey === cacheKey) {
       return this._wechatSyncBridgeService;
@@ -20860,8 +20887,9 @@ var AppleStylePlugin = class extends Plugin {
       initialConnectedClients: settings.connectedClients || [],
       async onClientRegistryChange(clients) {
         var _a2, _b2, _c, _d;
-        self.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-          ...self.settings.multiPlatformSync,
+        const currentSettings = getPluginSettings(self);
+        currentSettings["multiPlatformSync"] = normalizeMultiPlatformSyncSettings({
+          ...currentSettings["multiPlatformSync"],
           connectedClients: clients
         });
         await self.saveSettings();
@@ -20871,7 +20899,8 @@ var AppleStylePlugin = class extends Plugin {
     return this._wechatSyncBridgeService;
   }
   startWechatSyncBridgeInBackground(reason = "manual") {
-    const settings = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    const pluginSettings = getPluginSettings(this);
+    const settings = normalizeMultiPlatformSyncSettings(pluginSettings["multiPlatformSync"]);
     if (!settings.enabled)
       return;
     const bridge = this.getWechatSyncBridgeService();
@@ -20892,42 +20921,42 @@ var AppleStylePlugin = class extends Plugin {
   }
   async loadSettings() {
     const loadedData = await this.loadData() || {};
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+    const settings = setPluginSettings(this, Object.assign({}, DEFAULT_SETTINGS, loadedData));
     let didMigrate = false;
-    if (!this.settings.clientId) {
-      this.settings.clientId = "wp_dev_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    if (!settings["clientId"]) {
+      settings["clientId"] = "wp_dev_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
       didMigrate = true;
     }
-    this.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
-    const normalizedDraftCache = normalizeDraftCache(this.settings.draftCache);
-    this.settings.draftCache = normalizedDraftCache.cache;
+    settings["multiPlatformSync"] = normalizeMultiPlatformSyncSettings(settings["multiPlatformSync"]);
+    const normalizedDraftCache = normalizeDraftCache(settings["draftCache"]);
+    settings["draftCache"] = normalizedDraftCache.cache;
     if (normalizedDraftCache.changed) {
       didMigrate = true;
     }
     const rawAiSettings = loadedData.ai;
-    this.settings.ai = normalizeAiSettings(rawAiSettings || this.settings.ai || {});
+    settings["ai"] = normalizeAiSettings(rawAiSettings || settings["ai"] || {});
     if (rawAiSettings !== void 0) {
       const normalizedRawAi = normalizeAiSettings(rawAiSettings);
       if (JSON.stringify(normalizedRawAi) !== JSON.stringify(rawAiSettings)) {
         didMigrate = true;
       }
     }
-    if (this.settings.wechatAppId && this.settings.wechatAccounts.length === 0) {
+    if (settings["wechatAppId"] && settings["wechatAccounts"].length === 0) {
       const migratedAccount = {
         id: generateId(),
         name: "\u6211\u7684\u516C\u4F17\u53F7",
-        appId: this.settings.wechatAppId,
-        appSecret: this.settings.wechatAppSecret
+        appId: settings["wechatAppId"],
+        appSecret: settings["wechatAppSecret"]
       };
-      this.settings.wechatAccounts.push(migratedAccount);
-      this.settings.defaultAccountId = migratedAccount.id;
-      this.settings.wechatAppId = "";
-      this.settings.wechatAppSecret = "";
+      settings["wechatAccounts"].push(migratedAccount);
+      settings["defaultAccountId"] = migratedAccount.id;
+      settings["wechatAppId"] = "";
+      settings["wechatAppSecret"] = "";
       didMigrate = true;
       console.log("\u2705 \u5DF2\u5C06\u65E7\u8D26\u53F7\u914D\u7F6E\u8FC1\u79FB\u5230\u65B0\u683C\u5F0F");
     }
-    if (Array.isArray(this.settings.wechatAccounts)) {
-      this.settings.wechatAccounts = this.settings.wechatAccounts.map((account) => {
+    if (Array.isArray(settings["wechatAccounts"])) {
+      settings["wechatAccounts"] = settings["wechatAccounts"].map((account) => {
         if (!account || typeof account !== "object")
           return account;
         const nextAccount = { ...account };
@@ -20946,20 +20975,20 @@ var AppleStylePlugin = class extends Plugin {
         return nextAccount;
       });
     }
-    const currentTemplate = normalizeVaultPath(this.settings.cleanupDirTemplate || "");
-    const legacyRootDir = normalizeVaultPath(this.settings.cleanupRootDir || "");
-    const legacyTarget = this.settings.cleanupTarget;
+    const currentTemplate = normalizeVaultPath(settings["cleanupDirTemplate"] || "");
+    const legacyRootDir = normalizeVaultPath(settings["cleanupRootDir"] || "");
+    const legacyTarget = settings["cleanupTarget"];
     if (!currentTemplate && legacyRootDir && legacyTarget === "folder") {
-      this.settings.cleanupDirTemplate = `${legacyRootDir}/{{note}}_img`;
+      settings["cleanupDirTemplate"] = `${legacyRootDir}/{{note}}_img`;
       didMigrate = true;
       console.log("\u2705 \u5DF2\u5C06\u65E7\u6E05\u7406\u914D\u7F6E\u8FC1\u79FB\u4E3A\u76EE\u5F55\u6A21\u677F cleanupDirTemplate");
     }
-    if (Object.prototype.hasOwnProperty.call(this.settings, "cleanupRootDir")) {
-      delete this.settings.cleanupRootDir;
+    if (Object.prototype.hasOwnProperty.call(settings, "cleanupRootDir")) {
+      delete settings["cleanupRootDir"];
       didMigrate = true;
     }
-    if (Object.prototype.hasOwnProperty.call(this.settings, "cleanupTarget")) {
-      delete this.settings.cleanupTarget;
+    if (Object.prototype.hasOwnProperty.call(settings, "cleanupTarget")) {
+      delete settings["cleanupTarget"];
       didMigrate = true;
     }
     const deprecatedRenderKeys = [
@@ -20974,8 +21003,8 @@ var AppleStylePlugin = class extends Plugin {
       "enforceNativeParity"
     ];
     for (const key of deprecatedRenderKeys) {
-      if (Object.prototype.hasOwnProperty.call(this.settings, key)) {
-        delete this.settings[key];
+      if (Object.prototype.hasOwnProperty.call(settings, key)) {
+        delete settings[key];
         didMigrate = true;
       }
     }
@@ -20984,20 +21013,22 @@ var AppleStylePlugin = class extends Plugin {
     }
   }
   getArticleLayoutState(sourcePath = "", selection = {}) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b;
     const normalizedPath = normalizeVaultPath(sourcePath || "");
     if (!normalizedPath)
       return null;
-    const entry = ((_c = (_b = (_a = this.settings) == null ? void 0 : _a.ai) == null ? void 0 : _b.articleLayoutsByPath) == null ? void 0 : _c[normalizedPath]) || null;
+    const pluginSettings = getPluginSettings(this);
+    const aiSettings = pluginSettings["ai"] || {};
+    const entry = ((_a = aiSettings["articleLayoutsByPath"]) == null ? void 0 : _a[normalizedPath]) || null;
     const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
     if (!normalizedEntry)
       return null;
     if (!selection || Object.keys(selection).length === 0) {
-      return ((_d = normalizedEntry.familyStates) == null ? void 0 : _d[normalizedEntry.lastLayoutFamily]) || null;
+      return ((_b = normalizedEntry.familyStates) == null ? void 0 : _b[normalizedEntry.lastLayoutFamily]) || null;
     }
     return getArticleLayoutSelectionState(normalizedEntry, selection, {
-      layoutFamily: ((_f = (_e = this.settings) == null ? void 0 : _e.ai) == null ? void 0 : _f.defaultLayoutFamily) || AI_LAYOUT_SELECTION_AUTO,
-      colorPalette: ((_h = (_g = this.settings) == null ? void 0 : _g.ai) == null ? void 0 : _h.defaultColorPalette) || AI_LAYOUT_SELECTION_AUTO
+      layoutFamily: aiSettings["defaultLayoutFamily"] || AI_LAYOUT_SELECTION_AUTO,
+      colorPalette: aiSettings["defaultColorPalette"] || AI_LAYOUT_SELECTION_AUTO
     });
   }
   async saveArticleLayoutState(sourcePath = "", nextState = null, selection = {}) {
@@ -21005,13 +21036,16 @@ var AppleStylePlugin = class extends Plugin {
     const normalizedPath = normalizeVaultPath(sourcePath || "");
     if (!normalizedPath)
       return false;
-    if (!this.settings.ai) {
-      this.settings.ai = createDefaultAiSettings();
+    const pluginSettings = getPluginSettings(this);
+    if (!pluginSettings["ai"]) {
+      pluginSettings["ai"] = createDefaultAiSettings();
     }
-    if (!this.settings.ai.articleLayoutsByPath || typeof this.settings.ai.articleLayoutsByPath !== "object") {
-      this.settings.ai.articleLayoutsByPath = {};
+    const aiSettings = pluginSettings["ai"];
+    if (!aiSettings["articleLayoutsByPath"] || typeof aiSettings["articleLayoutsByPath"] !== "object") {
+      aiSettings["articleLayoutsByPath"] = {};
     }
-    const existingEntry = normalizeArticleLayoutCacheEntry(this.settings.ai.articleLayoutsByPath[normalizedPath]) || {
+    const articleLayoutsByPath = aiSettings["articleLayoutsByPath"];
+    const existingEntry = normalizeArticleLayoutCacheEntry(articleLayoutsByPath[normalizedPath]) || {
       lastLayoutFamily: "",
       lastAutoResolvedFamily: "",
       familyStates: {}
@@ -21023,8 +21057,8 @@ var AppleStylePlugin = class extends Plugin {
         colorPalette: (nextState == null ? void 0 : nextState.stylePack) || ((_b = nextState == null ? void 0 : nextState.resolved) == null ? void 0 : _b.colorPalette) || ((_c = nextState == null ? void 0 : nextState.layoutJson) == null ? void 0 : _c.stylePack)
       },
       {
-        layoutFamily: this.settings.ai.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO,
-        colorPalette: this.settings.ai.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO
+        layoutFamily: aiSettings["defaultLayoutFamily"] || AI_LAYOUT_SELECTION_AUTO,
+        colorPalette: aiSettings["defaultColorPalette"] || AI_LAYOUT_SELECTION_AUTO
       }
     );
     const getCacheFamily = (state = null) => {
@@ -21040,16 +21074,16 @@ var AppleStylePlugin = class extends Plugin {
         delete existingEntry.familyStates[effectiveLayoutFamily];
         const remainingFamilies = Object.keys(existingEntry.familyStates);
         if (!remainingFamilies.length) {
-          delete this.settings.ai.articleLayoutsByPath[normalizedPath];
+          delete articleLayoutsByPath[normalizedPath];
         } else {
           existingEntry.lastLayoutFamily = existingEntry.familyStates[existingEntry.lastLayoutFamily] ? existingEntry.lastLayoutFamily : remainingFamilies[0];
           if (existingEntry.lastAutoResolvedFamily && !existingEntry.familyStates[existingEntry.lastAutoResolvedFamily]) {
             existingEntry.lastAutoResolvedFamily = "";
           }
-          this.settings.ai.articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
+          articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
         }
       } else {
-        delete this.settings.ai.articleLayoutsByPath[normalizedPath];
+        delete articleLayoutsByPath[normalizedPath];
       }
     } else {
       const resolvedLayoutFamily = effectiveLayoutFamily || "source-first";
@@ -21072,13 +21106,13 @@ var AppleStylePlugin = class extends Plugin {
       if (requestedSelection.layoutFamily === AI_LAYOUT_SELECTION_AUTO) {
         existingEntry.lastAutoResolvedFamily = resolvedLayoutFamily;
       }
-      this.settings.ai.articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
+      articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
     }
     return this.saveSettings();
   }
   async saveSettings() {
     try {
-      await this.saveData(this.settings);
+      await this.saveData(getPluginSettings(this));
       return true;
     } catch (error) {
       console.error("\u4FDD\u5B58\u63D2\u4EF6\u8BBE\u7F6E\u5931\u8D25:", error);

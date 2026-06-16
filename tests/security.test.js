@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 const fs = require('fs');
 const path = require('path');
 
@@ -7,7 +7,7 @@ if (typeof window === 'undefined') {
     global.window = global;
 }
 
-global.markdownit = function(options) {
+global.markdownit = function(_options) {
   return {
     render: (md) => md,
     renderer: {

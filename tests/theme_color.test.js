@@ -1,7 +1,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 
 // Mock window
 global.window = {};

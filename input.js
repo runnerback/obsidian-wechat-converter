@@ -37,28 +37,16 @@ const {
 } = require('./services/ai-layout');
 const { createWechatSyncService } = require('./services/wechat-sync');
 const {
-  DEFAULT_WECHATSYNC_PORT,
   createWechatSyncBridgeService,
   isUnsupportedBridgeMethodError: isWechatSyncUnsupportedMethodError,
-  retryRecoverableBridgeOperation,
 } = require('./services/wechatsync-bridge');
 const {
-  buildWechatsyncPlatformCatalog,
-  getFallbackWechatsyncPlatforms,
   getMultiPlatformResultSummary,
   getWechatSyncResultError,
   getWechatSyncResultPlatformId,
   getWechatSyncResultUrl,
-  getWechatsyncPlatformStatusBadge,
-  isWechatSyncConnectionFailure,
-  normalizeWechatSyncResponseResults,
-  normalizeWechatsyncAuthSnapshot,
   normalizeWechatsyncPlatform,
-  normalizeWechatsyncPlatformList,
-  probeWechatsyncPlatformsIndividually,
   sortWechatsyncPlatformItemsForDisplay,
-  summarizeWechatsyncPlatformResponse,
-  updateCachedPlatformsAfterSync,
 } = require('./services/wechatsync-results');
 const { resolveSyncAccount, toSyncFriendlyMessage } = require('./services/sync-context');
 const {
@@ -92,6 +80,17 @@ function revealLeafCompat(workspace, leaf) {
   return Promise.resolve();
 }
 
+function getPluginSettings(plugin) {
+  if (!plugin || typeof plugin !== 'object') return {};
+  return plugin['settings'] || {};
+}
+
+function setPluginSettings(plugin, settings) {
+  if (!plugin || typeof plugin !== 'object') return settings;
+  plugin['settings'] = settings;
+  return settings;
+}
+
 // 视图类型标识
 const APPLE_STYLE_VIEW = 'apple-style-converter';
 const APPLE_STYLE_VIEW_TITLE = 'Obsidian 发布助手';
@@ -105,15 +104,9 @@ const MULTI_PLATFORM_TAB_LABEL = '其他平台（小红书/知乎/抖音等）';
 // views/ layer can normalize / read settings without depending on input.js.
 const {
   createDefaultMultiPlatformSyncSettings,
-  normalizeWechatsyncPlatformId,
   parseWechatsyncPlatformIds,
-  mergeWechatsyncPlatformLists,
-  normalizeWechatSyncCapabilities,
   hasWechatSyncCapability,
-  normalizeWechatSyncRecentTasks,
-  normalizeMultiPlatformConnection,
   normalizeMultiPlatformSyncSettings,
-  getConfiguredWechatsyncPlatforms,
   getAvailableWechatsyncPlatforms,
 } = require('./services/wechatsync-settings');
 
@@ -125,26 +118,6 @@ const {
 
 const { renderMultiPlatformSettingsTab } = require('./views/settings/multi-platform-tab.js');
 const { showMultiPlatformPublishModal } = require('./views/publish-modal/multi-platform.js');
-
-function formatWechatsyncCapabilityLabels(capabilities = []) {
-  const labels = {
-    draft: '草稿',
-    image_upload: '图片',
-    cover: '封面',
-    tags: '标签',
-    categories: '分类',
-    article: '文章',
-  };
-  const seen = new Set();
-  return (Array.isArray(capabilities) ? capabilities : [])
-    .map((capability) => labels[capability] || '')
-    .filter((label) => {
-      if (!label || seen.has(label)) return false;
-      seen.add(label);
-      return true;
-    })
-    .slice(0, 4);
-}
 
 const IMAGE_SWIPE_COMMAND_COPY = {
   'image-swipe': {
@@ -173,8 +146,6 @@ function getObsidianLocale(app = null) {
   const candidates = [
     app?.vault?.getConfig?.('language'),
     app?.vault?.getConfig?.('locale'),
-    typeof window !== 'undefined' ? window.localStorage?.getItem?.('language') : '',
-    typeof window !== 'undefined' ? window.localStorage?.getItem?.('obsidian-language') : '',
     typeof navigator !== 'undefined' ? navigator.language : '',
   ];
 
@@ -293,11 +264,11 @@ function isMobileClient(app) {
 
 // 生成唯一 ID
 function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 11);
 }
 
 // 辅助函数：等待指定毫秒数
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise(resolve => window.setTimeout(resolve, ms));
 
 // 辅助函数：并发控制 (p-limit 简化版)
 async function pMap(array, mapper, concurrency = 3) {
@@ -484,7 +455,7 @@ class WechatAPI {
           if (body && body.error) {
             errorMsg = body.error;
           }
-        } catch (e) {
+        } catch {
           if (proxyResponse.text) {
             errorMsg = proxyResponse.text;
           }
@@ -662,7 +633,7 @@ class WechatAPI {
             if (body && body.error) {
               errorMsg = body.error;
             }
-          } catch (e) {
+          } catch {
             if (proxyResponse.text) {
               errorMsg = proxyResponse.text;
             }
@@ -826,7 +797,7 @@ class AppleStyleView extends ItemView {
     });
 
     // Light Dismiss: 点击预览区域(手机框外)收起设置面板
-    previewWrapper.addEventListener('click', (e) => {
+    previewWrapper.addEventListener('click', () => {
       this.closeTransientPanels();
     });
 
@@ -864,7 +835,7 @@ class AppleStyleView extends ItemView {
     if (activeView) this.registerScrollSync(activeView);
 
     // 自动转换当前文档
-    setTimeout(async () => {
+    window.setTimeout(async () => {
       const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (activeView && this.converter) {
         await this.convertCurrent(true);
@@ -906,8 +877,8 @@ class AppleStyleView extends ItemView {
       let timeout;
       return function (...args) {
         const context = this;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
+        window.clearTimeout(timeout);
+        timeout = window.setTimeout(() => func.apply(context, args), wait);
       };
     };
 
@@ -935,12 +906,12 @@ class AppleStyleView extends ItemView {
 
   scheduleActiveLeafRender(activeViewOverride = null) {
     if (this.activeLeafRenderTimer) {
-      clearTimeout(this.activeLeafRenderTimer);
+      window.clearTimeout(this.activeLeafRenderTimer);
       this.activeLeafRenderTimer = null;
     }
 
     // 让出当前 active-leaf 事件栈，但不额外等待一帧，避免切文档时可见卡顿。
-    this.activeLeafRenderTimer = setTimeout(() => {
+    this.activeLeafRenderTimer = window.setTimeout(() => {
       this.activeLeafRenderTimer = null;
       const activeView = activeViewOverride || this.app.workspace.getActiveViewOfType(MarkdownView);
       const sourceOverride = activeView && activeView.file
@@ -960,10 +931,10 @@ class AppleStyleView extends ItemView {
 
   scheduleSidePaddingPreview(delay = 120) {
     if (this.sidePaddingPreviewTimer) {
-      clearTimeout(this.sidePaddingPreviewTimer);
+      window.clearTimeout(this.sidePaddingPreviewTimer);
       this.sidePaddingPreviewTimer = null;
     }
-    this.sidePaddingPreviewTimer = setTimeout(() => {
+    this.sidePaddingPreviewTimer = window.setTimeout(() => {
       this.sidePaddingPreviewTimer = null;
       this.convertCurrent(true);
     }, delay);
@@ -986,9 +957,9 @@ class AppleStyleView extends ItemView {
     this.aiLayoutStaleSuppressPath = sourcePath;
     this.aiLayoutStaleSuppressUntil = Date.now() + AI_LAYOUT_SOURCE_SWITCH_STALE_SUPPRESS_MS;
     if (this.aiLayoutStaleSuppressTimer) {
-      clearTimeout(this.aiLayoutStaleSuppressTimer);
+      window.clearTimeout(this.aiLayoutStaleSuppressTimer);
     }
-    this.aiLayoutStaleSuppressTimer = setTimeout(() => {
+    this.aiLayoutStaleSuppressTimer = window.setTimeout(() => {
       this.aiLayoutStaleSuppressTimer = null;
       if (
         this.aiLayoutStaleSuppressPath === sourcePath
@@ -1109,7 +1080,7 @@ class AppleStyleView extends ItemView {
       };
 
       if (typeof requestAnimationFrame === 'function') {
-        const frameId = requestAnimationFrame(run);
+        const frameId = window.requestAnimationFrame(run);
         this.scrollSyncFrame = frameId;
         this.cancelScrollSyncFrame = () => {
           if (typeof cancelAnimationFrame === 'function') {
@@ -1117,9 +1088,9 @@ class AppleStyleView extends ItemView {
           }
         };
       } else {
-        const timeoutId = setTimeout(run, 16);
+        const timeoutId = window.setTimeout(run, 16);
         this.scrollSyncFrame = timeoutId;
-        this.cancelScrollSyncFrame = () => clearTimeout(timeoutId);
+        this.cancelScrollSyncFrame = () => window.clearTimeout(timeoutId);
       }
     };
 
@@ -1378,8 +1349,8 @@ class AppleStyleView extends ItemView {
         this.plugin.settings.sidePadding = val;
         this.theme.update({ sidePadding: val });
 
-        if (this.saveTimeout) clearTimeout(this.saveTimeout);
-        this.saveTimeout = setTimeout(async () => {
+        if (this.saveTimeout) window.clearTimeout(this.saveTimeout);
+        this.saveTimeout = window.setTimeout(async () => {
           await this.plugin.saveSettings();
         }, 500);
         this.scheduleSidePaddingPreview(mobile ? 220 : 120);
@@ -1391,7 +1362,7 @@ class AppleStyleView extends ItemView {
         this.plugin.settings.sidePadding = val;
         this.theme.update({ sidePadding: val });
         if (this.sidePaddingPreviewTimer) {
-          clearTimeout(this.sidePaddingPreviewTimer);
+          window.clearTimeout(this.sidePaddingPreviewTimer);
           this.sidePaddingPreviewTimer = null;
         }
         await this.plugin.saveSettings();
@@ -1809,7 +1780,7 @@ class AppleStyleView extends ItemView {
       if (!file) return null;
       if (typeof file.extension !== 'string') return null; // 仅接受文件，不接受目录
       return this.app.vault.getResourcePath(file);
-    } catch (error) {
+    } catch {
       // frontmatter 路径失效或不是文件时，静默回退
       return null;
     }
@@ -1938,7 +1909,7 @@ class AppleStyleView extends ItemView {
 
     resetScroll();
     if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(resetScroll);
+      window.requestAnimationFrame(resetScroll);
     }
   }
 
@@ -1962,7 +1933,7 @@ class AppleStyleView extends ItemView {
 
     resetScroll();
     if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(resetScroll);
+      window.requestAnimationFrame(resetScroll);
     }
   }
 
@@ -3109,7 +3080,7 @@ class AppleStyleView extends ItemView {
     let success = false;
     try {
       success = document.execCommand('copy');
-    } catch (error) {
+    } catch {
       success = false;
     } finally {
       tempEl.remove();
@@ -3117,14 +3088,14 @@ class AppleStyleView extends ItemView {
       for (const prevRange of previousRanges) {
         try {
           selection.addRange(prevRange);
-        } catch (restoreError) {
+        } catch {
           // ignore invalid stale ranges
         }
       }
       if (activeElement && typeof activeElement.focus === 'function') {
         try {
           activeElement.focus({ preventScroll: true });
-        } catch (focusError) {
+        } catch {
           activeElement.focus();
         }
       }
@@ -3166,7 +3137,7 @@ class AppleStyleView extends ItemView {
       const copied = await this.copyPlainTextSnapshot(payload);
       if (!copied) throw new Error('clipboard unavailable');
       new Notice('✅ 调试快照已复制');
-    } catch (error) {
+    } catch {
       new Notice('❌ 调试快照复制失败，请检查剪贴板权限');
     }
   }
@@ -3195,7 +3166,7 @@ class AppleStyleView extends ItemView {
       const copied = await this.copyPlainTextSnapshot(payload);
       if (!copied) throw new Error('clipboard unavailable');
       new Notice('✅ Prompt 上下文已复制');
-    } catch (error) {
+    } catch {
       new Notice('❌ Prompt 上下文复制失败，请检查剪贴板权限');
     }
   }
@@ -5464,11 +5435,11 @@ class AppleStyleView extends ItemView {
     if (showLoading) {
       this.loadingGeneration = generation;
       if (this.loadingVisibilityTimer) {
-        clearTimeout(this.loadingVisibilityTimer);
+        window.clearTimeout(this.loadingVisibilityTimer);
         this.loadingVisibilityTimer = null;
       }
       if (loadingDelay > 0) {
-        this.loadingVisibilityTimer = setTimeout(() => {
+        this.loadingVisibilityTimer = window.setTimeout(() => {
           if (this.loadingGeneration === generation) {
             this.setPreviewLoading(true, loadingText);
           }
@@ -5502,7 +5473,7 @@ class AppleStyleView extends ItemView {
       if (!silent) new Notice('请先打开一个 Markdown 文件');
       if (showLoading && this.loadingGeneration === generation) {
         if (this.loadingVisibilityTimer) {
-          clearTimeout(this.loadingVisibilityTimer);
+          window.clearTimeout(this.loadingVisibilityTimer);
           this.loadingVisibilityTimer = null;
         }
         this.setPreviewLoading(false);
@@ -5515,7 +5486,7 @@ class AppleStyleView extends ItemView {
       this.completeAiLayoutSourceSwitch(sourcePath);
       if (showLoading && this.loadingGeneration === generation) {
         if (this.loadingVisibilityTimer) {
-          clearTimeout(this.loadingVisibilityTimer);
+          window.clearTimeout(this.loadingVisibilityTimer);
           this.loadingVisibilityTimer = null;
         }
         this.setPreviewLoading(false);
@@ -5597,7 +5568,7 @@ class AppleStyleView extends ItemView {
     } finally {
       if (showLoading && this.loadingGeneration === generation) {
         if (this.loadingVisibilityTimer) {
-          clearTimeout(this.loadingVisibilityTimer);
+          window.clearTimeout(this.loadingVisibilityTimer);
           this.loadingVisibilityTimer = null;
         }
         this.setPreviewLoading(false);
@@ -5611,12 +5582,12 @@ class AppleStyleView extends ItemView {
   onResize() {
     super.onResize();
     // 使用防抖，避免拖动侧边栏时频繁渲染
-    if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
+    if (this.resizeTimeout) window.clearTimeout(this.resizeTimeout);
 
     // 检查是否可见 (以防万一)
     if (!this.containerEl.offsetParent) return;
 
-    this.resizeTimeout = setTimeout(() => {
+    this.resizeTimeout = window.setTimeout(() => {
       this.convertCurrent(true);
     }, 300);
   }
@@ -5656,21 +5627,21 @@ class AppleStyleView extends ItemView {
       selection.removeAllRanges();
       selection.addRange(range);
       success = document.execCommand('copy');
-    } catch (error) {
+    } catch {
       success = false;
     } finally {
       selection.removeAllRanges();
       for (const prevRange of previousRanges) {
         try {
           selection.addRange(prevRange);
-        } catch (restoreError) {
+        } catch {
           // ignore invalid stale ranges
         }
       }
       if (activeElement && typeof activeElement.focus === 'function') {
         try {
           activeElement.focus({ preventScroll: true });
-        } catch (focusError) {
+        } catch {
           activeElement.focus();
         }
       }
@@ -6014,7 +5985,7 @@ class AppleStyleView extends ItemView {
     try {
       const text = await navigator.clipboard.readText();
       return { supported: true, text: this.normalizeClipboardText(text) };
-    } catch (error) {
+    } catch {
       return { supported: false, text: '' };
     }
   }
@@ -6044,7 +6015,7 @@ class AppleStyleView extends ItemView {
 
       // 处理本地图片：转换为 JPEG Base64
       // 返回 true 表示有图片被处理了
-      const processed = await this.processImagesToDataURL(tempDiv);
+      await this.processImagesToDataURL(tempDiv);
 
       await this.enhanceHtmlForWechatPublishing(tempDiv);
 
@@ -6067,7 +6038,7 @@ class AppleStyleView extends ItemView {
       } else {
         try {
           copied = await this.copyRichHTMLByClipboard(htmlContent);
-        } catch (error) {
+        } catch {
           copied = false;
         }
         if (!copied) {
@@ -6084,7 +6055,7 @@ class AppleStyleView extends ItemView {
       if (this.copyBtn) {
          this.copyBtn.classList.remove('is-copying');
          this.setCopyButtonIcon('check'); // 变成对勾图标
-         setTimeout(() => {
+         window.setTimeout(() => {
            if (this.copyBtn) {
              this.setCopyButtonIcon('copy'); // 恢复复制图标
            }
@@ -6127,7 +6098,7 @@ class AppleStyleView extends ItemView {
     const elapsed = Date.now() - startTime;
     const minDuration = 800; // 800ms minimum duration
     if (elapsed < minDuration) {
-      await new Promise(resolve => setTimeout(resolve, minDuration - elapsed));
+      await new Promise(resolve => window.setTimeout(resolve, minDuration - elapsed));
     }
 
     return true;
@@ -6211,19 +6182,19 @@ class AppleStyleView extends ItemView {
 
   async onClose() {
     if (this.activeLeafRenderTimer) {
-      clearTimeout(this.activeLeafRenderTimer);
+      window.clearTimeout(this.activeLeafRenderTimer);
       this.activeLeafRenderTimer = null;
     }
     if (this.loadingVisibilityTimer) {
-      clearTimeout(this.loadingVisibilityTimer);
+      window.clearTimeout(this.loadingVisibilityTimer);
       this.loadingVisibilityTimer = null;
     }
     if (this.sidePaddingPreviewTimer) {
-      clearTimeout(this.sidePaddingPreviewTimer);
+      window.clearTimeout(this.sidePaddingPreviewTimer);
       this.sidePaddingPreviewTimer = null;
     }
     if (this.aiLayoutStaleSuppressTimer) {
-      clearTimeout(this.aiLayoutStaleSuppressTimer);
+      window.clearTimeout(this.aiLayoutStaleSuppressTimer);
       this.aiLayoutStaleSuppressTimer = null;
     }
     this.setPreviewLoading(false);
@@ -7363,7 +7334,8 @@ class AppleStylePlugin extends Plugin {
   }
 
   getWechatSyncBridgeService() {
-    const settings = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    const pluginSettings = getPluginSettings(this);
+    const settings = normalizeMultiPlatformSyncSettings(pluginSettings['multiPlatformSync']);
     const cacheKey = `${settings.port}:${settings.token}:${settings.allowRemote ? 1 : 0}`;
     if (this._wechatSyncBridgeService && this._wechatSyncBridgeCacheKey === cacheKey) {
       return this._wechatSyncBridgeService;
@@ -7386,8 +7358,9 @@ class AppleStylePlugin extends Plugin {
       serverVersion: this.manifest?.version || '',
       initialConnectedClients: settings.connectedClients || [],
       async onClientRegistryChange(clients) {
-        self.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-          ...self.settings.multiPlatformSync,
+        const currentSettings = getPluginSettings(self);
+        currentSettings['multiPlatformSync'] = normalizeMultiPlatformSyncSettings({
+          ...currentSettings['multiPlatformSync'],
           connectedClients: clients,
         });
         await self.saveSettings();
@@ -7398,7 +7371,8 @@ class AppleStylePlugin extends Plugin {
   }
 
   startWechatSyncBridgeInBackground(reason = 'manual') {
-    const settings = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    const pluginSettings = getPluginSettings(this);
+    const settings = normalizeMultiPlatformSyncSettings(pluginSettings['multiPlatformSync']);
     if (!settings.enabled) return;
 
     const bridge = this.getWechatSyncBridgeService();
@@ -7422,24 +7396,24 @@ class AppleStylePlugin extends Plugin {
 
   async loadSettings() {
     const loadedData = (await this.loadData()) || {};
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+    const settings = setPluginSettings(this, Object.assign({}, DEFAULT_SETTINGS, loadedData));
     let didMigrate = false;
 
-    if (!this.settings.clientId) {
-      this.settings.clientId = 'wp_dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    if (!settings['clientId']) {
+      settings['clientId'] = 'wp_dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
       didMigrate = true;
     }
 
-    this.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings(this.settings.multiPlatformSync);
+    settings['multiPlatformSync'] = normalizeMultiPlatformSyncSettings(settings['multiPlatformSync']);
 
-    const normalizedDraftCache = normalizeDraftCache(this.settings.draftCache);
-    this.settings.draftCache = normalizedDraftCache.cache;
+    const normalizedDraftCache = normalizeDraftCache(settings['draftCache']);
+    settings['draftCache'] = normalizedDraftCache.cache;
     if (normalizedDraftCache.changed) {
       didMigrate = true;
     }
 
     const rawAiSettings = loadedData.ai;
-    this.settings.ai = normalizeAiSettings(rawAiSettings || this.settings.ai || {});
+    settings['ai'] = normalizeAiSettings(rawAiSettings || settings['ai'] || {});
     if (rawAiSettings !== undefined) {
       const normalizedRawAi = normalizeAiSettings(rawAiSettings);
       if (JSON.stringify(normalizedRawAi) !== JSON.stringify(rawAiSettings)) {
@@ -7448,24 +7422,24 @@ class AppleStylePlugin extends Plugin {
     }
 
     // 数据迁移：将旧的单账号格式迁移到新的多账号格式
-    if (this.settings.wechatAppId && this.settings.wechatAccounts.length === 0) {
+    if (settings['wechatAppId'] && settings['wechatAccounts'].length === 0) {
       const migratedAccount = {
         id: generateId(),
         name: '我的公众号',
-        appId: this.settings.wechatAppId,
-        appSecret: this.settings.wechatAppSecret,
+        appId: settings['wechatAppId'],
+        appSecret: settings['wechatAppSecret'],
       };
-      this.settings.wechatAccounts.push(migratedAccount);
-      this.settings.defaultAccountId = migratedAccount.id;
+      settings['wechatAccounts'].push(migratedAccount);
+      settings['defaultAccountId'] = migratedAccount.id;
       // 清除旧字段
-      this.settings.wechatAppId = '';
-      this.settings.wechatAppSecret = '';
+      settings['wechatAppId'] = '';
+      settings['wechatAppSecret'] = '';
       didMigrate = true;
       console.log('✅ 已将旧账号配置迁移到新格式');
     }
 
-    if (Array.isArray(this.settings.wechatAccounts)) {
-      this.settings.wechatAccounts = this.settings.wechatAccounts.map((account) => {
+    if (Array.isArray(settings['wechatAccounts'])) {
+      settings['wechatAccounts'] = settings['wechatAccounts'].map((account) => {
         if (!account || typeof account !== 'object') return account;
         const nextAccount = { ...account };
         let changed = false;
@@ -7487,24 +7461,24 @@ class AppleStylePlugin extends Plugin {
     }
 
     // 数据迁移：旧清理配置 -> cleanupDirTemplate
-    const currentTemplate = normalizeVaultPath(this.settings.cleanupDirTemplate || '');
-    const legacyRootDir = normalizeVaultPath(this.settings.cleanupRootDir || '');
-    const legacyTarget = this.settings.cleanupTarget;
+    const currentTemplate = normalizeVaultPath(settings['cleanupDirTemplate'] || '');
+    const legacyRootDir = normalizeVaultPath(settings['cleanupRootDir'] || '');
+    const legacyTarget = settings['cleanupTarget'];
 
     // 仅迁移旧的 folder 模式，避免把 file 模式误迁移成“删目录”
     if (!currentTemplate && legacyRootDir && legacyTarget === 'folder') {
-      this.settings.cleanupDirTemplate = `${legacyRootDir}/{{note}}_img`;
+      settings['cleanupDirTemplate'] = `${legacyRootDir}/{{note}}_img`;
       didMigrate = true;
       console.log('✅ 已将旧清理配置迁移为目录模板 cleanupDirTemplate');
     }
 
     // 清理弃用字段，避免后续歧义
-    if (Object.prototype.hasOwnProperty.call(this.settings, 'cleanupRootDir')) {
-      delete this.settings.cleanupRootDir;
+    if (Object.prototype.hasOwnProperty.call(settings, 'cleanupRootDir')) {
+      delete settings['cleanupRootDir'];
       didMigrate = true;
     }
-    if (Object.prototype.hasOwnProperty.call(this.settings, 'cleanupTarget')) {
-      delete this.settings.cleanupTarget;
+    if (Object.prototype.hasOwnProperty.call(settings, 'cleanupTarget')) {
+      delete settings['cleanupTarget'];
       didMigrate = true;
     }
 
@@ -7521,8 +7495,8 @@ class AppleStylePlugin extends Plugin {
       'enforceNativeParity',
     ];
     for (const key of deprecatedRenderKeys) {
-      if (Object.prototype.hasOwnProperty.call(this.settings, key)) {
-        delete this.settings[key];
+      if (Object.prototype.hasOwnProperty.call(settings, key)) {
+        delete settings[key];
         didMigrate = true;
       }
     }
@@ -7535,28 +7509,33 @@ class AppleStylePlugin extends Plugin {
   getArticleLayoutState(sourcePath = '', selection = {}) {
     const normalizedPath = normalizeVaultPath(sourcePath || '');
     if (!normalizedPath) return null;
-    const entry = this.settings?.ai?.articleLayoutsByPath?.[normalizedPath] || null;
+    const pluginSettings = getPluginSettings(this);
+    const aiSettings = pluginSettings['ai'] || {};
+    const entry = aiSettings['articleLayoutsByPath']?.[normalizedPath] || null;
     const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
     if (!normalizedEntry) return null;
     if (!selection || Object.keys(selection).length === 0) {
       return normalizedEntry.familyStates?.[normalizedEntry.lastLayoutFamily] || null;
     }
     return getArticleLayoutSelectionState(normalizedEntry, selection, {
-      layoutFamily: this.settings?.ai?.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO,
-      colorPalette: this.settings?.ai?.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO,
+      layoutFamily: aiSettings['defaultLayoutFamily'] || AI_LAYOUT_SELECTION_AUTO,
+      colorPalette: aiSettings['defaultColorPalette'] || AI_LAYOUT_SELECTION_AUTO,
     });
   }
 
   async saveArticleLayoutState(sourcePath = '', nextState = null, selection = {}) {
     const normalizedPath = normalizeVaultPath(sourcePath || '');
     if (!normalizedPath) return false;
-    if (!this.settings.ai) {
-      this.settings.ai = createDefaultAiSettings();
+    const pluginSettings = getPluginSettings(this);
+    if (!pluginSettings['ai']) {
+      pluginSettings['ai'] = createDefaultAiSettings();
     }
-    if (!this.settings.ai.articleLayoutsByPath || typeof this.settings.ai.articleLayoutsByPath !== 'object') {
-      this.settings.ai.articleLayoutsByPath = {};
+    const aiSettings = pluginSettings['ai'];
+    if (!aiSettings['articleLayoutsByPath'] || typeof aiSettings['articleLayoutsByPath'] !== 'object') {
+      aiSettings['articleLayoutsByPath'] = {};
     }
-    const existingEntry = normalizeArticleLayoutCacheEntry(this.settings.ai.articleLayoutsByPath[normalizedPath]) || {
+    const articleLayoutsByPath = aiSettings['articleLayoutsByPath'];
+    const existingEntry = normalizeArticleLayoutCacheEntry(articleLayoutsByPath[normalizedPath]) || {
       lastLayoutFamily: '',
       lastAutoResolvedFamily: '',
       familyStates: {},
@@ -7569,8 +7548,8 @@ class AppleStylePlugin extends Plugin {
         colorPalette: nextState?.stylePack || nextState?.resolved?.colorPalette || nextState?.layoutJson?.stylePack,
       },
       {
-        layoutFamily: this.settings.ai.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO,
-        colorPalette: this.settings.ai.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO,
+        layoutFamily: aiSettings['defaultLayoutFamily'] || AI_LAYOUT_SELECTION_AUTO,
+        colorPalette: aiSettings['defaultColorPalette'] || AI_LAYOUT_SELECTION_AUTO,
       }
     );
     const getCacheFamily = (state = null) => {
@@ -7590,7 +7569,7 @@ class AppleStylePlugin extends Plugin {
         delete existingEntry.familyStates[effectiveLayoutFamily];
         const remainingFamilies = Object.keys(existingEntry.familyStates);
         if (!remainingFamilies.length) {
-          delete this.settings.ai.articleLayoutsByPath[normalizedPath];
+          delete articleLayoutsByPath[normalizedPath];
         } else {
           existingEntry.lastLayoutFamily = existingEntry.familyStates[existingEntry.lastLayoutFamily]
             ? existingEntry.lastLayoutFamily
@@ -7598,10 +7577,10 @@ class AppleStylePlugin extends Plugin {
           if (existingEntry.lastAutoResolvedFamily && !existingEntry.familyStates[existingEntry.lastAutoResolvedFamily]) {
             existingEntry.lastAutoResolvedFamily = '';
           }
-          this.settings.ai.articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
+          articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
         }
       } else {
-        delete this.settings.ai.articleLayoutsByPath[normalizedPath];
+        delete articleLayoutsByPath[normalizedPath];
       }
     } else {
       const resolvedLayoutFamily = effectiveLayoutFamily || 'source-first';
@@ -7629,14 +7608,14 @@ class AppleStylePlugin extends Plugin {
       if (requestedSelection.layoutFamily === AI_LAYOUT_SELECTION_AUTO) {
         existingEntry.lastAutoResolvedFamily = resolvedLayoutFamily;
       }
-      this.settings.ai.articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
+      articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
     }
     return this.saveSettings();
   }
 
   async saveSettings() {
     try {
-      await this.saveData(this.settings);
+      await this.saveData(getPluginSettings(this));
       return true;
     } catch (error) {
       console.error('保存插件设置失败:', error);

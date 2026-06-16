@@ -121,7 +121,7 @@ function convertObsidianCalloutsToLegacy(container, converter) {
     let openHtml = '';
     try {
       openHtml = converter.renderCalloutOpen(calloutInfo);
-    } catch (error) {
+    } catch {
       continue;
     }
     if (!openHtml) continue;
@@ -326,7 +326,7 @@ function getTagStyle(converter, tagName) {
   if (!converter || typeof converter.getInlineStyle !== 'function') return '';
   try {
     return converter.getInlineStyle(tagName) || '';
-  } catch (error) {
+  } catch {
     return '';
   }
 }
@@ -336,13 +336,13 @@ function safeDecodeCaption(text) {
   if (!text.includes('%')) return text;
   try {
     return decodeURIComponent(text);
-  } catch (error) {
+  } catch {
     // Keep original caption when percent-encoding is malformed (e.g. "100%")
     return text;
   }
 }
 
-function deriveImageCaption(converter, src = '', alt = '') {
+function deriveImageCaption(converter, _src = '', alt = '') {
   let caption = alt || '';
   if (caption) {
     caption = safeDecodeCaption(caption);
@@ -468,7 +468,7 @@ function sanitizeAnchorAndImageLinks(container, converter) {
             return `${parsed.protocol}//${parsed.host}`;
           }
           return parsed.href;
-        } catch (error) {
+        } catch {
           return value;
         }
       }
@@ -478,7 +478,7 @@ function sanitizeAnchorAndImageLinks(container, converter) {
     let decoded = value;
     try {
       decoded = decodeURI(value);
-    } catch (error) {
+    } catch {
       // keep original value if decode fails (e.g. malformed percent encoding)
     }
     return encodeURI(decoded);
@@ -577,7 +577,7 @@ function normalizeObsidianImageSrcForLegacyParity(src) {
       const parsed = new URL(value);
       const pathname = decodeURIComponent((parsed.pathname || '').replace(/^\/+/, ''));
       return pathname || value;
-    } catch (error) {
+    } catch {
       return value.replace(/^app:\/\/obsidian\.md\/+/i, '');
     }
   }
@@ -611,7 +611,7 @@ const IMAGE_SWIPE_DEFAULT_HINT = '左右滑动查看图片';
 function decodeImageSwipeValue(value) {
   try {
     return decodeURIComponent(String(value || ''));
-  } catch (error) {
+  } catch {
     return String(value || '');
   }
 }
@@ -1262,7 +1262,7 @@ function applyLegacyTypographerParity(container, converter) {
     let rendered = '';
     try {
       rendered = converter.md.renderInline(original);
-    } catch (error) {
+    } catch {
       continue;
     }
     if (!rendered || rendered === original) continue;
@@ -1305,7 +1305,7 @@ function renderUnresolvedMathFormulas(container, converter) {
     // Check if there are actual math patterns (not just escaped dollar signs)
     // Pattern: $$...$$ for block, $...$ for inline (not preceded/followed by $)
     const hasBlockMath = /\$\$[\s\S]+?\$\$/.test(text);
-    const hasInlineMath = /(^|[^\$])\$(?!\$)([^\$\n]+?)\$(?!\$)/.test(text);
+    const hasInlineMath = /(^|[^$])\$(?!\$)([^$\n]+?)\$(?!\$)/.test(text);
     if (!hasBlockMath && !hasInlineMath) continue;
 
     // Use markdown-it to render the text with math
@@ -1338,7 +1338,7 @@ function renderUnresolvedMathFormulas(container, converter) {
           textNode.replaceWith(fragment);
         }
       }
-    } catch (error) {
+    } catch {
       // Keep original text if rendering fails
       continue;
     }
@@ -1367,7 +1367,7 @@ function applyLegacyLinkifyParity(container, converter) {
     let matches = null;
     try {
       matches = converter.md.linkify.match(original);
-    } catch (error) {
+    } catch {
       matches = null;
     }
     if (!Array.isArray(matches) || matches.length === 0) continue;

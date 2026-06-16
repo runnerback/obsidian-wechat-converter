@@ -98,7 +98,7 @@ function parseJsonResponseText(text) {
 
     try {
       return JSON.parse(source.slice(startIndex, endIndex));
-    } catch (_) {
+    } catch {
       throw error;
     }
   }

@@ -271,7 +271,9 @@ function createMinimalWebSocketServer({ http, port, host = LOCAL_BIND_HOST, orig
       logger.warn?.('[WechatsyncBridge] WebSocket upgrade rejected: origin not allowed', { origin });
       try {
         socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
-      } catch {}
+      } catch {
+        // Socket may already be closed; destroy below still completes rejection.
+      }
       socket.destroy();
       return;
     }

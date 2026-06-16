@@ -1,4 +1,3 @@
-const CJK_CHAR_PATTERN = /[\p{sc=Han}]/u;
 const CJK_CONTEXT_PATTERN = /[\p{sc=Han}“”‘’（）《》「」『』【】]/u;
 
 const INLINE_PUNCTUATION_MAP = {
@@ -107,15 +106,15 @@ function protectVersionSegments(text, store) {
 function protectPathSegments(text, store) {
   let output = protectTokenWithTrailingPunctuation(
     text,
-    /(?:^|[\s(（\[【])((?:\.{0,2}\/|\/|~\/)[^\s"'<>|，。！？；：)）\]】]+)[,:;!?]?/gu,
+    /(?:^|[\s(（[【])((?:\.{0,2}\/|\/|~\/)[^\s"'<>|，。！？；：)）\]】]+)[,:;!?]?/gu,
     store,
   );
 
-  output = output.replace(/(^|[\s(（\[【])((?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+(?:\.[A-Za-z0-9_-]+)?)([,:;!?]?)/gu, (match, prefix, token, trailing) => {
+  output = output.replace(/(^|[\s(（[【])((?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+(?:\.[A-Za-z0-9_-]+)?)([,:;!?]?)/gu, (match, prefix, token, trailing) => {
     return `${prefix}${store.protect(token)}${trailing || ''}`;
   });
 
-  output = output.replace(/(^|[\s(（\[【])([A-Za-z0-9_.-]+\.(?:md|txt|pdf|docx?|xlsx?|pptx?|csv|json|ya?ml|xml|html?|css|scss|js|jsx|ts|tsx|py|sh|bash|zsh|java|c|cc|cpp|go|rs|swift|kt|sql))(?:[,:;!?]?)/giu, (match, prefix, token) => {
+  output = output.replace(/(^|[\s(（[【])([A-Za-z0-9_.-]+\.(?:md|txt|pdf|docx?|xlsx?|pptx?|csv|json|ya?ml|xml|html?|css|scss|js|jsx|ts|tsx|py|sh|bash|zsh|java|c|cc|cpp|go|rs|swift|kt|sql))(?:[,:;!?]?)/giu, (match, prefix, token) => {
     const trailing = match.slice(prefix.length + token.length);
     return `${prefix}${store.protect(token)}${trailing}`;
   });
@@ -148,11 +147,11 @@ function protectDateTimeSegments(text, store) {
 }
 
 function protectCliSegments(text, store) {
-  let output = text.replace(/(^|[\s(（\[【])(-{1,2}[A-Za-z0-9][\w-]*)(?=$|[\s,.:;!?，。！？；：)）\]】])/gu, (match, prefix, token) => {
+  let output = text.replace(/(^|[\s(（[【])(-{1,2}[A-Za-z0-9][\w-]*)(?=$|[\s,.:;!?，。！？；：)）\]】])/gu, (match, prefix, token) => {
     return `${prefix}${store.protect(token)}`;
   });
 
-  output = output.replace(/(^|[\s(（\[【])([A-Za-z][\w-]*:[A-Za-z0-9][\w:.-]*)(?=$|[\s,.;!?，。！？；：)）\]】])/gu, (match, prefix, token) => {
+  output = output.replace(/(^|[\s(（[【])([A-Za-z][\w-]*:[A-Za-z0-9][\w:.-]*)(?=$|[\s,.;!?，。！？；：)）\]】])/gu, (match, prefix, token) => {
     return `${prefix}${store.protect(token)}`;
   });
 
@@ -190,10 +189,6 @@ function protectTechnicalParentheticalSegments(text, store) {
   return String(text || '').replace(/\(([^()\n]+)\)/gu, (match, content) => {
     return isTechnicalParentheticalContent(content) ? store.protect(match) : match;
   });
-}
-
-function isCjkChar(char) {
-  return !!char && CJK_CHAR_PATTERN.test(char);
 }
 
 function isCjkContextChar(char) {

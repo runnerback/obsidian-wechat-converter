@@ -15,9 +15,7 @@ function parseHtmlFragment(html = '') {
     return fragment;
   }
 
-  const range = document.createRange();
-  range.selectNode(document.body);
-  return range.createContextualFragment(source);
+  return fragment;
 }
 
 function appendHtmlFragment(element, html = '') {

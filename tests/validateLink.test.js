@@ -21,7 +21,6 @@ describe('AppleStyleConverter - validateLink', () => {
     // We wrap it in a function or just eval it in global scope
     // The file assigns: window.AppleStyleConverter = ...
     try {
-        // eslint-disable-next-line no-eval
         (0, eval)(code);
     } catch (e) {
         console.error("Error evaluating converter.js:", e);

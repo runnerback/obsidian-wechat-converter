@@ -41,9 +41,7 @@ const {
 } = require('../../services/wechatsync-settings');
 
 const {
-  describeWechatsyncConnectionState,
   formatWechatsyncCheckedAt,
-  renderWechatsyncConnectionStatusBar,
 } = require('../connection-status-bar.js');
 
 const OBSIDIAN_PUBLISHER_PRO_URL = 'https://xiaoweibox.top/obsidian-publisher/pro/?from=obsidian-plugin';
