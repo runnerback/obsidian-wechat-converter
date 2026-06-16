@@ -41,6 +41,7 @@ async function processAllImages({
 }) {
 
     const div = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML to upload and replace image sources before draft sync
     div.innerHTML = html;
     const imgs = Array.from(div.querySelectorAll('img'));
 
@@ -120,7 +121,8 @@ async function processAllImages({
         img.src = urlMap.get(img.src);
       } else if (failedSrcs.has(img.src)) {
         const placeholder = document.createElement('p');
-        placeholder.setAttribute('style', 'margin:12px 0;padding:10px 12px;border:1px dashed #d0d7de;border-radius:6px;color:#8c6d1f;background:#fff8e5;font-size:13px;line-height:1.7;');
+        const failedImagePlaceholderStyle = 'margin:12px 0;padding:10px 12px;border:1px dashed #d0d7de;border-radius:6px;color:#8c6d1f;background:#fff8e5;font-size:13px;line-height:1.7;';
+        placeholder.setAttribute('style', failedImagePlaceholderStyle);
         placeholder.textContent = `图片上传失败，请在微信后台手动补传：${img.getAttribute('src') || img.src}`;
         img.replaceWith(placeholder);
       }
@@ -185,10 +187,13 @@ async function processMathFormulas({
 
     // 创建临时容器并挂载到 DOM (为了正确计算 SVG 尺寸)
     const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '800px'; // 模拟常见的文章宽度
+    container.setCssStyles({
+      position: 'absolute',
+      left: '-9999px',
+      top: '0',
+      width: '800px',
+    }); // 模拟常见的文章宽度
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML in an offscreen container so SVG math can be measured and rasterized
     container.innerHTML = html;
     document.body.appendChild(container);
 

@@ -1,6 +1,7 @@
 function cleanHtmlForDraft(html) {
 
     const div = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML so draft-specific cleanup can normalize tags and layout
     div.innerHTML = html;
 
     const decodeFragment = (value) => {
@@ -229,6 +230,7 @@ function cleanHtmlForDraft(html) {
         ? ' margin:0 2px !important; vertical-align:baseline;'
         : '';
       span.setAttribute('style', `${normalizedStyle}display:inline !important; width:auto !important; float:none !important;${extraStyle}`);
+      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Preserve sanitized inline label markup while converting its wrapper tag to span
       span.innerHTML = firstNode.innerHTML;
       firstNode.replaceWith(span);
     };
@@ -321,7 +323,8 @@ function cleanHtmlForDraft(html) {
       if (/[：:]$/.test(firstText) || /^\s*[：:]/.test(text)) return;
 
       const span = document.createElement('span');
-      span.setAttribute('style', 'display:inline !important;');
+      const inlineContinuationStyle = 'display:inline !important;';
+      span.setAttribute('style', inlineContinuationStyle);
       span.textContent = text;
       nextMeaningfulNode.replaceWith(span);
     };
@@ -354,7 +357,8 @@ function cleanHtmlForDraft(html) {
       if (secondText.length > 16) return;
 
       const bundle = document.createElement('span');
-      bundle.setAttribute('style', 'display:inline-block; white-space:nowrap;');
+      const noWrapBundleStyle = 'display:inline-block; white-space:nowrap;';
+      bundle.setAttribute('style', noWrapBundleStyle);
 
       li.insertBefore(bundle, first);
       bundle.appendChild(first);

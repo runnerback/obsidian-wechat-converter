@@ -1484,6 +1484,7 @@ function remapPreservedFragmentColors(html = '', tokens = {}) {
   if (!source || typeof document === 'undefined') return source;
 
   const container = document.createElement('div');
+  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized preserved section HTML so AI layout colors can be remapped without changing source markdown
   container.innerHTML = source;
 
   const isInsideCodeChrome = (element) => {
@@ -1493,22 +1494,26 @@ function remapPreservedFragmentColors(html = '', tokens = {}) {
 
   container.querySelectorAll('strong, b').forEach((element) => {
     if (isInsideCodeChrome(element)) return;
-    element.style.color = tokens.accentDeep || tokens.accent || '';
-    element.style.fontWeight = element.style.fontWeight || '700';
+    element.setCssStyles?.({
+      color: tokens.accentDeep || tokens.accent || '',
+      fontWeight: element.style.fontWeight || '700',
+    });
   });
 
   container.querySelectorAll('span').forEach((element) => {
     if (isInsideCodeChrome(element)) return;
     const inlineStyle = (element.getAttribute('style') || '').toLowerCase();
     if (!/font-weight\s*:\s*(bold|[6-9]00)/.test(inlineStyle)) return;
-    element.style.color = tokens.accentDeep || tokens.accent || '';
+    element.setCssStyles?.({ color: tokens.accentDeep || tokens.accent || '' });
   });
 
   container.querySelectorAll('a').forEach((element) => {
     if (isInsideCodeChrome(element)) return;
-    element.style.color = tokens.accentDeep || tokens.accent || '';
-    element.style.textDecoration = 'none';
-    element.style.borderBottom = `1px dashed ${tokens.accent || tokens.accentDeep || '#000000'}`;
+    element.setCssStyles?.({
+      color: tokens.accentDeep || tokens.accent || '',
+      textDecoration: 'none',
+      borderBottom: `1px dashed ${tokens.accent || tokens.accentDeep || '#000000'}`,
+    });
   });
 
   container.querySelectorAll('section, div, blockquote').forEach((element) => {
@@ -1519,20 +1524,24 @@ function remapPreservedFragmentColors(html = '', tokens = {}) {
       && /background\s*:/.test(inlineStyle);
     if (!looksLikeLegacyCallout) return;
 
-    element.style.borderLeftColor = tokens.accent || '';
-    if (!element.style.borderLeftStyle) element.style.borderLeftStyle = 'solid';
-    if (!element.style.borderLeftWidth) element.style.borderLeftWidth = '3px';
-    element.style.background = tokens.accentSoft || '';
-    element.style.backgroundColor = tokens.accentSoft || '';
+    element.setCssStyles?.({
+      borderLeftColor: tokens.accent || '',
+      borderLeftStyle: element.style.borderLeftStyle || 'solid',
+      borderLeftWidth: element.style.borderLeftWidth || '3px',
+      background: tokens.accentSoft || '',
+      backgroundColor: tokens.accentSoft || '',
+    });
 
     const [header, body] = Array.from(element.children || []);
     if (header && !isInsideCodeChrome(header)) {
-      header.style.background = tokens.quoteBg || tokens.accentSoft || '';
-      header.style.backgroundColor = tokens.quoteBg || tokens.accentSoft || '';
-      header.style.color = tokens.text || '';
+      header.setCssStyles?.({
+        background: tokens.quoteBg || tokens.accentSoft || '',
+        backgroundColor: tokens.quoteBg || tokens.accentSoft || '',
+        color: tokens.text || '',
+      });
     }
     if (body && !isInsideCodeChrome(body)) {
-      body.style.color = tokens.text || '';
+      body.setCssStyles?.({ color: tokens.text || '' });
     }
   });
 
@@ -1545,6 +1554,7 @@ function extractRenderedSectionFragments(html = '') {
   }
 
   const container = document.createElement('div');
+  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered HTML into DOM sections for AI layout fragment extraction
   container.innerHTML = String(html || '');
   const root = container.children.length === 1 ? container.firstElementChild : container;
   const childNodes = Array.from(root?.childNodes || []).filter((node) => (
@@ -2273,6 +2283,7 @@ function buildLayoutResult(rawLayout = {}, context = {}) {
 function extractImageRefsFromHtml(html) {
   if (typeof document === 'undefined' || !html) return [];
   const container = document.createElement('div');
+  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML to extract figure image references for AI layout generation
   container.innerHTML = html;
   const figures = Array.from(container.querySelectorAll('figure'));
   const refs = [];
@@ -2953,6 +2964,7 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
     const normalizedHtml = coerceString(html);
     if (!normalizedHtml || typeof document === 'undefined') return new Set();
     const container = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered section HTML to collect image sources already present in article fragments
     container.innerHTML = normalizedHtml;
     return new Set(
       Array.from(container.querySelectorAll('img'))

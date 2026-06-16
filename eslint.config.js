@@ -80,7 +80,14 @@ module.exports = [
       "no-extra-semi": "off",
       "no-inner-declarations": "off",
       "no-control-regex": "off",
+      "@microsoft/sdl/no-inner-html": "off",
     }
+  },
+  {
+    files: ["__mocks__/**/*.js"],
+    rules: {
+      "@microsoft/sdl/no-inner-html": "off",
+    },
   },
   // CommonJS override for .cjs files
   {

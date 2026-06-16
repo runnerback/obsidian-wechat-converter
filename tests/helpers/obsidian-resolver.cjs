@@ -26,3 +26,20 @@ Module._resolveFilename = function patchedResolveFilename(request, parent, ...re
   }
   return originalResolve.call(this, request, parent, ...rest);
 };
+
+function installSetCssStylesPrototype(Ctor) {
+  if (!Ctor || Ctor.prototype.setCssStyles) return;
+  Object.defineProperty(Ctor.prototype, 'setCssStyles', {
+    configurable: true,
+    value(styles = {}) {
+      Object.entries(styles || {}).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        this.style[key] = String(value);
+      });
+      return this;
+    },
+  });
+}
+
+installSetCssStylesPrototype(globalThis.HTMLElement);
+installSetCssStylesPrototype(globalThis.SVGElement);

@@ -84,6 +84,13 @@ function applyExtensions(el) {
   el.appendText = function appendText(text) {
     this.appendChild(document.createTextNode(text == null ? '' : String(text)));
   };
+  el.setCssStyles = function setCssStyles(styles = {}) {
+    Object.entries(styles || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      this.style[key] = String(value);
+    });
+    return this;
+  };
   el.createEl = function createEl(tag, opts = {}, callback) {
     const child = applyExtensions(document.createElement(tag));
     if (opts && typeof opts === 'object') {

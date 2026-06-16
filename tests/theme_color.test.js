@@ -193,6 +193,8 @@ describe('AppleTheme Color Logic', () => {
 
       expect(grid.getStyle('section')).toContain('background-color: #ffffff;');
       expect(grid.getStyle('section')).toContain('background-image: linear-gradient(rgba(32, 201, 151, 0.035) 1px, transparent 1px)');
+      expect(grid.getStyle('section')).toContain('padding: 20px 22px;');
+      expect(grid.getStyle('section')).toContain('box-sizing: border-box;');
       expect(grid.getStyle('section')).toContain('color: #344054;');
       expect(grid.getStyle('section')).not.toContain('light-dark(');
       expect(grid.getStyle('section')).not.toContain('color-scheme:');
@@ -208,6 +210,25 @@ describe('AppleTheme Color Logic', () => {
       expect(grid.getStyle('blockquote')).not.toContain('border: 1px solid');
       expect(media.getStyle('blockquote')).not.toContain('border: 1px solid');
       expect(colorful.getStyle('blockquote')).not.toContain('border: 1px solid');
+    });
+
+    it('should give background-backed paper and grid themes responsive extra side breathing room', () => {
+      const paperDefault = new AppleTheme({ theme: 'paper', sidePadding: 16 });
+      const gridDefault = new AppleTheme({ theme: 'grid', sidePadding: 16 });
+      const paperCustom = new AppleTheme({ theme: 'paper', sidePadding: 32 });
+      const gridCustom = new AppleTheme({ theme: 'grid', sidePadding: 36 });
+      const gridNudged = new AppleTheme({ theme: 'grid', sidePadding: 17 });
+      const github = new AppleTheme({ theme: 'github', sidePadding: 16 });
+
+      expect(paperDefault.getStyle('section')).toContain('padding: 20px 22px;');
+      expect(gridDefault.getStyle('section')).toContain('padding: 20px 22px;');
+      expect(paperDefault.getStyle('section')).toContain('box-sizing: border-box;');
+      expect(gridDefault.getStyle('section')).toContain('box-sizing: border-box;');
+      expect(gridNudged.getStyle('section')).toContain('padding: 20px 23px;');
+      expect(paperCustom.getStyle('section')).toContain('padding: 20px 38px;');
+      expect(gridCustom.getStyle('section')).toContain('padding: 20px 42px;');
+      expect(github.getStyle('section')).toContain('padding: 20px 16px;');
+      expect(github.getStyle('section')).not.toContain('box-sizing: border-box;');
     });
 
     it('should keep grid-specific section background handling out of other built-in themes', () => {

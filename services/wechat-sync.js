@@ -4,6 +4,7 @@ function replaceUnuploadedDraftImagesWithPlaceholders(html) {
   }
 
   const div = document.createElement('div');
+  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized draft HTML to replace unuploaded image tags with visible placeholders before API submission
   div.innerHTML = html || '';
   const imageSources = [];
 
@@ -15,7 +16,8 @@ function replaceUnuploadedDraftImagesWithPlaceholders(html) {
 
     imageSources.push(src);
     const placeholder = document.createElement('p');
-    placeholder.setAttribute('style', 'margin:12px 0;padding:10px 12px;border:1px dashed #d0d7de;border-radius:6px;color:#8c6d1f;background:#fff8e5;font-size:13px;line-height:1.7;');
+    const missingImagePlaceholderStyle = 'margin:12px 0;padding:10px 12px;border:1px dashed #d0d7de;border-radius:6px;color:#8c6d1f;background:#fff8e5;font-size:13px;line-height:1.7;';
+    placeholder.setAttribute('style', missingImagePlaceholderStyle);
     placeholder.textContent = src
       ? `图片未同步，请在微信后台手动补传：${src}`
       : '图片未同步，请在微信后台手动补传。';

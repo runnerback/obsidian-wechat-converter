@@ -43,22 +43,26 @@ function buildMermaidCompatSource(source) {
 
 function normalizeMermaidPreviewHost(host) {
   if (!host || typeof host.setAttribute !== 'function') return;
-  host.style.display = 'block';
-  host.style.width = '100%';
-  host.style.maxWidth = '100%';
-  host.style.margin = '16px auto';
-  host.style.overflow = 'hidden';
-  host.style.textAlign = 'center';
+  host.setCssStyles?.({
+    display: 'block',
+    width: '100%',
+    maxWidth: '100%',
+    margin: '16px auto',
+    overflow: 'hidden',
+    textAlign: 'center',
+  });
 }
 
 function normalizeMermaidPreviewSvg(svg) {
   if (!svg || typeof svg.setAttribute !== 'function') return;
   svg.classList?.add?.('owc-mermaid-diagram');
-  svg.style.display = 'block';
-  svg.style.width = '100%';
-  svg.style.maxWidth = '100%';
-  svg.style.height = 'auto';
-  svg.style.margin = '0 auto';
+  Object.assign(svg.style, {
+    display: 'block',
+    width: '100%',
+    maxWidth: '100%',
+    height: 'auto',
+    margin: '0 auto',
+  });
 }
 
 function appendInlineStyle(el, declarations) {
@@ -229,7 +233,8 @@ function flattenMermaidForeignObjectLabels(svg) {
     textEl.setAttribute('font-size', `${fontSize}px`);
     textEl.setAttribute('font-weight', fontWeight);
     textEl.setAttribute('font-family', fontFamily);
-    textEl.setAttribute('style', 'paint-order:stroke fill;stroke:none !important;');
+    const readableTextStyle = 'paint-order:stroke fill;stroke:none !important;';
+    textEl.setAttribute('style', readableTextStyle);
 
     lines.forEach((line, index) => {
       const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
@@ -315,6 +320,7 @@ function convertMermaidForeignObjectContainers(svg) {
     const style = parent.getAttribute('style');
     if (xmlns) section.setAttribute('xmlns', xmlns);
     if (style) section.setAttribute('style', style);
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Preserve Mermaid-rendered label HTML while moving it into a WeChat-safe section wrapper
     section.innerHTML = parent.innerHTML;
 
     grand.setAttribute('data-owc-mermaid-label-host', 'true');
@@ -513,6 +519,7 @@ async function renderMermaidCodeBlocks(root, options = {}) {
       const host = document.createElement('div');
       host.setAttribute('class', 'mermaid');
       host.setAttribute('data-obsidian-wechat-mermaid', 'true');
+      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert SVG returned by Mermaid render API so it can be normalized and rasterized before publishing
       host.innerHTML = svg;
       normalizeRenderedMermaidDiagrams(host);
 

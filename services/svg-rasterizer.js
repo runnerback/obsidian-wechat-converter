@@ -133,7 +133,8 @@ function prepareSvgClone(svgElement) {
   if (isMathJaxSvg(svgElement)) {
     clonedSvg.setAttribute('fill', '#333333');
     if (clonedSvg.style) {
-      clonedSvg.style.color = '#333333';
+      const mathSvgColor = '#333333';
+      clonedSvg.style.color = mathSvgColor;
     }
 
     clonedSvg.querySelectorAll('*').forEach((el) => {

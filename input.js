@@ -1304,10 +1304,12 @@ class AppleStyleView extends ItemView {
         cls: 'apple-color-picker-hidden'
       });
       colorInput.value = this.plugin.settings.customColor || '#000000';
-      colorInput.style.visibility = 'hidden';
-      colorInput.style.width = '0';
-      colorInput.style.height = '0';
-      colorInput.style.position = 'absolute';
+      colorInput.setCssStyles({
+        visibility: 'hidden',
+        width: '0',
+        height: '0',
+        position: 'absolute',
+      });
 
       // 点击按钮触发颜色选择
       customBtn.addEventListener('click', () => {
@@ -1345,7 +1347,7 @@ class AppleStyleView extends ItemView {
         attr: { min: 0, max: mobile ? 36 : 40, step: 1 }
       });
       slider.value = this.plugin.settings.sidePadding;
-      slider.style.flex = '1';
+      slider.setCssStyles({ flex: '1' });
 
       const valueLabel = container.createEl('span', {
         text: `${this.plugin.settings.sidePadding}px`,
@@ -1536,9 +1538,11 @@ class AppleStyleView extends ItemView {
         toggleState.checkbox.disabled = true;
       }
       if (toggleState?.toggle) {
-        toggleState.toggle.style.pointerEvents = 'none';
-        toggleState.toggle.style.opacity = '0.6';
-        toggleState.toggle.style.filter = 'grayscale(100%)';
+        toggleState.toggle.setCssStyles({
+          pointerEvents: 'none',
+          opacity: '0.6',
+          filter: 'grayscale(100%)',
+        });
       }
     }
 
@@ -1586,6 +1590,7 @@ class AppleStyleView extends ItemView {
   getFirstImageFromArticle() {
     if (!this.currentHtml) return null;
     const tempDiv = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse already-rendered article HTML to locate the first cover candidate image without mutating source markdown
     tempDiv.innerHTML = this.currentHtml;
     const imgs = Array.from(tempDiv.querySelectorAll('img'));
 
@@ -3037,9 +3042,11 @@ class AppleStyleView extends ItemView {
     const tempEl = document.createElement('textarea');
     tempEl.value = text;
     tempEl.setAttribute('readonly', 'readonly');
-    tempEl.style.position = 'fixed';
-    tempEl.style.left = '-9999px';
-    tempEl.style.top = '0';
+    tempEl.setCssStyles({
+      position: 'fixed',
+      left: '-9999px',
+      top: '0',
+    });
     document.body.appendChild(tempEl);
     tempEl.select();
 
@@ -3769,6 +3776,7 @@ class AppleStyleView extends ItemView {
     this.currentHtml = html;
     this.aiPreviewApplied = true;
     if (this.previewContainer) {
+      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Render sanitized AI layout HTML into the live article preview container
       this.previewContainer.innerHTML = html;
       this.previewContainer.scrollTop = scrollTop;
       this.previewContainer.addClass('apple-has-content');
@@ -3807,6 +3815,7 @@ class AppleStyleView extends ItemView {
     const scrollTop = this.previewContainer.scrollTop;
     this.currentHtml = this.baseRenderedHtml;
     this.aiPreviewApplied = false;
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Restore sanitized base Markdown render HTML into the live preview container
     this.previewContainer.innerHTML = this.baseRenderedHtml;
     this.previewContainer.scrollTop = scrollTop;
     this.previewContainer.addClass('apple-has-content');
@@ -4168,7 +4177,7 @@ class AppleStyleView extends ItemView {
       placeholder: '留空则默认使用 frontmatter 中的 title 或文件名'
     });
     titleInput.value = initialTitle;
-    titleInput.style.width = '100%';
+    titleInput.setCssStyles({ width: '100%' });
     titleInput.maxLength = 64; // 微信标题最大限制 64 字符
 
     // 实时更新缓存（标题）
@@ -4243,6 +4252,7 @@ class AppleStyleView extends ItemView {
 
     // 自动提取文章前 45 字作为默认摘要
     const tempDiv = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse current sanitized preview HTML to derive a plain-text draft digest
     tempDiv.innerHTML = this.currentHtml || '';
     // 使用 innerText 可以更好地处理换行，但为了安全起见，还是用 textContent 并清理空格
     const autoDigest = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 45);
@@ -4260,8 +4270,10 @@ class AppleStyleView extends ItemView {
     digestInput.value = initialDigest;
 
     digestInput.rows = 3;
-    digestInput.style.width = '100%';
-    digestInput.style.resize = 'vertical';
+    digestInput.setCssStyles({
+      width: '100%',
+      resize: 'vertical',
+    });
     digestInput.maxLength = 120; // 限制最大输入 120 字
 
     // 字数统计
@@ -5309,13 +5321,13 @@ class AppleStyleView extends ItemView {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (activeView && this.docTitleText) {
       this.docTitleText.setText(activeView.file.basename);
-      this.docTitleText.style.color = 'var(--apple-primary)'; // 恢复激活色
+      this.docTitleText.setCssStyles({ color: 'var(--apple-primary)' }); // 恢复激活色
     } else if (this.lastActiveFile && this.docTitleText) {
       this.docTitleText.setText(this.lastActiveFile.basename);
-      this.docTitleText.style.color = 'var(--apple-primary)';
+      this.docTitleText.setCssStyles({ color: 'var(--apple-primary)' });
     } else if (this.docTitleText) {
       this.docTitleText.setText('未选择文档');
-      this.docTitleText.style.color = 'var(--apple-tertiary)'; // 灰色提示
+      this.docTitleText.setCssStyles({ color: 'var(--apple-tertiary)' }); // 灰色提示
     }
     this.updateAiToolbarState();
   }
@@ -5355,9 +5367,11 @@ class AppleStyleView extends ItemView {
       iconDiv.empty();
       const img = iconDiv.createEl('img', { attr: { alt: 'Obsidian 发布助手' } });
       img.src = 'data:image/png;base64,' + base64;
-      img.style.width = '64px';
-      img.style.height = '64px';
-      img.style.display = 'block';
+      img.setCssStyles({
+        width: '64px',
+        height: '64px',
+        display: 'block',
+      });
     } catch (e) {
       iconDiv.textContent = '📝';
       console.error('Failed to load brand icon:', e);
@@ -5481,6 +5495,7 @@ class AppleStyleView extends ItemView {
 
       // 滚动位置保持 (Scroll Preservation)
       const scrollTop = this.previewContainer.scrollTop;
+      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Render sanitized Markdown HTML into the live preview container while preserving scroll position
       this.previewContainer.innerHTML = html;
       this.previewContainer.scrollTop = scrollTop;
 
@@ -5562,6 +5577,7 @@ class AppleStyleView extends ItemView {
    */
   renderHTML(html) {
     this.previewContainer.empty();
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Render sanitized Markdown HTML into the plugin preview panel
     this.previewContainer.innerHTML = html;
   }
 
@@ -5575,13 +5591,16 @@ class AppleStyleView extends ItemView {
     const activeElement = document.activeElement;
 
     const tempContainer = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert final sanitized clipboard HTML into an offscreen selection container for rich copy fallback
     tempContainer.innerHTML = htmlContent;
-    tempContainer.style.position = 'fixed';
-    tempContainer.style.left = '-9999px';
-    tempContainer.style.top = '0';
-    tempContainer.style.opacity = '0';
-    tempContainer.style.pointerEvents = 'none';
-    tempContainer.style.background = '#fff';
+    tempContainer.setCssStyles({
+      position: 'fixed',
+      left: '-9999px',
+      top: '0',
+      opacity: '0',
+      pointerEvents: 'none',
+      background: '#fff',
+    });
     document.body.appendChild(tempContainer);
 
     let success = false;
@@ -5657,7 +5676,15 @@ class AppleStyleView extends ItemView {
     try {
       if (typeof document !== 'undefined' && document.body && !root.isConnected) {
         mount = document.createElement('div');
-        mount.setAttribute('style', 'position:fixed;left:-99999px;top:0;width:760px;opacity:0;pointer-events:none;overflow:hidden;');
+        mount.setCssStyles({
+          position: 'fixed',
+          left: '-99999px',
+          top: '0',
+          width: '760px',
+          opacity: '0',
+          pointerEvents: 'none',
+          overflow: 'hidden',
+        });
         document.body.appendChild(mount);
         mount.appendChild(root);
       }
@@ -5675,6 +5702,7 @@ class AppleStyleView extends ItemView {
 
   async prepareHtmlForWechatDraft(html) {
     const tempDiv = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML for WeChat draft post-processing
     tempDiv.innerHTML = html || '';
     await this.enhanceHtmlForWechatPublishing(tempDiv);
     return tempDiv.innerHTML;
@@ -5682,6 +5710,7 @@ class AppleStyleView extends ItemView {
 
   async prepareHtmlForWechatsyncArticle(html) {
     const tempDiv = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized rendered article HTML for Wechatsync image and code-block processing
     tempDiv.innerHTML = html || '';
     await this.processImagesToDataURL(tempDiv);
     this.transformCodeBlocksForWechatsync(tempDiv);
@@ -5701,6 +5730,7 @@ class AppleStyleView extends ItemView {
   async prepareHtmlForWechatsyncArticleViaBridge(html, assets = []) {
     const mapped = mapAppUrlImagesToAssetUrls(html || '', assets);
     const tempDiv = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized bridge publish HTML after app URL to asset URL mapping
     tempDiv.innerHTML = mapped;
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
@@ -5791,6 +5821,7 @@ class AppleStyleView extends ItemView {
       return (codeLinesNode.innerHTML || '')
         .split(/<br\s*\/?>/i)
         .map((lineHtml) => {
+          // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Decode one sanitized code-line HTML fragment into text for Wechatsync plain code export
           scratch.innerHTML = lineHtml || '';
           return (scratch.textContent || '').replace(/\u00a0/g, ' ');
         })
@@ -5903,7 +5934,9 @@ class AppleStyleView extends ItemView {
 
       if (hasMacHeader) {
         const toolbar = document.createElement('section');
-        toolbar.setAttribute('style', 'display:block !important;background:#161b22 !important;padding:6px 10px 6px 10px !important;border:none !important;border-bottom:1px solid #30363d !important;border-radius:8px 8px 0 0 !important;line-height:1 !important;box-sizing:border-box !important;width:100% !important;');
+        const toolbarStyle = 'display:block !important;background:#161b22 !important;padding:6px 10px 6px 10px !important;border:none !important;border-bottom:1px solid #30363d !important;border-radius:8px 8px 0 0 !important;line-height:1 !important;box-sizing:border-box !important;width:100% !important;';
+        toolbar.setAttribute('style', toolbarStyle);
+        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Build fixed Mac window controls HTML with static spans required for WeChat clipboard fidelity
         toolbar.innerHTML = [
         '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ff5f57 !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>',
         '<span style="display:inline-block !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#ffbd2e !important;margin-right:7px !important;font-size:0 !important;line-height:0 !important;color:transparent !important;vertical-align:top !important;">&nbsp;</span>',
@@ -5919,7 +5952,9 @@ class AppleStyleView extends ItemView {
           return `<section style="padding:0 10px 0 0 !important;line-height:1.75 !important;color:#95989C !important;">${lineNumber}</section>`;
         }).join('');
         const codeInnerHtml = codeLineParts.map((lineHtml) => lineHtml || '&nbsp;').join('<br/>');
-        code.setAttribute('style', 'display:block !important;width:100% !important;min-width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;background:transparent !important;color:#f0f6fc !important;font-family:inherit !important;font-size:13px !important;line-height:1.75 !important;white-space:normal !important;overflow:visible !important;text-indent:0 !important;margin:0 !important;');
+        const codeWithLineNumbersStyle = 'display:block !important;width:100% !important;min-width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;background:transparent !important;color:#f0f6fc !important;font-family:inherit !important;font-size:13px !important;line-height:1.75 !important;white-space:normal !important;overflow:visible !important;text-indent:0 !important;margin:0 !important;';
+        code.setAttribute('style', codeWithLineNumbersStyle);
+        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Recompose sanitized highlighted code HTML with fixed line-number markup for WeChat clipboard scrolling
         code.innerHTML = `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;margin:0 !important;">
           <section class="line-numbers" style="text-align:right !important;padding:12px 0 !important;border-right:1px solid rgba(255,255,255,0.1) !important;user-select:none !important;background:transparent !important;flex:0 0 auto !important;min-width:3.5em !important;box-sizing:border-box !important;margin:0 !important;">${lineNumbersHtml}</section>
           <section class="code-scroll" style="flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;-webkit-overflow-scrolling:touch !important;padding:12px 12px 12px 16px !important;min-width:0 !important;box-sizing:border-box !important;margin:0 !important;">
@@ -5927,7 +5962,9 @@ class AppleStyleView extends ItemView {
           </section>
         </section>`;
       } else {
-        code.setAttribute('style', 'display:block !important;width:max-content !important;min-width:100% !important;max-width:none !important;padding:12px !important;box-sizing:border-box !important;background:transparent !important;color:#f0f6fc !important;font-family:inherit !important;font-size:13px !important;line-height:1.75 !important;white-space:nowrap !important;overflow:visible !important;text-indent:0 !important;margin:0 !important;');
+        const codeScrollableStyle = 'display:block !important;width:max-content !important;min-width:100% !important;max-width:none !important;padding:12px !important;box-sizing:border-box !important;background:transparent !important;color:#f0f6fc !important;font-family:inherit !important;font-size:13px !important;line-height:1.75 !important;white-space:nowrap !important;overflow:visible !important;text-indent:0 !important;margin:0 !important;';
+        code.setAttribute('style', codeScrollableStyle);
+        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Preserve sanitized highlighted code span HTML in clipboard output
         code.innerHTML = codeLinesHtml;
       }
       pre.appendChild(code);
@@ -5970,6 +6007,7 @@ class AppleStyleView extends ItemView {
       const exportHtml = this.getCurrentExportHtml() || this.currentHtml;
       // 创建临时的 DOM 容器来解析和处理图片
       const tempDiv = document.createElement('div');
+      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse sanitized export HTML so images, Mermaid, and code blocks can be transformed before clipboard write
       tempDiv.innerHTML = exportHtml;
 
       // 处理本地图片：转换为 JPEG Base64
@@ -5984,6 +6022,7 @@ class AppleStyleView extends ItemView {
       const htmlContent = cleanedHtml;
       window.__OWC_LAST_CLIPBOARD_HTML = htmlContent;
       const plainDiv = document.createElement('div');
+      // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Parse final sanitized clipboard HTML to capture its plain-text debug snapshot
       plainDiv.innerHTML = cleanedHtml;
       window.__OWC_LAST_CLIPBOARD_TEXT = plainDiv.textContent || '';
       const expectedPlainText = this.normalizeClipboardText(window.__OWC_LAST_CLIPBOARD_TEXT);
@@ -6255,21 +6294,21 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
     const wechatContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
     const multiContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
-    multiContent.style.display = 'none';
+    multiContent.setCssStyles({ display: 'none' });
 
     wechatTab.onclick = () => {
       this._activeSettingsTab = 'wechat';
       wechatTab.addClass('active');
       multiTab.removeClass('active');
-      wechatContent.style.display = '';
-      multiContent.style.display = 'none';
+      wechatContent.setCssStyles({ display: '' });
+      multiContent.setCssStyles({ display: 'none' });
     };
     multiTab.onclick = () => {
       this._activeSettingsTab = 'multi';
       multiTab.addClass('active');
       wechatTab.removeClass('active');
-      wechatContent.style.display = 'none';
-      multiContent.style.display = '';
+      wechatContent.setCssStyles({ display: 'none' });
+      multiContent.setCssStyles({ display: '' });
     };
 
     // 恢复上次激活的 Tab
@@ -6537,7 +6576,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
           });
         // 拓宽输入框宽度以完美容纳带 Token 的长 URL，并作安全判定兼容 Mock 环境
         if (text.inputEl && typeof text.inputEl.setAttribute === 'function') {
-          text.inputEl.setAttribute('style', 'width: 320px; max-width: 100%;');
+          text.inputEl.setCssStyles?.({ width: '320px', maxWidth: '100%' });
         }
       });
 

@@ -131,6 +131,7 @@ window.AppleTheme = class AppleTheme {
       textColor: '#3f3a33',
       headingColor: '#3e3e3e',
       sectionBg: '#fffdf8',
+      sectionSidePaddingOffset: 6,
       mutedTextColor: '#786f63',
       linkDecoration: 'none',
       blockquoteBorderWidth: 0,
@@ -157,6 +158,7 @@ window.AppleTheme = class AppleTheme {
       headingColor: '#263238',
       sectionBgStyle: 'grid',
       sectionBg: '#ffffff',
+      sectionSidePaddingOffset: 6,
       sectionBgSize: '18px 18px',
       gridLineAlpha: '09',
       mutedTextColor: '#667085',
@@ -383,18 +385,19 @@ window.AppleTheme = class AppleTheme {
     const textColor = config.textColor;
     const mutedTextColor = config.mutedTextColor;
     const headingColor = this.getHeadingColorValue();
+    const sectionSidePadding = this.getSectionSidePadding(config);
 
     switch (tagName) {
       case 'section':
         // 使用配置的 sidePadding
         if (config.sectionBgStyle !== 'grid') {
           return this.joinStyleStrings(
-            `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; padding: 20px ${this.sidePadding}px; background: ${config.sectionBg || '#ffffff'}; max-width: 100%; word-wrap: break-word; text-align: justify`
+            `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; padding: 20px ${sectionSidePadding}px; background: ${config.sectionBg || '#ffffff'}; ${this.getSectionBoxSizingStyle(config)}max-width: 100%; word-wrap: break-word; text-align: justify`
           );
         }
 
         return this.joinStyleStrings(
-          `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; padding: 20px ${this.sidePadding}px; max-width: 100%; word-wrap: break-word; text-align: justify`,
+          `font-family: ${font}; font-size: ${sizes.base}px; line-height: ${config.lineHeight}; color: ${textColor}; padding: 20px ${sectionSidePadding}px; box-sizing: border-box; max-width: 100%; word-wrap: break-word; text-align: justify`,
           `background-color: ${config.sectionBg || '#ffffff'}`,
           `background-image: linear-gradient(${this.hexToRgba(color, config.gridLineAlpha || '09')} 1px, transparent 1px), linear-gradient(90deg, ${this.hexToRgba(color, config.gridLineAlpha || '09')} 1px, transparent 1px)`,
           config.sectionBgSize ? `background-size: ${config.sectionBgSize}` : ''
@@ -763,6 +766,18 @@ window.AppleTheme = class AppleTheme {
       .filter(Boolean)
       .map((style) => style.endsWith(';') ? style : `${style};`)
       .join(' ');
+  }
+
+  getSectionSidePadding(config = {}) {
+    const configuredPadding = Number(this.sidePadding);
+    const themeOffset = Number(config.sectionSidePaddingOffset || 0);
+    const safeConfiguredPadding = Number.isFinite(configuredPadding) ? configuredPadding : 16;
+    const safeThemeOffset = Number.isFinite(themeOffset) ? themeOffset : 0;
+    return safeConfiguredPadding + safeThemeOffset;
+  }
+
+  getSectionBoxSizingStyle(config = {}) {
+    return config.sectionSidePaddingOffset ? 'box-sizing: border-box; ' : '';
   }
 
   /**

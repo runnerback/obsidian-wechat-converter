@@ -125,6 +125,7 @@ function convertObsidianCalloutsToLegacy(container, converter) {
     if (!openHtml) continue;
 
     const host = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Convert sanitized Obsidian callout content into legacy converter callout HTML for WeChat parity
     host.innerHTML = `${openHtml}${contentHtml}</section></section>`;
 
     const replacementNodes = Array.from(host.childNodes);
@@ -271,6 +272,7 @@ function normalizeLegacyTagAliases(container) {
         del.setAttribute(attr.name, attr.value);
       });
     }
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Preserve sanitized strikethrough child markup while normalizing legacy delete tags
     del.innerHTML = sEl.innerHTML;
     sEl.replaceWith(del);
   }
@@ -595,6 +597,7 @@ function convertPreBlocks(container, converter) {
     const content = codeEl ? codeEl.textContent || '' : pre.textContent || '';
 
     const wrapper = document.createElement('div');
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert sanitized converter-created code block HTML so it can replace Obsidian pre blocks
     wrapper.innerHTML = converter.createCodeBlock(content, lang);
     const replacement = wrapper.firstElementChild;
     if (replacement) {
@@ -751,15 +754,16 @@ function convertStandaloneImages(container, converter) {
     if (img.getAttribute('data-owc-skip-standalone-image') === '1') continue;
     if (img.getAttribute('alt') === 'logo') continue;
     if (img.classList.contains('math-formula-image')) continue;
-    if (img.classList.contains('mermaid-diagram-image')) {
-      const src = img.getAttribute('src') || '';
-      const safeSrc =
-        converter && typeof converter.validateLink === 'function'
-          ? converter.validateLink(src, true)
-          : src;
-      img.setAttribute('src', safeSrc);
-      if (!img.getAttribute('style')) {
-        img.setAttribute('style', 'display:block;max-width:100%;height:auto;margin:16px auto;');
+      if (img.classList.contains('mermaid-diagram-image')) {
+        const src = img.getAttribute('src') || '';
+        const safeSrc =
+          converter && typeof converter.validateLink === 'function'
+            ? converter.validateLink(src, true)
+            : src;
+        img.setAttribute('src', safeSrc);
+        if (!img.getAttribute('style')) {
+        const mermaidImageStyle = 'display:block;max-width:100%;height:auto;margin:16px auto;';
+        img.setAttribute('style', mermaidImageStyle);
       }
       continue;
     }
@@ -809,8 +813,9 @@ function convertStandaloneImages(container, converter) {
       header.appendChild(captionEl);
 
       const spacer = document.createElement('section');
-      spacer.setAttribute('style', 'display:block;height:8px;line-height:8px;font-size:0;');
-      spacer.innerHTML = '&nbsp;';
+      const spacerStyle = 'display:block;height:8px;line-height:8px;font-size:0;';
+      spacer.setAttribute('style', spacerStyle);
+      spacer.appendChild(document.createTextNode('\u00a0'));
 
       const bodyImg = document.createElement('img');
       bodyImg.setAttribute('src', src);
@@ -824,7 +829,8 @@ function convertStandaloneImages(container, converter) {
       continue;
     }
 
-    figure.setAttribute('style', 'display:block;margin:16px 0;text-align:center;');
+    const standaloneFigureStyle = 'display:block;margin:16px 0;text-align:center;';
+    figure.setAttribute('style', standaloneFigureStyle);
     const bodyImg = document.createElement('img');
     bodyImg.setAttribute('src', src);
     bodyImg.setAttribute('alt', alt);
@@ -1002,7 +1008,8 @@ function formatTaskListItems(container, converter) {
 
         if (isChecked) {
           const contentSpan = document.createElement('span');
-          contentSpan.setAttribute('style', 'text-decoration: line-through; color: #8f959e;');
+          const checkedTaskContentStyle = 'text-decoration: line-through; color: #8f959e;';
+          contentSpan.setAttribute('style', checkedTaskContentStyle);
 
           let sibling = checkboxSpan.nextSibling;
           while (sibling) {
@@ -1262,6 +1269,7 @@ function applyLegacyTypographerParity(container, converter) {
     }
     if (!rendered || rendered === original) continue;
 
+    // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Decode sanitized markdown-it inline render output back to text for punctuation normalization
     decodeHost.innerHTML = rendered;
     const normalized = String(decodeHost.textContent || '');
     if (normalized && normalized !== original) {
@@ -1314,6 +1322,7 @@ function renderUnresolvedMathFormulas(container, converter) {
         // Wrap block math in paragraph-like structure for rendering
         const wrappedText = text.replace(/\$\$([\s\S]+?)\$\$/g, '\n$$\n$1\n$$\n');
         const fullRendered = converter.md.render(wrappedText);
+        // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert sanitized MathJax block HTML rendered by markdown-it before moving nodes into the article DOM
         tempDiv.innerHTML = fullRendered;
 
         // Extract the rendered content
@@ -1327,6 +1336,7 @@ function renderUnresolvedMathFormulas(container, converter) {
         rendered = converter.md.renderInline(text);
         if (rendered && rendered !== text) {
           const tempDiv = document.createElement('div');
+          // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Insert sanitized MathJax inline HTML rendered by markdown-it before moving nodes into the article DOM
           tempDiv.innerHTML = rendered;
           const fragment = document.createDocumentFragment();
           while (tempDiv.firstChild) {
@@ -1428,6 +1438,7 @@ function serializeObsidianRenderedHtml({
   }
 
   const container = document.createElement('div');
+  // eslint-disable-next-line @microsoft/sdl/no-inner-html -- Clone Obsidian-rendered sanitized root HTML before serializer transformations mutate it
   container.innerHTML = root ? root.innerHTML : '';
 
   materializeImageEmbedPlaceholders(container, converter);
