@@ -1,6 +1,6 @@
 import { serializeObsidianRenderedHtml } from './obsidian-triplet-serializer.js';
 import { normalizeRenderedDomPunctuation } from './chinese-punctuation.js';
-import { getActiveDocument } from './dom-utils.js';
+import { findAllElements, getActiveDocument, getActiveWindowValue } from './dom-utils.js';
 import {
   hasMermaidMarker,
   renderMermaidCodeBlocks,
@@ -71,8 +71,7 @@ import {
 
 /** @returns {MarkdownRendererLike | null} */
 function getDefaultMarkdownRenderer() {
-  const globalScope = /** @type {{ obsidian?: { MarkdownRenderer?: MarkdownRendererLike } }} */ (globalThis);
-  const obsidianApi = globalScope.obsidian;
+  const obsidianApi = /** @type {{ MarkdownRenderer?: MarkdownRendererLike } | undefined} */ (getActiveWindowValue('obsidian'));
   return obsidianApi?.MarkdownRenderer || null;
 }
 
@@ -1394,7 +1393,7 @@ function preprocessMarkdownForTriplet(markdown, converter) {
 /** @param {Element | null | undefined} root */
 function countUnresolvedImageEmbeds(root) {
   if (!root) return 0;
-  const embeds = Array.from(root.querySelectorAll('span.internal-embed,span.image-embed,div.internal-embed,div.image-embed'));
+  const embeds = findAllElements(root, 'span.internal-embed,span.image-embed,div.internal-embed,div.image-embed');
   let unresolved = 0;
   for (const embed of embeds) {
     const isImageEmbed = embed.classList.contains('image-embed');
@@ -1437,8 +1436,8 @@ function shouldObserveMermaidRenderWindow(markdown) {
  * @returns {Element[]}
  */
 function collectMermaidHostElements(root) {
-  if (!root || typeof root.querySelectorAll !== 'function') return [];
-  const elements = Array.from(root.querySelectorAll('*')).filter((el) => hasMermaidMarker(el));
+  if (!root) return [];
+  const elements = findAllElements(root, '*').filter((el) => hasMermaidMarker(el));
   return elements.filter((el) => {
     if (el.closest('mjx-container')) return false;
     const tagName = el.tagName?.toLowerCase?.();
@@ -1449,9 +1448,9 @@ function collectMermaidHostElements(root) {
 
 /** @param {Element | null | undefined} root */
 function countRenderedMermaidDiagrams(root) {
-  if (!root || typeof root.querySelectorAll !== 'function') return 0;
-  const svgCount = Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg).length;
-  const imageCount = root.querySelectorAll('img.mermaid-diagram-image').length;
+  if (!root) return 0;
+  const svgCount = findAllElements(root, 'svg').filter(looksLikeMermaidSvg).length;
+  const imageCount = findAllElements(root, 'img.mermaid-diagram-image').length;
   return svgCount + imageCount;
 }
 
@@ -1462,7 +1461,7 @@ function countPendingMermaidHosts(root) {
   for (const host of hosts) {
     if (host.tagName?.toLowerCase?.() === 'svg') continue;
     if (host.tagName?.toLowerCase?.() === 'img' && host.classList.contains('mermaid-diagram-image')) continue;
-    const hasRenderedSvg = Array.from(host.querySelectorAll('svg')).some(looksLikeMermaidSvg);
+    const hasRenderedSvg = findAllElements(host, 'svg').some(looksLikeMermaidSvg);
     const hasRenderedImage = !!host.querySelector('img.mermaid-diagram-image');
     if (!hasRenderedSvg && !hasRenderedImage) {
       pending += 1;

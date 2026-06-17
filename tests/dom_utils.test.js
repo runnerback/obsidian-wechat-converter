@@ -2,6 +2,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 
 const {
   createHtmlContainer,
+  findAllElements,
+  getActiveWindowValue,
   parseHtmlFragment,
   setElementHtml,
 } = require('../services/dom-utils');
@@ -52,5 +54,35 @@ describe('DOM utilities', () => {
 
     expect(container.textContent).toBe('新内容');
     expect(container.querySelector('p')).not.toBeNull();
+  });
+
+  it('finds matching elements without relying on direct querySelectorAll calls', () => {
+    const container = createHtmlContainer('div', '<p class="target">A</p><section><p>B</p><p class="target">C</p></section>');
+
+    const matches = findAllElements(container, '.target');
+
+    expect(matches.map((el) => el.textContent)).toEqual(['A', 'C']);
+  });
+
+  it('uses Obsidian-style findAll when provided by the element', () => {
+    const first = document.createElement('span');
+    const second = document.createElement('span');
+    const host = {
+      findAll(selector) {
+        return selector === '.chip' ? [first, 'not-an-element', second] : [];
+      },
+    };
+
+    expect(findAllElements(host, '.chip')).toEqual([first, second]);
+  });
+
+  it('reads values from the active window helper', () => {
+    window.__domUtilsTestValue = 'ok';
+
+    try {
+      expect(getActiveWindowValue('__domUtilsTestValue')).toBe('ok');
+    } finally {
+      delete window.__domUtilsTestValue;
+    }
   });
 });

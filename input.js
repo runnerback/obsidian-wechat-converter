@@ -97,13 +97,14 @@
  * @returns {unknown}
  */
 const loadCommonJsDependency = (specifier) => {
-  const runtimeRequire = /** @type {unknown} */ (globalThis.require);
-  if (typeof runtimeRequire !== 'function') {
-    throw new Error(`CommonJS loader unavailable for ${specifier}`);
+  const activeWindowRequire = getActiveWindowValue('require');
+  if (typeof activeWindowRequire === 'function') {
+    return /** @type {(specifier: string) => unknown} */ (activeWindowRequire)(specifier);
   }
-  /** @type {(specifier: string) => unknown} */
-  const requireFn = runtimeRequire;
-  return requireFn(specifier);
+  if (typeof module !== 'undefined' && typeof module.require === 'function') {
+    return module.require(specifier);
+  }
+  throw new Error(`CommonJS loader unavailable for ${specifier}`);
 };
 /** @type {ObsidianApiLike} */
 const obsidianApi = /** @type {ObsidianApiLike} */ (loadCommonJsDependency('obsidian'));
@@ -172,12 +173,16 @@ import { rasterizeSvgToPngBlob } from './services/svg-rasterizer.js';
 import { createObsidianFetchAdapter } from './services/obsidian-fetch-adapter.js';
 import { stripMarkdownFrontmatter } from './services/markdown-utils.js';
 import { mapAppUrlImagesToAssetUrls } from './services/article-image-assets.js';
-import { createHtmlContainer, htmlToText, setElementHtml } from './services/dom-utils.js';
+import {
+  createHtmlContainer,
+  getActiveDocument,
+  getActiveWindowValue,
+  htmlToText,
+  setElementHtml,
+} from './services/dom-utils.js';
 
 function getActiveDocumentCompat() {
-  if (typeof window !== 'undefined' && window.activeDocument) return window.activeDocument;
-  if (typeof window !== 'undefined' && window['document']) return window['document'];
-  return null;
+  return getActiveDocument();
 }
 
 /**
@@ -557,7 +562,7 @@ function getObsidianRequest() {
  * @returns {AppleThemeApiLike}
  */
 function getAppleThemeApi() {
-  const api = /** @type {unknown} */ (globalThis.AppleTheme);
+  const api = getActiveWindowValue('AppleTheme');
   return /** @type {AppleThemeApiLike} */ (api);
 }
 
@@ -6293,7 +6298,9 @@ class AppleStyleView extends ItemView {
       simpleHash: (value) => this.simpleHash(String(value || '')),
       svgUploadCache: this.svgUploadCache,
       svgToPngBlob: (svgElement, scale) => this.svgToPngBlob(
-        svgElement instanceof SVGElement ? svgElement : document.createElementNS('http://www.w3.org/2000/svg', 'svg'),
+        svgElement instanceof SVGElement
+          ? svgElement
+          : getActiveDocumentCompat()?.createElementNS('http://www.w3.org/2000/svg', 'svg') || svgElement,
         typeof scale === 'number' ? scale : 3
       ),
     }));

@@ -45,6 +45,7 @@ import {
   formatArticleImageWarnings,
   resolveArticleImages,
 } from '../../services/article-image-assets.js';
+import { getActiveWindowValue } from '../../services/dom-utils.js';
 
 const QUOTA_POLICY = 'truncate';
 const FREE_DAILY_PLATFORM_QUOTA = 3;
@@ -619,10 +620,9 @@ function resolvePublishModalCapabilities(view, cachedConnection = {}) {
  * @returns {ObsidianApiLike}
  */
 function getObsidianApi(view, options = {}) {
-  const globalRecord = /** @type {Record<string, unknown>} */ (globalThis);
   return /** @type {ObsidianApiLike} */ (options.obsidianApi
     || view.plugin.obsidianApi
-    || globalRecord.obsidian
+    || getActiveWindowValue('obsidian')
     || {});
 }
 

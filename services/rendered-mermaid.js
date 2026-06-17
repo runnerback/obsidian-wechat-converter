@@ -1,5 +1,5 @@
 import { isMathJaxSvg, rasterizeSvgToPngDataUrl } from './svg-rasterizer.js';
-import { getActiveDocument, setElementHtml } from './dom-utils.js';
+import { findAllElements, getActiveDocument, setElementHtml } from './dom-utils.js';
 
 /**
  * @typedef {{ dataUrl?: string, width?: number, height?: number, style?: string }} MermaidRasterizeResult
@@ -149,9 +149,9 @@ function normalizeMermaidRuleSelector(selector, svg) {
  * @returns {number}
  */
 function inlineMermaidSvgStyles(svg) {
-  if (!svg || typeof svg.querySelectorAll !== 'function') return 0;
+  if (!svg) return 0;
 
-  const styleNodes = Array.from(svg.querySelectorAll('style'));
+  const styleNodes = findAllElements(svg, 'style');
   if (styleNodes.length === 0) return 0;
 
   let appliedCount = 0;
@@ -175,7 +175,7 @@ function inlineMermaidSvgStyles(svg) {
           if (selector === ':scope') {
             targets = [svg];
           } else {
-            targets = Array.from(svg.querySelectorAll(selector));
+            targets = findAllElements(svg, selector);
           }
         } catch {
           continue;
@@ -272,9 +272,9 @@ function wrapMermaidLabelText(text, maxUnits) {
  */
 function flattenMermaidForeignObjectLabels(svg) {
   const activeDocument = getActiveDocument();
-  if (!svg || typeof svg.querySelectorAll !== 'function' || !activeDocument) return 0;
+  if (!svg || !activeDocument) return 0;
 
-  const foreignObjects = Array.from(svg.querySelectorAll('foreignObject'));
+  const foreignObjects = findAllElements(svg, 'foreignObject');
   let flattened = 0;
 
   for (const foreignObject of foreignObjects) {
@@ -335,10 +335,10 @@ function flattenMermaidForeignObjectLabels(svg) {
  * @returns {number}
  */
 export function normalizeRenderedMermaidDiagrams(root) {
-  if (!root || typeof root.querySelectorAll !== 'function') return 0;
+  if (!root) return 0;
 
   let normalizedCount = 0;
-  const svgs = /** @type {SVGElement[]} */ (Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg));
+  const svgs = /** @type {SVGElement[]} */ (findAllElements(root, 'svg').filter(looksLikeMermaidSvg));
   for (const svg of svgs) {
     inlineMermaidSvgStyles(svg);
     const host = svg.closest?.('.mermaid,[data-obsidian-wechat-mermaid="true"]');
@@ -349,7 +349,7 @@ export function normalizeRenderedMermaidDiagrams(root) {
     normalizedCount += 1;
   }
 
-  const images = /** @type {HTMLImageElement[]} */ (Array.from(root.querySelectorAll('img.mermaid-diagram-image')));
+  const images = /** @type {HTMLImageElement[]} */ (findAllElements(root, 'img.mermaid-diagram-image'));
   for (const img of images) {
     const host = img.closest?.('.mermaid,[data-obsidian-wechat-mermaid="true"]');
     if (host) {
@@ -372,8 +372,8 @@ export function normalizeRenderedMermaidDiagrams(root) {
 
 /** @param {SVGElement | null | undefined} svg */
 function unwrapMermaidHtmlLabelParagraphs(svg) {
-  if (!svg || typeof svg.querySelectorAll !== 'function') return 0;
-  const labels = Array.from(svg.querySelectorAll('.nodeLabel p, .edgeLabel p'));
+  if (!svg) return 0;
+  const labels = findAllElements(svg, '.nodeLabel p, .edgeLabel p');
   let count = 0;
   for (const paragraph of labels) {
     const parent = paragraph.parentElement;
@@ -390,8 +390,8 @@ function unwrapMermaidHtmlLabelParagraphs(svg) {
 /** @param {SVGElement | null | undefined} svg */
 function convertMermaidForeignObjectContainers(svg) {
   const activeDocument = getActiveDocument();
-  if (!svg || typeof svg.querySelectorAll !== 'function' || !activeDocument) return 0;
-  const labelNodes = Array.from(svg.querySelectorAll('.nodeLabel, .edgeLabel'));
+  if (!svg || !activeDocument) return 0;
+  const labelNodes = findAllElements(svg, '.nodeLabel, .edgeLabel');
   let count = 0;
 
   for (const label of labelNodes) {
@@ -420,9 +420,9 @@ function convertMermaidForeignObjectContainers(svg) {
 
 /** @param {SVGElement | null | undefined} svg */
 function enforceMermaidTextReadability(svg) {
-  if (!svg || typeof svg.querySelectorAll !== 'function') return 0;
+  if (!svg) return 0;
   let count = 0;
-  Array.from(svg.querySelectorAll('tspan, text, .nodeLabel, .edgeLabel, foreignObject section, foreignObject span, foreignObject div'))
+  findAllElements(svg, 'tspan, text, .nodeLabel, .edgeLabel, foreignObject section, foreignObject span, foreignObject div')
     .forEach((node) => {
       appendInlineStyle(
         node,
@@ -438,12 +438,12 @@ function enforceMermaidTextReadability(svg) {
  * @returns {number}
  */
 export function prepareRenderedMermaidDiagramsForWechat(root) {
-  if (!root || typeof root.querySelectorAll !== 'function') return 0;
+  if (!root) return 0;
 
   normalizeRenderedMermaidDiagrams(root);
 
   let processed = 0;
-  const svgs = /** @type {SVGElement[]} */ (Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg));
+  const svgs = /** @type {SVGElement[]} */ (findAllElements(root, 'svg').filter(looksLikeMermaidSvg));
   for (const svg of svgs) {
     unwrapMermaidHtmlLabelParagraphs(svg);
     convertMermaidForeignObjectContainers(svg);
@@ -488,7 +488,7 @@ function getSerializedMermaidCacheKey(svg, scale, simpleHash) {
  * @returns {Promise<number>}
  */
 export async function convertRenderedMermaidDiagramsToImages(root, options = {}) {
-  if (!root || typeof root.querySelectorAll !== 'function') return 0;
+  if (!root) return 0;
 
   const {
     rasterizeSvg = rasterizeSvgToPngDataUrl,
@@ -499,7 +499,7 @@ export async function convertRenderedMermaidDiagramsToImages(root, options = {})
 
   normalizeRenderedMermaidDiagrams(root);
 
-  const svgs = /** @type {SVGElement[]} */ (Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg));
+  const svgs = /** @type {SVGElement[]} */ (findAllElements(root, 'svg').filter(looksLikeMermaidSvg));
   let convertedCount = 0;
 
   for (const svg of svgs) {
@@ -627,12 +627,12 @@ let mermaidRenderNonce = 0;
  * @returns {Promise<number>}
  */
 export async function renderMermaidCodeBlocks(root, options = {}) {
-  if (!root || typeof root.querySelectorAll !== 'function') return 0;
+  if (!root) return 0;
 
   const mermaidApi = resolveMermaidApi(options);
   if (!mermaidApi) return 0;
 
-  const codeBlocks = /** @type {HTMLElement[]} */ (Array.from(root.querySelectorAll('pre > code')).filter(isMermaidCodeBlock));
+  const codeBlocks = /** @type {HTMLElement[]} */ (findAllElements(root, 'pre > code').filter(isMermaidCodeBlock));
   let renderedCount = 0;
 
   for (const codeEl of codeBlocks) {
@@ -678,7 +678,7 @@ export async function renderMermaidCodeBlocks(root, options = {}) {
  * @returns {Promise<void>}
  */
 export async function rasterizeRenderedMermaidDiagrams(root, options = {}) {
-  if (!root || typeof root.querySelectorAll !== 'function') return;
+  if (!root) return;
 
   const {
     rasterizeSvg = rasterizeSvgToPngDataUrl,
@@ -690,7 +690,7 @@ export async function rasterizeRenderedMermaidDiagrams(root, options = {}) {
   // faithful even outside the live preview container.
   normalizeRenderedMermaidDiagrams(root);
 
-  const svgs = /** @type {SVGElement[]} */ (Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg));
+  const svgs = /** @type {SVGElement[]} */ (findAllElements(root, 'svg').filter(looksLikeMermaidSvg));
   for (const svg of svgs) {
     try {
       let result;

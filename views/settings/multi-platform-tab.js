@@ -42,6 +42,7 @@ import {
 import {
   formatWechatsyncCheckedAt,
 } from '../connection-status-bar.js';
+import { getActiveWindowValue } from '../../services/dom-utils.js';
 
 const OBSIDIAN_PUBLISHER_PRO_URL = 'https://xiaoweibox.top/obsidian-publisher/pro/?from=obsidian-plugin';
 const OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL = 'https://xiaoweibox.top/obsidian-publisher/guide/?from=obsidian-plugin#install-extension';
@@ -266,8 +267,7 @@ function openExternalUrl(tab, url) {
  * @returns {WechatObsidianApiLike}
  */
 function getObsidianApi(tab, options = {}) {
-  const globalRecord = /** @type {Record<string, unknown>} */ (globalThis);
-  return /** @type {WechatObsidianApiLike} */ (options.obsidianApi || tab.plugin.obsidianApi || globalRecord.obsidian || {});
+  return /** @type {WechatObsidianApiLike} */ (options.obsidianApi || tab.plugin.obsidianApi || getActiveWindowValue('obsidian') || {});
 }
 
 /**

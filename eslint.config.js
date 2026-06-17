@@ -3,14 +3,33 @@ import globals from "globals";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import sdl from "@microsoft/eslint-plugin-sdl";
 
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * @param {unknown} pluginModule
+ * @returns {Record<string, unknown>}
+ */
+function normalizePluginModule(pluginModule) {
+  if (isRecord(pluginModule) && isRecord(pluginModule.default)) {
+    return pluginModule.default;
+  }
+  return isRecord(pluginModule) ? pluginModule : {};
+}
+
 export default [
   js.configs.recommended,
   // Default CommonJS settings for plugin source files
   {
     files: ["**/*.js"],
     plugins: {
-      obsidianmd: obsidianmd.default || obsidianmd,
-      "@microsoft/sdl": sdl.default || sdl,
+      obsidianmd: normalizePluginModule(/** @type {unknown} */ (obsidianmd)),
+      "@microsoft/sdl": normalizePluginModule(/** @type {unknown} */ (sdl)),
     },
     languageOptions: {
       ecmaVersion: 2022,

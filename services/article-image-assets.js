@@ -475,10 +475,10 @@ function inferMimeType(filename, buffer) {
     return RECOGNIZED_UNSUPPORTED_IMAGE_MIME_LOOKUP[ext];
   }
   if (buffer?.length >= 12) {
-    if (buffer[0] === 0x89 && buffer.slice(1, 4).toString('ascii') === 'PNG') return 'image/png';
+    if (buffer[0] === 0x89 && buffer.subarray(1, 4).toString('ascii') === 'PNG') return 'image/png';
     if (buffer[0] === 0xff && buffer[1] === 0xd8) return 'image/jpeg';
-    if (buffer.slice(0, 4).toString('ascii') === 'GIF8') return 'image/gif';
-    if (buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+    if (buffer.subarray(0, 4).toString('ascii') === 'GIF8') return 'image/gif';
+    if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
   }
   return ext ? `image/${ext}` : 'application/octet-stream';
 }

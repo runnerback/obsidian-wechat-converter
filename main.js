@@ -35343,6 +35343,118 @@ function getActiveDocument() {
     return window["document"];
   return null;
 }
+function getActiveWindow() {
+  if (typeof window !== "undefined" && window.activeWindow)
+    return window.activeWindow;
+  if (typeof window !== "undefined" && window)
+    return window;
+  return null;
+}
+function getActiveWindowValue(name) {
+  const activeWindow = getActiveWindow();
+  if (!activeWindow)
+    return void 0;
+  return (
+    /** @type {Record<string, unknown>} */
+    activeWindow[name]
+  );
+}
+function findAllElements(root, selector) {
+  if (!root || !selector)
+    return [];
+  const activeWindow = getActiveWindow();
+  const ElementCtor = (activeWindow == null ? void 0 : activeWindow.Element) || (typeof Element !== "undefined" ? Element : null);
+  const nodeFilter = (activeWindow == null ? void 0 : activeWindow.NodeFilter) || (typeof NodeFilter !== "undefined" ? NodeFilter : null);
+  const findAll = (
+    /** @type {unknown} */
+    root.findAll
+  );
+  if (typeof findAll === "function") {
+    const result = (
+      /** @type {(selector: string) => unknown} */
+      findAll.call(root, selector)
+    );
+    return Array.isArray(result) && ElementCtor ? result.filter((item) => item instanceof ElementCtor) : [];
+  }
+  const ownerDocument = ElementCtor && root instanceof ElementCtor ? root.ownerDocument : getActiveDocument();
+  if (!ownerDocument || !nodeFilter || typeof ownerDocument.createTreeWalker !== "function")
+    return [];
+  const matches = (node) => ElementCtor && node instanceof ElementCtor && matchesSelectorSubset(node, selector);
+  const results = [];
+  const walker = ownerDocument.createTreeWalker(root, nodeFilter.SHOW_ELEMENT);
+  let current = walker.nextNode();
+  while (current) {
+    if (matches(current))
+      results.push(current);
+    current = walker.nextNode();
+  }
+  return results;
+}
+function matchesSelectorSubset(element, selector) {
+  return splitSelectorList(selector).some((candidate) => matchesSingleSelector(element, candidate));
+}
+function splitSelectorList(selector) {
+  return String(selector || "").split(",").map((part) => part.trim()).filter(Boolean);
+}
+function matchesSingleSelector(element, selector) {
+  const childParts = selector.split(">").map((part) => part.trim()).filter(Boolean);
+  if (childParts.length > 1) {
+    let current = element;
+    for (let index = childParts.length - 1; index >= 0; index -= 1) {
+      if (!matchesDescendantSelector(current, childParts[index]))
+        return false;
+      if (index > 0) {
+        const parent = current.parentElement;
+        if (!parent)
+          return false;
+        current = parent;
+      }
+    }
+    return true;
+  }
+  return matchesDescendantSelector(element, selector);
+}
+function matchesDescendantSelector(element, selector) {
+  const parts = selector.split(/\s+/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0)
+    return false;
+  let current = element;
+  if (!matchesSimpleSelector(current, parts[parts.length - 1]))
+    return false;
+  for (let index = parts.length - 2; index >= 0; index -= 1) {
+    let parent = current.parentElement;
+    let found = false;
+    while (parent) {
+      if (matchesSimpleSelector(parent, parts[index])) {
+        current = parent;
+        found = true;
+        break;
+      }
+      parent = parent.parentElement;
+    }
+    if (!found)
+      return false;
+  }
+  return true;
+}
+function matchesSimpleSelector(element, selector) {
+  var _a5;
+  if (!selector || selector === "*")
+    return true;
+  const idMatch = selector.match(/#([A-Za-z0-9_-]+)/);
+  if (idMatch && element.id !== idMatch[1])
+    return false;
+  const classRegex = /\.([A-Za-z0-9_-]+)/g;
+  let classMatch;
+  while (classMatch = classRegex.exec(selector)) {
+    if (!((_a5 = element.classList) == null ? void 0 : _a5.contains(classMatch[1])))
+      return false;
+  }
+  const tag = selector.replace(/[#.][A-Za-z0-9_-]+/g, "").trim();
+  if (!tag)
+    return true;
+  return String(element.tagName || "").toLowerCase() === tag.toLowerCase();
+}
 function parseHtmlFragment(html = "") {
   const doc = getActiveDocument();
   if (!doc) {
@@ -37521,9 +37633,9 @@ function normalizeMermaidRuleSelector(selector, svg) {
   return normalized;
 }
 function inlineMermaidSvgStyles(svg) {
-  if (!svg || typeof svg.querySelectorAll !== "function")
+  if (!svg)
     return 0;
-  const styleNodes = Array.from(svg.querySelectorAll("style"));
+  const styleNodes = findAllElements(svg, "style");
   if (styleNodes.length === 0)
     return 0;
   let appliedCount = 0;
@@ -37546,7 +37658,7 @@ function inlineMermaidSvgStyles(svg) {
           if (selector === ":scope") {
             targets = [svg];
           } else {
-            targets = Array.from(svg.querySelectorAll(selector));
+            targets = findAllElements(svg, selector);
           }
         } catch (e) {
           continue;
@@ -37615,9 +37727,9 @@ function wrapMermaidLabelText(text, maxUnits) {
 function flattenMermaidForeignObjectLabels(svg) {
   var _a5;
   const activeDocument = getActiveDocument();
-  if (!svg || typeof svg.querySelectorAll !== "function" || !activeDocument)
+  if (!svg || !activeDocument)
     return 0;
-  const foreignObjects = Array.from(svg.querySelectorAll("foreignObject"));
+  const foreignObjects = findAllElements(svg, "foreignObject");
   let flattened = 0;
   for (const foreignObject of foreignObjects) {
     const textContent = String(foreignObject.textContent || "").replace(/\s+/g, " ").trim();
@@ -37665,12 +37777,12 @@ function flattenMermaidForeignObjectLabels(svg) {
 }
 function normalizeRenderedMermaidDiagrams(root) {
   var _a5, _b;
-  if (!root || typeof root.querySelectorAll !== "function")
+  if (!root)
     return 0;
   let normalizedCount = 0;
   const svgs = (
     /** @type {SVGElement[]} */
-    Array.from(root.querySelectorAll("svg")).filter(looksLikeMermaidSvg)
+    findAllElements(root, "svg").filter(looksLikeMermaidSvg)
   );
   for (const svg of svgs) {
     inlineMermaidSvgStyles(svg);
@@ -37683,7 +37795,7 @@ function normalizeRenderedMermaidDiagrams(root) {
   }
   const images = (
     /** @type {HTMLImageElement[]} */
-    Array.from(root.querySelectorAll("img.mermaid-diagram-image"))
+    findAllElements(root, "img.mermaid-diagram-image")
   );
   for (const img of images) {
     const host = (_b = img.closest) == null ? void 0 : _b.call(img, '.mermaid,[data-obsidian-wechat-mermaid="true"]');
@@ -37717,7 +37829,7 @@ function getSerializedMermaidCacheKey(svg, scale, simpleHash) {
 }
 async function convertRenderedMermaidDiagramsToImages(root, options = {}) {
   var _a5;
-  if (!root || typeof root.querySelectorAll !== "function")
+  if (!root)
     return 0;
   const {
     rasterizeSvg: rasterizeSvg2 = rasterizeSvgToPngDataUrl,
@@ -37728,7 +37840,7 @@ async function convertRenderedMermaidDiagramsToImages(root, options = {}) {
   normalizeRenderedMermaidDiagrams(root);
   const svgs = (
     /** @type {SVGElement[]} */
-    Array.from(root.querySelectorAll("svg")).filter(looksLikeMermaidSvg)
+    findAllElements(root, "svg").filter(looksLikeMermaidSvg)
   );
   let convertedCount = 0;
   for (const svg of svgs) {
@@ -37837,14 +37949,14 @@ function resolveMermaidApi(options = {}) {
 }
 var mermaidRenderNonce = 0;
 async function renderMermaidCodeBlocks(root, options = {}) {
-  if (!root || typeof root.querySelectorAll !== "function")
+  if (!root)
     return 0;
   const mermaidApi = resolveMermaidApi(options);
   if (!mermaidApi)
     return 0;
   const codeBlocks = (
     /** @type {HTMLElement[]} */
-    Array.from(root.querySelectorAll("pre > code")).filter(isMermaidCodeBlock)
+    findAllElements(root, "pre > code").filter(isMermaidCodeBlock)
   );
   let renderedCount = 0;
   for (const codeEl of codeBlocks) {
@@ -37884,7 +37996,7 @@ async function renderMermaidCodeBlocks(root, options = {}) {
 }
 async function rasterizeRenderedMermaidDiagrams(root, options = {}) {
   var _a5;
-  if (!root || typeof root.querySelectorAll !== "function")
+  if (!root)
     return;
   const {
     rasterizeSvg: rasterizeSvg2 = rasterizeSvgToPngDataUrl,
@@ -37893,7 +38005,7 @@ async function rasterizeRenderedMermaidDiagrams(root, options = {}) {
   normalizeRenderedMermaidDiagrams(root);
   const svgs = (
     /** @type {SVGElement[]} */
-    Array.from(root.querySelectorAll("svg")).filter(looksLikeMermaidSvg)
+    findAllElements(root, "svg").filter(looksLikeMermaidSvg)
   );
   for (const svg of svgs) {
     try {
@@ -37938,11 +38050,10 @@ async function rasterizeRenderedMermaidDiagrams(root, options = {}) {
 
 // services/obsidian-triplet-renderer.js
 function getDefaultMarkdownRenderer() {
-  const globalScope = (
-    /** @type {{ obsidian?: { MarkdownRenderer?: MarkdownRendererLike } }} */
-    globalThis
+  const obsidianApi2 = (
+    /** @type {{ MarkdownRenderer?: MarkdownRendererLike } | undefined} */
+    getActiveWindowValue("obsidian")
   );
-  const obsidianApi2 = globalScope.obsidian;
   return (obsidianApi2 == null ? void 0 : obsidianApi2.MarkdownRenderer) || null;
 }
 function isFencedBlockDelimiter(line) {
@@ -38994,7 +39105,7 @@ function preprocessMarkdownForTriplet(markdown, converter) {
 function countUnresolvedImageEmbeds(root) {
   if (!root)
     return 0;
-  const embeds = Array.from(root.querySelectorAll("span.internal-embed,span.image-embed,div.internal-embed,div.image-embed"));
+  const embeds = findAllElements(root, "span.internal-embed,span.image-embed,div.internal-embed,div.image-embed");
   let unresolved = 0;
   for (const embed of embeds) {
     const isImageEmbed = embed.classList.contains("image-embed");
@@ -39027,9 +39138,9 @@ function shouldObserveMermaidRenderWindow(markdown) {
   return false;
 }
 function collectMermaidHostElements(root) {
-  if (!root || typeof root.querySelectorAll !== "function")
+  if (!root)
     return [];
-  const elements = Array.from(root.querySelectorAll("*")).filter((el) => hasMermaidMarker(el));
+  const elements = findAllElements(root, "*").filter((el) => hasMermaidMarker(el));
   return elements.filter((el) => {
     var _a5, _b;
     if (el.closest("mjx-container"))
@@ -39041,10 +39152,10 @@ function collectMermaidHostElements(root) {
   });
 }
 function countRenderedMermaidDiagrams(root) {
-  if (!root || typeof root.querySelectorAll !== "function")
+  if (!root)
     return 0;
-  const svgCount = Array.from(root.querySelectorAll("svg")).filter(looksLikeMermaidSvg).length;
-  const imageCount = root.querySelectorAll("img.mermaid-diagram-image").length;
+  const svgCount = findAllElements(root, "svg").filter(looksLikeMermaidSvg).length;
+  const imageCount = findAllElements(root, "img.mermaid-diagram-image").length;
   return svgCount + imageCount;
 }
 function countPendingMermaidHosts(root) {
@@ -39056,7 +39167,7 @@ function countPendingMermaidHosts(root) {
       continue;
     if (((_d = (_c = host.tagName) == null ? void 0 : _c.toLowerCase) == null ? void 0 : _d.call(_c)) === "img" && host.classList.contains("mermaid-diagram-image"))
       continue;
-    const hasRenderedSvg = Array.from(host.querySelectorAll("svg")).some(looksLikeMermaidSvg);
+    const hasRenderedSvg = findAllElements(host, "svg").some(looksLikeMermaidSvg);
     const hasRenderedImage = !!host.querySelector("img.mermaid-diagram-image");
     if (!hasRenderedSvg && !hasRenderedImage) {
       pending += 1;
@@ -47860,13 +47971,13 @@ function inferMimeType(filename, buffer) {
     return RECOGNIZED_UNSUPPORTED_IMAGE_MIME_LOOKUP[ext];
   }
   if ((buffer == null ? void 0 : buffer.length) >= 12) {
-    if (buffer[0] === 137 && buffer.slice(1, 4).toString("ascii") === "PNG")
+    if (buffer[0] === 137 && buffer.subarray(1, 4).toString("ascii") === "PNG")
       return "image/png";
     if (buffer[0] === 255 && buffer[1] === 216)
       return "image/jpeg";
-    if (buffer.slice(0, 4).toString("ascii") === "GIF8")
+    if (buffer.subarray(0, 4).toString("ascii") === "GIF8")
       return "image/gif";
-    if (buffer.slice(0, 4).toString("ascii") === "RIFF" && buffer.slice(8, 12).toString("ascii") === "WEBP")
+    if (buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP")
       return "image/webp";
   }
   return ext ? `image/${ext}` : "application/octet-stream";
@@ -48650,13 +48761,9 @@ function openExternalUrl(tab, url) {
   return false;
 }
 function getObsidianApi(tab, options = {}) {
-  const globalRecord = (
-    /** @type {Record<string, unknown>} */
-    globalThis
-  );
   return (
     /** @type {WechatObsidianApiLike} */
-    options.obsidianApi || tab.plugin.obsidianApi || globalRecord.obsidian || {}
+    options.obsidianApi || tab.plugin.obsidianApi || getActiveWindowValue("obsidian") || {}
   );
 }
 function refreshSettingTab(tab) {
@@ -49574,13 +49681,9 @@ function resolvePublishModalCapabilities(view, cachedConnection = {}) {
   };
 }
 function getObsidianApi2(view, options = {}) {
-  const globalRecord = (
-    /** @type {Record<string, unknown>} */
-    globalThis
-  );
   return (
     /** @type {ObsidianApiLike} */
-    options.obsidianApi || view.plugin.obsidianApi || globalRecord.obsidian || {}
+    options.obsidianApi || view.plugin.obsidianApi || getActiveWindowValue("obsidian") || {}
   );
 }
 async function showMultiPlatformPublishModal(view, options = {}) {
@@ -49989,15 +50092,17 @@ async function showMultiPlatformPublishModal(view, options = {}) {
 
 // input.js
 var loadCommonJsDependency = (specifier) => {
-  const runtimeRequire = (
-    /** @type {unknown} */
-    globalThis.require
-  );
-  if (typeof runtimeRequire !== "function") {
-    throw new Error(`CommonJS loader unavailable for ${specifier}`);
+  const activeWindowRequire = getActiveWindowValue("require");
+  if (typeof activeWindowRequire === "function") {
+    return (
+      /** @type {(specifier: string) => unknown} */
+      activeWindowRequire(specifier)
+    );
   }
-  const requireFn = runtimeRequire;
-  return requireFn(specifier);
+  if (typeof module !== "undefined" && typeof module.require === "function") {
+    return module.require(specifier);
+  }
+  throw new Error(`CommonJS loader unavailable for ${specifier}`);
 };
 var obsidianApi = (
   /** @type {ObsidianApiLike} */
@@ -50007,11 +50112,7 @@ var { Plugin, MarkdownView, ItemView, Notice, Platform } = obsidianApi;
 var { PluginSettingTab, Setting } = obsidianApi;
 var LEGACY_SETTING_RENDER_KEY2 = ["dis", "play"].join("");
 function getActiveDocumentCompat() {
-  if (typeof window !== "undefined" && window.activeDocument)
-    return window.activeDocument;
-  if (typeof window !== "undefined" && window["document"])
-    return window["document"];
-  return null;
+  return getActiveDocument();
 }
 function revealLeafCompat(workspace, leaf) {
   if (!workspace || !leaf)
@@ -50275,10 +50376,7 @@ function getObsidianRequest() {
   return obsidianApi.request;
 }
 function getAppleThemeApi() {
-  const api = (
-    /** @type {unknown} */
-    globalThis.AppleTheme
-  );
+  const api = getActiveWindowValue("AppleTheme");
   return (
     /** @type {AppleThemeApiLike} */
     api
@@ -55406,10 +55504,13 @@ var AppleStyleView = class extends ItemView {
         pMap,
         simpleHash: (value) => this.simpleHash(String(value || "")),
         svgUploadCache: this.svgUploadCache,
-        svgToPngBlob: (svgElement, scale) => this.svgToPngBlob(
-          svgElement instanceof SVGElement ? svgElement : document.createElementNS("http://www.w3.org/2000/svg", "svg"),
-          typeof scale === "number" ? scale : 3
-        )
+        svgToPngBlob: (svgElement, scale) => {
+          var _a5;
+          return this.svgToPngBlob(
+            svgElement instanceof SVGElement ? svgElement : ((_a5 = getActiveDocumentCompat()) == null ? void 0 : _a5.createElementNS("http://www.w3.org/2000/svg", "svg")) || svgElement,
+            typeof scale === "number" ? scale : 3
+          );
+        }
       })
     );
   }
