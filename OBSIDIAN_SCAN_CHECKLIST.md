@@ -10,7 +10,15 @@ Run this before merging a feature branch or preparing a release candidate:
 npm run review:guard
 ```
 
-The guard runs lint, production build, generated-artifact checks, the full Vitest suite, release packaging, and release validation. If it fails, fix the failure instead of bypassing the guard.
+The guard runs the scan-risk gate, lint, production build, generated-artifact checks, the full Vitest suite, release packaging, and release validation. If it fails, fix the failure instead of bypassing the guard.
+
+For faster local feedback while developing, run:
+
+```bash
+npm run scan:guard
+```
+
+That catches the high-risk Obsidian scan patterns early without paying the full release packaging cost.
 
 For focused local work, run the smaller loop first:
 

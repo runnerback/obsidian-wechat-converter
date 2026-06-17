@@ -19,6 +19,7 @@ This file provides guidance to Codex when working with code in this repository.
 - **Start development watcher**: `npm run dev`
 - **Run unit tests**: `npm test`
 - **Run coverage**: `npm run test:coverage`
+- **Run fast Obsidian scan-risk guard**: `npm run scan:guard`
 - **Run Obsidian scan readiness guard**: `npm run review:guard`
 - **Check generated build artifacts**: `npm run check:build-artifacts`
 - **Release dry run**: `npm run release:dryrun`
@@ -112,6 +113,7 @@ This file provides guidance to Codex when working with code in this repository.
 - CI/CD must use the same `npm run review:guard` gatekeeper so local, PR, and release checks stay aligned.
 - Avoid introducing new scan-triggering APIs: prefer DOM helpers over `innerHTML`, `setCssStyles(...)` over static `element.style.*`, Obsidian `Modal` over `confirm()`, and local parsing over `fetch(data:)`.
 - If a scan-sensitive API is intentionally required for compatibility, keep the usage narrow, document the reason inline, and add regression tests around the behavior.
+- During feature development, use `npm run scan:guard` for quick feedback before running the full `npm run review:guard`.
 
 ### 6. Modular Architecture
 - Adhere to the refactored modular architecture. Do not pile rendering rules or core logic inside the entry file `input.js`.

@@ -16,6 +16,16 @@ description: Release workflow for obsidian-wechat-converter (version bump, relea
 3. **`versions.json`**: 添加新版本映射，如 `"2.6.0": "0.15.0"`
 4. **`README.md`**: 更新 Badge 中的版本号 `![Version](https://img.shields.io/badge/version-X.X.X-blue)`
 
+## 开发期门禁
+
+在做 feature / enhancement 时，先跑快速自检：
+
+```bash
+npm run scan:guard
+```
+
+它用于尽早发现新的 Obsidian scan 风险模式，但不替代最终发布前检查。
+
 ## Release Notes
 
 在 `RELEASE_NOTES/` 目录下创建对应版本的文件：
@@ -49,6 +59,7 @@ title: 简短标题（会显示为 "v{version} - 标题"）
 1. **准备阶段**（在 feature 分支完成）
    - 更新版本号文件
    - 创建 `RELEASE_NOTES/v{version}.md`
+   - 先运行 `npm run scan:guard` 做快速自检
    - 确保 Obsidian scan readiness guard 通过：`npm run review:guard`
 
 2. **合并 PR**
@@ -67,6 +78,7 @@ title: 简短标题（会显示为 "v{version} - 标题"）
 1. **准备阶段**
    - 更新版本号文件
    - 创建 `RELEASE_NOTES/v{version}.md`
+   - 先运行 `npm run scan:guard` 做快速自检
    - 确保 Obsidian scan readiness guard 通过：`npm run review:guard`
 
 2. **提交并触发发布**
@@ -85,6 +97,7 @@ title: 简短标题（会显示为 "v{version} - 标题"）
 - 校验 `versions.json` 与 `manifest.json.minAppVersion` 映射
 - 校验 tag 与 `manifest.json.version` 一致，且不使用 `v` 前缀
 - 运行 `npm run review:guard`，其中包含：
+  - scan-risk guard
   - ESLint
   - 生产构建
   - generated build artifact 一致性检查
@@ -103,3 +116,4 @@ title: 简短标题（会显示为 "v{version} - 标题"）
   - `main.js`
   - `manifest.json`
   - `styles.css`
+- 如果 `scan:guard` 失败，不要直接进入 release 流程
