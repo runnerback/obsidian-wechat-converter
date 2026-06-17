@@ -8500,16 +8500,16 @@ class AppleStylePlugin extends Plugin {
     this.addCommand({
       id: 'insert-image-swipe-block',
       name: getImageSwipeCommandCopy(this.app, 'image-swipe').name,
-      editorCallback: (editor) => {
-        this.insertImageSwipeCallout(editor, 'image-swipe');
+      callback: () => {
+        this.insertImageSwipeCalloutFromActiveEditor('image-swipe');
       },
     });
 
     this.addCommand({
       id: 'insert-image-sensitive-block',
       name: getImageSwipeCommandCopy(this.app, 'image-sensitive').name,
-      editorCallback: (editor) => {
-        this.insertImageSwipeCallout(editor, 'image-sensitive');
+      callback: () => {
+        this.insertImageSwipeCalloutFromActiveEditor('image-sensitive');
       },
     });
 
@@ -8527,6 +8527,14 @@ class AppleStylePlugin extends Plugin {
     this.startWechatSyncBridgeInBackground('plugin-load');
 
     console.log('✅ Obsidian 发布助手加载完成');
+  }
+
+  /**
+   * @param {string} [type]
+   */
+  insertImageSwipeCalloutFromActiveEditor(type = 'image-swipe') {
+    const activeView = this.app?.workspace?.getActiveViewOfType?.(MarkdownView);
+    this.insertImageSwipeCallout(activeView?.editor, type);
   }
 
   /**

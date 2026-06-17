@@ -57478,15 +57478,15 @@ var AppleStylePlugin = class extends Plugin {
     this.addCommand({
       id: "insert-image-swipe-block",
       name: getImageSwipeCommandCopy(this.app, "image-swipe").name,
-      editorCallback: (editor) => {
-        this.insertImageSwipeCallout(editor, "image-swipe");
+      callback: () => {
+        this.insertImageSwipeCalloutFromActiveEditor("image-swipe");
       }
     });
     this.addCommand({
       id: "insert-image-sensitive-block",
       name: getImageSwipeCommandCopy(this.app, "image-sensitive").name,
-      editorCallback: (editor) => {
-        this.insertImageSwipeCallout(editor, "image-sensitive");
+      callback: () => {
+        this.insertImageSwipeCalloutFromActiveEditor("image-sensitive");
       }
     });
     this.addSettingTab(new AppleStyleSettingTab(this.app, this));
@@ -57497,6 +57497,14 @@ var AppleStylePlugin = class extends Plugin {
     });
     this.startWechatSyncBridgeInBackground("plugin-load");
     console.log("\u2705 Obsidian \u53D1\u5E03\u52A9\u624B\u52A0\u8F7D\u5B8C\u6210");
+  }
+  /**
+   * @param {string} [type]
+   */
+  insertImageSwipeCalloutFromActiveEditor(type = "image-swipe") {
+    var _a5, _b, _c;
+    const activeView = (_c = (_b = (_a5 = this.app) == null ? void 0 : _a5.workspace) == null ? void 0 : _b.getActiveViewOfType) == null ? void 0 : _c.call(_b, MarkdownView);
+    this.insertImageSwipeCallout(activeView == null ? void 0 : activeView.editor, type);
   }
   /**
    * @param {EditorLike | null | undefined} editor
