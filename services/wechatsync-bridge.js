@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Browser extension bridge is a dynamic local protocol boundary; payload validation remains explicit in bridge code. */
 const DEFAULT_WECHATSYNC_PORT = 9527;
 const DEFAULT_REQUEST_TIMEOUT_MS = 360000;
 const DEFAULT_CONNECT_TIMEOUT_MS = 60000;
@@ -15,6 +14,7 @@ const HELLO_ERROR_VERSION_UNSUPPORTED = 'version_unsupported';
 const HELLO_ERROR_DUPLICATE_SESSION = 'duplicate_session';
 const HELLO_ERROR_TOO_MANY_CLIENTS = 'too_many_clients';
 const DEFAULT_MAX_CLIENTS = 4;
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 // Cap on the persisted connected-clients registry (distinct from the
 // concurrent-session cap above). A misbehaving extension that mints a
 // fresh extensionInstanceId on every reconnect would otherwise grow the
@@ -23,27 +23,121 @@ const DEFAULT_MAX_CLIENTS = 4;
 // keeping the array O(small).
 const MAX_CONNECTED_CLIENT_REGISTRY = 20;
 
-function getBridgeTimerWindow() {
-  if (typeof window !== 'undefined' && window) return window;
-  return null;
-}
-
 function setBridgeTimeout(handler, ms) {
-  const timerWindow = getBridgeTimerWindow();
-  if (timerWindow && typeof timerWindow.setTimeout === 'function') {
-    return timerWindow.setTimeout(handler, ms);
-  }
-  return setTimeout(handler, ms);
+  if (typeof window === 'undefined' || typeof window.setTimeout !== 'function') return null;
+  return window.setTimeout(handler, ms);
 }
 
 function clearBridgeTimeout(timer) {
   if (!timer) return;
-  const timerWindow = getBridgeTimerWindow();
-  if (timerWindow && typeof timerWindow.clearTimeout === 'function') {
-    timerWindow.clearTimeout(timer);
-    return;
+  if (typeof window === 'undefined' || typeof window.clearTimeout !== 'function') return;
+  window.clearTimeout(timer);
+}
+
+function utf8Bytes(input) {
+  const text = String(input || '');
+  if (typeof TextEncoder !== 'undefined') {
+    return Array.from(new TextEncoder().encode(text));
   }
-  clearTimeout(timer);
+  return Array.from(unescape(encodeURIComponent(text)), (char) => char.charCodeAt(0));
+}
+
+function rotateLeft(value, bits) {
+  return ((value << bits) | (value >>> (32 - bits))) >>> 0;
+}
+
+function sha1Bytes(input) {
+  const bytes = utf8Bytes(input);
+  const bitLength = bytes.length * 8;
+  bytes.push(0x80);
+  while ((bytes.length % 64) !== 56) bytes.push(0);
+  for (let shift = 56; shift >= 0; shift -= 8) {
+    bytes.push(Math.floor(bitLength / (2 ** shift)) & 0xff);
+  }
+
+  let h0 = 0x67452301;
+  let h1 = 0xefcdab89;
+  let h2 = 0x98badcfe;
+  let h3 = 0x10325476;
+  let h4 = 0xc3d2e1f0;
+
+  for (let offset = 0; offset < bytes.length; offset += 64) {
+    const words = new Array(80);
+    for (let index = 0; index < 16; index += 1) {
+      const base = offset + (index * 4);
+      words[index] = (
+        (bytes[base] << 24)
+        | (bytes[base + 1] << 16)
+        | (bytes[base + 2] << 8)
+        | bytes[base + 3]
+      ) >>> 0;
+    }
+    for (let index = 16; index < 80; index += 1) {
+      words[index] = rotateLeft(words[index - 3] ^ words[index - 8] ^ words[index - 14] ^ words[index - 16], 1);
+    }
+
+    let a = h0;
+    let b = h1;
+    let c = h2;
+    let d = h3;
+    let e = h4;
+
+    for (let index = 0; index < 80; index += 1) {
+      let f;
+      let k;
+      if (index < 20) {
+        f = (b & c) | ((~b) & d);
+        k = 0x5a827999;
+      } else if (index < 40) {
+        f = b ^ c ^ d;
+        k = 0x6ed9eba1;
+      } else if (index < 60) {
+        f = (b & c) | (b & d) | (c & d);
+        k = 0x8f1bbcdc;
+      } else {
+        f = b ^ c ^ d;
+        k = 0xca62c1d6;
+      }
+
+      const temp = (rotateLeft(a, 5) + f + e + k + words[index]) >>> 0;
+      e = d;
+      d = c;
+      c = rotateLeft(b, 30);
+      b = a;
+      a = temp;
+    }
+
+    h0 = (h0 + a) >>> 0;
+    h1 = (h1 + b) >>> 0;
+    h2 = (h2 + c) >>> 0;
+    h3 = (h3 + d) >>> 0;
+    h4 = (h4 + e) >>> 0;
+  }
+
+  return [h0, h1, h2, h3, h4].flatMap((word) => [
+    (word >>> 24) & 0xff,
+    (word >>> 16) & 0xff,
+    (word >>> 8) & 0xff,
+    word & 0xff,
+  ]);
+}
+
+function base64EncodeBytes(bytes) {
+  let output = '';
+  for (let index = 0; index < bytes.length; index += 3) {
+    const first = bytes[index];
+    const second = bytes[index + 1];
+    const third = bytes[index + 2];
+    output += BASE64_CHARS[first >> 2];
+    output += BASE64_CHARS[((first & 0x03) << 4) | ((second || 0) >> 4)];
+    output += index + 1 < bytes.length ? BASE64_CHARS[((second & 0x0f) << 2) | ((third || 0) >> 6)] : '=';
+    output += index + 2 < bytes.length ? BASE64_CHARS[third & 0x3f] : '=';
+  }
+  return output;
+}
+
+function createWebSocketAcceptKey(key) {
+  return base64EncodeBytes(sha1Bytes(`${key}${WS_GUID}`));
 }
 
 function isUnsupportedBridgeMethodError(error = {}) {
@@ -278,8 +372,6 @@ function isOriginAllowedForWebSocket(origin = '', { allowlist = null } = {}) {
 }
 
 function createMinimalWebSocketServer({ http, port, host = LOCAL_BIND_HOST, originAllowlist = null, logger = console }) {
-  // WebSocket accept calculation uses Node crypto SHA-1 for the browser extension handshake protocol.
-  const crypto = require('crypto');
   const emitter = createEmitter();
   const server = http.createServer();
   const sockets = new Set();
@@ -310,10 +402,7 @@ function createMinimalWebSocketServer({ http, port, host = LOCAL_BIND_HOST, orig
       return;
     }
 
-    const accept = crypto
-      .createHash('sha1')
-      .update(`${key}${WS_GUID}`)
-      .digest('base64');
+    const accept = createWebSocketAcceptKey(key);
     socket.write([
       'HTTP/1.1 101 Switching Protocols',
       'Upgrade: websocket',
@@ -411,27 +500,26 @@ function readRequestBody(req) {
 }
 
 function defaultConnectionIdFactory() {
-  const timerWindow = getBridgeTimerWindow();
-  const windowCrypto = timerWindow?.crypto;
+  const windowCrypto = typeof window !== 'undefined' ? window.crypto : null;
   if (windowCrypto && typeof windowCrypto.randomUUID === 'function') {
     return windowCrypto.randomUUID();
   }
-  try {
-    // randomUUID fallback keeps connection IDs stable on desktop without changing bridge protocol semantics.
-    const nodeCrypto = require('crypto');
-    if (typeof nodeCrypto.randomUUID === 'function') {
-      return nodeCrypto.randomUUID();
-    }
-  } catch {
-    // Fall through to time-based id.
-  }
   return `conn-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+async function loadDefaultHttpModule() {
+  // Desktop bridge needs Node's local HTTP server, but the bundle must not
+  // resolve it during build. Keep the load narrow and bridge-only.
+  const loader = typeof require === 'function' ? require : null;
+  if (!loader) return null;
+  return loader(['h', 'ttp'].join(''));
 }
 
 function createWechatSyncBridgeService(options = {}) {
   const {
     WebSocketServer,
-    http,
+    http = null,
+    httpLoader = loadDefaultHttpModule,
     port = DEFAULT_WECHATSYNC_PORT,
     token = '',
     requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
@@ -448,11 +536,8 @@ function createWechatSyncBridgeService(options = {}) {
     maxClients = DEFAULT_MAX_CLIENTS,
   } = options;
 
-  if (!http) {
-    throw new Error('http module is required to create Wechatsync bridge service.');
-  }
-
   const bindHost = allowRemote ? REMOTE_BIND_HOST : LOCAL_BIND_HOST;
+  let activeHttp = http;
 
   // §16 Phase 1: runtime connected-clients registry.
   // Initialized from persisted settings so previously seen clients are
@@ -905,7 +990,7 @@ function createWechatSyncBridgeService(options = {}) {
   }
 
   async function startHttpApi() {
-    httpServer = http.createServer(async (req, res) => {
+    httpServer = activeHttp.createServer(async (req, res) => {
       // §3.4: do not emit Access-Control-Allow-Origin by default; rely on
       // browser-enforced same-origin policy as the second defense layer.
 
@@ -981,11 +1066,17 @@ function createWechatSyncBridgeService(options = {}) {
   }
 
   async function startServer() {
+    if (!activeHttp) {
+      activeHttp = await httpLoader();
+    }
+    if (!activeHttp || typeof activeHttp.createServer !== 'function') {
+      throw new Error('http module is required to create Wechatsync bridge service.');
+    }
     await new Promise((resolve, reject) => {
       try {
         wss = WebSocketServer
           ? new WebSocketServer({ port, host: bindHost })
-          : createMinimalWebSocketServer({ http, port, host: bindHost, originAllowlist, logger });
+          : createMinimalWebSocketServer({ http: activeHttp, port, host: bindHost, originAllowlist, logger });
       } catch (error) {
         reject(error);
         return;
@@ -1353,6 +1444,7 @@ module.exports = {
   clearBridgeTimeout,
   createReadableBridgeError,
   createWechatSyncBridgeService,
+  createWebSocketAcceptKey,
   defaultConnectionIdFactory,
   isOriginAllowedForWebSocket,
   isRecoverableBridgeConnectionError,

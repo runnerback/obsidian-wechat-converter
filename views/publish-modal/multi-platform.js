@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Publish modal integrates Obsidian UI state, dynamic plugin settings, and WeChat bridge payloads. */
 // views/publish-modal/multi-platform.js
 //
 // Renders the「其他平台发布」publish modal. Extracted from input.js

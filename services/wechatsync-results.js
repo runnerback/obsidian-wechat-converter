@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Result normalization accepts dynamic WeChat API responses and plugin error objects. */
 const FEATURED_WECHATSYNC_PLATFORM_ORDER = [
   'xiaohongshu',
   'zhihu',

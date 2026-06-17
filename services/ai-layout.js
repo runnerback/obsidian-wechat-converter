@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-require-imports -- AI layout runtime intentionally bridges dynamic JS/JSON bundles and DOM APIs; these warnings are boundary noise, not a change in runtime behavior. */
 const {
   AI_LAYOUT_SKILL_VERSION,
   AI_LAYOUT_SELECTION_AUTO,
@@ -84,27 +83,19 @@ const AI_PROVIDER_KIND_DEFAULTS = {
   },
 };
 
-function getActiveTimerApi() {
-  if (typeof window !== 'undefined' && window?.setTimeout && window?.clearTimeout) {
-    return window;
-  }
-  return {
-    setTimeout: (callback, delay) => setTimeout(callback, delay),
-    clearTimeout: (timer) => clearTimeout(timer),
-  };
-}
-
 function getDefaultFetch() {
   if (typeof window !== 'undefined' && typeof window.fetch === 'function') return window.fetch.bind(window);
   return undefined;
 }
 
 function setAiLayoutTimeout(callback, delay) {
-  return getActiveTimerApi().setTimeout(callback, delay);
+  if (typeof window === 'undefined' || typeof window.setTimeout !== 'function') return null;
+  return window.setTimeout(callback, delay);
 }
 
 function clearAiLayoutTimeout(timer) {
-  return getActiveTimerApi().clearTimeout(timer);
+  if (!timer || typeof window === 'undefined' || typeof window.clearTimeout !== 'function') return;
+  window.clearTimeout(timer);
 }
 
 function createDefaultAiSettings() {

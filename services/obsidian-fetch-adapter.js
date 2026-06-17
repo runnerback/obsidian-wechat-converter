@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Fetch adapter normalizes Obsidian requestUrl/native fetch response shapes across dynamic runtimes. */
 function createAbortError() {
   if (typeof DOMException === 'function') {
     return new DOMException('The operation was aborted.', 'AbortError');

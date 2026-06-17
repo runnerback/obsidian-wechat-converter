@@ -10,6 +10,13 @@
 //
 // Contract is locked by tests/connection_status_bar.test.js.
 
+/**
+ * @typedef {{ status?: string, checkedAt?: number | string | null, message?: string }} WechatsyncConnectionLike
+ * @typedef {{ variant?: 'modal' | 'settings' }} WechatsyncStatusContext
+ * @typedef {{ label?: string, disabled?: boolean, onClick?: (event: MouseEvent, button: HTMLButtonElement) => void }} WechatsyncActionLike
+ * @typedef {HTMLElement & { createDiv: Function, createEl: Function }} WechatsyncParentElement
+ */
+
 function formatWechatsyncCheckedAt(timestamp) {
   if (!timestamp) return '';
   try {
@@ -28,6 +35,10 @@ function formatWechatsyncCheckedAt(timestamp) {
 // state. Centralized so both surfaces render identical wording for
 // identical states. The two variants only differ in user-facing wording —
 // they should never diverge on the dot color or class.
+/**
+ * @param {WechatsyncConnectionLike} [connection={}]
+ * @param {WechatsyncStatusContext} [context={}]
+ */
 function describeWechatsyncConnectionState(connection = {}, context = {}) {
   const { variant = 'modal' } = context;
   const checkedAtText = formatWechatsyncCheckedAt(connection.checkedAt);
@@ -71,6 +82,10 @@ function describeWechatsyncConnectionState(connection = {}, context = {}) {
 // Pure renderer for the bridge connection status bar. Returns the bar
 // element and (optional) action button so the caller can flip disabled
 // state during async work.
+/**
+ * @param {WechatsyncParentElement} parentEl
+ * @param {{ dotLabel?: string, dotClass?: string, text?: string, action?: WechatsyncActionLike | null }} [options={}]
+ */
 function renderWechatsyncConnectionStatusBar(parentEl, options = {}) {
   const {
     dotLabel = '',
@@ -91,7 +106,7 @@ function renderWechatsyncConnectionStatusBar(parentEl, options = {}) {
   let actionButton = null;
   if (action && typeof action === 'object') {
     actionButton = bar.createEl('button', {
-      text: action.label || '重试',
+      text: typeof action.label === 'string' && action.label ? action.label : '重试',
       cls: 'wechat-multiplatform-status-action',
     });
     if (action.disabled) actionButton.disabled = true;

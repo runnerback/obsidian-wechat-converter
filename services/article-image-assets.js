@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Asset resolution handles Obsidian/Electron dynamic objects and blob-like values across runtime boundaries. */
 const DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
 

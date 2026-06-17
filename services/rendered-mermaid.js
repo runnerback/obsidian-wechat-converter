@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Mermaid integration consumes dynamic Mermaid/DOM SVG output and rasterizes it for WeChat compatibility. */
 const { isMathJaxSvg, rasterizeSvgToPngDataUrl } = require('./svg-rasterizer');
 const { getActiveDocument, setElementHtml } = require('./dom-utils');
 

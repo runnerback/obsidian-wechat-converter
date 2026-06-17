@@ -11,6 +11,7 @@ import {
   HELLO_ERROR_TOO_MANY_CLIENTS,
   DEFAULT_MAX_CLIENTS,
   createReadableBridgeError,
+  createWebSocketAcceptKey,
   createWechatSyncBridgeService,
   defaultConnectionIdFactory,
   isOriginAllowedForWebSocket,
@@ -176,6 +177,10 @@ describe('Wechatsync bridge service', () => {
         delete window.crypto;
       }
     }
+  });
+
+  it('computes the standard WebSocket accept key without Node crypto', () => {
+    expect(createWebSocketAcceptKey('dGhlIHNhbXBsZSBub25jZQ==')).toBe('s3pPLMBiTxaQ9kYGzzhZRbK+xOo=');
   });
 
   it('sends listPlatforms requests to a connected extension client', async () => {

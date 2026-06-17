@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Serializer transforms dynamic Obsidian DOM nodes into WeChat-compatible HTML; DOM shape is runtime-provided. */
 const { createHtmlContainer, getActiveDocument, htmlToText, setElementHtml } = require('./dom-utils');
 
 function appendInlineStyle(el, styleText) {

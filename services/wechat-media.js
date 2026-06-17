@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Media upload pipeline bridges dynamic Blob/API/cache objects across Obsidian and WeChat runtimes. */
 const { createHtmlContainer, getActiveDocument, setElementHtml } = require('./dom-utils');
 
 function hashBytesFNV1a(bytes) {

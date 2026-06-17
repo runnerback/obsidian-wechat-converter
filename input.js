@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-require-imports -- Obsidian plugin entry uses CommonJS and runtime-bound APIs; these are scan-only typed boundary warnings, not runtime safety issues. */
 const { Plugin, MarkdownView, ItemView, Notice, Platform, requestUrl, request } = require('obsidian');
 const { PluginSettingTab, Setting } = require('obsidian');
 const { createRenderPipelines } = require('./services/render-pipeline');
@@ -7467,11 +7466,8 @@ class AppleStylePlugin extends Plugin {
       });
     }
 
-    // Browser extension bridge requires a local HTTP server for the desktop-only handshake protocol.
-    const http = require('http');
     this._wechatSyncBridgeCacheKey = cacheKey;
     this._wechatSyncBridgeService = createWechatSyncBridgeService({
-      http,
       port: settings.port,
       token: settings.token,
       allowRemote: settings.allowRemote,

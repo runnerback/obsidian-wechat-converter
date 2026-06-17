@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- DOM helpers are the typed boundary for activeDocument/window compatibility in JS files. */
 function getActiveDocument() {
   if (typeof window !== 'undefined' && window.activeDocument) return window.activeDocument;
   if (typeof window !== 'undefined' && window['document']) return window['document'];

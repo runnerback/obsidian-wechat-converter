@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Settings normalization accepts dynamic persisted plugin settings. */
 // services/wechatsync-settings.js
 //
 // Pure data helpers for the multi-platform sync (浏览器插件) feature.

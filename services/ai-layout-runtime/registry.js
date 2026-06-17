@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-require-imports -- Generated runtime registry bridges dynamic skill manifests and bundles. */
 const generatedSkills = require('./generated-skills');
 
 let cachedRegistry = null;

@@ -90,7 +90,6 @@ function resolveCalloutSemanticColor(type, fallbackColor) {
   return CALLOUT_SEMANTIC_COLORS[group] || fallbackColor;
 }
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call -- Converter runs in CommonJS and eval-loaded runtime contexts; typed-unsafe scan warnings here come from dynamic markdown/DOM dependencies, not from an unsafe user input sink. */
 const APPLE_CONVERTER_GLOBAL = typeof window !== 'undefined' ? window : {};
 
 function getRuntimeDependency(name) {

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports -- Runtime dependency loader intentionally assigns CommonJS bundles onto the Obsidian window runtime. */
 function getRuntimeGlobal() {
   if (typeof window !== 'undefined' && window) return window;
   return null;
