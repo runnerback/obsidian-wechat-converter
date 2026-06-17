@@ -1,6 +1,6 @@
 // tests/settings_ui_smoke.test.js
 //
-// Smoke test for AppleStyleSettingTab.display(). Goal: any future refactor
+// Smoke test for AppleStyleSettingTab settings rendering. Goal: any future refactor
 // that accidentally drops a Setting from the wechat tab or the multi-platform
 // tab will be caught here. This was motivated by commit d115abd silently
 // dropping「使用系统回收站」and「API 代理地址」when refactoring 高级设置 into the
@@ -12,7 +12,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const { createObsidianLikeElement } = require('./helpers/obsidian-dom.js');
-const { AppleStyleSettingTab } = require('../input.js');
+const { loadInputModule } = require('./helpers/input-module.cjs');
+const { AppleStyleSettingTab } = loadInputModule();
 
 function makeMinimalSettings(overrides = {}) {
   return {
@@ -94,11 +95,11 @@ function makePlugin(settingsOverrides = {}) {
 function renderTab(plugin) {
   const tab = new AppleStyleSettingTab(plugin.app, plugin);
   tab.containerEl = createObsidianLikeElement('div');
-  tab.display();
+  tab.renderSettingsContent();
   return tab;
 }
 
-describe('AppleStyleSettingTab.display - smoke test', () => {
+describe('AppleStyleSettingTab settings rendering - smoke test', () => {
   beforeEach(() => {
     globalThis.__obsidianSettingNamesRegistry = [];
     globalThis.__obsidianButtonRegistry = [];
@@ -108,6 +109,17 @@ describe('AppleStyleSettingTab.display - smoke test', () => {
 
   it('loads via the resolver patch (sanity check)', () => {
     expect(globalThis.__obsidianMockLoaded).toBe(true);
+  });
+
+  it('exposes a declarative settings render definition for Obsidian 1.13+', () => {
+    const plugin = makePlugin();
+    const tab = new AppleStyleSettingTab(plugin.app, plugin);
+    tab.containerEl = createObsidianLikeElement('div');
+    const definitions = tab.getSettingDefinitions();
+    expect(definitions).toHaveLength(1);
+    expect(typeof definitions[0].render).toBe('function');
+    definitions[0].render();
+    expect(globalThis.__obsidianSettingNamesRegistry.length).toBeGreaterThan(5);
   });
 
   it('renders the wechat-tab core sections without throwing', () => {

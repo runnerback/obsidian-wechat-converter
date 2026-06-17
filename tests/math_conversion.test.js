@@ -9,7 +9,8 @@ vi.mock('obsidian', () => ({
   requestUrl: vi.fn(),
 }));
 
-const { AppleStyleView } = require('../input.js');
+const { loadInputModule } = require('./helpers/input-module.cjs');
+const { AppleStyleView } = loadInputModule();
 
 describe('AppleStyleView - Math Formula Processing', () => {
   let view;

@@ -1,16 +1,22 @@
-function getActiveDocument() {
+/** @returns {Document | null} */
+export function getActiveDocument() {
   if (typeof window !== 'undefined' && window.activeDocument) return window.activeDocument;
   if (typeof window !== 'undefined' && window['document']) return window['document'];
   return null;
 }
 
-function getActiveWindow() {
+/** @returns {Window | null} */
+export function getActiveWindow() {
   if (typeof window !== 'undefined' && window.activeWindow) return window.activeWindow;
   if (typeof window !== 'undefined' && window) return window;
   return null;
 }
 
-function parseHtmlFragment(html = '') {
+/**
+ * @param {string} [html]
+ * @returns {DocumentFragment | null}
+ */
+export function parseHtmlFragment(html = '') {
   const doc = getActiveDocument();
   if (!doc) {
     return null;
@@ -31,7 +37,13 @@ function parseHtmlFragment(html = '') {
   return fragment;
 }
 
-function appendHtmlFragment(element, html = '') {
+/**
+ * @template {Element} T
+ * @param {T | null | undefined} element
+ * @param {string} [html]
+ * @returns {T | null | undefined}
+ */
+export function appendHtmlFragment(element, html = '') {
   if (!element) return element;
   const fragment = parseHtmlFragment(html);
   if (fragment) {
@@ -40,7 +52,13 @@ function appendHtmlFragment(element, html = '') {
   return element;
 }
 
-function setElementHtml(element, html = '') {
+/**
+ * @template {Element} T
+ * @param {T | null | undefined} element
+ * @param {string} [html]
+ * @returns {T | null | undefined}
+ */
+export function setElementHtml(element, html = '') {
   if (!element) return element;
   const fragment = parseHtmlFragment(html);
   if (typeof element.replaceChildren === 'function') {
@@ -56,7 +74,12 @@ function setElementHtml(element, html = '') {
   return element;
 }
 
-function createHtmlContainer(tagName = 'div', html = '') {
+/**
+ * @param {string} [tagName]
+ * @param {string} [html]
+ * @returns {HTMLElement | null}
+ */
+export function createHtmlContainer(tagName = 'div', html = '') {
   const doc = getActiveDocument();
   if (!doc) return null;
   const container = doc.createElement(tagName);
@@ -64,17 +87,11 @@ function createHtmlContainer(tagName = 'div', html = '') {
   return container;
 }
 
-function htmlToText(html = '') {
+/**
+ * @param {string} [html]
+ * @returns {string}
+ */
+export function htmlToText(html = '') {
   const container = createHtmlContainer('div', html);
   return container ? (container.textContent || '') : '';
 }
-
-module.exports = {
-  appendHtmlFragment,
-  createHtmlContainer,
-  getActiveDocument,
-  getActiveWindow,
-  htmlToText,
-  parseHtmlFragment,
-  setElementHtml,
-};

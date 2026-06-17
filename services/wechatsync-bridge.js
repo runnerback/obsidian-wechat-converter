@@ -1,19 +1,21 @@
-const DEFAULT_WECHATSYNC_PORT = 9527;
-const DEFAULT_REQUEST_TIMEOUT_MS = 360000;
-const DEFAULT_CONNECT_TIMEOUT_MS = 60000;
-const DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS = 60000;
-const DEFAULT_SYNC_REQUEST_TIMEOUT_MS = 180000;
-const DEFAULT_HELLO_TIMEOUT_MS = 30000;
-const LOCAL_BIND_HOST = '127.0.0.1';
-const REMOTE_BIND_HOST = '0.0.0.0';
+import {
+  DEFAULT_WECHATSYNC_PORT,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  DEFAULT_CONNECT_TIMEOUT_MS,
+  DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS,
+  DEFAULT_SYNC_REQUEST_TIMEOUT_MS,
+  DEFAULT_HELLO_TIMEOUT_MS,
+  LOCAL_BIND_HOST,
+  REMOTE_BIND_HOST,
+  HELLO_ERROR_TOKEN_MISMATCH,
+  HELLO_ERROR_INVALID_PAYLOAD,
+  HELLO_ERROR_TIMEOUT,
+  HELLO_ERROR_VERSION_UNSUPPORTED,
+  HELLO_ERROR_DUPLICATE_SESSION,
+  HELLO_ERROR_TOO_MANY_CLIENTS,
+  DEFAULT_MAX_CLIENTS,
+} from './wechatsync-constants.js';
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
-const HELLO_ERROR_TOKEN_MISMATCH = 'token_mismatch';
-const HELLO_ERROR_INVALID_PAYLOAD = 'invalid_payload';
-const HELLO_ERROR_TIMEOUT = 'hello_timeout';
-const HELLO_ERROR_VERSION_UNSUPPORTED = 'version_unsupported';
-const HELLO_ERROR_DUPLICATE_SESSION = 'duplicate_session';
-const HELLO_ERROR_TOO_MANY_CLIENTS = 'too_many_clients';
-const DEFAULT_MAX_CLIENTS = 4;
 const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 // Cap on the persisted connected-clients registry (distinct from the
 // concurrent-session cap above). A misbehaving extension that mints a
@@ -23,29 +25,116 @@ const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345
 // keeping the array O(small).
 const MAX_CONNECTED_CLIENT_REGISTRY = 20;
 
+/**
+ * @typedef {{ message?: string, code?: string, cause?: unknown }} BridgeErrorLike
+ * @typedef {{ debug?: (...args: unknown[]) => void, info?: (...args: unknown[]) => void, warn?: (...args: unknown[]) => void }} BridgeLoggerLike
+ * @typedef {{ on: (event: string, handler: (...args: unknown[]) => void) => unknown, once: (event: string, handler: (...args: unknown[]) => void) => unknown, off: (event: string, handler: (...args: unknown[]) => void) => unknown, emit: (event: string, ...args: unknown[]) => void }} BridgeEmitterLike
+ * @typedef {{ __ws_control: 'close', code?: number } | { __ws_control: 'ping', payload: Buffer }} WebSocketControlFrame
+ * @typedef {string | WebSocketControlFrame} WebSocketParsedMessage
+ * @typedef {{ send: (data: string | Buffer) => void, close?: () => void, on: (event: string, handler: (...args: unknown[]) => void) => void, readyState?: number }} BridgeSocketLike
+ * @typedef {{ extensionInstanceId: string, browserName?: string, profileLabel?: string, capabilities?: Record<string, unknown>, version?: string, extensionId?: string, token?: string }} BridgeHelloLike
+ * @typedef {{ connectionId: string, ws: BridgeSocketLike, connectedAt: number, origin: string, helloTimeout: number | null }} PendingConnectionLike
+ * @typedef {{ timeout: number | null, reject: (error: unknown) => void, resolve: (value: unknown) => void, method: string, startedAt: number }} PendingRequestLike
+ * @typedef {{ connectionId: string, ws: BridgeSocketLike, extensionInstanceId: string, extensionId: string, version: string, profileLabel: string, browserName: string, capabilities: Record<string, unknown>, connectedAt: number, authenticatedAt: number, origin: string, pendingRequests: Map<string, PendingRequestLike> }} BridgeSessionLike
+ * @typedef {{ extensionInstanceId: string, browserName?: string, profileLabel?: string, capabilities?: Record<string, unknown>, extensionVersion?: string, status?: 'connected' | 'disconnected', lastSeenAt?: number, firstConnectedAt?: number, lastConnectedAt?: number }} ConnectedClientLike
+ * @typedef {{ createServer: (handler?: (req: BridgeHttpRequestLike, res: BridgeHttpResponseLike) => void | Promise<void>) => BridgeHttpServerLike }} BridgeHttpModuleLike
+ * @typedef {{ on: (event: string, handler: (...args: unknown[]) => void) => unknown, once: (event: string, handler: (...args: unknown[]) => void) => unknown, off?: (event: string, handler: (...args: unknown[]) => void) => unknown, listen: (...args: unknown[]) => unknown, close: (callback?: (...args: unknown[]) => void) => unknown }} BridgeHttpServerLike
+ * @typedef {{ headers: Record<string, string | string[] | undefined>, method?: string, url?: string, on: (event: string, handler: (...args: unknown[]) => void) => unknown }} BridgeHttpRequestLike
+ * @typedef {{ writeHead: (status: number, headers?: Record<string, string>) => unknown, end: (body?: string) => unknown }} BridgeHttpResponseLike
+ * @typedef {{ write: (data: string | Buffer) => unknown, end: () => unknown, destroy: () => unknown, on: (event: string, handler: (...args: unknown[]) => void) => unknown }} RawSocketLike
+ * @typedef {{ on: BridgeEmitterLike['on'], once: BridgeEmitterLike['once'], off?: BridgeEmitterLike['off'], close: (callback?: (...args: unknown[]) => void) => unknown }} BridgeWebSocketServerLike
+ * @typedef {{ OPEN?: number, WebSocket?: { OPEN?: number }, new (options: { port: number, host: string }): BridgeWebSocketServerLike }} WebSocketServerCtorLike
+ * @typedef {{ timeoutMs?: number }} BridgeRequestOptionsLike
+ * @typedef {{ forceRefresh?: boolean, timeoutMs?: number }} BridgeListPlatformsOptionsLike
+ * @typedef {{ timeoutMs?: number }} BridgeTimeoutOptionsLike
+ * @typedef {{ platforms?: unknown, title?: unknown, markdown?: unknown, content?: unknown, cover?: unknown, coverThumbnail?: unknown, assets?: unknown, quotaPolicy?: unknown, timeoutMs?: number, source?: string }} BridgeArticleOptionsLike
+ * @typedef {{ WebSocketServer?: WebSocketServerCtorLike | null, http?: BridgeHttpModuleLike | null, httpLoader?: () => Promise<BridgeHttpModuleLike | null>, port?: number, token?: string, requestTimeoutMs?: number, connectTimeoutMs?: number, helloTimeoutMs?: number, allowRemote?: boolean, originAllowlist?: Array<string | RegExp> | null, serverVersion?: string, logger?: BridgeLoggerLike, idFactory?: () => string, connectionIdFactory?: () => string, onClientRegistryChange?: ((clients: ConnectedClientLike[]) => void) | null, initialConnectedClients?: ConnectedClientLike[], maxClients?: number }} BridgeServiceOptionsLike
+ */
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+function toRecord(value) {
+  return isRecord(value) ? /** @type {Record<string, unknown>} */ (value) : {};
+}
+
+/**
+ * @param {unknown} value
+ * @param {string} [fallback='']
+ * @returns {string}
+ */
+function toBridgeString(value, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+
+/**
+ * @param {TimerHandler} handler
+ * @param {number} ms
+ * @returns {number | null}
+ */
 function setBridgeTimeout(handler, ms) {
   if (typeof window === 'undefined' || typeof window.setTimeout !== 'function') return null;
   return window.setTimeout(handler, ms);
 }
 
+/**
+ * @param {number | null | undefined} timer
+ */
 function clearBridgeTimeout(timer) {
   if (!timer) return;
   if (typeof window === 'undefined' || typeof window.clearTimeout !== 'function') return;
   window.clearTimeout(timer);
 }
 
+/**
+ * @param {unknown} input
+ * @returns {number[]}
+ */
 function utf8Bytes(input) {
   const text = String(input || '');
   if (typeof TextEncoder !== 'undefined') {
     return Array.from(new TextEncoder().encode(text));
   }
-  return Array.from(unescape(encodeURIComponent(text)), (char) => char.charCodeAt(0));
+  const encoded = encodeURIComponent(text);
+  const bytes = [];
+  for (let index = 0; index < encoded.length; index += 1) {
+    const char = encoded[index];
+    if (char === '%' && index + 2 < encoded.length) {
+      const hex = encoded.slice(index + 1, index + 3);
+      const value = Number.parseInt(hex, 16);
+      if (Number.isFinite(value)) {
+        bytes.push(value);
+        index += 2;
+        continue;
+      }
+    }
+    bytes.push(char.charCodeAt(0));
+  }
+  return bytes;
 }
 
+/**
+ * @param {number} value
+ * @param {number} bits
+ * @returns {number}
+ */
 function rotateLeft(value, bits) {
   return ((value << bits) | (value >>> (32 - bits))) >>> 0;
 }
 
+/**
+ * @param {unknown} input
+ * @returns {number[]}
+ */
 function sha1Bytes(input) {
   const bytes = utf8Bytes(input);
   const bitLength = bytes.length * 8;
@@ -122,6 +211,10 @@ function sha1Bytes(input) {
   ]);
 }
 
+/**
+ * @param {number[]} bytes
+ * @returns {string}
+ */
 function base64EncodeBytes(bytes) {
   let output = '';
   for (let index = 0; index < bytes.length; index += 3) {
@@ -136,24 +229,57 @@ function base64EncodeBytes(bytes) {
   return output;
 }
 
+/**
+ * @param {unknown} key
+ * @returns {string}
+ */
 function createWebSocketAcceptKey(key) {
   return base64EncodeBytes(sha1Bytes(`${key}${WS_GUID}`));
 }
 
+/**
+ * @param {unknown} error
+ * @returns {BridgeErrorLike}
+ */
+function toBridgeErrorLike(error) {
+  if (error instanceof Error) return /** @type {BridgeErrorLike} */ (error);
+  if (error && typeof error === 'object') return /** @type {BridgeErrorLike} */ (error);
+  return { message: String(error || '') };
+}
+
+/**
+ * @param {unknown} [error={}]
+ * @returns {boolean}
+ */
 function isUnsupportedBridgeMethodError(error = {}) {
-  const message = String(error?.message || error || '');
+  const readableError = toBridgeErrorLike(error);
+  const message = String(readableError.message || error || '');
   return /unknown method|unknown tool|method not found|not supported|unsupported/i.test(message);
 }
 
+/**
+ * @param {unknown} [error={}]
+ * @returns {boolean}
+ */
 function isRecoverableBridgeConnectionError(error = {}) {
-  const code = error?.code || '';
+  const code = toBridgeErrorLike(error).code || '';
   return ['EXTENSION_NOT_CONNECTED', 'EXTENSION_NOT_AUTHENTICATED', 'BRIDGE_UNAVAILABLE', 'BRIDGE_REQUEST_TIMEOUT'].includes(code);
 }
 
+/**
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
 function sleep(ms) {
   return new Promise((resolve) => setBridgeTimeout(resolve, ms));
 }
 
+/**
+ * @template T
+ * @param {(context: { attempt: number }) => Promise<T>} operation
+ * @param {{ retries?: number, delayMs?: number, delay?: (ms: number, attempt: number, error: unknown) => Promise<unknown>, shouldRetry?: (error: unknown, attempt: number) => boolean, logger?: BridgeLoggerLike, label?: string }} [options={}]
+ * @returns {Promise<T>}
+ */
 async function retryRecoverableBridgeOperation(operation, options = {}) {
   const {
     retries = 2,
@@ -187,7 +313,11 @@ async function retryRecoverableBridgeOperation(operation, options = {}) {
   }
 }
 
+/**
+ * @returns {BridgeEmitterLike}
+ */
 function createEmitter() {
+  /** @type {Map<string, Array<(...args: unknown[]) => void>>} */
   const listeners = new Map();
   return {
     on(event, handler) {
@@ -199,7 +329,7 @@ function createEmitter() {
     once(event, handler) {
       const wrapped = (...args) => {
         this.off(event, wrapped);
-        handler(...args);
+        Reflect.apply(handler, undefined, /** @type {unknown[]} */ (args));
       };
       return this.on(event, wrapped);
     },
@@ -217,6 +347,10 @@ function createEmitter() {
   };
 }
 
+/**
+ * @param {unknown} text
+ * @returns {Buffer}
+ */
 function encodeWebSocketTextFrame(text) {
   const payload = Buffer.from(String(text));
   const length = payload.length;
@@ -237,7 +371,12 @@ function encodeWebSocketTextFrame(text) {
   return Buffer.concat([header, payload]);
 }
 
+/**
+ * @param {Buffer} buffer
+ * @returns {{ messages: WebSocketParsedMessage[], remaining: Buffer }}
+ */
 function parseWebSocketFrames(buffer) {
+  /** @type {WebSocketParsedMessage[]} */
   const messages = [];
   let offset = 0;
 
@@ -299,13 +438,18 @@ function parseWebSocketFrames(buffer) {
   };
 }
 
+/**
+ * @param {RawSocketLike} socket
+ * @returns {BridgeSocketLike}
+ */
 function createSocketWrapper(socket) {
   const emitter = createEmitter();
+  /** @type {{ readyState: number, on: BridgeEmitterLike['on'], once: BridgeEmitterLike['once'], off: BridgeEmitterLike['off'], send: (data: string | Buffer) => void, close: () => void }} */
   const wrapper = {
     readyState: 1,
-    on: emitter.on.bind(emitter),
-    once: emitter.once.bind(emitter),
-    off: emitter.off.bind(emitter),
+    on: (event, handler) => emitter.on(event, handler),
+    once: (event, handler) => emitter.once(event, handler),
+    off: (event, handler) => emitter.off(event, handler),
     send(data) {
       if (wrapper.readyState !== 1) return;
       socket.write(encodeWebSocketTextFrame(data));
@@ -319,7 +463,8 @@ function createSocketWrapper(socket) {
   let buffered = Buffer.alloc(0);
   socket.on('data', (chunk) => {
     try {
-      buffered = Buffer.concat([buffered, chunk]);
+      const chunkBuffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk || ''));
+      buffered = Buffer.concat([buffered, chunkBuffer]);
       const result = parseWebSocketFrames(buffered);
       buffered = result.remaining;
       for (const message of result.messages) {
@@ -356,6 +501,11 @@ function createSocketWrapper(socket) {
   return wrapper;
 }
 
+/**
+ * @param {unknown} [origin='']
+ * @param {{ allowlist?: Array<string | RegExp> | null }} [options={}]
+ * @returns {boolean}
+ */
 function isOriginAllowedForWebSocket(origin = '', { allowlist = null } = {}) {
   if (!allowlist) return true;
   const trimmed = String(origin || '').trim();
@@ -371,39 +521,46 @@ function isOriginAllowedForWebSocket(origin = '', { allowlist = null } = {}) {
   return false;
 }
 
+/**
+ * @param {{ http: BridgeHttpModuleLike, port: number, host?: string, originAllowlist?: Array<string | RegExp> | null, logger?: BridgeLoggerLike }} options
+ * @returns {BridgeWebSocketServerLike}
+ */
 function createMinimalWebSocketServer({ http, port, host = LOCAL_BIND_HOST, originAllowlist = null, logger = console }) {
   const emitter = createEmitter();
   const server = http.createServer();
+  /** @type {Set<BridgeSocketLike>} */
   const sockets = new Set();
 
   server.on('upgrade', (req, socket) => {
-    const origin = req.headers.origin || '';
+    const request = /** @type {BridgeHttpRequestLike} */ (req);
+    const rawSocket = /** @type {RawSocketLike} */ (socket);
+    const origin = request.headers.origin || '';
     logger.debug?.('[WechatsyncBridge] WebSocket upgrade received', {
-      url: req.url,
+      url: request.url,
       origin,
-      userAgent: req.headers['user-agent'] || '',
+      userAgent: request.headers['user-agent'] || '',
     });
 
     if (originAllowlist && !isOriginAllowedForWebSocket(origin, { allowlist: originAllowlist })) {
       logger.warn?.('[WechatsyncBridge] WebSocket upgrade rejected: origin not allowed', { origin });
       try {
-        socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+        rawSocket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
       } catch {
         // Socket may already be closed; destroy below still completes rejection.
       }
-      socket.destroy();
+      rawSocket.destroy();
       return;
     }
 
-    const key = req.headers['sec-websocket-key'];
+    const key = request.headers['sec-websocket-key'];
     if (!key) {
       logger.warn?.('[WechatsyncBridge] WebSocket upgrade rejected: missing sec-websocket-key');
-      socket.destroy();
+      rawSocket.destroy();
       return;
     }
 
-    const accept = createWebSocketAcceptKey(key);
-    socket.write([
+    const accept = createWebSocketAcceptKey(Array.isArray(key) ? key[0] : key);
+    rawSocket.write([
       'HTTP/1.1 101 Switching Protocols',
       'Upgrade: websocket',
       'Connection: Upgrade',
@@ -412,7 +569,7 @@ function createMinimalWebSocketServer({ http, port, host = LOCAL_BIND_HOST, orig
       '',
     ].join('\r\n'));
 
-    const wrapped = createSocketWrapper(socket);
+    const wrapped = createSocketWrapper(rawSocket);
     sockets.add(wrapped);
     wrapped.on('close', () => sockets.delete(wrapped));
     emitter.emit('connection', wrapped, { origin });
@@ -421,9 +578,9 @@ function createMinimalWebSocketServer({ http, port, host = LOCAL_BIND_HOST, orig
   server.listen(port, host, () => emitter.emit('listening'));
 
   return {
-    on: emitter.on.bind(emitter),
-    once: emitter.once.bind(emitter),
-    off: emitter.off.bind(emitter),
+    on: (event, handler) => emitter.on(event, handler),
+    once: (event, handler) => emitter.once(event, handler),
+    off: (event, handler) => emitter.off(event, handler),
     close(callback) {
       for (const socket of sockets) {
         try {
@@ -437,12 +594,21 @@ function createMinimalWebSocketServer({ http, port, host = LOCAL_BIND_HOST, orig
   };
 }
 
+/**
+ * @param {WebSocketServerCtorLike | null | undefined} WebSocketServer
+ * @returns {number}
+ */
 function getWebSocketOpenState(WebSocketServer) {
   return WebSocketServer?.OPEN || WebSocketServer?.WebSocket?.OPEN || 1;
 }
 
+/**
+ * @param {unknown} error
+ * @returns {Error & { code?: string, cause?: unknown }}
+ */
 function createReadableBridgeError(error) {
-  const message = String(error?.message || error || '');
+  const readableError = toBridgeErrorLike(error);
+  const message = String(readableError.message || error || '');
   if (/Invalid or missing token|MCP token not configured|401|403/i.test(message)) {
     const friendly = new Error('浏览器插件已响应，但连接令牌校验失败。请确认 Obsidian 与浏览器插件使用同一个连接令牌。');
     friendly.code = 'AUTH_FAILED';
@@ -488,11 +654,15 @@ function createReadableBridgeError(error) {
   return error instanceof Error ? error : new Error(message || '浏览器插件连接请求失败。');
 }
 
+/**
+ * @param {BridgeHttpRequestLike} req
+ * @returns {Promise<string>}
+ */
 function readRequestBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', (chunk) => {
-      body += chunk;
+      body += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk || '');
     });
     req.on('end', () => resolve(body));
     req.on('error', reject);
@@ -512,9 +682,13 @@ async function loadDefaultHttpModule() {
   // resolve it during build. Keep the load narrow and bridge-only.
   const loader = typeof require === 'function' ? require : null;
   if (!loader) return null;
-  return loader(['h', 'ttp'].join(''));
+  const loadedHttp = /** @type {unknown} */ (loader(['h', 'ttp'].join('')));
+  return /** @type {BridgeHttpModuleLike} */ (loadedHttp);
 }
 
+/**
+ * @param {BridgeServiceOptionsLike} [options={}]
+ */
 function createWechatSyncBridgeService(options = {}) {
   const {
     WebSocketServer,
@@ -537,14 +711,17 @@ function createWechatSyncBridgeService(options = {}) {
   } = options;
 
   const bindHost = allowRemote ? REMOTE_BIND_HOST : LOCAL_BIND_HOST;
+  /** @type {BridgeHttpModuleLike | null} */
   let activeHttp = http;
 
   // §16 Phase 1: runtime connected-clients registry.
   // Initialized from persisted settings so previously seen clients are
   // visible immediately (status 'disconnected') even before reconnection.
+  /** @type {ConnectedClientLike[]} */
   let connectedClients = Array.isArray(initialConnectedClients)
     ? initialConnectedClients.map((c) => ({ ...c }))
     : [];
+  /** @type {number | null} */
   let _clientRegistryDebounceTimer = null;
   // Defensive: if a previous version persisted >MAX entries (e.g., before
   // this cap shipped, or due to extension misbehavior), trim once at
@@ -578,6 +755,10 @@ function createWechatSyncBridgeService(options = {}) {
     return dropped;
   }
 
+  /**
+   * @param {BridgeHelloLike} hello
+   * @param {'connected' | 'disconnected'} status
+   */
   function upsertConnectedClient(hello, status) {
     const now = Date.now();
     const idx = connectedClients.findIndex(
@@ -615,6 +796,7 @@ function createWechatSyncBridgeService(options = {}) {
     scheduleRegistryChange();
   }
 
+  /** @param {unknown} extensionInstanceId */
   function markClientDisconnected(extensionInstanceId) {
     if (!extensionInstanceId) return;
     const idx = connectedClients.findIndex(
@@ -625,6 +807,7 @@ function createWechatSyncBridgeService(options = {}) {
     scheduleRegistryChange();
   }
 
+  /** @param {unknown} extensionInstanceId */
   function refreshClientSeen(extensionInstanceId) {
     if (!extensionInstanceId) return;
     const idx = connectedClients.findIndex(
@@ -635,12 +818,19 @@ function createWechatSyncBridgeService(options = {}) {
     scheduleRegistryChange();
   }
 
+  /** @type {BridgeWebSocketServerLike | null} */
   let wss = null;
+  /** @type {BridgeHttpServerLike | null} */
   let httpServer = null;
+  /** @type {Map<string, BridgeSessionLike>} */
   const sessions = new Map();                   // extensionInstanceId → session
+  /** @type {Map<string, string>} */
   const connectionIdToInstanceId = new Map();   // connectionId → extensionInstanceId
+  /** @type {string | null} */
   let primaryClientId = null;
+  /** @type {Map<string, PendingConnectionLike>} */
   const pendingConnections = new Map();
+  /** @type {Array<() => void>} */
   const connectionResolvers = [];
   const wsOpenState = getWebSocketOpenState(WebSocketServer);
   const diagnostics = {
@@ -651,14 +841,26 @@ function createWechatSyncBridgeService(options = {}) {
     lastHelloRejection: null,
   };
 
+  /**
+   * @param {string} message
+   * @param {unknown} [details]
+   */
   function debug(message, details) {
     logger.debug?.(`[WechatsyncBridge] ${message}`, details || '');
   }
 
+  /**
+   * @param {string} event
+   * @param {unknown} [details]
+   */
   function audit(event, details) {
     logger.info?.(`[WechatsyncBridge:audit] ${event}`, details || {});
   }
 
+  /**
+   * @param {BridgeSocketLike | null | undefined} ws
+   * @returns {boolean}
+   */
   function isClientSocketOpen(ws) {
     return !!(ws && ws.readyState === wsOpenState);
   }
@@ -677,21 +879,29 @@ function createWechatSyncBridgeService(options = {}) {
     }
   }
 
+  /**
+   * @param {unknown} message
+   * @returns {(BridgeHelloLike & { type: 'extension_hello' }) | null}
+   */
   function tryParseHelloPayload(message) {
-    if (!message || typeof message !== 'object') return null;
-    if (message.type !== 'extension_hello') return null;
+    const record = toRecord(message);
+    if (record.type !== 'extension_hello') return null;
     return {
       type: 'extension_hello',
-      token: typeof message.token === 'string' ? message.token : '',
-      extensionInstanceId: typeof message.extensionInstanceId === 'string' ? message.extensionInstanceId : '',
-      extensionId: typeof message.extensionId === 'string' ? message.extensionId : '',
-      version: typeof message.version === 'string' ? message.version : '',
-      profileLabel: typeof message.profileLabel === 'string' ? message.profileLabel : '',
-      browserName: typeof message.browserName === 'string' ? message.browserName : '',
-      capabilities: message.capabilities && typeof message.capabilities === 'object' ? message.capabilities : {},
+      token: toBridgeString(record.token),
+      extensionInstanceId: toBridgeString(record.extensionInstanceId),
+      extensionId: toBridgeString(record.extensionId),
+      version: toBridgeString(record.version),
+      profileLabel: toBridgeString(record.profileLabel),
+      browserName: toBridgeString(record.browserName),
+      capabilities: toRecord(record.capabilities),
     };
   }
 
+  /**
+   * @param {BridgeSocketLike} ws
+   * @param {{ ok: boolean, connectionId?: string, error?: string }} options
+   */
   function sendHelloAck(ws, { ok, connectionId = '', error = '' }) {
     try {
       const payload = ok
@@ -713,14 +923,20 @@ function createWechatSyncBridgeService(options = {}) {
     }
   }
 
+  /**
+   * @param {BridgeSocketLike} ws
+   * @param {string} reason
+   */
   function closeWs(ws, reason) {
     try {
       ws.close?.();
     } catch (err) {
-      debug('Failed to close socket', { reason, error: err?.message || String(err) });
+      const readableError = toBridgeErrorLike(err);
+      debug('Failed to close socket', { reason, error: readableError.message || String(err) });
     }
   }
 
+  /** @param {string} connectionId */
   function removePendingConnection(connectionId) {
     const pending = pendingConnections.get(connectionId);
     if (!pending) return;
@@ -728,6 +944,11 @@ function createWechatSyncBridgeService(options = {}) {
     pendingConnections.delete(connectionId);
   }
 
+  /**
+   * @param {PendingConnectionLike} pending
+   * @param {BridgeHelloLike} hello
+   * @param {string} origin
+   */
   function registerSession(pending, hello, origin) {
     const instanceId = hello.extensionInstanceId;
 
@@ -766,6 +987,7 @@ function createWechatSyncBridgeService(options = {}) {
       return;
     }
 
+    /** @type {BridgeSessionLike} */
     const session = {
       connectionId: pending.connectionId,
       ws: pending.ws,
@@ -802,6 +1024,11 @@ function createWechatSyncBridgeService(options = {}) {
     notifyConnected();
   }
 
+  /**
+   * @param {PendingConnectionLike} pending
+   * @param {string} errorCode
+   * @param {Record<string, unknown>} [details={}]
+   */
   function rejectHello(pending, errorCode, details = {}) {
     diagnostics.helloAttempts += 1;
     diagnostics.helloRejections += 1;
@@ -821,7 +1048,13 @@ function createWechatSyncBridgeService(options = {}) {
     closeWs(pending.ws, `hello_rejected:${errorCode}`);
   }
 
+  /**
+   * @param {PendingConnectionLike} pending
+   * @param {string} raw
+   * @param {string} origin
+   */
   function handlePendingMessage(pending, raw, origin) {
+    /** @type {unknown} */
     let parsed;
     try {
       parsed = JSON.parse(raw);
@@ -832,7 +1065,7 @@ function createWechatSyncBridgeService(options = {}) {
     }
     const hello = tryParseHelloPayload(parsed);
     if (!hello) {
-      rejectHello(pending, HELLO_ERROR_INVALID_PAYLOAD, { receivedType: parsed?.type || '' });
+      rejectHello(pending, HELLO_ERROR_INVALID_PAYLOAD, { receivedType: toRecord(parsed).type || '' });
       return;
     }
     if (token && hello.token !== token) {
@@ -845,7 +1078,12 @@ function createWechatSyncBridgeService(options = {}) {
     registerSession(pending, hello, origin);
   }
 
+  /**
+   * @param {BridgeSessionLike} session
+   * @param {string} raw
+   */
   function handleSessionMessage(session, raw) {
+    /** @type {unknown} */
     let message;
     try {
       message = JSON.parse(raw);
@@ -854,12 +1092,14 @@ function createWechatSyncBridgeService(options = {}) {
       return;
     }
 
-    if (message?.type === 'extension_hello') {
+    const record = toRecord(message);
+
+    if (record.type === 'extension_hello') {
       debug('Ignoring extension_hello on already-authenticated session');
       return;
     }
 
-    if (message?.type === 'heartbeat') {
+    if (record.type === 'heartbeat') {
       refreshClientSeen(session.extensionInstanceId);
       // SPEC-1 (Extension >= 2.8.0): echo heartbeat_ack so the extension's
       // liveness counter resets. Once the plugin ships this reply,
@@ -868,31 +1108,34 @@ function createWechatSyncBridgeService(options = {}) {
       // unchanged so the extension can measure round-trip latency.
       if (isClientSocketOpen(session.ws)) {
         try {
-          session.ws.send(JSON.stringify({ type: 'heartbeat_ack', ts: message.ts }));
+          session.ws.send(JSON.stringify({ type: 'heartbeat_ack', ts: record.ts }));
         } catch (err) {
-          logger.warn?.('Failed to send heartbeat_ack:', err?.message || err);
+          const readableError = toBridgeErrorLike(err);
+          logger.warn?.('Failed to send heartbeat_ack:', readableError.message || err);
         }
       }
       return;
     }
 
-    const pending = session.pendingRequests.get(message.id);
+    const messageId = toBridgeString(record.id);
+    const pending = session.pendingRequests.get(messageId);
     if (!pending) {
       debug('Received response for one-way, unknown, or timed out request', {
-        id: message.id,
-        hasError: !!message.error,
-        resultKind: Array.isArray(message.result) ? 'array' : typeof message.result,
+        id: messageId,
+        hasError: !!record.error,
+        resultKind: Array.isArray(record.result) ? 'array' : typeof record.result,
       });
       return;
     }
 
     clearBridgeTimeout(pending.timeout);
-    session.pendingRequests.delete(message.id);
+    session.pendingRequests.delete(messageId);
 
-    if (message.error) {
-      const errorMessage = message.error.message || message.error.error || String(message.error);
+    if (record.error) {
+      const errorRecord = toRecord(record.error);
+      const errorMessage = toBridgeString(errorRecord.message || errorRecord.error, String(record.error));
       debug('Request failed', {
-        id: message.id,
+        id: messageId,
         method: pending.method,
         elapsedMs: Date.now() - pending.startedAt,
         error: errorMessage,
@@ -901,14 +1144,18 @@ function createWechatSyncBridgeService(options = {}) {
       return;
     }
     debug('Request completed', {
-      id: message.id,
+      id: messageId,
       method: pending.method,
       elapsedMs: Date.now() - pending.startedAt,
-      resultKind: Array.isArray(message.result) ? 'array' : typeof message.result,
+      resultKind: Array.isArray(record.result) ? 'array' : typeof record.result,
     });
-    pending.resolve(message.result);
+    pending.resolve(record.result);
   }
 
+  /**
+   * @param {BridgeSocketLike} ws
+   * @param {{ origin?: string }} [options={}]
+   */
   function registerConnection(ws, { origin = '' } = {}) {
     const connectionId = connectionIdFactory();
     diagnostics.socketsOpened += 1;
@@ -967,6 +1214,10 @@ function createWechatSyncBridgeService(options = {}) {
     });
   }
 
+  /**
+   * @param {BridgeHttpRequestLike} req
+   * @returns {{ ok: true } | { ok: false, status: number, reason: string }}
+   */
   function isAuthorizedHttpRequest(req) {
     if (!token) return { ok: true };
     const header = req.headers['authorization'] || req.headers['Authorization'] || '';
@@ -984,6 +1235,11 @@ function createWechatSyncBridgeService(options = {}) {
     return { ok: true };
   }
 
+  /**
+   * @param {BridgeHttpResponseLike} res
+   * @param {number} status
+   * @param {string} reason
+   */
   function denyHttpRequest(res, status, reason) {
     res.writeHead(status, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: reason }));
@@ -991,29 +1247,33 @@ function createWechatSyncBridgeService(options = {}) {
 
   async function startHttpApi() {
     httpServer = activeHttp.createServer(async (req, res) => {
+      const request = /** @type {BridgeHttpRequestLike} */ (req);
+      const response = /** @type {BridgeHttpResponseLike} */ (res);
       // §3.4: do not emit Access-Control-Allow-Origin by default; rely on
       // browser-enforced same-origin policy as the second defense layer.
 
-      if (req.method === 'OPTIONS') {
-        res.writeHead(204);
-        res.end();
+      if (request.method === 'OPTIONS') {
+        response.writeHead(204);
+        response.end();
         return;
       }
 
-      const auth = isAuthorizedHttpRequest(req);
+      const auth = isAuthorizedHttpRequest(request);
       if (!auth.ok) {
+        const status = Number(auth.status);
+        const reason = String(auth.reason);
         audit('http_request_unauthorized', {
-          url: req.url,
-          method: req.method,
-          reason: auth.reason,
+          url: request.url,
+          method: request.method,
+          reason,
         });
-        denyHttpRequest(res, auth.status, auth.reason);
+        denyHttpRequest(response, status, reason);
         return;
       }
 
-      if (req.method === 'GET' && req.url === '/status') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
+      if (request.method === 'GET' && request.url === '/status') {
+        response.writeHead(200, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({
           connected: isAuthenticatedConnected(),
           mode: 'primary',
           authenticated: isAuthenticatedConnected(),
@@ -1024,36 +1284,43 @@ function createWechatSyncBridgeService(options = {}) {
         return;
       }
 
-      if (req.method === 'POST' && req.url === '/request') {
+      if (request.method === 'POST' && request.url === '/request') {
         try {
-          const body = await readRequestBody(req);
-          const { method, params, timeoutMs } = JSON.parse(body || '{}');
+          const body = await readRequestBody(request);
+          const requestBody = toRecord(JSON.parse(body || '{}'));
+          const method = toBridgeString(requestBody.method);
+          const params = requestBody.params;
+          const timeoutMs = Number(requestBody.timeoutMs);
           const result = await requestInternal(method, params, { timeoutMs });
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ result }));
+          response.writeHead(200, { 'Content-Type': 'application/json' });
+          response.end(JSON.stringify({ result }));
         } catch (error) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: error.message || String(error) }));
+          const readableError = toBridgeErrorLike(error);
+          response.writeHead(500, { 'Content-Type': 'application/json' });
+          response.end(JSON.stringify({ error: readableError.message || String(error) }));
         }
         return;
       }
 
-      if (req.method === 'POST' && req.url === '/send') {
+      if (request.method === 'POST' && request.url === '/send') {
         try {
-          const body = await readRequestBody(req);
-          const { method, params } = JSON.parse(body || '{}');
+          const body = await readRequestBody(request);
+          const requestBody = toRecord(JSON.parse(body || '{}'));
+          const method = toBridgeString(requestBody.method);
+          const params = requestBody.params;
           const result = sendInternal(method, params);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ result }));
+          response.writeHead(200, { 'Content-Type': 'application/json' });
+          response.end(JSON.stringify({ result }));
         } catch (error) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: error.message || String(error) }));
+          const readableError = toBridgeErrorLike(error);
+          response.writeHead(500, { 'Content-Type': 'application/json' });
+          response.end(JSON.stringify({ error: readableError.message || String(error) }));
         }
         return;
       }
 
-      res.writeHead(404);
-      res.end('Not found');
+      response.writeHead(404);
+      response.end('Not found');
     });
 
     await new Promise((resolve, reject) => {
@@ -1086,8 +1353,10 @@ function createWechatSyncBridgeService(options = {}) {
       wss.once('error', reject);
       wss.on('connection', (ws, request) => {
         // Both the ws library and our minimal server emit (ws, request|extras).
-        const origin = request?.headers?.origin || request?.origin || '';
-        registerConnection(ws, { origin });
+        const requestRecord = toRecord(request);
+        const headers = toRecord(requestRecord.headers);
+        const origin = toBridgeString(headers.origin || requestRecord.origin);
+        registerConnection(/** @type {BridgeSocketLike} */ (ws), { origin });
       });
     });
 
@@ -1156,7 +1425,8 @@ function createWechatSyncBridgeService(options = {}) {
   function waitForConnection(timeoutMs = connectTimeoutMs) {
     if (isAuthenticatedConnected()) return Promise.resolve();
     return new Promise((resolve, reject) => {
-      let wrappedResolve;
+      /** @type {() => void} */
+      let wrappedResolve = () => {};
       const timeout = setBridgeTimeout(() => {
         const index = connectionResolvers.indexOf(wrappedResolve);
         if (index >= 0) connectionResolvers.splice(index, 1);
@@ -1171,6 +1441,12 @@ function createWechatSyncBridgeService(options = {}) {
     });
   }
 
+  /**
+   * @param {string} method
+   * @param {unknown} params
+   * @param {BridgeRequestOptionsLike} [options={}]
+   * @returns {Promise<unknown>}
+   */
   function requestInternal(method, params, options = {}) {
     if (!method) {
       return Promise.reject(new Error('Wechatsync bridge method is required.'));
@@ -1187,6 +1463,7 @@ function createWechatSyncBridgeService(options = {}) {
     }
 
     const id = idFactory();
+    /** @type {{ id: string, method: string, params: unknown, token?: string }} */
     const message = { id, method, params };
     if (token) message.token = token;
     const timeoutMs = Number.isFinite(Number(options.timeoutMs)) && Number(options.timeoutMs) > 0
@@ -1213,6 +1490,11 @@ function createWechatSyncBridgeService(options = {}) {
     });
   }
 
+  /**
+   * @param {string} method
+   * @param {unknown} params
+   * @returns {{ accepted: boolean, requestId: string, method: string }}
+   */
   function sendInternal(method, params) {
     if (!method) {
       throw new Error('Wechatsync bridge method is required.');
@@ -1229,6 +1511,7 @@ function createWechatSyncBridgeService(options = {}) {
     }
 
     const id = idFactory();
+    /** @type {{ id: string, method: string, params: unknown, token?: string }} */
     const message = { id, method, params };
     if (token) message.token = token;
     debug('Sending one-way request', {
@@ -1242,11 +1525,24 @@ function createWechatSyncBridgeService(options = {}) {
     return { accepted: true, requestId: id, method };
   }
 
+  /**
+   * @param {string} method
+   * @param {unknown} params
+   * @param {BridgeRequestOptionsLike} [options={}]
+   * @returns {Promise<unknown>}
+   */
   async function request(method, params, options = {}) {
     await start();
     return requestInternal(method, params, options);
   }
 
+  /**
+   * @param {string} method
+   * @param {string} fallbackMethod
+   * @param {unknown} params
+   * @param {BridgeRequestOptionsLike} [options={}]
+   * @returns {Promise<unknown>}
+   */
   async function requestWithMethodFallback(method, fallbackMethod, params, options = {}) {
     try {
       return await request(method, params, options);
@@ -1255,30 +1551,41 @@ function createWechatSyncBridgeService(options = {}) {
       debug('Retrying request with fallback method', {
         method,
         fallbackMethod,
-        code: error?.code,
-        message: error?.message || String(error),
+        code: toBridgeErrorLike(error).code,
+        message: toBridgeErrorLike(error).message || String(error),
       });
       return request(fallbackMethod, params, options);
     }
   }
 
+  /**
+   * @param {string} method
+   * @param {unknown} params
+   */
   async function send(method, params) {
     await start();
     return sendInternal(method, params);
   }
 
+  /** @param {BridgeListPlatformsOptionsLike} [options={}] */
   function listPlatforms({ forceRefresh = false, timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS } = {}) {
     return request('listPlatforms', { forceRefresh }, { timeoutMs });
   }
 
+  /** @param {BridgeTimeoutOptionsLike} [options={}] */
   function health({ timeoutMs = 5000 } = {}) {
     return request('health', {}, { timeoutMs });
   }
 
+  /** @param {BridgeTimeoutOptionsLike} [options={}] */
   function listSupportedPlatforms({ timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS } = {}) {
     return requestWithMethodFallback('listSupportedPlatforms', 'list_supported_platforms', {}, { timeoutMs });
   }
 
+  /**
+   * @param {unknown} platformOrPlatforms
+   * @param {{ timeoutMs?: number, forceRefresh?: boolean }} [options={}]
+   */
   function checkAuth(platformOrPlatforms, { timeoutMs = DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS, forceRefresh = false } = {}) {
     const params = Array.isArray(platformOrPlatforms)
       ? { platforms: platformOrPlatforms, forceRefresh }
@@ -1286,9 +1593,11 @@ function createWechatSyncBridgeService(options = {}) {
     return requestWithMethodFallback('checkAuth', 'check_auth', params, { timeoutMs });
   }
 
+  /** @param {BridgeArticleOptionsLike} options */
   function syncArticle({ platforms, title, markdown, content, cover, coverThumbnail, assets, quotaPolicy, timeoutMs = DEFAULT_SYNC_REQUEST_TIMEOUT_MS }) {
     const article = { title, markdown, content, cover, assets };
     if (coverThumbnail) article.coverThumbnail = coverThumbnail;
+    /** @type {Record<string, unknown>} */
     const params = { platforms, article };
     // SPEC-3 (Extension >= 2.8.0): quotaPolicy is forwarded so the
     // extension can choose between 'block' (default; old behavior) and
@@ -1300,6 +1609,7 @@ function createWechatSyncBridgeService(options = {}) {
     return request('syncArticle', params, { timeoutMs });
   }
 
+  /** @param {BridgeArticleOptionsLike} options */
   function enqueueSyncArticle({
     platforms,
     title,
@@ -1314,6 +1624,7 @@ function createWechatSyncBridgeService(options = {}) {
   }) {
     const article = { title, markdown, content, cover, assets };
     if (coverThumbnail) article.coverThumbnail = coverThumbnail;
+    /** @type {Record<string, unknown>} */
     const params = { platforms, source, article };
     if (quotaPolicy === 'block' || quotaPolicy === 'truncate') {
       params.quotaPolicy = quotaPolicy;
@@ -1321,27 +1632,40 @@ function createWechatSyncBridgeService(options = {}) {
     return requestWithMethodFallback('enqueueSyncArticle', 'enqueue_sync_article', params, { timeoutMs });
   }
 
+  /**
+   * @param {unknown} syncIdOrOptions
+   * @param {BridgeTimeoutOptionsLike} [options={}]
+   */
   function getSyncTask(syncIdOrOptions, { timeoutMs = 5000 } = {}) {
-    const params = typeof syncIdOrOptions === 'object' && syncIdOrOptions !== null
+    const params = isRecord(syncIdOrOptions)
       ? { syncId: syncIdOrOptions.syncId }
       : { syncId: syncIdOrOptions };
     return requestWithMethodFallback('getSyncTask', 'get_sync_task', params, { timeoutMs });
   }
 
+  /**
+   * @param {unknown} syncIdOrOptions
+   * @param {BridgeTimeoutOptionsLike} [options={}]
+   */
   function getSyncTaskLink(syncIdOrOptions, { timeoutMs = 5000 } = {}) {
-    const params = typeof syncIdOrOptions === 'object' && syncIdOrOptions !== null
+    const params = isRecord(syncIdOrOptions)
       ? { syncId: syncIdOrOptions.syncId }
       : { syncId: syncIdOrOptions };
     return requestWithMethodFallback('getSyncTaskLink', 'get_sync_task_link', params, { timeoutMs });
   }
 
+  /**
+   * @param {unknown} syncIdOrOptions
+   * @param {BridgeTimeoutOptionsLike} [options={}]
+   */
   function openSyncTask(syncIdOrOptions, { timeoutMs = 5000 } = {}) {
-    const params = typeof syncIdOrOptions === 'object' && syncIdOrOptions !== null
+    const params = isRecord(syncIdOrOptions)
       ? { syncId: syncIdOrOptions.syncId }
       : { syncId: syncIdOrOptions };
     return requestWithMethodFallback('openSyncTask', 'open_sync_task', params, { timeoutMs });
   }
 
+  /** @param {{ platforms?: unknown[], maxAgeMs?: number, timeoutMs?: number }} [options={}] */
   function getAuthSnapshot({ platforms = [], maxAgeMs = 86400000, timeoutMs = 5000 } = {}) {
     return requestWithMethodFallback('getAuthSnapshot', 'get_auth_snapshot', {
       platforms,
@@ -1349,9 +1673,11 @@ function createWechatSyncBridgeService(options = {}) {
     }, { timeoutMs });
   }
 
+  /** @param {BridgeArticleOptionsLike} options */
   function sendArticle({ platforms, title, markdown, content, cover, coverThumbnail, assets, quotaPolicy }) {
     const article = { title, markdown, content, cover, assets };
     if (coverThumbnail) article.coverThumbnail = coverThumbnail;
+    /** @type {Record<string, unknown>} */
     const params = { platforms, article };
     if (quotaPolicy === 'block' || quotaPolicy === 'truncate') {
       params.quotaPolicy = quotaPolicy;
@@ -1376,14 +1702,17 @@ function createWechatSyncBridgeService(options = {}) {
   }
 
   function getDiagnostics() {
+    const lastHelloRejection = diagnostics.lastHelloRejection
+      ? toRecord(diagnostics.lastHelloRejection)
+      : null;
     return {
       socketsOpened: diagnostics.socketsOpened,
       helloAttempts: diagnostics.helloAttempts,
       helloRejections: diagnostics.helloRejections,
       helloSuccesses: diagnostics.helloSuccesses,
       pendingConnections: pendingConnections.size,
-      lastHelloRejection: diagnostics.lastHelloRejection
-        ? { ...diagnostics.lastHelloRejection, details: { ...(diagnostics.lastHelloRejection.details || {}) } }
+      lastHelloRejection: lastHelloRejection
+        ? { ...lastHelloRejection, details: { ...toRecord(lastHelloRejection.details) } }
         : null,
     };
   }
@@ -1428,7 +1757,7 @@ function createWechatSyncBridgeService(options = {}) {
   };
 }
 
-module.exports = {
+export {
   DEFAULT_WECHATSYNC_PORT,
   DEFAULT_SYNC_REQUEST_TIMEOUT_MS,
   DEFAULT_HELLO_TIMEOUT_MS,

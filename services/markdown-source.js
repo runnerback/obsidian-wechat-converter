@@ -14,7 +14,8 @@
  *
  * @param {{ app: AppLike, lastActiveFile?: MarkdownFileLike | null, MarkdownViewType: unknown }} params
  */
-async function resolveMarkdownSource({ app, lastActiveFile, MarkdownViewType }) {
+export async function resolveMarkdownSource({ app, lastActiveFile, MarkdownViewType }) {
+  /** @type {MarkdownViewLike | null | undefined} */
   const activeView = app.workspace.getActiveViewOfType(MarkdownViewType);
 
   if (!activeView && lastActiveFile) {
@@ -26,10 +27,12 @@ async function resolveMarkdownSource({ app, lastActiveFile, MarkdownViewType }) 
         sourcePath: lastActiveFile.path || '',
       };
     } catch (error) {
+      /** @type {unknown} */
+      const readError = error;
       return {
         ok: false,
         reason: 'NO_ACTIVE_FILE',
-        error,
+        error: readError,
       };
     }
   }
@@ -47,7 +50,3 @@ async function resolveMarkdownSource({ app, lastActiveFile, MarkdownViewType }) 
     reason: 'NO_ACTIVE_FILE',
   };
 }
-
-module.exports = {
-  resolveMarkdownSource,
-};

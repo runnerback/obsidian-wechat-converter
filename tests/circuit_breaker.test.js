@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Use standard mock setup from universal-guardrails patterns
 const obsidian = require('obsidian');
-const { WechatAPI, AppleStyleView } = require('../input.js');
+const { loadInputModule } = require('./helpers/input-module.cjs');
+const { WechatAPI, AppleStyleView } = loadInputModule();
 
 describe('Circuit Breaker (Rate Limit & Quota Handling)', () => {
   let api;

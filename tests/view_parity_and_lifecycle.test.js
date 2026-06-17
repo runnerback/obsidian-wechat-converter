@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-const AppleStylePlugin = require('../input.js');
-const { AppleStyleView } = AppleStylePlugin;
+const { loadInputModule } = require('./helpers/input-module.cjs');
+const inputModule = loadInputModule();
+const AppleStylePlugin = inputModule.default;
+const { AppleStyleView } = inputModule;
 
 function createObsidianLikeElement(tag = 'div') {
   const el = document.createElement(tag);

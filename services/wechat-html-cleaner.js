@@ -1,12 +1,24 @@
-const { createHtmlContainer, getActiveDocument } = require('./dom-utils');
+import { createHtmlContainer, getActiveDocument } from './dom-utils.js';
 
-function cleanHtmlForDraft(html) {
+/**
+ * @typedef {{ firstElementIdx: number, prefixEndIdx: number }} InlineLabelPrefixInfo
+ */
+
+/**
+ * @param {string} html
+ * @returns {string}
+ */
+export function cleanHtmlForDraft(html) {
 
     const activeDocument = getActiveDocument();
     if (!activeDocument) return html;
     const div = createHtmlContainer('div', html);
     if (!div) return html;
 
+    /**
+     * @param {string} value
+     * @returns {string}
+     */
     const decodeFragment = (value) => {
       try {
         return decodeURIComponent(value);
@@ -15,6 +27,10 @@ function cleanHtmlForDraft(html) {
       }
     };
 
+    /**
+     * @param {Element | null | undefined} anchor
+     * @returns {boolean}
+     */
     const isTagLikeFragmentLink = (anchor) => {
       if (!anchor) return false;
       const href = (anchor.getAttribute('href') || '').trim();
@@ -32,6 +48,9 @@ function cleanHtmlForDraft(html) {
       return normalizedText === fragment || normalizedText === decodeFragment(fragment);
     };
 
+    /**
+     * @param {Element | null | undefined} root
+     */
     const unwrapTagLikeFragmentLinks = (root) => {
       if (!root) return;
 
@@ -46,6 +65,10 @@ function cleanHtmlForDraft(html) {
       });
     };
 
+    /**
+     * @param {Element | null | undefined} container
+     * @returns {InlineLabelPrefixInfo | null}
+     */
     const getInlineLabelPrefixInfo = (container) => {
       if (!container) return null;
       const nodes = Array.from(container.childNodes);
@@ -57,6 +80,7 @@ function cleanHtmlForDraft(html) {
       if (!hasOnlyWhitespaceBefore) return null;
 
       const firstElement = nodes[firstElementIdx];
+      if (!(firstElement instanceof Element)) return null;
       if (!['STRONG', 'CODE'].includes(firstElement.tagName)) return null;
 
       const elementText = (firstElement.textContent || '').trim();
@@ -81,8 +105,10 @@ function cleanHtmlForDraft(html) {
     // preview behavior.
     unwrapTagLikeFragmentLinks(div);
 
+    /** @param {Element | null | undefined} container */
     const hasInlineLabelPrefix = (container) => !!getInlineLabelPrefixInfo(container);
 
+    /** @param {Element} paragraph */
     const collapseLabelBreakInParagraph = (paragraph) => {
       const prefixInfo = getInlineLabelPrefixInfo(paragraph);
       if (!prefixInfo) return;
@@ -101,7 +127,7 @@ function cleanHtmlForDraft(html) {
       for (let i = startIdx; i < nodes.length; i += 1) {
         const node = nodes[i];
 
-        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+        if (node instanceof Element && node.tagName === 'BR') {
           node.remove();
           sawBreak = true;
           continue;
@@ -116,19 +142,24 @@ function cleanHtmlForDraft(html) {
           return;
         }
 
-        if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node instanceof Element) {
           if (sawBreak) paragraph.insertBefore(activeDocument.createTextNode(' '), node);
           return;
         }
       }
     };
 
+    /**
+     * @param {Element | null | undefined} paragraph
+     * @returns {boolean}
+     */
     const isInlineOnlyParagraph = (paragraph) => {
       if (!paragraph) return false;
       const blockLikeTags = new Set(['UL', 'OL', 'TABLE', 'PRE', 'BLOCKQUOTE', 'SECTION', 'FIGURE', 'DIV', 'P']);
       return !Array.from(paragraph.querySelectorAll('*')).some(el => blockLikeTags.has(el.tagName));
     };
 
+    /** @param {Element} li */
     const unwrapSimpleListParagraphs = (li) => {
       const hasDirectNestedList = Array.from(li.children).some(child => child.tagName === 'UL' || child.tagName === 'OL');
       if (hasDirectNestedList) return;
@@ -139,7 +170,7 @@ function cleanHtmlForDraft(html) {
       if (meaningfulChildren.length === 0) return;
 
       const allInlineParagraphs = meaningfulChildren.every(node =>
-        node.nodeType === Node.ELEMENT_NODE &&
+        node instanceof Element &&
         node.tagName === 'P' &&
         isInlineOnlyParagraph(node)
       );
@@ -161,6 +192,7 @@ function cleanHtmlForDraft(html) {
       li.appendChild(fragment);
     };
 
+    /** @param {Element} li */
     const collapseLabelBreakInListItem = (li) => {
       const prefixInfo = getInlineLabelPrefixInfo(li);
       if (!prefixInfo) return;
@@ -179,7 +211,7 @@ function cleanHtmlForDraft(html) {
       for (let i = startIdx; i < nodes.length; i += 1) {
         const node = nodes[i];
 
-        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+        if (node instanceof Element && node.tagName === 'BR') {
           node.remove();
           sawBreak = true;
           continue;
@@ -194,14 +226,19 @@ function cleanHtmlForDraft(html) {
           return;
         }
 
-        if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node instanceof Element) {
           if (sawBreak) li.insertBefore(activeDocument.createTextNode(' '), node);
           return;
         }
       }
     };
 
+    /** @param {Element} li */
     const convertLeadingStrongOrCodeToSpan = (li) => {
+      /**
+       * @param {Element | null | undefined} container
+       * @returns {ChildNode | null}
+       */
       const getFirstMeaningfulNode = (container) => {
         if (!container) return null;
         return Array.from(container.childNodes).find(node =>
@@ -212,11 +249,11 @@ function cleanHtmlForDraft(html) {
       let firstNode = getFirstMeaningfulNode(li);
       if (!firstNode) return;
 
-      if (firstNode.nodeType === Node.ELEMENT_NODE && firstNode.tagName === 'P') {
+      if (firstNode instanceof Element && firstNode.tagName === 'P') {
         firstNode = getFirstMeaningfulNode(firstNode);
       }
 
-      if (!firstNode || firstNode.nodeType !== Node.ELEMENT_NODE) return;
+      if (!(firstNode instanceof Element)) return;
       if (!['STRONG', 'CODE'].includes(firstNode.tagName)) return;
 
       const span = activeDocument.createElement('span');
@@ -239,6 +276,7 @@ function cleanHtmlForDraft(html) {
       firstNode.replaceWith(span);
     };
 
+    /** @param {Element} li */
     const collapseLeadingBreakAfterInlinePrefixInListItem = (li) => {
       const hasDirectNestedList = Array.from(li.children).some(child => child.tagName === 'UL' || child.tagName === 'OL');
       if (hasDirectNestedList) return;
@@ -250,7 +288,7 @@ function cleanHtmlForDraft(html) {
       if (firstMeaningfulIdx === -1) return;
 
       const firstMeaningfulNode = nodes[firstMeaningfulIdx];
-      if (firstMeaningfulNode.nodeType !== Node.ELEMENT_NODE) return;
+      if (!(firstMeaningfulNode instanceof Element)) return;
       if (!['SPAN', 'STRONG', 'CODE'].includes(firstMeaningfulNode.tagName)) return;
       const prefixText = (firstMeaningfulNode.textContent || '').trim();
       const prefixEndsAscii = /[A-Za-z0-9]$/.test(prefixText);
@@ -259,7 +297,7 @@ function cleanHtmlForDraft(html) {
       for (let i = firstMeaningfulIdx + 1; i < nodes.length; i += 1) {
         const node = nodes[i];
 
-        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+        if (node instanceof Element && node.tagName === 'BR') {
           sawBreak = true;
           node.remove();
           continue;
@@ -286,7 +324,7 @@ function cleanHtmlForDraft(html) {
           return;
         }
 
-        if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node instanceof Element) {
           const text = (node.textContent || '').trim();
           if (!text) continue;
           if (!sawBreak) return;
@@ -298,6 +336,7 @@ function cleanHtmlForDraft(html) {
       }
     };
 
+    /** @param {Element} li */
     const wrapTextContinuationAfterLeadingPrefix = (li) => {
       const hasDirectNestedList = Array.from(li.children).some(child => child.tagName === 'UL' || child.tagName === 'OL');
       if (hasDirectNestedList) return;
@@ -309,7 +348,7 @@ function cleanHtmlForDraft(html) {
       if (firstMeaningfulIdx === -1) return;
 
       const firstMeaningfulNode = nodes[firstMeaningfulIdx];
-      if (firstMeaningfulNode.nodeType !== Node.ELEMENT_NODE) return;
+      if (!(firstMeaningfulNode instanceof Element)) return;
       if (!['SPAN', 'STRONG', 'CODE'].includes(firstMeaningfulNode.tagName)) return;
       const firstText = (firstMeaningfulNode.textContent || '').trim();
 
@@ -333,6 +372,7 @@ function cleanHtmlForDraft(html) {
       nextMeaningfulNode.replaceWith(span);
     };
 
+    /** @param {Element} li */
     const bundleLeadingPrefixForWechatLineBreak = (li) => {
       const hasDirectNestedList = Array.from(li.children).some(child => child.tagName === 'UL' || child.tagName === 'OL');
       if (hasDirectNestedList) return;
@@ -344,7 +384,7 @@ function cleanHtmlForDraft(html) {
 
       const first = nodes[0];
       const second = nodes[1];
-      if (first.nodeType !== Node.ELEMENT_NODE || second.nodeType !== Node.ELEMENT_NODE) return;
+      if (!(first instanceof Element) || !(second instanceof Element)) return;
       if (first.tagName !== 'SPAN' || second.tagName !== 'SPAN') return;
 
       const firstText = (first.textContent || '').trim();
@@ -369,6 +409,7 @@ function cleanHtmlForDraft(html) {
       bundle.appendChild(second);
     };
 
+    /** @param {Element} li */
     const wrapLeadingLabelInBlockSpan = (li) => {
       const hasDirectNestedList = Array.from(li.children).some(child => child.tagName === 'UL' || child.tagName === 'OL');
       if (hasDirectNestedList) return;
@@ -379,14 +420,14 @@ function cleanHtmlForDraft(html) {
       if (nodes.length < 2) return;
 
       const firstNode = nodes[0];
-      if (firstNode.nodeType !== Node.ELEMENT_NODE) return;
+      if (!(firstNode instanceof Element)) return;
       if (firstNode.tagName !== 'SPAN') return;
 
       const firstText = (firstNode.textContent || '').trim();
       const secondNode = nodes[1];
       const secondText = secondNode.nodeType === Node.TEXT_NODE
         ? (secondNode.textContent || '')
-        : (secondNode.nodeType === Node.ELEMENT_NODE ? (secondNode.textContent || '') : '');
+        : (secondNode instanceof Element ? (secondNode.textContent || '') : '');
       const hasColon = /[：:]$/.test(firstText) || /^\s*[：:]/.test(secondText);
       if (!hasColon) return;
 
@@ -402,6 +443,7 @@ function cleanHtmlForDraft(html) {
       li.appendChild(wrapper);
     };
 
+    /** @param {Element} li */
     const mergeLabelParagraphs = (li) => {
       const directParagraphs = Array.from(li.children).filter(child => child.tagName === 'P');
       if (directParagraphs.length < 2) return;
@@ -462,6 +504,7 @@ function cleanHtmlForDraft(html) {
       const firstList = Array.from(li.children).find(child => child.tagName === 'UL' || child.tagName === 'OL');
       if (!firstList) return;
 
+      /** @type {ChildNode[]} */
       const nodesBeforeList = [];
       for (let node = li.firstChild; node && node !== firstList; node = node.nextSibling) {
         nodesBeforeList.push(node);
@@ -475,7 +518,7 @@ function cleanHtmlForDraft(html) {
 
       const blockTags = new Set(['UL', 'OL', 'TABLE', 'PRE', 'BLOCKQUOTE', 'SECTION', 'FIGURE', 'DIV']);
       const hasBlock = meaningfulNodes.some(node =>
-        node.nodeType === Node.ELEMENT_NODE && blockTags.has(node.tagName)
+        node instanceof Element && blockTags.has(node.tagName)
       );
 
       if (hasBlock) return;
@@ -491,6 +534,10 @@ function cleanHtmlForDraft(html) {
     });
 
     // 2. 将深层嵌套列表转为伪列表（仅处理 depth >= 2）
+    /**
+     * @param {Element} list
+     * @returns {number}
+     */
     const getListDepth = list => {
       let depth = 0;
       let current = list.parentElement;
@@ -501,6 +548,11 @@ function cleanHtmlForDraft(html) {
       return depth;
     };
 
+    /**
+     * @param {Element} list
+     * @param {number} depth
+     * @returns {DocumentFragment}
+     */
     const buildPseudoItems = (list, depth) => {
       const fragment = activeDocument.createDocumentFragment();
       const isOrdered = list.tagName === 'OL';
@@ -521,10 +573,11 @@ function cleanHtmlForDraft(html) {
           `${liStyle} margin:0 0 4px ${indent}px; padding:0;`
         );
 
+        /** @type {ChildNode[]} */
         const contentNodes = [];
         Array.from(li.childNodes).forEach(node => {
-          if (node.nodeType === Node.ELEMENT_NODE && (node.tagName === 'UL' || node.tagName === 'OL')) return;
-          if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'P') {
+          if (node instanceof Element && (node.tagName === 'UL' || node.tagName === 'OL')) return;
+          if (node instanceof Element && node.tagName === 'P') {
             const children = Array.from(node.childNodes);
             if (children.length && contentNodes.length) {
               contentNodes.push(activeDocument.createTextNode(' '));
@@ -592,7 +645,9 @@ function cleanHtmlForDraft(html) {
       const depth = getListDepth(list);
       if (depth < 2) return;
       const fragment = buildPseudoItems(list, depth);
-      list.parentNode.insertBefore(fragment, list);
+      if (list.parentNode) {
+        list.parentNode.insertBefore(fragment, list);
+      }
       list.remove();
     });
 
@@ -633,6 +688,10 @@ function cleanHtmlForDraft(html) {
     });
 
     // 7. 微信兼容修复：强制列表项内 strong/code 保持行内，避免“标题词”和冒号/正文断行
+    /**
+     * @param {Element} el
+     * @param {string} [extraStyle]
+     */
     const forceInlineStyle = (el, extraStyle = '') => {
       const currentStyle = el.getAttribute('style') || '';
       const cleanedStyle = currentStyle
@@ -659,7 +718,3 @@ function cleanHtmlForDraft(html) {
 
     return div.innerHTML;
   }
-
-module.exports = {
-  cleanHtmlForDraft,
-};

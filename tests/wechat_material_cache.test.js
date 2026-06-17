@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const { loadInputModule } = require('./helpers/input-module.cjs');
 function installModalCapture(obsidianMock) {
   const opened = [];
   const applyExtensions = obsidianMock.__applyExtensions || ((el) => el);
@@ -30,7 +31,7 @@ describe('AppleStyleView - WeChat material cache', () => {
     vi.resetModules();
     const obsidianMock = require('obsidian');
     modalCapture = installModalCapture(obsidianMock);
-    AppleStyleView = require('../input.js').AppleStyleView;
+    AppleStyleView = loadInputModule().AppleStyleView;
   });
 
   it('should reuse cached material pages within the ttl', async () => {

@@ -11,11 +11,12 @@
 import { describe, it, expect, vi } from 'vitest';
 
 const { createObsidianLikeElement } = require('./helpers/obsidian-dom.js');
+const { loadInputModule } = require('./helpers/input-module.cjs');
 const {
   describeWechatsyncConnectionState,
   renderWechatsyncConnectionStatusBar,
   formatWechatsyncCheckedAt,
-} = require('../input.js');
+} = loadInputModule();
 
 describe('describeWechatsyncConnectionState - text contract', () => {
   it('returns connected variant text for the publish modal', () => {

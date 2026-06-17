@@ -1,5 +1,22 @@
-const { isMathJaxSvg, rasterizeSvgToPngDataUrl } = require('./svg-rasterizer');
-const { getActiveDocument, setElementHtml } = require('./dom-utils');
+import { isMathJaxSvg, rasterizeSvgToPngDataUrl } from './svg-rasterizer.js';
+import { getActiveDocument, setElementHtml } from './dom-utils.js';
+
+/**
+ * @typedef {{ dataUrl?: string, width?: number, height?: number, style?: string }} MermaidRasterizeResult
+ * @typedef {(svg: SVGElement, options?: { scale?: number }) => Promise<MermaidRasterizeResult>} MermaidRasterizerLike
+ * @typedef {(value: string) => string} SimpleHashLike
+ * @typedef {Map<string, MermaidRasterizeResult>} MermaidImageCacheLike
+ * @typedef {{
+ *   rasterizeSvg?: MermaidRasterizerLike,
+ *   scale?: number,
+ *   simpleHash?: SimpleHashLike | null,
+ *   mermaidImageCache?: MermaidImageCacheLike | null,
+ * }} MermaidRasterizeOptions
+ * @typedef {{ svg?: string, bindFunctions?: (element: Element) => void }} MermaidRenderResultLike
+ * @typedef {{ render: (id: string, source: string) => Promise<string | MermaidRenderResultLike> | string | MermaidRenderResultLike }} MermaidApiLike
+ * @typedef {{ mermaidApi?: MermaidApiLike | null }} MermaidRenderOptions
+ * @typedef {Element & { setCssStyles?: (styles: Record<string, string>) => void }} CssStyleElementLike
+ */
 
 const MERMAID_COMPAT_THEME = {
   theme: 'base',
@@ -31,17 +48,20 @@ const MERMAID_COMPAT_THEME = {
   },
 };
 
+/** @param {string} source */
 function hasMermaidInitDirective(source) {
   return /^\s*%%\{init:/m.test(String(source || ''));
 }
 
-function buildMermaidCompatSource(source) {
+/** @param {string} source */
+export function buildMermaidCompatSource(source) {
   const normalized = String(source || '').trim();
   if (!normalized) return '';
   if (hasMermaidInitDirective(normalized)) return normalized;
   return `%%{init: ${JSON.stringify(MERMAID_COMPAT_THEME)}}%%\n${normalized}`;
 }
 
+/** @param {CssStyleElementLike | null | undefined} host */
 function normalizeMermaidPreviewHost(host) {
   if (!host || typeof host.setAttribute !== 'function') return;
   host.setCssStyles?.({
@@ -54,6 +74,10 @@ function normalizeMermaidPreviewHost(host) {
   });
 }
 
+/**
+ * @param {CssStyleElementLike | null | undefined} el
+ * @param {Record<string, string>} [styles]
+ */
 function setCssStylesCompat(el, styles = {}) {
   if (!el || !styles) return;
   if (typeof el.setCssStyles === 'function') {
@@ -69,6 +93,7 @@ function setCssStylesCompat(el, styles = {}) {
   }
 }
 
+/** @param {SVGElement | CssStyleElementLike | null | undefined} svg */
 function normalizeMermaidPreviewSvg(svg) {
   if (!svg || typeof svg.setAttribute !== 'function') return;
   svg.classList?.add?.('owc-mermaid-diagram');
@@ -81,6 +106,10 @@ function normalizeMermaidPreviewSvg(svg) {
   });
 }
 
+/**
+ * @param {Element | null | undefined} el
+ * @param {string} declarations
+ */
 function appendInlineStyle(el, declarations) {
   if (!el || !declarations) return;
   const current = String(el.getAttribute('style') || '').trim();
@@ -88,6 +117,11 @@ function appendInlineStyle(el, declarations) {
   el.setAttribute('style', `${normalized}${declarations}`);
 }
 
+/**
+ * @param {string} selector
+ * @param {SVGElement} svg
+ * @returns {string | null}
+ */
 function normalizeMermaidRuleSelector(selector, svg) {
   const raw = String(selector || '').trim();
   if (!raw || raw.startsWith('@')) return null;
@@ -110,6 +144,10 @@ function normalizeMermaidRuleSelector(selector, svg) {
   return normalized;
 }
 
+/**
+ * @param {SVGElement | null | undefined} svg
+ * @returns {number}
+ */
 function inlineMermaidSvgStyles(svg) {
   if (!svg || typeof svg.querySelectorAll !== 'function') return 0;
 
@@ -127,8 +165,11 @@ function inlineMermaidSvgStyles(svg) {
       const declarations = String(match[2] || '').trim();
       if (!selectorGroup || !declarations) continue;
 
-      const selectors = selectorGroup.split(',').map((selector) => normalizeMermaidRuleSelector(selector, svg)).filter(Boolean);
+      const selectors = /** @type {string[]} */ (
+        selectorGroup.split(',').map((selector) => normalizeMermaidRuleSelector(selector, svg)).filter(Boolean)
+      );
       for (const selector of selectors) {
+        /** @type {Element[]} */
         let targets = [];
         try {
           if (selector === ':scope') {
@@ -153,6 +194,12 @@ function inlineMermaidSvgStyles(svg) {
   return appliedCount;
 }
 
+/**
+ * @param {Element | null | undefined} el
+ * @param {string} name
+ * @param {number} [fallback]
+ * @returns {number}
+ */
 function getForeignObjectNumericAttr(el, name, fallback = 0) {
   const raw = String(el?.getAttribute?.(name) || '').trim();
   if (!raw) return fallback;
@@ -160,11 +207,16 @@ function getForeignObjectNumericAttr(el, name, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+/**
+ * @param {string} styleText
+ * @param {string} property
+ */
 function parseCssDecl(styleText, property) {
   const match = String(styleText || '').match(new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`, 'i'));
   return match ? String(match[1] || '').trim() : '';
 }
 
+/** @param {string} text */
 function estimateMermaidTextUnits(text) {
   let units = 0;
   for (const ch of String(text || '')) {
@@ -179,11 +231,17 @@ function estimateMermaidTextUnits(text) {
   return units;
 }
 
+/**
+ * @param {string} text
+ * @param {number} maxUnits
+ * @returns {string[]}
+ */
 function wrapMermaidLabelText(text, maxUnits) {
   const normalized = String(text || '').replace(/\s+/g, ' ').trim();
   if (!normalized) return [];
 
   const limit = Math.max(2, maxUnits || 2);
+  /** @type {string[]} */
   const lines = [];
   let current = '';
   let currentUnits = 0;
@@ -208,6 +266,10 @@ function wrapMermaidLabelText(text, maxUnits) {
   return lines.filter(Boolean);
 }
 
+/**
+ * @param {SVGElement | null | undefined} svg
+ * @returns {number}
+ */
 function flattenMermaidForeignObjectLabels(svg) {
   const activeDocument = getActiveDocument();
   if (!svg || typeof svg.querySelectorAll !== 'function' || !activeDocument) return 0;
@@ -268,11 +330,15 @@ function flattenMermaidForeignObjectLabels(svg) {
   return flattened;
 }
 
-function normalizeRenderedMermaidDiagrams(root) {
+/**
+ * @param {Element | null | undefined} root
+ * @returns {number}
+ */
+export function normalizeRenderedMermaidDiagrams(root) {
   if (!root || typeof root.querySelectorAll !== 'function') return 0;
 
   let normalizedCount = 0;
-  const svgs = Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg);
+  const svgs = /** @type {SVGElement[]} */ (Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg));
   for (const svg of svgs) {
     inlineMermaidSvgStyles(svg);
     const host = svg.closest?.('.mermaid,[data-obsidian-wechat-mermaid="true"]');
@@ -283,7 +349,7 @@ function normalizeRenderedMermaidDiagrams(root) {
     normalizedCount += 1;
   }
 
-  const images = Array.from(root.querySelectorAll('img.mermaid-diagram-image'));
+  const images = /** @type {HTMLImageElement[]} */ (Array.from(root.querySelectorAll('img.mermaid-diagram-image')));
   for (const img of images) {
     const host = img.closest?.('.mermaid,[data-obsidian-wechat-mermaid="true"]');
     if (host) {
@@ -304,6 +370,7 @@ function normalizeRenderedMermaidDiagrams(root) {
   return normalizedCount;
 }
 
+/** @param {SVGElement | null | undefined} svg */
 function unwrapMermaidHtmlLabelParagraphs(svg) {
   if (!svg || typeof svg.querySelectorAll !== 'function') return 0;
   const labels = Array.from(svg.querySelectorAll('.nodeLabel p, .edgeLabel p'));
@@ -320,6 +387,7 @@ function unwrapMermaidHtmlLabelParagraphs(svg) {
   return count;
 }
 
+/** @param {SVGElement | null | undefined} svg */
 function convertMermaidForeignObjectContainers(svg) {
   const activeDocument = getActiveDocument();
   if (!svg || typeof svg.querySelectorAll !== 'function' || !activeDocument) return 0;
@@ -350,6 +418,7 @@ function convertMermaidForeignObjectContainers(svg) {
   return count;
 }
 
+/** @param {SVGElement | null | undefined} svg */
 function enforceMermaidTextReadability(svg) {
   if (!svg || typeof svg.querySelectorAll !== 'function') return 0;
   let count = 0;
@@ -364,13 +433,17 @@ function enforceMermaidTextReadability(svg) {
   return count;
 }
 
-function prepareRenderedMermaidDiagramsForWechat(root) {
+/**
+ * @param {Element | null | undefined} root
+ * @returns {number}
+ */
+export function prepareRenderedMermaidDiagramsForWechat(root) {
   if (!root || typeof root.querySelectorAll !== 'function') return 0;
 
   normalizeRenderedMermaidDiagrams(root);
 
   let processed = 0;
-  const svgs = Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg);
+  const svgs = /** @type {SVGElement[]} */ (Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg));
   for (const svg of svgs) {
     unwrapMermaidHtmlLabelParagraphs(svg);
     convertMermaidForeignObjectContainers(svg);
@@ -384,6 +457,10 @@ function prepareRenderedMermaidDiagramsForWechat(root) {
   return processed;
 }
 
+/**
+ * @param {number | undefined} width
+ * @param {number | undefined} height
+ */
 function buildMermaidImageStyle(width, height) {
   const numericWidth = Number(width) || 0;
   const numericHeight = Number(height) || 0;
@@ -393,6 +470,11 @@ function buildMermaidImageStyle(width, height) {
   return `display:block;width:${widthPercent};max-width:${maxWidthStyle};height:auto;margin:0 auto;`;
 }
 
+/**
+ * @param {SVGElement} svg
+ * @param {number} scale
+ * @param {SimpleHashLike | null | undefined} simpleHash
+ */
 function getSerializedMermaidCacheKey(svg, scale, simpleHash) {
   const serializer = typeof XMLSerializer !== 'undefined' ? new XMLSerializer() : null;
   const svgMarkup = serializer ? serializer.serializeToString(svg) : (svg?.outerHTML || '');
@@ -400,7 +482,12 @@ function getSerializedMermaidCacheKey(svg, scale, simpleHash) {
   return typeof simpleHash === 'function' ? simpleHash(payload) : payload;
 }
 
-async function convertRenderedMermaidDiagramsToImages(root, options = {}) {
+/**
+ * @param {Element | null | undefined} root
+ * @param {MermaidRasterizeOptions} [options]
+ * @returns {Promise<number>}
+ */
+export async function convertRenderedMermaidDiagramsToImages(root, options = {}) {
   if (!root || typeof root.querySelectorAll !== 'function') return 0;
 
   const {
@@ -412,12 +499,13 @@ async function convertRenderedMermaidDiagramsToImages(root, options = {}) {
 
   normalizeRenderedMermaidDiagrams(root);
 
-  const svgs = Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg);
+  const svgs = /** @type {SVGElement[]} */ (Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg));
   let convertedCount = 0;
 
   for (const svg of svgs) {
     try {
       const cacheKey = getSerializedMermaidCacheKey(svg, scale, simpleHash);
+      /** @type {MermaidRasterizeResult | null} */
       let result = mermaidImageCache?.get(cacheKey) || null;
 
       if (!result) {
@@ -463,7 +551,11 @@ async function convertRenderedMermaidDiagramsToImages(root, options = {}) {
   return convertedCount;
 }
 
-function hasMermaidMarker(el) {
+/**
+ * @param {Element | null | undefined} el
+ * @returns {boolean}
+ */
+export function hasMermaidMarker(el) {
   if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
   const values = [
     el.getAttribute('class'),
@@ -478,7 +570,11 @@ function hasMermaidMarker(el) {
   return values.includes('mermaid');
 }
 
-function looksLikeMermaidSvg(svg) {
+/**
+ * @param {Element | null | undefined} svg
+ * @returns {svg is SVGElement}
+ */
+export function looksLikeMermaidSvg(svg) {
   if (!svg || svg.tagName?.toLowerCase?.() !== 'svg') return false;
   if (isMathJaxSvg(svg)) return false;
   if (svg.closest('.callout-icon')) return false;
@@ -497,7 +593,8 @@ function looksLikeMermaidSvg(svg) {
   );
 }
 
-function isMermaidCodeBlock(codeEl) {
+/** @param {Element | null | undefined} codeEl */
+export function isMermaidCodeBlock(codeEl) {
   if (!codeEl || codeEl.tagName?.toLowerCase?.() !== 'code') return false;
   const className = String(codeEl.getAttribute('class') || '').toLowerCase();
   if (className.split(/\s+/).includes('language-mermaid')) return true;
@@ -505,11 +602,17 @@ function isMermaidCodeBlock(codeEl) {
   return !!codeEl.closest('.block-language-mermaid');
 }
 
+/**
+ * @param {MermaidRenderOptions} [options]
+ * @returns {MermaidApiLike | null}
+ */
 function resolveMermaidApi(options = {}) {
   if (options.mermaidApi && typeof options.mermaidApi.render === 'function') {
     return options.mermaidApi;
   }
-  const globalApi = typeof window !== 'undefined' ? window.mermaid : null;
+  const globalApi = typeof window !== 'undefined'
+    ? /** @type {{ mermaid?: MermaidApiLike } & Window} */ (window).mermaid
+    : null;
   if (globalApi && typeof globalApi.render === 'function') {
     return globalApi;
   }
@@ -518,13 +621,18 @@ function resolveMermaidApi(options = {}) {
 
 let mermaidRenderNonce = 0;
 
-async function renderMermaidCodeBlocks(root, options = {}) {
+/**
+ * @param {Element | null | undefined} root
+ * @param {MermaidRenderOptions} [options]
+ * @returns {Promise<number>}
+ */
+export async function renderMermaidCodeBlocks(root, options = {}) {
   if (!root || typeof root.querySelectorAll !== 'function') return 0;
 
   const mermaidApi = resolveMermaidApi(options);
   if (!mermaidApi) return 0;
 
-  const codeBlocks = Array.from(root.querySelectorAll('pre > code')).filter(isMermaidCodeBlock);
+  const codeBlocks = /** @type {HTMLElement[]} */ (Array.from(root.querySelectorAll('pre > code')).filter(isMermaidCodeBlock));
   let renderedCount = 0;
 
   for (const codeEl of codeBlocks) {
@@ -535,7 +643,10 @@ async function renderMermaidCodeBlocks(root, options = {}) {
       mermaidRenderNonce += 1;
       const renderSource = buildMermaidCompatSource(source);
       const renderResult = await mermaidApi.render(`obsidian-wechat-mermaid-${mermaidRenderNonce}`, renderSource);
-      const svg = typeof renderResult === 'string' ? renderResult : renderResult?.svg || '';
+      const renderObject = typeof renderResult === 'string'
+        ? null
+        : /** @type {MermaidRenderResultLike} */ (renderResult);
+      const svg = typeof renderResult === 'string' ? renderResult : renderObject?.svg || '';
       if (!svg) continue;
 
       const activeDocument = getActiveDocument();
@@ -546,8 +657,8 @@ async function renderMermaidCodeBlocks(root, options = {}) {
       setElementHtml(host, svg);
       normalizeRenderedMermaidDiagrams(host);
 
-      if (typeof renderResult?.bindFunctions === 'function') {
-        renderResult.bindFunctions(host);
+      if (typeof renderObject?.bindFunctions === 'function') {
+        renderObject.bindFunctions(host);
       }
 
       const pre = codeEl.closest('pre');
@@ -561,7 +672,12 @@ async function renderMermaidCodeBlocks(root, options = {}) {
   return renderedCount;
 }
 
-async function rasterizeRenderedMermaidDiagrams(root, options = {}) {
+/**
+ * @param {Element | null | undefined} root
+ * @param {MermaidRasterizeOptions} [options]
+ * @returns {Promise<void>}
+ */
+export async function rasterizeRenderedMermaidDiagrams(root, options = {}) {
   if (!root || typeof root.querySelectorAll !== 'function') return;
 
   const {
@@ -574,7 +690,7 @@ async function rasterizeRenderedMermaidDiagrams(root, options = {}) {
   // faithful even outside the live preview container.
   normalizeRenderedMermaidDiagrams(root);
 
-  const svgs = Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg);
+  const svgs = /** @type {SVGElement[]} */ (Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg));
   for (const svg of svgs) {
     try {
       let result;
@@ -613,15 +729,3 @@ async function rasterizeRenderedMermaidDiagrams(root, options = {}) {
     }
   }
 }
-
-module.exports = {
-  hasMermaidMarker,
-  looksLikeMermaidSvg,
-  isMermaidCodeBlock,
-  buildMermaidCompatSource,
-  normalizeRenderedMermaidDiagrams,
-  prepareRenderedMermaidDiagramsForWechat,
-  convertRenderedMermaidDiagramsToImages,
-  renderMermaidCodeBlocks,
-  rasterizeRenderedMermaidDiagrams,
-};

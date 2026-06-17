@@ -1,10 +1,9 @@
 // tests/helpers/obsidian-resolver.cjs
 //
-// Vitest 4 only honors `resolve.alias` for ESM imports it transforms; the
-// `require('obsidian')` calls inside `input.js` are handled by Node's CJS
-// loader, which looks for `node_modules/obsidian/index.js` — but the
-// installed `obsidian` package ships only `.d.ts` type definitions, so the
-// require fails with `Cannot find module 'obsidian'`.
+// Vitest 4 honors `resolve.alias` for ESM imports it transforms, while some
+// legacy CommonJS tests still call `require('obsidian')` directly. The
+// installed `obsidian` package ships only `.d.ts` type definitions, so those
+// direct requires need to resolve to our mock implementation.
 //
 // Fix: monkey-patch `Module._resolveFilename` once per worker, before any
 // test file runs, so every `require('obsidian')` resolves to our mock at

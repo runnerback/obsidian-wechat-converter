@@ -1,9 +1,9 @@
-const js = require("@eslint/js");
-const globals = require("globals");
-const obsidianmd = require("eslint-plugin-obsidianmd");
-const sdl = require("@microsoft/eslint-plugin-sdl");
+import js from "@eslint/js";
+import globals from "globals";
+import obsidianmd from "eslint-plugin-obsidianmd";
+import sdl from "@microsoft/eslint-plugin-sdl";
 
-module.exports = [
+export default [
   js.configs.recommended,
   // Default CommonJS settings for plugin source files
   {
@@ -43,6 +43,65 @@ module.exports = [
       "no-extra-semi": "off",
       "no-inner-declarations": "off",
       "no-control-regex": "off", // Allow regex to check control characters like \x00
+      "obsidianmd/no-static-styles-assignment": "error",
+      "@microsoft/sdl/no-inner-html": "error",
+    },
+  },
+  // Targeted ESM leaf modules. Keep this list explicit so the plugin entry
+  // and dynamic Obsidian integration files can stay CommonJS until migrated.
+  {
+    files: [
+      "eslint.config.js",
+      "input.js",
+      "services/markdown-utils.js",
+      "services/ai-layout.js",
+      "services/ai-layout-runtime/generated-skills.js",
+      "services/ai-layout-runtime/registry.js",
+      "services/ai-layout-skill-bundle.js",
+      "services/article-image-assets.js",
+      "services/chinese-punctuation.js",
+      "services/dependency-loader.js",
+      "services/dom-utils.js",
+      "services/path-utils.js",
+      "services/markdown-source.js",
+      "services/render-pipeline.js",
+      "services/obsidian-fetch-adapter.js",
+      "services/native-renderer.js",
+      "services/obsidian-triplet-renderer.js",
+      "services/obsidian-triplet-serializer.js",
+      "services/rendered-mermaid.js",
+      "services/svg-rasterizer.js",
+      "services/sync-context.js",
+      "services/wechat-draft-cache.js",
+      "services/wechat-html-cleaner.js",
+      "services/wechat-media.js",
+      "services/wechat-sync.js",
+      "services/wechatsync-bridge.js",
+      "services/wechatsync-constants.js",
+      "services/wechatsync-results.js",
+      "services/wechatsync-settings.js",
+      "views/connection-status-bar.js",
+      "views/publish-modal/multi-platform.js",
+      "views/settings/multi-platform-tab.js",
+    ],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+    rules: {
+      "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+      "no-empty": "warn",
+      "no-prototype-builtins": "off",
+      "no-useless-escape": "off",
+      "no-constant-condition": "off",
+      "no-cond-assign": "off",
+      "no-extra-semi": "off",
+      "no-inner-declarations": "off",
+      "no-control-regex": "off",
       "obsidianmd/no-static-styles-assignment": "error",
       "@microsoft/sdl/no-inner-html": "error",
     },

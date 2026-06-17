@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 // Alias configured in vitest.config.mjs handles the mock
-const { AppleStyleView } = require('../input.js');
+const { loadInputModule } = require('./helpers/input-module.cjs');
+const { AppleStyleView } = loadInputModule();
 
 describe('AppleStyleView - HTML Cleaning', () => {
   let view;

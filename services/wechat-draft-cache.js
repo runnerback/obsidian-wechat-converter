@@ -1,16 +1,38 @@
-const { normalizeVaultPath } = require('./path-utils');
+import { normalizeVaultPath } from './path-utils.js';
 
-const DRAFT_CACHE_VERSION = 1;
+export const DRAFT_CACHE_VERSION = 1;
 
-function createEmptyDraftCache() {
+/**
+ * @typedef {{ sourcePath: string, mediaId: string, accountId: string, title: string, index: number, updatedAt: number }} DraftCacheEntry
+ * @typedef {{ version: number, articles: Record<string, DraftCacheEntry> }} DraftCache
+ * @typedef {{ draftCache?: unknown, [key: string]: unknown }} DraftSettingsLike
+ */
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isPlainRecord(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * @returns {DraftCache}
+ */
+export function createEmptyDraftCache() {
   return {
     version: DRAFT_CACHE_VERSION,
     articles: {},
   };
 }
 
-function normalizeDraftEntry(entry, fallbackPath = '') {
-  if (!entry || typeof entry !== 'object') return null;
+/**
+ * @param {unknown} entry
+ * @param {string} [fallbackPath='']
+ * @returns {DraftCacheEntry | null}
+ */
+export function normalizeDraftEntry(entry, fallbackPath = '') {
+  if (!isPlainRecord(entry)) return null;
 
   const mediaId = typeof entry.mediaId === 'string'
     ? entry.mediaId.trim()
@@ -41,18 +63,22 @@ function normalizeDraftEntry(entry, fallbackPath = '') {
   };
 }
 
-function normalizeDraftCache(rawCache) {
+/**
+ * @param {unknown} rawCache
+ * @returns {{ cache: DraftCache, changed: boolean }}
+ */
+export function normalizeDraftCache(rawCache) {
   const normalized = createEmptyDraftCache();
   let changed = false;
 
-  if (!rawCache || typeof rawCache !== 'object' || Array.isArray(rawCache)) {
+  if (!isPlainRecord(rawCache)) {
     return {
       cache: normalized,
       changed: rawCache !== undefined && rawCache !== null,
     };
   }
 
-  const sourceArticles = rawCache.version === DRAFT_CACHE_VERSION && rawCache.articles && typeof rawCache.articles === 'object'
+  const sourceArticles = rawCache.version === DRAFT_CACHE_VERSION && isPlainRecord(rawCache.articles)
     ? rawCache.articles
     : rawCache;
 
@@ -82,7 +108,13 @@ function normalizeDraftCache(rawCache) {
   return { cache: normalized, changed };
 }
 
-function getDraftAssociation(settings, sourcePath, accountId = '') {
+/**
+ * @param {DraftSettingsLike | null | undefined} settings
+ * @param {unknown} sourcePath
+ * @param {string} [accountId='']
+ * @returns {DraftCacheEntry | null}
+ */
+export function getDraftAssociation(settings, sourcePath, accountId = '') {
   const path = normalizeVaultPath(sourcePath || '');
   if (!path) return null;
 
@@ -98,10 +130,16 @@ function getDraftAssociation(settings, sourcePath, accountId = '') {
   return { ...entry };
 }
 
-function setDraftAssociation(settings, association) {
-  if (!settings || typeof settings !== 'object') return createEmptyDraftCache();
-  const sourcePath = normalizeVaultPath(association?.sourcePath || association?.filePath || '');
-  const entry = normalizeDraftEntry({ ...association, sourcePath }, sourcePath);
+/**
+ * @param {DraftSettingsLike | null | undefined} settings
+ * @param {unknown} association
+ * @returns {DraftCache}
+ */
+export function setDraftAssociation(settings, association) {
+  if (!isPlainRecord(settings)) return createEmptyDraftCache();
+  const associationRecord = isPlainRecord(association) ? association : {};
+  const sourcePath = normalizeVaultPath(associationRecord.sourcePath || associationRecord.filePath || '');
+  const entry = normalizeDraftEntry({ ...associationRecord, sourcePath }, sourcePath);
   const { cache } = normalizeDraftCache(settings.draftCache);
 
   if (entry) {
@@ -115,20 +153,16 @@ function setDraftAssociation(settings, association) {
   return cache;
 }
 
-function clearDraftAssociation(settings, sourcePath) {
-  if (!settings || typeof settings !== 'object') return createEmptyDraftCache();
+/**
+ * @param {DraftSettingsLike | null | undefined} settings
+ * @param {unknown} sourcePath
+ * @returns {DraftCache}
+ */
+export function clearDraftAssociation(settings, sourcePath) {
+  if (!isPlainRecord(settings)) return createEmptyDraftCache();
   const path = normalizeVaultPath(sourcePath || '');
   const { cache } = normalizeDraftCache(settings.draftCache);
   if (path) delete cache.articles[path];
   settings.draftCache = cache;
   return cache;
 }
-
-module.exports = {
-  DRAFT_CACHE_VERSION,
-  createEmptyDraftCache,
-  normalizeDraftCache,
-  getDraftAssociation,
-  setDraftAssociation,
-  clearDraftAssociation,
-};

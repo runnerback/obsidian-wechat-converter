@@ -1,24 +1,90 @@
-let MarkdownRenderer = null;
-try {
-  ({ MarkdownRenderer } = require('obsidian'));
-} catch {
-  MarkdownRenderer = null;
-}
-const { serializeObsidianRenderedHtml } = require('./obsidian-triplet-serializer');
-const { normalizeRenderedDomPunctuation } = require('./chinese-punctuation');
-const { getActiveDocument } = require('./dom-utils');
-const {
+import { serializeObsidianRenderedHtml } from './obsidian-triplet-serializer.js';
+import { normalizeRenderedDomPunctuation } from './chinese-punctuation.js';
+import { getActiveDocument } from './dom-utils.js';
+import {
   hasMermaidMarker,
   renderMermaidCodeBlocks,
   looksLikeMermaidSvg,
   normalizeRenderedMermaidDiagrams,
   rasterizeRenderedMermaidDiagrams,
-} = require('./rendered-mermaid');
+} from './rendered-mermaid.js';
 
+/**
+ * @typedef {{ marker: '`' | '~', length: number }} FenceState
+ * @typedef {[number, number]} TextRange
+ * @typedef {{ rawTarget: string, endIndex: number }} MarkdownImageTarget
+ * @typedef {{ src: string, alt: string }} ImageSwipeImage
+ * @typedef {{ type: string, optionText: string }} ImageSwipeCallout
+ * @typedef {{ placeholder: string, rendered: string, isBlock: boolean }} PreRenderedMathFormula
+ * @typedef {{ markdown: string, formulas: PreRenderedMathFormula[] }} PreRenderedMathResult
+ * @typedef {{ markdown: string, mathFormulas: PreRenderedMathFormula[] }} TripletPreprocessResult
+ * @typedef {{
+ *   renderMarkdown?: (markdown: string, sourcePath: string, el: HTMLElement, component: unknown) => Promise<void> | void,
+ *   render?: (app: unknown, markdown: string, el: HTMLElement, sourcePath: string, component: unknown) => Promise<void> | void,
+ * }} MarkdownRendererLike
+ * @typedef {{
+ *   render?: (markdown: string) => string,
+ *   renderInline?: (markdown: string) => string,
+ * }} MarkdownItLike
+ * @typedef {{
+ *   md?: MarkdownItLike,
+ *   stripFrontmatter?: (markdown: string) => string,
+ * }} ConverterLike
+ * @typedef {{
+ *   app?: unknown,
+ *   markdown: string,
+ *   targetEl: HTMLElement,
+ *   sourcePath?: string,
+ *   component?: unknown,
+ *   converter?: ConverterLike | null,
+ *   markdownRenderer?: MarkdownRendererLike | null,
+ *   preserveSvgStyleTags?: boolean,
+ * }} TripletRenderOptions
+ * @typedef {{
+ *   timeoutMs?: number,
+ *   intervalMs?: number,
+ *   observeMermaid?: boolean,
+ *   minObserveMs?: number,
+ *   mermaidObserveMs?: number,
+ * }} TripletSettleOptions
+ * @typedef {{
+ *   app?: unknown,
+ *   markdown: string,
+ *   sourcePath?: string,
+ *   targetEl: HTMLElement,
+ *   component?: unknown,
+ *   markdownRenderer?: MarkdownRendererLike | null,
+ * }} ObsidianRendererOptions
+ * @typedef {{
+ *   normalizeChinesePunctuation?: boolean,
+ * }} TripletSettingsLike
+ * @typedef {(root: HTMLElement, options: { mermaidApi?: unknown }) => Promise<void> | void} MermaidCodeRendererLike
+ * @typedef {(root: HTMLElement) => Promise<void> | void} MermaidRasterizerLike
+ * @typedef {(options: Record<string, unknown>) => string} TripletSerializerLike
+ * @typedef {{
+ *   html: string,
+ *   unresolvedImageEmbeds: number,
+ *   pendingMermaidDiagrams: number,
+ *   renderedMermaidDiagrams: number,
+ * }} TripletRenderResult
+ */
+
+/** @returns {MarkdownRendererLike | null} */
+function getDefaultMarkdownRenderer() {
+  const globalScope = /** @type {{ obsidian?: { MarkdownRenderer?: MarkdownRendererLike } }} */ (globalThis);
+  const obsidianApi = globalScope.obsidian;
+  return obsidianApi?.MarkdownRenderer || null;
+}
+
+/** @param {string} line */
 function isFencedBlockDelimiter(line) {
   return /^\s{0,3}(?:`{3,}|~{3,})/.test(String(line || ''));
 }
 
+/**
+ * @param {string} line
+ * @returns {FenceState | null}
+ */
 function parseFencedBlockDelimiter(line) {
   const value = String(line || '');
   const match = value.match(/^\s{0,3}((`{3,})|(~{3,}))(.*)$/);
@@ -32,22 +98,27 @@ function parseFencedBlockDelimiter(line) {
   };
 }
 
+/** @param {string} line */
 function isMathFenceDelimiter(line) {
   return /^\s*\$\$\s*$/.test(String(line || ''));
 }
 
+/** @param {string} line */
 function isQuoteLine(line) {
   return /^\s{0,3}(?:>\s?)+/.test(String(line || ''));
 }
 
+/** @param {string} line */
 function stripQuotePrefix(line) {
   return String(line || '').replace(/^\s{0,3}(?:>\s?)+/, '');
 }
 
+/** @param {string} prefix */
 function isQuotePrefix(prefix) {
   return /^\s{0,3}(?:>\s?)+$/.test(String(prefix || ''));
 }
 
+/** @param {string} trimmedLine */
 function startsNewBlock(trimmedLine) {
   if (!trimmedLine) return true;
   if (/^#{1,6}\s/.test(trimmedLine)) return true;
@@ -60,10 +131,12 @@ function startsNewBlock(trimmedLine) {
   return false;
 }
 
+/** @param {string} trimmedLine */
 function isListItemLine(trimmedLine) {
   return /^(?:[*+-]|\d+[.)])\s+/.test(String(trimmedLine || ''));
 }
 
+/** @param {string} line */
 function appendLegacyHardBreak(line) {
   const value = String(line || '');
   if (!value) return value;
@@ -71,6 +144,7 @@ function appendLegacyHardBreak(line) {
   return `${value.replace(/[ \t]+$/, '')}<br>`;
 }
 
+/** @param {string} line */
 function appendQuoteHardBreak(line) {
   const value = String(line || '');
   if (!value) return value;
@@ -78,6 +152,10 @@ function appendQuoteHardBreak(line) {
   return `${value.replace(/[ \t]+$/, '')}<br>`;
 }
 
+/**
+ * @param {string} markdown
+ * @returns {string}
+ */
 function injectHardBreaksForLegacyParity(markdown) {
   const lines = String(markdown || '').split('\n');
   let fenceState = null;
@@ -128,6 +206,10 @@ function injectHardBreaksForLegacyParity(markdown) {
   return lines.join('\n');
 }
 
+/**
+ * @param {string} markdown
+ * @returns {string}
+ */
 function neutralizeUnsafeMarkdownLinks(markdown) {
   const source = String(markdown || '');
   if (!source) return source;
@@ -136,7 +218,9 @@ function neutralizeUnsafeMarkdownLinks(markdown) {
   // keeps them as literal text. Escape leading "[" to mimic that behavior in triplet.
   const unsafeLinkPattern = /\[[^\]]+\]\(((?:javascript|vbscript|data):[^)\r\n]*)\)/gi;
   return source.replace(unsafeLinkPattern, (match, _href, offset, fullText) => {
-    const prevChar = offset > 0 ? fullText[offset - 1] : '';
+    const sourceText = String(fullText || '');
+    const safeOffset = Number(offset) || 0;
+    const prevChar = safeOffset > 0 ? sourceText[safeOffset - 1] : '';
     if (prevChar === '!' || prevChar === '\\') {
       return match;
     }
@@ -144,15 +228,21 @@ function neutralizeUnsafeMarkdownLinks(markdown) {
   });
 }
 
+/**
+ * @param {string} markdown
+ * @returns {string}
+ */
 function neutralizePlainWikilinks(markdown) {
   const source = String(markdown || '');
   if (!source) return source;
 
+  /** @param {string} value */
   const escapePlainWikilinks = (value) =>
     String(value || '').replace(/(^|[^!\\])(\[\[[^[\]\r\n]+?\]\])/g, (_match, prefix, wikilink) => {
       return `${prefix}\\${wikilink}`;
     });
 
+  /** @param {string} line */
   const neutralizeLineOutsideInlineCode = (line) => {
     const value = String(line || '');
     if (!value || !value.includes('[[')) return value;
@@ -209,6 +299,10 @@ function neutralizePlainWikilinks(markdown) {
   return lines.join('\n');
 }
 
+/**
+ * @param {string} markdown
+ * @returns {string}
+ */
 function normalizeWechatUnsafeTaskListMarkers(markdown) {
   const source = String(markdown || '');
   if (!source) return source;
@@ -278,6 +372,10 @@ const KNOWN_HTML_TAGS = new Set([
  * Escape pseudo-HTML tags that look like HTML but are actually text.
  * For example: <Title>_xxx_MS.pdf should be rendered as text, not as an HTML tag.
  */
+/**
+ * @param {string} markdown
+ * @returns {string}
+ */
 function escapePseudoHtmlTags(markdown) {
   const lines = markdown.split('\n');
   const result = [];
@@ -318,6 +416,10 @@ function escapePseudoHtmlTags(markdown) {
 /**
  * Escape pseudo-HTML tags in a line while preserving inline code content.
  * Supports multi-backtick code spans (CommonMark compliant).
+ */
+/**
+ * @param {string} line
+ * @returns {string}
  */
 function escapeLinePreservingInlineCode(line) {
   const segments = [];
@@ -394,20 +496,27 @@ function escapeLinePreservingInlineCode(line) {
  * Escape pseudo-HTML tags in plain text (not inside code).
  * Matches full tag patterns including attributes and closing bracket.
  */
+/**
+ * @param {string} text
+ * @returns {string}
+ */
 function escapePseudoHtmlInText(text) {
   // Match opening tags: <tag> or <tag attr="value">
   // Match closing tags: </tag>
   return text.replace(/<\/?([a-zA-Z][a-zA-Z0-9-]*)([^>]*)>/g, (match, tagName, attrs) => {
-    const lowerTag = tagName.toLowerCase();
+    const rawMatch = String(match || '');
+    const rawTagName = String(tagName || '');
+    const rawAttrs = String(attrs || '');
+    const lowerTag = rawTagName.toLowerCase();
     // If it's a known HTML tag, keep it as-is
     if (KNOWN_HTML_TAGS.has(lowerTag)) {
-      return match;
+      return rawMatch;
     }
     // Otherwise escape the angle brackets
-    if (match.startsWith('</')) {
-      return `&lt;/${tagName}&gt;`;
+    if (rawMatch.startsWith('</')) {
+      return `&lt;/${rawTagName}&gt;`;
     }
-    return `&lt;${tagName}${attrs}&gt;`;
+    return `&lt;${rawTagName}${rawAttrs}&gt;`;
   });
 }
 
@@ -416,6 +525,10 @@ function escapePseudoHtmlInText(text) {
 const MATH_PLACEHOLDER_SESSION = `M${Date.now().toString(36)}X`;
 let mathPlaceholderCounter = 0;
 
+/**
+ * @param {string} type
+ * @returns {string}
+ */
 function generateMathPlaceholder(type) {
   const id = `${MATH_PLACEHOLDER_SESSION}_${mathPlaceholderCounter}_${Math.random().toString(36).slice(2, 6)}`;
   mathPlaceholderCounter += 1;
@@ -426,9 +539,12 @@ function generateMathPlaceholder(type) {
 /**
  * Pre-render math formulas and return both the processed markdown and formulas array.
  * This function is pure - it doesn't use or modify any global state.
- * @returns {{ markdown: string, formulas: Array<{placeholder: string, rendered: string, isBlock: boolean}> }}
+ * @param {string} markdown
+ * @param {ConverterLike | null | undefined} converter
+ * @returns {PreRenderedMathResult}
  */
 function preRenderMathFormulas(markdown, converter) {
+  /** @type {PreRenderedMathFormula[]} */
   const formulas = [];
 
   if (!converter || !converter.md) return { markdown, formulas };
@@ -442,7 +558,7 @@ function preRenderMathFormulas(markdown, converter) {
   output = output.replace(blockMathPattern, (match, formula, offset, fullText) => {
     const placeholder = generateMathPlaceholder('BLOCK');
     try {
-      let normalizedFormula = formula;
+      let normalizedFormula = String(formula || '');
       const safeOffset = Number(offset) || 0;
       const source = String(fullText || '');
       const lineStart = source.lastIndexOf('\n', Math.max(0, safeOffset - 1)) + 1;
@@ -493,6 +609,7 @@ function encodeImageSwipeValue(value) {
   return encodeURIComponent(String(value || ''));
 }
 
+/** @param {string} value */
 function escapeImageSwipeHtmlAttr(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -501,6 +618,7 @@ function escapeImageSwipeHtmlAttr(value) {
     .replace(/>/g, '&gt;');
 }
 
+/** @param {string} imagePath */
 function getImageCaptionFromPath(imagePath) {
   const value = String(imagePath || '').trim();
   if (!value) return '';
@@ -508,10 +626,12 @@ function getImageCaptionFromPath(imagePath) {
   return filename.replace(/\.(jpg|jpeg|png|gif|webp|svg|bmp|avif)$/i, '');
 }
 
+/** @param {string} value */
 function hasExplicitUrlProtocol(value) {
   return /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(String(value || '').trim());
 }
 
+/** @param {string} src */
 function shouldMaterializeLocalMarkdownImage(src) {
   const value = String(src || '').trim();
   if (!value) return false;
@@ -520,6 +640,7 @@ function shouldMaterializeLocalMarkdownImage(src) {
   return !hasExplicitUrlProtocol(value);
 }
 
+/** @param {string} src */
 function encodeMarkdownImageSrc(src) {
   const value = String(src || '').trim();
   try {
@@ -529,8 +650,13 @@ function encodeMarkdownImageSrc(src) {
   }
 }
 
+/**
+ * @param {string} line
+ * @returns {TextRange[]}
+ */
 function findInlineCodeRanges(line) {
   const value = String(line || '');
+  /** @type {TextRange[]} */
   const ranges = [];
   let index = 0;
 
@@ -559,8 +685,13 @@ function findInlineCodeRanges(line) {
   return ranges;
 }
 
+/**
+ * @param {string} line
+ * @returns {TextRange[]}
+ */
 function findHtmlTagRanges(line) {
   const value = String(line || '');
+  /** @type {TextRange[]} */
   const ranges = [];
   let index = 0;
 
@@ -581,8 +712,13 @@ function findHtmlTagRanges(line) {
   return ranges;
 }
 
+/**
+ * @param {string} line
+ * @returns {TextRange[]}
+ */
 function findHtmlElementContentRanges(line) {
   const value = String(line || '');
+  /** @type {TextRange[]} */
   const ranges = [];
   const openTagPattern = /<([A-Za-z][\w:-]*)(?:\s[^<>]*)?>/g;
   let match;
@@ -603,8 +739,13 @@ function findHtmlElementContentRanges(line) {
   return ranges;
 }
 
+/**
+ * @param {string} line
+ * @returns {TextRange[]}
+ */
 function findMarkdownLinkLabelRanges(line) {
   const value = String(line || '');
+  /** @type {TextRange[]} */
   const ranges = [];
 
   for (let i = 0; i < value.length; i += 1) {
@@ -636,6 +777,10 @@ function findMarkdownLinkLabelRanges(line) {
   return ranges;
 }
 
+/**
+ * @param {number} offset
+ * @param {TextRange[]} ranges
+ */
 function isOffsetInRanges(offset, ranges) {
   return ranges.some(([start, end]) => offset >= start && offset < end);
 }
@@ -657,10 +802,15 @@ const HTML_VOID_TAGS = new Set([
   'wbr',
 ]);
 
+/** @param {string} tagName */
 function isHtmlVoidTag(tagName) {
   return HTML_VOID_TAGS.has(String(tagName || '').toLowerCase());
 }
 
+/**
+ * @param {string} value
+ * @param {number} startIndex
+ */
 function findClosingMarkdownBracket(value, startIndex) {
   let index = startIndex;
   while (index < value.length) {
@@ -675,6 +825,10 @@ function findClosingMarkdownBracket(value, startIndex) {
   return -1;
 }
 
+/**
+ * @param {string} value
+ * @param {number} startIndex
+ */
 function parseQuotedMarkdownTitle(value, startIndex) {
   const quote = value[startIndex];
   if (quote !== '"' && quote !== "'") return null;
@@ -693,6 +847,10 @@ function parseQuotedMarkdownTitle(value, startIndex) {
   return null;
 }
 
+/**
+ * @param {string} value
+ * @param {number} startIndex
+ */
 function parseParenthesizedMarkdownTitle(value, startIndex) {
   if (value[startIndex] !== '(') return null;
 
@@ -716,6 +874,10 @@ function parseParenthesizedMarkdownTitle(value, startIndex) {
   return null;
 }
 
+/**
+ * @param {string} value
+ * @param {number} startIndex
+ */
 function parseMarkdownImageTitleAndClose(value, startIndex) {
   let index = startIndex;
   while (/\s/.test(value[index] || '')) index += 1;
@@ -731,6 +893,11 @@ function parseMarkdownImageTitleAndClose(value, startIndex) {
   return value[index] === ')' ? index + 1 : null;
 }
 
+/**
+ * @param {string} value
+ * @param {number} openParenIndex
+ * @returns {MarkdownImageTarget | null}
+ */
 function parseMarkdownImageTargetAt(value, openParenIndex) {
   let index = openParenIndex + 1;
   while (/\s/.test(value[index] || '')) index += 1;
@@ -787,6 +954,11 @@ function parseMarkdownImageTargetAt(value, openParenIndex) {
   return null;
 }
 
+/**
+ * @param {string} line
+ * @param {TextRange[]} protectedRanges
+ * @returns {string}
+ */
 function replaceLocalMarkdownImagesInLine(line, protectedRanges) {
   const value = String(line || '');
   let output = '';
@@ -838,6 +1010,7 @@ function replaceLocalMarkdownImagesInLine(line, protectedRanges) {
   return output;
 }
 
+/** @param {string} rawTarget */
 function parseImageSwipeMarkdownTarget(rawTarget) {
   const value = String(rawTarget || '').trim();
   if (!value) return '';
@@ -851,24 +1024,31 @@ function parseImageSwipeMarkdownTarget(rawTarget) {
   return (titledMatch ? titledMatch[1] : value).trim();
 }
 
+/**
+ * @param {string} value
+ * @returns {ImageSwipeImage | null}
+ */
 function parseImageSwipeBareRemoteUrlLine(value) {
   const match = String(value || '').trim().match(/^<?((?:https?:)?\/\/[^\s<>]+)>?$/i);
   if (!match) return null;
   return {
-    src: encodeURI(match[1]),
+    src: encodeURI(String(match[1] || '')),
     alt: '',
   };
 }
 
+/** @param {string} src */
 function isImageSwipeRemoteSrc(src) {
   return /^(?:https?:)?\/\//i.test(String(src || '').trim());
 }
 
+/** @param {string} alt */
 function extractImageSwipeWidthHint(alt) {
   const match = String(alt || '').match(/\|\s*(\d{2,4})(?:x\d+)?\s*$/i);
   return match ? match[1] : '';
 }
 
+/** @param {ImageSwipeImage} image */
 function renderImageSwipeImgTag(image) {
   const attrs = [
     `src="${escapeImageSwipeHtmlAttr(image.src)}"`,
@@ -880,6 +1060,10 @@ function renderImageSwipeImgTag(image) {
   return `<img ${attrs.join(' ')}>`;
 }
 
+/**
+ * @param {string} line
+ * @returns {ImageSwipeImage | null}
+ */
 function parseImageSwipeMarkdownLine(line) {
   const value = String(line || '').trim();
   const bareRemoteImage = parseImageSwipeBareRemoteUrlLine(value);
@@ -904,8 +1088,13 @@ function parseImageSwipeMarkdownLine(line) {
   };
 }
 
+/**
+ * @param {string} markdown
+ * @returns {string}
+ */
 function materializeLocalMarkdownImages(markdown) {
   const lines = String(markdown || '').split('\n');
+  /** @type {string[]} */
   const output = [];
   let fenceState = null;
   let inMathFence = false;
@@ -992,6 +1181,11 @@ function materializeLocalMarkdownImages(markdown) {
   return output.join('\n');
 }
 
+/**
+ * @param {string[]} lines
+ * @param {number} imageIndex
+ * @returns {string}
+ */
 function extractImageSwipeItalicCaption(lines, imageIndex) {
   for (let i = imageIndex + 1; i < lines.length; i += 1) {
     const line = String(lines[i] || '').trim();
@@ -1003,7 +1197,12 @@ function extractImageSwipeItalicCaption(lines, imageIndex) {
   return '';
 }
 
+/**
+ * @param {string[]} blockLines
+ * @returns {ImageSwipeImage[]}
+ */
 function collectImageSwipeImages(blockLines) {
+  /** @type {ImageSwipeImage[]} */
   const images = [];
   for (let i = 0; i < blockLines.length; i += 1) {
     const image = parseImageSwipeMarkdownLine(blockLines[i]);
@@ -1014,10 +1213,12 @@ function collectImageSwipeImages(blockLines) {
   return images;
 }
 
+/** @param {string[]} blockLines */
 function hasRemoteImageSwipeImage(blockLines) {
   return collectImageSwipeImages(blockLines).some((image) => isImageSwipeRemoteSrc(image.src));
 }
 
+/** @param {string} line */
 function normalizeBareRemoteImageSwipeQuoteLine(line) {
   const match = String(line || '').match(/^(\s{0,3}>\s?)([\s\S]*)$/);
   if (!match) return line;
@@ -1026,6 +1227,12 @@ function normalizeBareRemoteImageSwipeQuoteLine(line) {
   return `${match[1]}![](${image.src})`;
 }
 
+/**
+ * @param {string} type
+ * @param {string[]} blockLines
+ * @param {string} optionText
+ * @returns {string[] | null}
+ */
 function renderImageSwipeHtmlBlock(type, blockLines, optionText) {
   const images = collectImageSwipeImages(blockLines);
   if (!images.length) return null;
@@ -1047,6 +1254,10 @@ function renderImageSwipeHtmlBlock(type, blockLines, optionText) {
   ];
 }
 
+/**
+ * @param {string} line
+ * @returns {ImageSwipeCallout | null}
+ */
 function parseImageSwipeCalloutOpen(line) {
   const match = String(line || '').match(/^\s{0,3}>\s?\[!\s*([a-z-]+)\s*](?:[+-])?\s*(.*)$/i);
   if (!match) return null;
@@ -1058,12 +1269,18 @@ function parseImageSwipeCalloutOpen(line) {
   };
 }
 
+/** @param {string} line */
 function stripSingleQuotePrefix(line) {
   return String(line || '').replace(/^\s{0,3}>\s?/, '');
 }
 
+/**
+ * @param {string} markdown
+ * @returns {string}
+ */
 function preprocessImageSwipeCallouts(markdown) {
   const lines = String(markdown || '').split('\n');
+  /** @type {string[]} */
   const output = [];
   let fenceState = null;
   let inMathFence = false;
@@ -1135,7 +1352,9 @@ function preprocessImageSwipeCallouts(markdown) {
  * Preprocess markdown for triplet rendering.
  * Returns an object with processed markdown and pre-rendered math formulas.
  * This function is pure - no global state is used.
- * @returns {{ markdown: string, mathFormulas: Array }}
+ * @param {string} markdown
+ * @param {ConverterLike | null | undefined} converter
+ * @returns {TripletPreprocessResult}
  */
 function preprocessMarkdownForTriplet(markdown, converter) {
   let output = preprocessImageSwipeCallouts(markdown);
@@ -1172,6 +1391,7 @@ function preprocessMarkdownForTriplet(markdown, converter) {
   return { markdown: output, mathFormulas };
 }
 
+/** @param {Element | null | undefined} root */
 function countUnresolvedImageEmbeds(root) {
   if (!root) return 0;
   const embeds = Array.from(root.querySelectorAll('span.internal-embed,span.image-embed,div.internal-embed,div.image-embed'));
@@ -1186,6 +1406,7 @@ function countUnresolvedImageEmbeds(root) {
   return unresolved;
 }
 
+/** @param {string} markdown */
 function shouldObserveMermaidRenderWindow(markdown) {
   const lines = String(markdown || '').split('\n');
   let fenceState = null;
@@ -1211,6 +1432,10 @@ function shouldObserveMermaidRenderWindow(markdown) {
   return false;
 }
 
+/**
+ * @param {Element | null | undefined} root
+ * @returns {Element[]}
+ */
 function collectMermaidHostElements(root) {
   if (!root || typeof root.querySelectorAll !== 'function') return [];
   const elements = Array.from(root.querySelectorAll('*')).filter((el) => hasMermaidMarker(el));
@@ -1222,6 +1447,7 @@ function collectMermaidHostElements(root) {
   });
 }
 
+/** @param {Element | null | undefined} root */
 function countRenderedMermaidDiagrams(root) {
   if (!root || typeof root.querySelectorAll !== 'function') return 0;
   const svgCount = Array.from(root.querySelectorAll('svg')).filter(looksLikeMermaidSvg).length;
@@ -1229,6 +1455,7 @@ function countRenderedMermaidDiagrams(root) {
   return svgCount + imageCount;
 }
 
+/** @param {Element | null | undefined} root */
 function countPendingMermaidHosts(root) {
   const hosts = collectMermaidHostElements(root);
   let pending = 0;
@@ -1244,10 +1471,12 @@ function countPendingMermaidHosts(root) {
   return pending;
 }
 
+/** @param {string} label */
 function normalizeReferenceLabel(label) {
   return String(label || '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+/** @param {string} rawTarget */
 function extractInlineImageTarget(rawTarget) {
   const value = String(rawTarget || '').trim();
   if (!value) return '';
@@ -1260,11 +1489,17 @@ function extractInlineImageTarget(rawTarget) {
   return value.split(/\s+/)[0] || '';
 }
 
+/**
+ * @param {string} markdown
+ * @returns {string[]}
+ */
 function collectImageTargets(markdown) {
   const source = String(markdown || '');
+  /** @type {string[]} */
   const targets = [];
   if (!source || !source.includes('![')) return targets;
 
+  /** @type {Map<string, string>} */
   const referenceTargets = new Map();
   const referenceDefinitionPattern = /^\s{0,3}\[([^\]]+)\]:\s*(?:<([^>\r\n]+)>|(\S+))/gm;
   let definitionMatch = referenceDefinitionPattern.exec(source);
@@ -1305,6 +1540,7 @@ function collectImageTargets(markdown) {
   return targets;
 }
 
+/** @param {string} markdown */
 function shouldObserveAsyncEmbedWindow(markdown) {
   const source = String(markdown || '');
   if (!source || !source.includes('![')) return false;
@@ -1334,6 +1570,10 @@ function shouldObserveAsyncEmbedWindow(markdown) {
   return false;
 }
 
+/**
+ * @param {Element | null | undefined} root
+ * @param {TripletSettleOptions} [options]
+ */
 async function waitForTripletDomToSettle(root, options = {}) {
   if (!root) return;
   const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 500;
@@ -1393,13 +1633,16 @@ async function waitForTripletDomToSettle(root, options = {}) {
   }
 }
 
+/**
+ * @param {ObsidianRendererOptions} options
+ */
 async function renderByObsidianMarkdownRenderer({
   app,
   markdown,
   sourcePath,
   targetEl,
   component = null,
-  markdownRenderer = MarkdownRenderer,
+  markdownRenderer = getDefaultMarkdownRenderer(),
 }) {
   if (!markdownRenderer) {
     throw new Error('Obsidian MarkdownRenderer is not available');
@@ -1419,6 +1662,17 @@ async function renderByObsidianMarkdownRenderer({
   throw new Error('Obsidian MarkdownRenderer does not expose renderMarkdown/render');
 }
 
+/**
+ * @param {TripletRenderOptions & {
+ *   settings?: TripletSettingsLike,
+ *   serializer?: TripletSerializerLike,
+ *   mermaidCodeRenderer?: MermaidCodeRendererLike,
+ *   mermaidRasterizer?: MermaidRasterizerLike,
+ *   mermaidApi?: unknown,
+ *   rasterizeMermaid?: boolean,
+ * }} options
+ * @returns {Promise<string>}
+ */
 async function renderObsidianTripletMarkdown({
   app,
   converter,
@@ -1426,7 +1680,7 @@ async function renderObsidianTripletMarkdown({
   sourcePath = '',
   component = null,
   settings = {},
-  markdownRenderer = MarkdownRenderer,
+  markdownRenderer = getDefaultMarkdownRenderer(),
   serializer = serializeObsidianRenderedHtml,
   mermaidCodeRenderer = renderMermaidCodeBlocks,
   mermaidRasterizer = rasterizeRenderedMermaidDiagrams,
@@ -1483,7 +1737,7 @@ async function renderObsidianTripletMarkdown({
   return serializedHtml;
 }
 
-module.exports = {
+export {
   neutralizeUnsafeMarkdownLinks,
   neutralizePlainWikilinks,
   normalizeWechatUnsafeTaskListMarkers,

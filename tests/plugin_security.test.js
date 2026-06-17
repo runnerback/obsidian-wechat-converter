@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+const { loadInputModule } = require('./helpers/input-module.cjs');
 describe('WechatAPI Security', () => {
   let WechatAPI;
   let obsidianMock;
@@ -17,7 +18,7 @@ describe('WechatAPI Security', () => {
     obsidianMock.requestUrl = vi.fn();
 
     // 4. Require the module under test AFTER mocking dependencies
-    const inputModule = require('../input.js');
+    const inputModule = loadInputModule();
     WechatAPI = inputModule.WechatAPI;
   });
 

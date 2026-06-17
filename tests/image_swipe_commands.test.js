@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
+const { loadInputModule } = require('./helpers/input-module.cjs');
 
 const {
   createImageSwipeCalloutMarkdown,
   getImageSwipeCommandCopy,
-} = require('../input');
+} = loadInputModule();
 
 describe('Image swipe editor commands', () => {
   it('should wrap selected images in an image-swipe callout', () => {

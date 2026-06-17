@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+const { loadInputModule } = require('./helpers/input-module.cjs');
 describe('AppleStylePlugin - Settings Migration', () => {
   let AppleStylePlugin;
 
   beforeEach(() => {
     vi.resetModules();
-    AppleStylePlugin = require('../input.js');
+    AppleStylePlugin = loadInputModule().default;
   });
 
   it('should migrate legacy folder cleanup config to cleanupDirTemplate', async () => {

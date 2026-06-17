@@ -1,5 +1,69 @@
-const { createHtmlContainer, getActiveDocument, htmlToText, setElementHtml } = require('./dom-utils');
+import { createHtmlContainer, getActiveDocument, htmlToText, setElementHtml } from './dom-utils.js';
 
+/**
+ * @typedef {{
+ *   type: string,
+ *   title: string,
+ *   icon: string,
+ *   label: string,
+ * }} LegacyCalloutInfo
+ *
+ * @typedef {{
+ *   index?: number,
+ *   lastIndex?: number,
+ *   url?: string,
+ *   text?: string,
+ * }} LinkifyMatchLike
+ *
+ * @typedef {{
+ *   typographer?: boolean,
+ * }} MarkdownOptionsLike
+ *
+ * @typedef {{
+ *   render?: (markdown: string) => string,
+ *   renderInline?: (markdown: string) => string,
+ *   options?: MarkdownOptionsLike,
+ *   linkify?: {
+ *     match?: (text: string) => LinkifyMatchLike[] | null,
+ *   },
+ * }} MarkdownItLike
+ *
+ * @typedef {{
+ *   getThemeColorValue?: () => string,
+ * }} ThemeLike
+ *
+ * @typedef {{
+ *   renderCalloutOpen?: (callout: LegacyCalloutInfo) => string,
+ *   getInlineStyle?: (tagName: string) => string,
+ *   createCodeBlock?: (content: string, language: string) => string,
+ *   validateLink?: (href: string, isImage?: boolean) => string,
+ *   resolveImagePath?: (src: string) => string,
+ *   fixListParagraphs?: (html: string) => string,
+ *   unwrapFigures?: (html: string) => string,
+ *   removeBlockquoteParagraphMargins?: (html: string) => string,
+ *   fixMathJaxTags?: (html: string) => string,
+ *   sanitizeHtml?: (html: string) => string,
+ *   showImageCaption?: boolean,
+ *   avatarUrl?: string,
+ *   theme?: ThemeLike,
+ *   md?: MarkdownItLike,
+ * }} ConverterLike
+ *
+ * @typedef {{
+ *   placeholder?: string,
+ *   rendered?: string,
+ * }} PreRenderedMathLike
+ *
+ * @typedef {{
+ *   token: string,
+ *   styleMarkup: string,
+ * }} SvgStylePlaceholder
+ */
+
+/**
+ * @param {Element | null | undefined} el
+ * @param {string} styleText
+ */
 function appendInlineStyle(el, styleText) {
   if (!el || !styleText) return;
   const existing = el.getAttribute('style') || '';
@@ -11,6 +75,10 @@ function appendInlineStyle(el, styleText) {
   el.setAttribute('style', `${normalized} ${styleText}`);
 }
 
+/**
+ * @param {Element | null | undefined} el
+ * @param {string} styleText
+ */
 function setInlineStyleIfMissing(el, styleText) {
   if (!el || !styleText) return;
   const existing = el.getAttribute('style');
@@ -18,6 +86,7 @@ function setInlineStyleIfMissing(el, styleText) {
   el.setAttribute('style', styleText);
 }
 
+/** @type {Record<string, string>} */
 const LEGACY_CALLOUT_ICON_BY_TYPE = {
   note: 'ℹ️',
   info: 'ℹ️',
@@ -60,6 +129,10 @@ function resolveLegacyCalloutIcon(type) {
   return LEGACY_CALLOUT_ICON_BY_TYPE[key] || 'ℹ️';
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function convertObsidianCalloutsToLegacy(container, converter) {
   if (!container || !converter) return;
   if (typeof converter.renderCalloutOpen !== 'function') return;
@@ -70,6 +143,7 @@ function convertObsidianCalloutsToLegacy(container, converter) {
   if (callouts.length === 0) return;
 
   // Convert deepest nodes first so nested callouts stay stable.
+  /** @param {Element} node */
   const getCalloutDepth = (node) => {
     let depth = 0;
     let cursor = node?.parentElement || null;
@@ -134,6 +208,10 @@ function convertObsidianCalloutsToLegacy(container, converter) {
   }
 }
 
+/**
+ * @param {Element} callout
+ * @returns {{ type: string, titleText: string, contentEl: Element | null }}
+ */
 function getObsidianCalloutParts(callout) {
   const typeRaw =
     callout.getAttribute('data-callout') ||
@@ -152,6 +230,9 @@ function getObsidianCalloutParts(callout) {
   return { type, titleText, contentEl };
 }
 
+/**
+ * @param {Element | null | undefined} container
+ */
 function convertObsidianImageSwipeCallouts(container) {
   if (!container) return;
   const activeDocument = getActiveDocument();
@@ -184,6 +265,11 @@ function convertObsidianImageSwipeCallouts(container) {
   }
 }
 
+/**
+ * @param {Element} el
+ * @param {string} tagName
+ * @param {boolean} [finalStage]
+ */
 function sanitizeClassList(el, tagName, finalStage = false) {
   const className = el.getAttribute('class');
   if (!className) return;
@@ -207,6 +293,10 @@ function sanitizeClassList(el, tagName, finalStage = false) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {{ finalStage?: boolean }} [options]
+ */
 function pruneObsidianOnlyAttributes(container, { finalStage = false } = {}) {
   if (!container) return;
 
@@ -228,6 +318,7 @@ function pruneObsidianOnlyAttributes(container, { finalStage = false } = {}) {
     'pattern', 'mask', 'symbol', 'use',
   ]);
 
+  /** @param {string} tagName */
   const getAllowedAttrs = (tagName) => {
     if (tagName === 'a') return new Set(['href', 'style']);
     if (tagName === 'img') return new Set(['src', 'alt', 'style', 'width', 'height', 'class', 'referrerpolicy']);
@@ -264,6 +355,9 @@ function pruneObsidianOnlyAttributes(container, { finalStage = false } = {}) {
   });
 }
 
+/**
+ * @param {Element | null | undefined} container
+ */
 function normalizeLegacyTagAliases(container) {
   if (!container) return;
   const activeDocument = getActiveDocument();
@@ -283,6 +377,9 @@ function normalizeLegacyTagAliases(container) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ */
 function normalizeLegacyDeleteNesting(container) {
   if (!container) return;
   const activeDocument = getActiveDocument();
@@ -299,14 +396,14 @@ function normalizeLegacyDeleteNesting(container) {
 
     if (spacer && spacer.nodeType === Node.TEXT_NODE && /^\s*$/.test(spacer.textContent || '')) {
       second = spacer.nextSibling;
-    } else if (spacer && spacer.nodeType === Node.ELEMENT_NODE && spacer.tagName.toLowerCase() === 'del') {
+    } else if (spacer instanceof Element && spacer.tagName.toLowerCase() === 'del') {
       second = spacer;
       spacer = null;
     } else {
       continue;
     }
 
-    if (!second || second.nodeType !== Node.ELEMENT_NODE || second.tagName.toLowerCase() !== 'del') continue;
+    if (!(second instanceof Element) || second.tagName.toLowerCase() !== 'del') continue;
 
     const label = (first.textContent || '').trim();
     if (!/[：:]$/.test(label)) continue;
@@ -320,6 +417,10 @@ function normalizeLegacyDeleteNesting(container) {
   }
 }
 
+/**
+ * @param {string} html
+ * @returns {string}
+ */
 function normalizeLegacyDeleteNestingInHtml(html) {
   if (typeof html !== 'string' || html.length === 0) return html;
   return html.replace(
@@ -328,6 +429,11 @@ function normalizeLegacyDeleteNestingInHtml(html) {
   );
 }
 
+/**
+ * @param {ConverterLike | null | undefined} converter
+ * @param {string} tagName
+ * @returns {string}
+ */
 function getTagStyle(converter, tagName) {
   if (!converter || typeof converter.getInlineStyle !== 'function') return '';
   try {
@@ -337,6 +443,10 @@ function getTagStyle(converter, tagName) {
   }
 }
 
+/**
+ * @param {string} text
+ * @returns {string}
+ */
 function safeDecodeCaption(text) {
   if (!text || typeof text !== 'string') return text || '';
   if (!text.includes('%')) return text;
@@ -348,6 +458,12 @@ function safeDecodeCaption(text) {
   }
 }
 
+/**
+ * @param {ConverterLike | null | undefined} converter
+ * @param {string} [_src]
+ * @param {string} [alt]
+ * @returns {string}
+ */
 function deriveImageCaption(converter, _src = '', alt = '') {
   let caption = alt || '';
   if (caption) {
@@ -360,6 +476,10 @@ function deriveImageCaption(converter, _src = '', alt = '') {
   return caption;
 }
 
+/**
+ * @param {string} text
+ * @returns {string}
+ */
 function extractWidthHintFromText(text) {
   const value = String(text || '');
   if (!value) return '';
@@ -376,6 +496,10 @@ function extractWidthHintFromText(text) {
   return '';
 }
 
+/**
+ * @param {Element | null | undefined} el
+ * @returns {string}
+ */
 function findImageWidthHintFromAncestors(el) {
   let cursor = el;
   let depth = 0;
@@ -396,6 +520,11 @@ function findImageWidthHintFromAncestors(el) {
   return '';
 }
 
+/**
+ * @param {Element | null | undefined} el
+ * @param {string} [rawAlt]
+ * @returns {string}
+ */
 function findLegacyAltHintFromAncestors(el, rawAlt = '') {
   const baseAlt = String(rawAlt || '').trim();
   if (!baseAlt) return '';
@@ -420,6 +549,11 @@ function findLegacyAltHintFromAncestors(el, rawAlt = '') {
   return '';
 }
 
+/**
+ * @param {HTMLImageElement | Element | null | undefined} imgEl
+ * @param {string} [rawAlt]
+ * @returns {string}
+ */
 function buildLegacyParityImageAlt(imgEl, rawAlt = '') {
   const alt = String(rawAlt || '');
   if (!alt) return alt;
@@ -453,6 +587,10 @@ function buildLegacyParityImageAlt(imgEl, rawAlt = '') {
   return alt;
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function sanitizeAnchorAndImageLinks(container, converter) {
   if (!container) return;
 
@@ -505,6 +643,10 @@ function sanitizeAnchorAndImageLinks(container, converter) {
   });
 }
 
+/**
+ * @param {Element | null | undefined} embedEl
+ * @returns {string}
+ */
 function extractImageEmbedSrc(embedEl) {
   if (!embedEl) return '';
   const attrKeys = ['src', 'data-src', 'data-href', 'href'];
@@ -519,6 +661,10 @@ function extractImageEmbedSrc(embedEl) {
   return '';
 }
 
+/**
+ * @param {string} src
+ * @returns {boolean}
+ */
 function looksLikeImageSrc(src) {
   const value = String(src || '').trim();
   if (!value) return false;
@@ -526,6 +672,10 @@ function looksLikeImageSrc(src) {
   return /\.(png|jpe?g|gif|webp|svg|bmp|avif)(\?|#|$)/i.test(value);
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function materializeImageEmbedPlaceholders(container, converter) {
   if (!container) return;
   const activeDocument = getActiveDocument();
@@ -556,6 +706,9 @@ function materializeImageEmbedPlaceholders(container, converter) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ */
 function promoteImageEmbedAltHints(container) {
   if (!container) return;
   const embeds = Array.from(container.querySelectorAll('span.image-embed,div.image-embed,span.internal-embed,div.internal-embed'));
@@ -579,6 +732,10 @@ function promoteImageEmbedAltHints(container) {
   }
 }
 
+/**
+ * @param {string} src
+ * @returns {string}
+ */
 function normalizeObsidianImageSrcForLegacyParity(src) {
   const value = String(src || '').trim();
   if (!value) return value;
@@ -598,6 +755,10 @@ function normalizeObsidianImageSrcForLegacyParity(src) {
   return value;
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function convertPreBlocks(container, converter) {
   if (!container || !converter || typeof converter.createCodeBlock !== 'function') return;
 
@@ -629,11 +790,20 @@ function decodeImageSwipeValue(value) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} el
+ * @param {string} styleText
+ */
 function setImageSwipeSectionStyle(el, styleText) {
   if (!el || !styleText) return;
   el.setAttribute('style', styleText);
 }
 
+/**
+ * @param {HTMLImageElement} img
+ * @param {ConverterLike | null | undefined} converter
+ * @returns {{ src: string, alt: string, caption: string }}
+ */
 function normalizeImageSwipeImage(img, converter) {
   let src = img.getAttribute('src') || '';
   src = normalizeObsidianImageSrcForLegacyParity(src);
@@ -663,6 +833,10 @@ function normalizeImageSwipeImage(img, converter) {
   };
 }
 
+/**
+ * @param {{ img: HTMLImageElement, caption: string, converter: ConverterLike | null | undefined, activeDocument?: Document | null }} options
+ * @returns {HTMLElement | null}
+ */
 function createImageSwipePanel({ img, caption, converter, activeDocument = getActiveDocument() }) {
   if (!activeDocument) return null;
   const panel = activeDocument.createElement('section');
@@ -683,6 +857,11 @@ function createImageSwipePanel({ img, caption, converter, activeDocument = getAc
   return panel;
 }
 
+/**
+ * @param {string} warning
+ * @param {Document | null} [activeDocument]
+ * @returns {HTMLElement | null}
+ */
 function createImageSwipeWarningPanel(warning, activeDocument = getActiveDocument()) {
   if (!activeDocument) return null;
   const panel = activeDocument.createElement('section');
@@ -707,6 +886,12 @@ function createImageSwipeWarningPanel(warning, activeDocument = getActiveDocumen
   return panel;
 }
 
+/**
+ * @param {string} hint
+ * @param {ConverterLike | null | undefined} converter
+ * @param {Document | null} [activeDocument]
+ * @returns {HTMLElement | null}
+ */
 function createImageSwipeHint(hint, converter, activeDocument = getActiveDocument()) {
   if (!activeDocument) return null;
   const hintEl = activeDocument.createElement('section');
@@ -717,6 +902,10 @@ function createImageSwipeHint(hint, converter, activeDocument = getActiveDocumen
   return hintEl;
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function convertImageSwipeBlocks(container, converter) {
   if (!container) return;
   const activeDocument = getActiveDocument();
@@ -765,6 +954,10 @@ function convertImageSwipeBlocks(container, converter) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function convertStandaloneImages(container, converter) {
   if (!container) return;
   const activeDocument = getActiveDocument();
@@ -871,6 +1064,9 @@ function convertStandaloneImages(container, converter) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ */
 function trimTrailingWhitespaceInBlockText(container) {
   if (!container) return;
   const selector = 'p,li,blockquote,h1,h2,h3,h4,h5,h6,figcaption,td,th';
@@ -898,6 +1094,9 @@ function trimTrailingWhitespaceInBlockText(container) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ */
 function trimLeadingWhitespaceInBlockText(container) {
   if (!container) return;
   const selector = 'p,li,blockquote,h1,h2,h3,h4,h5,h6,figcaption,td,th';
@@ -925,6 +1124,9 @@ function trimLeadingWhitespaceInBlockText(container) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ */
 function pruneEmptyHeadings(container) {
   if (!container) return;
   const headings = Array.from(container.querySelectorAll('h1,h2,h3,h4,h5,h6'));
@@ -954,6 +1156,10 @@ function pruneEmptyHeadings(container) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function applyThemeInlineStyles(container, converter) {
   if (!container || !converter) return;
 
@@ -987,6 +1193,10 @@ function applyThemeInlineStyles(container, converter) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function formatTaskListItems(container, converter) {
   if (!container || !converter) return;
   const activeDocument = getActiveDocument();
@@ -1055,6 +1265,10 @@ function formatTaskListItems(container, converter) {
   });
 }
 
+/**
+ * @param {HTMLTableElement | Element | null | undefined} table
+ * @returns {number}
+ */
 function getTableColumnCount(table) {
   if (!table) return 0;
   const rows = Array.from(table.querySelectorAll('tr'));
@@ -1073,6 +1287,10 @@ function getTableColumnCount(table) {
   return 0;
 }
 
+/**
+ * @param {HTMLTableElement | Element | null | undefined} table
+ * @returns {number}
+ */
 function getWechatTableWidth(table) {
   const columns = getTableColumnCount(table);
   if (!columns) return 720;
@@ -1080,6 +1298,12 @@ function getWechatTableWidth(table) {
   return Math.max(360, Math.min(1200, width));
 }
 
+/**
+ * @param {string} style
+ * @param {string} property
+ * @param {string} value
+ * @returns {string}
+ */
 function replaceStyleDeclaration(style, property, value) {
   const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`(?:^|;)\\s*${escaped}\\s*:\\s*[^;]+;?`, 'gi');
@@ -1092,12 +1316,20 @@ function replaceStyleDeclaration(style, property, value) {
   return `${property}: ${value}; ${normalized}`.trim();
 }
 
+/**
+ * @param {Element | null | undefined} el
+ * @returns {boolean}
+ */
 function isHorizontallyScrollableWrapper(el) {
   if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
   const style = el.getAttribute('style') || '';
   return /overflow-x\s*:\s*(?:auto|scroll)/i.test(style);
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function wrapTablesForHorizontalScroll(container, converter) {
   if (!container) return;
   const activeDocument = getActiveDocument();
@@ -1123,6 +1355,10 @@ function wrapTablesForHorizontalScroll(container, converter) {
   });
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {{ preserveSvgStyleTags?: boolean }} [options]
+ */
 function stripDangerousTags(container, { preserveSvgStyleTags = false } = {}) {
   if (!container) return;
   container.querySelectorAll('script,iframe,object,embed,form,input,button,style').forEach((el) => {
@@ -1137,11 +1373,16 @@ function stripDangerousTags(container, { preserveSvgStyleTags = false } = {}) {
   });
 }
 
+/**
+ * @param {string} html
+ * @returns {{ html: string, placeholders: SvgStylePlaceholder[] }}
+ */
 function protectSvgStyleTags(html) {
   if (typeof html !== 'string' || !html.includes('<style')) {
     return { html, placeholders: [] };
   }
 
+  /** @type {SvgStylePlaceholder[]} */
   const placeholders = [];
   let index = 0;
   const protectedHtml = html.replace(/<svg\b[\s\S]*?<\/svg>/gi, (svgMarkup) => {
@@ -1156,6 +1397,11 @@ function protectSvgStyleTags(html) {
   return { html: protectedHtml, placeholders };
 }
 
+/**
+ * @param {string} html
+ * @param {SvgStylePlaceholder[]} [placeholders]
+ * @returns {string}
+ */
 function restoreSvgStyleTags(html, placeholders = []) {
   let result = String(html || '');
   placeholders.forEach(({ token, styleMarkup }) => {
@@ -1164,6 +1410,10 @@ function restoreSvgStyleTags(html, placeholders = []) {
   return result;
 }
 
+/**
+ * @param {Element | null | undefined} svg
+ * @returns {boolean}
+ */
 function looksLikeMathSvg(svg) {
   if (!svg || svg.tagName?.toLowerCase?.() !== 'svg') return false;
   if (svg.getAttribute('role') === 'img') return true;
@@ -1172,12 +1422,16 @@ function looksLikeMathSvg(svg) {
   return !!svg.closest?.('mjx-container,mjx-math,.MathJax');
 }
 
+/**
+ * @param {Element | null | undefined} container
+ */
 function normalizeMathPresentation(container) {
   if (!container) return;
 
   const blockStyle = 'display:block; width:100%; margin:1em auto; text-align:center; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;';
   const inlineStyle = 'display:inline-block; vertical-align:middle; transform:translateY(-0.12em); margin:0 1px; line-height:1;';
 
+  /** @param {Element | null | undefined} el */
   const normalizeTopOffsets = (el) => {
     if (!el || typeof el.getAttribute !== 'function' || typeof el.setAttribute !== 'function') return;
     const style = String(el.getAttribute('style') || '');
@@ -1185,7 +1439,7 @@ function normalizeMathPresentation(container) {
     let topValue = null;
     let nextStyle = style.replace(/(^|;)\s*top\s*:\s*([^;]+)\s*;?/i, (_m, prefix, value) => {
       topValue = String(value || '').trim();
-      return prefix || '';
+      return String(prefix || '');
     });
     if (!topValue) return;
     if (/transform\s*:/i.test(nextStyle)) {
@@ -1265,6 +1519,10 @@ function normalizeMathPresentation(container) {
   });
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function applyLegacyTypographerParity(container, converter) {
   if (!container || !converter || !converter.md) return;
   if (typeof converter.md.renderInline !== 'function') return;
@@ -1302,6 +1560,10 @@ function applyLegacyTypographerParity(container, converter) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function renderUnresolvedMathFormulas(container, converter) {
   // Obsidian's MarkdownRenderer.renderMarkdown does not render LaTeX math formulas.
   // This function detects unresolved $...$ and $$...$$ patterns in text nodes
@@ -1312,12 +1574,13 @@ function renderUnresolvedMathFormulas(container, converter) {
   if (!activeDocument) return;
 
   const walker = activeDocument.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  /** @type {Text[]} */
   const textNodes = [];
   let node = walker.nextNode();
   while (node) {
     const text = String(node.textContent || '');
     // Check for math patterns: $...$ (inline) or $$...$$ (block)
-    if (text.includes('$')) {
+    if (text.includes('$') && node instanceof Text) {
       textNodes.push(node);
     }
     node = walker.nextNode();
@@ -1375,6 +1638,10 @@ function renderUnresolvedMathFormulas(container, converter) {
   }
 }
 
+/**
+ * @param {Element | null | undefined} container
+ * @param {ConverterLike | null | undefined} converter
+ */
 function applyLegacyLinkifyParity(container, converter) {
   if (!container || !converter || !converter.md || !converter.md.linkify) return;
   if (typeof converter.md.linkify.match !== 'function') return;
@@ -1434,10 +1701,17 @@ function applyLegacyLinkifyParity(container, converter) {
       fragment.appendChild(activeDocument.createTextNode(original.slice(cursor)));
     }
 
-    current.replaceWith(fragment);
+    if (current.parentNode) {
+      current.parentNode.replaceChild(fragment, current);
+    }
   }
 }
 
+/**
+ * @param {string} html
+ * @param {PreRenderedMathLike[]} formulas
+ * @returns {string}
+ */
 function injectPreRenderedMathFormulas(html, formulas) {
   if (!html || !Array.isArray(formulas) || formulas.length === 0) return html;
 
@@ -1451,6 +1725,15 @@ function injectPreRenderedMathFormulas(html, formulas) {
   return result;
 }
 
+/**
+ * @param {{
+ *   root?: Element | null,
+ *   converter?: ConverterLike | null,
+ *   preRenderedMath?: PreRenderedMathLike[],
+ *   preserveSvgStyleTags?: boolean,
+ * }} options
+ * @returns {string}
+ */
 function serializeObsidianRenderedHtml({
   root,
   converter,
@@ -1511,6 +1794,7 @@ function serializeObsidianRenderedHtml({
   if (converter && typeof converter.fixMathJaxTags === 'function') {
     html = converter.fixMathJaxTags(html);
   }
+  /** @type {{ html: string, placeholders: SvgStylePlaceholder[] }} */
   let svgStyleProtection = { html, placeholders: [] };
   if (preserveSvgStyleTags) {
     svgStyleProtection = protectSvgStyleTags(html);
@@ -1530,7 +1814,7 @@ function serializeObsidianRenderedHtml({
   return `<section style="${sectionStyle}">${html}</section>`;
 }
 
-module.exports = {
+export {
   serializeObsidianRenderedHtml,
   deriveImageCaption,
   safeDecodeCaption,

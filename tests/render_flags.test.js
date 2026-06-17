@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 
-const AppleStylePlugin = require('../input.js');
-const { AppleStyleView } = require('../input.js');
+const { loadInputModule } = require('./helpers/input-module.cjs');
+const inputModule = loadInputModule();
+const AppleStylePlugin = inputModule.default;
+const { AppleStyleView } = inputModule;
 
 describe('Render Pipeline Wiring (Native-only)', () => {
   it('should always route preview rendering to native pipeline', async () => {

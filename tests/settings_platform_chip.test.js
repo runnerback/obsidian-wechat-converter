@@ -17,7 +17,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const { createObsidianLikeElement } = require('./helpers/obsidian-dom.js');
-const { AppleStyleSettingTab } = require('../input.js');
+const { loadInputModule } = require('./helpers/input-module.cjs');
+const { AppleStyleSettingTab } = loadInputModule();
 
 function makePlugin({ selectedPlatforms = [], connection = null } = {}) {
   const defaultConnection = {
@@ -78,7 +79,7 @@ function makePlugin({ selectedPlatforms = [], connection = null } = {}) {
 function renderTab(plugin) {
   const tab = new AppleStyleSettingTab(plugin.app, plugin);
   tab.containerEl = createObsidianLikeElement('div');
-  tab.display();
+  tab.renderSettingsContent();
   return tab;
 }
 

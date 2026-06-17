@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+const { loadInputModule } = require('./helpers/input-module.cjs');
 // Note: We don't use vi.mock('obsidian') here because we use the alias in vitest.config.mjs
 // to resolve 'obsidian' to our __mocks__/obsidian.js file.
 // To mock specific methods like requestUrl, we modify the required module object directly
@@ -38,7 +39,7 @@ describe('WechatAPI - Upload & MIME Logic', () => {
 
     // 4. Import the module under test
     // This must happen AFTER mocking obsidian.requestUrl
-    const inputModule = require('../input.js');
+    const inputModule = loadInputModule();
     WechatAPI = inputModule.WechatAPI;
     AppleStyleView = inputModule.AppleStyleView;
   });

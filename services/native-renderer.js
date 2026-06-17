@@ -1,6 +1,14 @@
-const { createHtmlContainer } = require('./dom-utils');
+import { createHtmlContainer } from './dom-utils.js';
 
-function isSafeRawImageSrc(src) {
+/**
+ * @typedef {{ convert: (markdown: string) => Promise<string> | string, updateSourcePath?: (sourcePath: string) => void }} NativeConverterLike
+ */
+
+/**
+ * @param {unknown} src
+ * @returns {boolean}
+ */
+export function isSafeRawImageSrc(src) {
   if (!src || typeof src !== 'string') return false;
   const trimmed = src.trim();
   if (!trimmed || trimmed.startsWith('#')) return false;
@@ -17,7 +25,11 @@ function isSafeRawImageSrc(src) {
   }
 }
 
-function normalizeWechatUnsafeTaskListMarkersForNative(markdown) {
+/**
+ * @param {unknown} markdown
+ * @returns {string}
+ */
+export function normalizeWechatUnsafeTaskListMarkersForNative(markdown) {
   const source = String(markdown || '');
   if (!source) return source;
 
@@ -58,7 +70,11 @@ function normalizeWechatUnsafeTaskListMarkersForNative(markdown) {
   return lines.join('\n');
 }
 
-function preprocessMarkdownForNative(markdown) {
+/**
+ * @param {unknown} markdown
+ * @returns {string}
+ */
+export function preprocessMarkdownForNative(markdown) {
   if (typeof markdown !== 'string' || markdown.length === 0) return '';
 
   let output = markdown;
@@ -85,9 +101,13 @@ function preprocessMarkdownForNative(markdown) {
   return output;
 }
 
-function cleanupNativeRenderedHtml(html) {
+/**
+ * @param {unknown} html
+ * @returns {string}
+ */
+export function cleanupNativeRenderedHtml(html) {
   if (typeof html !== 'string' || html.length === 0) {
-    return html;
+    return typeof html === 'string' ? html : '';
   }
 
   const container = createHtmlContainer('div', html);
@@ -105,8 +125,13 @@ function cleanupNativeRenderedHtml(html) {
   return container.innerHTML;
 }
 
+/**
+ * @param {unknown} markdown
+ * @returns {string[]}
+ */
 function extractInlineImageTargets(markdown) {
   const source = String(markdown || '');
+  /** @type {string[]} */
   const targets = [];
   if (!source || !source.includes('![')) return targets;
 
@@ -124,7 +149,11 @@ function extractInlineImageTargets(markdown) {
   return targets;
 }
 
-function canUseNativePreviewFastPath(markdown) {
+/**
+ * @param {unknown} markdown
+ * @returns {boolean}
+ */
+export function canUseNativePreviewFastPath(markdown) {
   const source = String(markdown || '');
   if (!source.trim()) return false;
 
@@ -138,7 +167,11 @@ function canUseNativePreviewFastPath(markdown) {
   return targets.every((target) => /^(https?:\/\/|data:image\/)/i.test(target));
 }
 
-async function renderNativeMarkdown({
+/**
+ * @param {{ converter: NativeConverterLike | unknown, markdown: unknown, sourcePath?: string }} options
+ * @returns {Promise<string>}
+ */
+export async function renderNativeMarkdown({
   converter,
   markdown,
   sourcePath = '',
@@ -146,21 +179,13 @@ async function renderNativeMarkdown({
   if (!converter || typeof converter.convert !== 'function') {
     throw new Error('Native converter is not ready');
   }
+  const nativeConverter = /** @type {NativeConverterLike} */ (converter);
 
-  if (typeof converter.updateSourcePath === 'function') {
-    converter.updateSourcePath(sourcePath);
+  if (typeof nativeConverter.updateSourcePath === 'function') {
+    nativeConverter.updateSourcePath(sourcePath);
   }
 
   const preprocessed = preprocessMarkdownForNative(markdown);
-  const html = await converter.convert(preprocessed);
+  const html = await nativeConverter.convert(preprocessed);
   return cleanupNativeRenderedHtml(html);
 }
-
-module.exports = {
-  canUseNativePreviewFastPath,
-  isSafeRawImageSrc,
-  normalizeWechatUnsafeTaskListMarkersForNative,
-  preprocessMarkdownForNative,
-  cleanupNativeRenderedHtml,
-  renderNativeMarkdown,
-};
