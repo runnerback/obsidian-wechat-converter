@@ -99,10 +99,12 @@
 const loadCommonJsDependency = (specifier) => {
   const activeWindowRequire = getActiveWindowValue('require');
   if (typeof activeWindowRequire === 'function') {
-    return /** @type {(specifier: string) => unknown} */ (activeWindowRequire)(specifier);
+    const requireFn = /** @type {(specifier: string) => unknown} */ (activeWindowRequire);
+    return requireFn(specifier);
   }
   if (typeof module !== 'undefined' && typeof module.require === 'function') {
-    return module.require(specifier);
+    const requireFn = /** @type {(specifier: string) => unknown} */ (module.require);
+    return requireFn(specifier);
   }
   throw new Error(`CommonJS loader unavailable for ${specifier}`);
 };
@@ -183,6 +185,17 @@ import {
 
 function getActiveDocumentCompat() {
   return getActiveDocument();
+}
+
+/**
+ * @returns {SVGElement}
+ */
+function createFallbackSvgElement() {
+  const activeDocument = getActiveDocumentCompat();
+  if (!activeDocument) {
+    throw new Error('Active document unavailable for SVG fallback');
+  }
+  return activeDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
 }
 
 /**
@@ -6298,9 +6311,7 @@ class AppleStyleView extends ItemView {
       simpleHash: (value) => this.simpleHash(String(value || '')),
       svgUploadCache: this.svgUploadCache,
       svgToPngBlob: (svgElement, scale) => this.svgToPngBlob(
-        svgElement instanceof SVGElement
-          ? svgElement
-          : getActiveDocumentCompat()?.createElementNS('http://www.w3.org/2000/svg', 'svg') || svgElement,
+        svgElement instanceof SVGElement ? svgElement : createFallbackSvgElement(),
         typeof scale === 'number' ? scale : 3
       ),
     }));

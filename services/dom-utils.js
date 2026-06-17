@@ -13,6 +13,12 @@ export function getActiveWindow() {
 }
 
 /**
+ * @typedef {typeof Element} ElementConstructor
+ * @typedef {{ SHOW_ELEMENT: number }} NodeFilterLike
+ * @typedef {{ findAll?: (selector: string) => unknown }} FindAllRootLike
+ */
+
+/**
  * @param {string} name
  * @returns {unknown}
  */
@@ -30,15 +36,16 @@ export function getActiveWindowValue(name) {
 export function findAllElements(root, selector) {
   if (!root || !selector) return [];
   const activeWindow = getActiveWindow();
-  const ElementCtor = activeWindow?.Element || (typeof Element !== 'undefined' ? Element : null);
-  const nodeFilter = activeWindow?.NodeFilter || (typeof NodeFilter !== 'undefined' ? NodeFilter : null);
+  const ElementCtor = getElementConstructor(activeWindow);
+  const nodeFilter = getNodeFilter(activeWindow);
 
-  const findAll = /** @type {unknown} */ (root.findAll);
+  const findAll = /** @type {FindAllRootLike} */ (root).findAll;
   if (typeof findAll === 'function') {
-    const result = /** @type {(selector: string) => unknown} */ (findAll).call(root, selector);
-    return Array.isArray(result) && ElementCtor
-      ? result.filter((item) => item instanceof ElementCtor)
-      : [];
+    const result = callFindAll(findAll, root, selector);
+    if (Array.isArray(result) && ElementCtor) {
+      const elements = filterElements(result, ElementCtor);
+      if (elements.length > 0) return elements;
+    }
   }
 
   const ownerDocument = ElementCtor && root instanceof ElementCtor
@@ -48,7 +55,8 @@ export function findAllElements(root, selector) {
 
   const matches = (node) => ElementCtor
     && node instanceof ElementCtor
-    && matchesSelectorSubset(node, selector);
+    && matchesSelectorSubset(/** @type {Element} */ (node), selector);
+  /** @type {Element[]} */
   const results = [];
   const walker = ownerDocument.createTreeWalker(root, nodeFilter.SHOW_ELEMENT);
   let current = walker.nextNode();
@@ -57,6 +65,74 @@ export function findAllElements(root, selector) {
     current = walker.nextNode();
   }
   return results;
+}
+
+/**
+ * @param {Window | null} activeWindow
+ * @returns {ElementConstructor | null}
+ */
+function getElementConstructor(activeWindow) {
+  const candidate = getWindowConstructorValue(activeWindow, 'Element') || getGlobalElementConstructor();
+  return typeof candidate === 'function' ? /** @type {ElementConstructor} */ (candidate) : null;
+}
+
+/**
+ * @param {Window | null} activeWindow
+ * @returns {NodeFilterLike | null}
+ */
+function getNodeFilter(activeWindow) {
+  const candidate = getWindowConstructorValue(activeWindow, 'NodeFilter') || getGlobalNodeFilter();
+  if (!isNodeFilterLike(candidate)) return null;
+  return candidate;
+}
+
+/**
+ * @param {(selector: string) => unknown} findAll
+ * @param {Element | DocumentFragment} root
+ * @param {string} selector
+ * @returns {unknown}
+ */
+function callFindAll(findAll, root, selector) {
+  return findAll.call(root, selector);
+}
+
+/**
+ * @param {Window | null} activeWindow
+ * @param {string} name
+ * @returns {unknown}
+ */
+function getWindowConstructorValue(activeWindow, name) {
+  if (!activeWindow) return undefined;
+  return /** @type {Record<string, unknown>} */ (activeWindow)[name];
+}
+
+/** @returns {unknown} */
+function getGlobalElementConstructor() {
+  return typeof Element !== 'undefined' ? Element : null;
+}
+
+/** @returns {unknown} */
+function getGlobalNodeFilter() {
+  return typeof NodeFilter !== 'undefined' ? NodeFilter : null;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is NodeFilterLike}
+ */
+function isNodeFilterLike(value) {
+  return !!value
+    && (typeof value === 'object' || typeof value === 'function')
+    && typeof /** @type {Record<string, unknown>} */ (value).SHOW_ELEMENT === 'number';
+}
+
+/**
+ * @param {unknown[]} values
+ * @param {ElementConstructor} ElementCtor
+ * @returns {Element[]}
+ */
+function filterElements(values, ElementCtor) {
+  return values.filter((item) => item instanceof ElementCtor);
 }
 
 /**

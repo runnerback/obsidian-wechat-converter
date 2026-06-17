@@ -35363,23 +35363,28 @@ function findAllElements(root, selector) {
   if (!root || !selector)
     return [];
   const activeWindow = getActiveWindow();
-  const ElementCtor = (activeWindow == null ? void 0 : activeWindow.Element) || (typeof Element !== "undefined" ? Element : null);
-  const nodeFilter = (activeWindow == null ? void 0 : activeWindow.NodeFilter) || (typeof NodeFilter !== "undefined" ? NodeFilter : null);
+  const ElementCtor = getElementConstructor(activeWindow);
+  const nodeFilter = getNodeFilter(activeWindow);
   const findAll = (
-    /** @type {unknown} */
+    /** @type {FindAllRootLike} */
     root.findAll
   );
   if (typeof findAll === "function") {
-    const result = (
-      /** @type {(selector: string) => unknown} */
-      findAll.call(root, selector)
-    );
-    return Array.isArray(result) && ElementCtor ? result.filter((item) => item instanceof ElementCtor) : [];
+    const result = callFindAll(findAll, root, selector);
+    if (Array.isArray(result) && ElementCtor) {
+      const elements = filterElements(result, ElementCtor);
+      if (elements.length > 0)
+        return elements;
+    }
   }
   const ownerDocument = ElementCtor && root instanceof ElementCtor ? root.ownerDocument : getActiveDocument();
   if (!ownerDocument || !nodeFilter || typeof ownerDocument.createTreeWalker !== "function")
     return [];
-  const matches = (node) => ElementCtor && node instanceof ElementCtor && matchesSelectorSubset(node, selector);
+  const matches = (node) => ElementCtor && node instanceof ElementCtor && matchesSelectorSubset(
+    /** @type {Element} */
+    node,
+    selector
+  );
   const results = [];
   const walker = ownerDocument.createTreeWalker(root, nodeFilter.SHOW_ELEMENT);
   let current = walker.nextNode();
@@ -35389,6 +35394,43 @@ function findAllElements(root, selector) {
     current = walker.nextNode();
   }
   return results;
+}
+function getElementConstructor(activeWindow) {
+  const candidate = getWindowConstructorValue(activeWindow, "Element") || getGlobalElementConstructor();
+  return typeof candidate === "function" ? (
+    /** @type {ElementConstructor} */
+    candidate
+  ) : null;
+}
+function getNodeFilter(activeWindow) {
+  const candidate = getWindowConstructorValue(activeWindow, "NodeFilter") || getGlobalNodeFilter();
+  if (!isNodeFilterLike(candidate))
+    return null;
+  return candidate;
+}
+function callFindAll(findAll, root, selector) {
+  return findAll.call(root, selector);
+}
+function getWindowConstructorValue(activeWindow, name) {
+  if (!activeWindow)
+    return void 0;
+  return (
+    /** @type {Record<string, unknown>} */
+    activeWindow[name]
+  );
+}
+function getGlobalElementConstructor() {
+  return typeof Element !== "undefined" ? Element : null;
+}
+function getGlobalNodeFilter() {
+  return typeof NodeFilter !== "undefined" ? NodeFilter : null;
+}
+function isNodeFilterLike(value) {
+  return !!value && (typeof value === "object" || typeof value === "function") && typeof /** @type {Record<string, unknown>} */
+  value.SHOW_ELEMENT === "number";
+}
+function filterElements(values, ElementCtor) {
+  return values.filter((item) => item instanceof ElementCtor);
 }
 function matchesSelectorSubset(element, selector) {
   return splitSelectorList(selector).some((candidate) => matchesSingleSelector(element, candidate));
@@ -50094,13 +50136,18 @@ async function showMultiPlatformPublishModal(view, options = {}) {
 var loadCommonJsDependency = (specifier) => {
   const activeWindowRequire = getActiveWindowValue("require");
   if (typeof activeWindowRequire === "function") {
-    return (
+    const requireFn = (
       /** @type {(specifier: string) => unknown} */
-      activeWindowRequire(specifier)
+      activeWindowRequire
     );
+    return requireFn(specifier);
   }
   if (typeof module !== "undefined" && typeof module.require === "function") {
-    return module.require(specifier);
+    const requireFn = (
+      /** @type {(specifier: string) => unknown} */
+      module.require
+    );
+    return requireFn(specifier);
   }
   throw new Error(`CommonJS loader unavailable for ${specifier}`);
 };
@@ -50113,6 +50160,13 @@ var { PluginSettingTab, Setting } = obsidianApi;
 var LEGACY_SETTING_RENDER_KEY2 = ["dis", "play"].join("");
 function getActiveDocumentCompat() {
   return getActiveDocument();
+}
+function createFallbackSvgElement() {
+  const activeDocument = getActiveDocumentCompat();
+  if (!activeDocument) {
+    throw new Error("Active document unavailable for SVG fallback");
+  }
+  return activeDocument.createElementNS("http://www.w3.org/2000/svg", "svg");
 }
 function revealLeafCompat(workspace, leaf) {
   if (!workspace || !leaf)
@@ -55504,13 +55558,10 @@ var AppleStyleView = class extends ItemView {
         pMap,
         simpleHash: (value) => this.simpleHash(String(value || "")),
         svgUploadCache: this.svgUploadCache,
-        svgToPngBlob: (svgElement, scale) => {
-          var _a5;
-          return this.svgToPngBlob(
-            svgElement instanceof SVGElement ? svgElement : ((_a5 = getActiveDocumentCompat()) == null ? void 0 : _a5.createElementNS("http://www.w3.org/2000/svg", "svg")) || svgElement,
-            typeof scale === "number" ? scale : 3
-          );
-        }
+        svgToPngBlob: (svgElement, scale) => this.svgToPngBlob(
+          svgElement instanceof SVGElement ? svgElement : createFallbackSvgElement(),
+          typeof scale === "number" ? scale : 3
+        )
       })
     );
   }
