@@ -75,7 +75,7 @@
  * @typedef {{ settings?: PluginSettingsLike | Record<string, unknown> }} PluginWithSettingsLike
  * @typedef {{ setDestructive?: () => unknown, setWarning?: () => unknown }} ButtonCompatLike
  * @typedef {{ renderSettingsContent?: () => void, [key: string]: unknown }} SettingTabCompatLike
- * @typedef {{ zhName: string, enName: string, zhTitle: string, enTitle: string, zhPlaceholder: string[], enPlaceholder: string[], zhNotice: string, enNotice: string }} ImageSwipeCopyLike
+ * @typedef {{ commandName: string, zhTitle: string, enTitle: string, zhPlaceholder: string[], enPlaceholder: string[], zhNotice: string, enNotice: string }} ImageSwipeCopyLike
  * @typedef {{ message: string, isFatal?: boolean, isProxyAuth?: boolean }} ReadableErrorLike
  * @typedef {{ method?: string, body?: string, headers?: Record<string, string>, contentType?: string, throw?: boolean }} RequestUrlOptionsLike
  * @typedef {{ status: number, json?: unknown, text: string, arrayBuffer?: () => Promise<ArrayBuffer>, headers: Record<string, string> }} RequestUrlResponseLike
@@ -607,8 +607,7 @@ function getEventTargetValue(event, fallback = '') {
 /** @type {Record<string, ImageSwipeCopyLike>} */
 const IMAGE_SWIPE_COMMAND_COPY = {
   'image-swipe': {
-    zhName: '插入图片块',
-    enName: 'Insert image block',
+    commandName: '插入横滑图片块',
     zhTitle: '左右滑动查看图片',
     enTitle: 'Swipe to view images',
     zhPlaceholder: ['![[图片1.png]]', '![[图片2.png]]'],
@@ -617,8 +616,7 @@ const IMAGE_SWIPE_COMMAND_COPY = {
     enNotice: 'Image block inserted',
   },
   'image-sensitive': {
-    zhName: '插入敏感图片块',
-    enName: 'Insert sensitive image block',
+    commandName: '插入横滑敏感图片块',
     zhTitle: '此类图片可能引发不适，向左滑动查看',
     enTitle: 'Sensitive images. Swipe to view.',
     zhPlaceholder: ['![[图片1.png]]', '![[图片2.png]]'],
@@ -660,7 +658,7 @@ function getImageSwipeCommandCopy(app = null, type = 'image-swipe') {
   const copy = IMAGE_SWIPE_COMMAND_COPY[type] || IMAGE_SWIPE_COMMAND_COPY['image-swipe'];
   const useChinese = isChineseObsidianLocale(app);
   return {
-    name: useChinese ? copy.zhName : copy.enName,
+    name: copy.commandName,
     title: useChinese ? copy.zhTitle : copy.enTitle,
     placeholder: useChinese ? copy.zhPlaceholder : copy.enPlaceholder,
     notice: useChinese ? copy.zhNotice : copy.enNotice,

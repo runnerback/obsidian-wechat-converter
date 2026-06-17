@@ -50449,8 +50449,7 @@ function getEventTargetValue(event, fallback = "") {
 }
 var IMAGE_SWIPE_COMMAND_COPY = {
   "image-swipe": {
-    zhName: "\u63D2\u5165\u56FE\u7247\u5757",
-    enName: "Insert image block",
+    commandName: "\u63D2\u5165\u6A2A\u6ED1\u56FE\u7247\u5757",
     zhTitle: "\u5DE6\u53F3\u6ED1\u52A8\u67E5\u770B\u56FE\u7247",
     enTitle: "Swipe to view images",
     zhPlaceholder: ["![[\u56FE\u72471.png]]", "![[\u56FE\u72472.png]]"],
@@ -50459,8 +50458,7 @@ var IMAGE_SWIPE_COMMAND_COPY = {
     enNotice: "Image block inserted"
   },
   "image-sensitive": {
-    zhName: "\u63D2\u5165\u654F\u611F\u56FE\u7247\u5757",
-    enName: "Insert sensitive image block",
+    commandName: "\u63D2\u5165\u6A2A\u6ED1\u654F\u611F\u56FE\u7247\u5757",
     zhTitle: "\u6B64\u7C7B\u56FE\u7247\u53EF\u80FD\u5F15\u53D1\u4E0D\u9002\uFF0C\u5411\u5DE6\u6ED1\u52A8\u67E5\u770B",
     enTitle: "Sensitive images. Swipe to view.",
     zhPlaceholder: ["![[\u56FE\u72471.png]]", "![[\u56FE\u72472.png]]"],
@@ -50486,7 +50484,7 @@ function getImageSwipeCommandCopy(app = null, type = "image-swipe") {
   const copy = IMAGE_SWIPE_COMMAND_COPY[type] || IMAGE_SWIPE_COMMAND_COPY["image-swipe"];
   const useChinese = isChineseObsidianLocale(app);
   return {
-    name: useChinese ? copy.zhName : copy.enName,
+    name: copy.commandName,
     title: useChinese ? copy.zhTitle : copy.enTitle,
     placeholder: useChinese ? copy.zhPlaceholder : copy.enPlaceholder,
     notice: useChinese ? copy.zhNotice : copy.enNotice

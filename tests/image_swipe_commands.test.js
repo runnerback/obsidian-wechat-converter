@@ -34,7 +34,7 @@ describe('Image swipe editor commands', () => {
     expect(markdown).toContain('> ![[图片2.png]]');
   });
 
-  it('should localize command names for non-Chinese Obsidian locales', () => {
+  it('should expose Chinese command names so the command palette can find image swipe actions', () => {
     const imageCopy = getImageSwipeCommandCopy({
       vault: { getConfig: () => 'en' },
     }, 'image-swipe');
@@ -42,7 +42,17 @@ describe('Image swipe editor commands', () => {
       vault: { getConfig: () => 'en' },
     }, 'image-sensitive');
 
-    expect(imageCopy.name).toBe('Insert image block');
-    expect(sensitiveCopy.name).toBe('Insert sensitive image block');
+    expect(imageCopy.name).toBe('插入横滑图片块');
+    expect(sensitiveCopy.name).toBe('插入横滑敏感图片块');
+  });
+
+  it('should keep generated templates localized for non-Chinese Obsidian locales', () => {
+    const markdown = createImageSwipeCalloutMarkdown('image-swipe', '', {
+      vault: { getConfig: () => 'en' },
+    });
+
+    expect(markdown).toContain('> [!image-swipe] Swipe to view images');
+    expect(markdown).toContain('> ![[image-1.png]]');
+    expect(markdown).toContain('> ![[image-2.png]]');
   });
 });
