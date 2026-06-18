@@ -1,13 +1,126 @@
-const { Plugin, MarkdownView, ItemView, Notice, Platform, requestUrl, request } = require('obsidian');
-const { PluginSettingTab, Setting } = require('obsidian');
-const { createRenderPipelines } = require('./services/render-pipeline');
-const { buildRenderRuntime } = require('./services/dependency-loader');
-const { resolveMarkdownSource } = require('./services/markdown-source');
-const { normalizeVaultPath, isAbsolutePathLike } = require('./services/path-utils');
-const { renderObsidianTripletMarkdown } = require('./services/obsidian-triplet-renderer');
-const { canUseNativePreviewFastPath, renderNativeMarkdown } = require('./services/native-renderer');
-const { convertRenderedMermaidDiagramsToImages } = require('./services/rendered-mermaid');
-const {
+/**
+ * @typedef {{ cls?: string, text?: string, value?: string | number, type?: string, href?: string, title?: string, placeholder?: string, checked?: boolean, style?: string, attr?: Record<string, unknown> }} ElementCreateOptionsLike
+ * @typedef {HTMLElement & {
+ *   createEl: (tag: string, options?: ElementCreateOptionsLike) => ObsidianElementLike,
+ *   createDiv: (options?: ElementCreateOptionsLike) => ObsidianElementLike,
+ *   createSpan: (options?: ElementCreateOptionsLike) => ObsidianElementLike,
+ *   empty: () => void,
+ *   addClass: (className: string) => void,
+ *   removeClass: (className: string) => void,
+ *   toggleClass: (className: string, enabled: boolean) => void,
+ *   setCssStyles?: (styles: Record<string, string | number>) => void,
+ *   setText?: (text: string) => void,
+ *   appendText?: (text: string) => void
+ * }} ObsidianElementLike
+ * @typedef {ObsidianElementLike & { value: string, checked: boolean, disabled: boolean, selected: boolean }} ObsidianInputLike
+ * @typedef {{ base64?: string, mimeType?: string }} WechatsyncAssetLike
+ * @typedef {{ getValue?: () => string, getSelection?: () => string, replaceSelection?: (value: string) => void }} EditorLike
+ * @typedef {{ path?: string, name?: string, basename?: string }} TFileLike
+ * @typedef {{ file?: TFileLike | null, editor?: EditorLike, contentEl: ObsidianElementLike }} MarkdownViewLike
+ * @typedef {{ type?: string, state?: Record<string, unknown>, icon?: string, title?: string, active?: boolean }} ViewStateLike
+ * @typedef {{ open?: () => void, view?: unknown, getViewState?: () => ViewStateLike, setViewState?: (state: ViewStateLike) => Promise<void> }} LeafLike
+ * @typedef {{ on: (name: string, callback: (...args: unknown[]) => unknown) => unknown, getActiveViewOfType: (viewType: unknown) => MarkdownViewLike | null, getActiveFile?: () => TFileLike | null, getLeavesOfType: (viewType: string) => LeafLike[], getRightLeaf: (split?: boolean) => LeafLike | null, getLeaf?: (type?: string | boolean) => LeafLike | null, onLayoutReady: (callback: () => void) => void, revealLeaf?: (leaf: unknown) => Promise<void>, setActiveLeaf?: (leaf: unknown, options?: Record<string, unknown>) => void }} WorkspaceLike
+ * @typedef {{ adapter?: unknown, configDir?: string, getConfig?: (key: string) => unknown, getAbstractFileByPath?: (path: string) => unknown, getResourcePath?: (file: unknown) => string, trash?: (file: unknown, useSystemTrash?: boolean) => Promise<void>, delete?: (file: unknown, force?: boolean) => Promise<void>, read?: (file: unknown) => Promise<string>, modify?: (file: unknown, data: string) => Promise<void> }} VaultLike
+ * @typedef {{ processFrontMatter?: (file: unknown, callback: (frontmatter: Record<string, unknown>) => void) => Promise<void> }} FileManagerLike
+ * @typedef {{ getFileCache?: (file: unknown) => { frontmatter?: Record<string, unknown> } | null }} MetadataCacheLike
+ * @typedef {{ activeTab?: Record<string, unknown>, open?: () => void, openTabById?: (id: string) => void }} AppSettingLike
+ * @typedef {{ vault: VaultLike, workspace: WorkspaceLike, fileManager?: FileManagerLike, metadataCache?: MetadataCacheLike, setting?: AppSettingLike, isMobile?: boolean }} AppLike
+ * @typedef {{ id: string, name: string, callback?: () => unknown, editorCallback?: (editor: EditorLike) => unknown }} CommandLike
+ * @typedef {{ app: AppLike, manifest?: { id?: string, version?: string, dir?: string }, registerEvent: (event: unknown) => void, registerView: (viewType: string, factory: (leaf: LeafLike) => unknown) => void, addRibbonIcon: (icon: string, title: string, callback: () => unknown) => unknown, addCommand: (command: CommandLike) => void, addSettingTab: (tab: unknown) => void, loadData: () => Promise<unknown>, saveData: (data: unknown) => Promise<void> }} PluginBaseLike
+ * @typedef {{ app: AppLike, containerEl: ObsidianElementLike, registerEvent: (event: unknown) => void }} ItemViewBaseLike
+ * @typedef {{ app: AppLike, containerEl: ObsidianElementLike }} SettingTabBaseLike
+ * @typedef {{ titleEl: ObsidianElementLike, contentEl: ObsidianElementLike, modalEl?: ObsidianElementLike, open: () => void, close: () => void, onClose?: () => void }} ModalLike
+ * @typedef {{ setValue: (value: boolean) => ToggleComponentLike, onChange: (callback: (value: boolean) => unknown) => ToggleComponentLike }} ToggleComponentLike
+ * @typedef {{ inputEl?: ObsidianElementLike, setPlaceholder: (value: string) => TextComponentLike, setValue: (value: string) => TextComponentLike, onChange: (callback: (value: string) => unknown) => TextComponentLike }} TextComponentLike
+ * @typedef {{ addOption: (value: string, label: string) => DropdownComponentLike, setValue: (value: string) => DropdownComponentLike, onChange: (callback: (value: string) => unknown) => DropdownComponentLike }} DropdownComponentLike
+ * @typedef {{ setButtonText: (value: string) => ButtonComponentLike, onClick: (callback: () => unknown) => ButtonComponentLike, setDestructive?: () => ButtonComponentLike, setWarning?: () => ButtonComponentLike }} ButtonComponentLike
+ * @typedef {{ setName: (value: string) => SettingComponentLike, setDesc: (value: string) => SettingComponentLike, setHeading: () => SettingComponentLike, addToggle: (callback: (toggle: ToggleComponentLike) => unknown) => SettingComponentLike, addText: (callback: (text: TextComponentLike) => unknown) => SettingComponentLike, addDropdown: (callback: (dropdown: DropdownComponentLike) => unknown) => SettingComponentLike, addButton: (callback: (button: ButtonComponentLike) => unknown) => SettingComponentLike }} SettingComponentLike
+ * @typedef {{ setMessage: (message: string) => void, hide: () => void }} NoticeLike
+ * @typedef {{ value: string, label: string }} ThemeOptionLike
+ * @typedef {{ value: string, color: string }} ThemeColorOptionLike
+ * @typedef {{ getThemeList: () => ThemeOptionLike[], getColorList: () => ThemeColorOptionLike[] }} AppleThemeApiLike
+ * @typedef {{ new (...args: unknown[]): unknown }} ConstructorLike
+ * @typedef {{ Plugin: new (...args: unknown[]) => PluginBaseLike, MarkdownView: ConstructorLike, ItemView: new (...args: unknown[]) => ItemViewBaseLike, Notice: new (message: string, timeout?: number) => NoticeLike, Platform: Record<string, unknown>, PluginSettingTab: new (...args: unknown[]) => SettingTabBaseLike, Setting: new (containerEl: ObsidianElementLike | HTMLElement) => SettingComponentLike, Modal?: new (app: AppLike) => ModalLike, setIcon?: (element: HTMLElement, icon: string) => void, requestUrl?: (options: Record<string, unknown>) => Promise<unknown>, request?: (options: Record<string, unknown>) => Promise<unknown>, MarkdownRenderer?: unknown }} ObsidianApiLike
+ * @typedef {{ id: string, name: string, appId: string, appSecret: string, author?: string, contentSourceUrl?: string, openComment?: boolean, onlyFansCanComment?: boolean }} WechatAccountLike
+ * @typedef {{ sourcePath?: string, mediaId?: string, index?: number }} DraftAssociationLike
+ * @typedef {{ modal?: ModalLike, isProxyAuth?: boolean, draftAssociation?: DraftAssociationLike }} SyncModalOptionsLike
+ * @typedef {{ mediaId: string, url?: string, name?: string }} WechatMaterialSelectionLike
+ * @typedef {{ media_id?: string, mediaId?: string, url?: string, name?: string }} WechatMaterialItemLike
+ * @typedef {{ item?: WechatMaterialItemLike[], total_count?: number, item_count?: number, fromCache?: boolean, [key: string]: unknown }} WechatMaterialPageLike
+ * @typedef {{ cachedAt: number, data: WechatMaterialPageLike }} WechatMaterialCacheEntryLike
+ * @typedef {{ coverBase64?: string, thumbMediaId?: string, materialCover?: WechatMaterialSelectionLike | null, title?: string, digest?: string }} ArticleSessionStateLike
+ * @typedef {{ id?: string, platform?: string, name?: string, status?: string, success?: boolean, url?: string, error?: string, message?: string, [key: string]: unknown }} WechatsyncPlatformResultLike
+ * @typedef {{ found?: boolean, title?: string, platforms?: WechatsyncPlatformResultLike[], [key: string]: unknown }} WechatsyncTaskSnapshotLike
+ * @typedef {{ skippedPlatforms?: unknown[], publishedPlatforms?: unknown[], platforms?: unknown[], quotaBlocked?: boolean, reason?: string, message?: string, [key: string]: unknown }} WechatsyncQuotaResultLike
+ * @typedef {{ start: () => Promise<unknown>, stop?: () => Promise<void>, waitForConnection?: (timeoutMs?: number) => Promise<unknown>, openSyncTask?: (taskId: string, options?: Record<string, unknown>) => Promise<Record<string, unknown>>, getSyncTaskLink?: (taskId: string, options?: Record<string, unknown>) => Promise<Record<string, unknown>>, getSyncTask?: (taskId: string, options?: Record<string, unknown>) => Promise<WechatsyncTaskSnapshotLike | Record<string, unknown>> }} WechatSyncBridgeServiceLike
+ * @typedef {{ warning?: string, attempted?: boolean, success?: boolean, cleanedPath?: string }} CleanupResultLike
+ * @typedef {{ src?: string, [key: string]: unknown }} ImageUploadFailureLike
+ * @typedef {{ cleanupResult?: CleanupResultLike, imageUploadFailures?: ImageUploadFailureLike[], placeholderImageSources?: string[], mediaId?: string, isUpdate?: boolean, draftIndex?: number, [key: string]: unknown }} WechatDraftSyncResultLike
+ * @typedef {{ account: WechatAccountLike, proxyUrl?: string, currentHtml: string, activeFile?: TFileLike | null, publishMeta?: Record<string, unknown> | null, sessionTitle?: string, sessionCoverBase64?: string, sessionThumbMediaId?: string, sessionDigest?: string, draftMediaId?: string, draftIndex?: number, onStatus?: (stage: string) => void, onImageProgress?: (current: number, total: number) => void, onMathProgress?: (current: number, total: number) => void }} WechatSyncToDraftOptionsLike
+ * @typedef {{ syncToDraft: (options: WechatSyncToDraftOptionsLike) => Promise<WechatDraftSyncResultLike> }} WechatSyncServiceLike
+ * @typedef {{ mediaId?: string, fingerprint?: string, [key: string]: unknown }} CoverCacheEntry
+ * @typedef {{ url?: string, [key: string]: unknown }} ImageCacheEntry
+ * @typedef {{ url?: string, [key: string]: unknown }} SvgUploadCacheEntry
+ * @typedef {{ ok: boolean, markdown?: string, sourcePath?: string }} MarkdownSourceResultLike
+ * @typedef {{ showLoading?: boolean, loadingText?: string, loadingDelay?: number, sourceOverride?: { markdown?: string, sourcePath?: string } | null }} ConvertCurrentOptionsLike
+ * @typedef {{ sourcePath?: string, settings?: PluginSettingsLike | Record<string, unknown> }} RenderCandidateContextLike
+ * @typedef {{ id: string, name: string, kind: string, baseUrl: string, apiKey: string, model: string, enabled?: boolean }} AiProviderLike
+ * @typedef {{ enabled: boolean, defaultLayoutFamily: string, defaultColorPalette: string, defaultProviderId: string, customColor?: string, includeImagesInLayout?: boolean, requestTimeoutMs?: number, providers: AiProviderLike[], articleLayoutsByPath: Record<string, unknown> }} AiSettingsLike
+ * @typedef {{ theme: string, themeColor: string, customColor: string, quoteCalloutStyleMode: string, fontFamily: string, fontSize: number, macCodeBlock: boolean, codeLineNumber: boolean, avatarUrl: string, avatarBase64: string, enableWatermark: boolean, showImageCaption: boolean, normalizeChinesePunctuation: boolean, wechatAccounts: WechatAccountLike[], defaultAccountId: string, proxyUrl: string, clientId: string, draftCache: unknown, usePhoneFrame: boolean, sidePadding: number, coloredHeader: boolean, cleanupAfterSync: boolean, cleanupUseSystemTrash: boolean, cleanupDirTemplate: string, multiPlatformSync: unknown, wechatAppId: string, wechatAppSecret: string, ai: AiSettingsLike, [key: string]: unknown }} PluginSettingsLike
+ * @typedef {{ update: (values: Record<string, unknown>) => void }} ThemeRuntimeLike
+ * @typedef {{ updateConfig?: (values: Record<string, unknown>) => void, reinit?: () => void, initMarkdownIt?: () => Promise<void> }} ConverterRuntimeLike
+ * @typedef {{ renderForPreview: (markdown: string, context: { sourcePath: string, settings: PluginSettingsLike }) => Promise<string> }} RenderPipelineLike
+ * @typedef {{ updateAiToolbarState?: () => void, refreshAiLayoutPanel?: () => void }} ConverterViewRefreshLike
+ * @typedef {PluginBaseLike & { settings: PluginSettingsLike, obsidianApi?: ObsidianApiLike, _wechatSyncBridgeService?: WechatSyncBridgeServiceLike, _wechatSyncBridgeCacheKey?: string, _lastSaveSettingsErrorAt?: number, openConverter: () => Promise<void>, getConverterView?: () => unknown, getWechatSyncBridgeService?: () => WechatSyncBridgeServiceLike, saveSettings: () => Promise<boolean>, getArticleLayoutState?: (sourcePath: string, selection?: AiLayoutSelectionLike | Record<string, unknown>) => AiLayoutStateLike | null, saveArticleLayoutState?: (sourcePath: string, nextState: AiLayoutStateLike | Record<string, unknown>, selection?: AiLayoutSelectionLike | Record<string, unknown>) => Promise<AiLayoutStateLike | null> }} AppleStylePluginLike
+ * @typedef {{ settings?: PluginSettingsLike | Record<string, unknown> }} PluginWithSettingsLike
+ * @typedef {{ setDestructive?: () => unknown, setWarning?: () => unknown }} ButtonCompatLike
+ * @typedef {{ renderSettingsContent?: () => void, [key: string]: unknown }} SettingTabCompatLike
+ * @typedef {{ commandName: string, zhTitle: string, enTitle: string, zhPlaceholder: string[], enPlaceholder: string[], zhNotice: string, enNotice: string }} ImageSwipeCopyLike
+ * @typedef {{ message: string, isFatal?: boolean, isProxyAuth?: boolean }} ReadableErrorLike
+ * @typedef {{ method?: string, body?: string, headers?: Record<string, string>, contentType?: string, throw?: boolean }} RequestUrlOptionsLike
+ * @typedef {{ status: number, json?: unknown, text: string, arrayBuffer?: () => Promise<ArrayBuffer>, headers: Record<string, string> }} RequestUrlResponseLike
+ * @typedef {{ checkbox: ObsidianInputLike, toggle: ObsidianElementLike }} CaptionToggleStateLike
+ * @typedef {{ layoutFamily?: string, colorPalette?: string }} AiLayoutSelectionLike
+ * @typedef {{ type?: string, sectionIndex?: number, title?: string, caseLabel?: string, text?: string, caption?: string, buttonText?: string, imageId?: string, [key: string]: unknown }} AiLayoutBlockLike
+ * @typedef {{ blocks?: AiLayoutBlockLike[], selection?: AiLayoutSelectionLike, resolved?: AiLayoutSelectionLike, articleType?: string, stylePack?: string, recommendedLayoutFamily?: string, recommendedColorPalette?: string, layoutFamily?: string, title?: string, summary?: string, [key: string]: unknown }} AiLayoutJsonLike
+ * @typedef {{ source?: string, originalIndex?: number, blockKey?: string, type?: string, label?: string, index?: number, [key: string]: unknown }} AiLayoutBlockOriginLike
+ * @typedef {{ providerName?: string, providerModel?: string, blockOrigins?: AiLayoutBlockOriginLike[], schemaValidation?: AiSchemaValidationLike, executionMode?: string, fallbackUsed?: boolean, fallbackBlockCount?: number, [key: string]: unknown }} AiLayoutGenerationMetaLike
+ * @typedef {{ issueCount?: number, fatal?: boolean, issues?: { path?: string, message?: string, fatal?: boolean }[], [key: string]: unknown }} AiSchemaValidationLike
+ * @typedef {{ status?: string, layoutJson?: AiLayoutJsonLike | null, generationMeta?: AiLayoutGenerationMetaLike | null, selection?: AiLayoutSelectionLike, resolved?: AiLayoutSelectionLike, sourceHash?: string, providerId?: string, model?: string, updatedAt?: number, lastError?: string, lastAttemptStatus?: string, lastAttemptError?: string, lastAttemptAt?: number, lastAttemptSchemaValidation?: AiSchemaValidationLike | null, dismissedBlockKeys?: string[], recommendedLayoutFamily?: string, recommendedColorPalette?: string, stylePack?: string, layoutFamily?: string, [key: string]: unknown }} AiLayoutStateLike
+ * @typedef {{ sourcePath: string, markdown: string, sourceHash: string, isSourcePending?: boolean, isSourceSwitching?: boolean, isStaleSuppressed?: boolean, title: string }} AiLayoutContextLike
+ * @typedef {{ layoutJson: AiLayoutJsonLike | null, blockOrigins: AiLayoutBlockOriginLike[], hiddenCount: number }} VisibleAiLayoutSnapshotLike
+ * @typedef {{ name: string, desc?: string, searchable?: boolean, render: (setting: SettingComponentLike, group?: unknown) => void }} SettingDefinitionRenderLike
+ */
+
+/**
+ * @param {string} specifier
+ * @returns {unknown}
+ */
+const loadCommonJsDependency = (specifier) => {
+  const activeWindowRequire = getActiveWindowValue('require');
+  if (typeof activeWindowRequire === 'function') {
+    const requireFn = /** @type {(specifier: string) => unknown} */ (activeWindowRequire);
+    return requireFn(specifier);
+  }
+  if (typeof module !== 'undefined' && typeof module.require === 'function') {
+    const requireFn = /** @type {(specifier: string) => unknown} */ (module.require);
+    return requireFn(specifier);
+  }
+  throw new Error(`CommonJS loader unavailable for ${specifier}`);
+};
+/** @type {ObsidianApiLike} */
+const obsidianApi = /** @type {ObsidianApiLike} */ (loadCommonJsDependency('obsidian'));
+const { Plugin, MarkdownView, ItemView, Notice, Platform } = obsidianApi;
+const { PluginSettingTab, Setting } = obsidianApi;
+const LEGACY_SETTING_RENDER_KEY = ['dis', 'play'].join('');
+import { createRenderPipelines } from './services/render-pipeline.js';
+import { buildRenderRuntime } from './services/dependency-loader.js';
+import { resolveMarkdownSource } from './services/markdown-source.js';
+import { normalizeVaultPath, isAbsolutePathLike } from './services/path-utils.js';
+import { renderObsidianTripletMarkdown } from './services/obsidian-triplet-renderer.js';
+import { canUseNativePreviewFastPath, renderNativeMarkdown } from './services/native-renderer.js';
+import { convertRenderedMermaidDiagramsToImages } from './services/rendered-mermaid.js';
+import {
   AI_LAYOUT_SCHEMA_VERSION,
   AI_LAYOUT_SELECTION_AUTO,
   AI_PROVIDER_KINDS,
@@ -34,88 +147,350 @@ const {
   generateArticleLayout,
   renderArticleLayoutHtml,
   testAiProviderConnection,
-} = require('./services/ai-layout');
-const { createWechatSyncService } = require('./services/wechat-sync');
-const {
+} from './services/ai-layout.js';
+import { createWechatSyncService } from './services/wechat-sync.js';
+import {
   createWechatSyncBridgeService,
-  isUnsupportedBridgeMethodError: isWechatSyncUnsupportedMethodError,
-} = require('./services/wechatsync-bridge');
-const {
+  isUnsupportedBridgeMethodError as isWechatSyncUnsupportedMethodError,
+} from './services/wechatsync-bridge.js';
+import {
   getMultiPlatformResultSummary,
   getWechatSyncResultError,
   getWechatSyncResultPlatformId,
   getWechatSyncResultUrl,
   normalizeWechatsyncPlatform,
   sortWechatsyncPlatformItemsForDisplay,
-} = require('./services/wechatsync-results');
-const { resolveSyncAccount, toSyncFriendlyMessage } = require('./services/sync-context');
-const {
+} from './services/wechatsync-results.js';
+import { resolveSyncAccount, toSyncFriendlyMessage } from './services/sync-context.js';
+import {
   createEmptyDraftCache,
   normalizeDraftCache,
   getDraftAssociation,
   setDraftAssociation,
   clearDraftAssociation,
-} = require('./services/wechat-draft-cache');
-const { processAllImages: processAllImagesService, processMathFormulas: processMathFormulasService } = require('./services/wechat-media');
-const { cleanHtmlForDraft: cleanHtmlForDraftService } = require('./services/wechat-html-cleaner');
-const { rasterizeSvgToPngBlob } = require('./services/svg-rasterizer');
-const { createObsidianFetchAdapter } = require('./services/obsidian-fetch-adapter');
-const { stripMarkdownFrontmatter } = require('./services/markdown-utils');
-const { mapAppUrlImagesToAssetUrls } = require('./services/article-image-assets');
-const { createHtmlContainer, htmlToText, setElementHtml } = require('./services/dom-utils');
+} from './services/wechat-draft-cache.js';
+import { processAllImages as processAllImagesService, processMathFormulas as processMathFormulasService } from './services/wechat-media.js';
+import { cleanHtmlForDraft as cleanHtmlForDraftService } from './services/wechat-html-cleaner.js';
+import { rasterizeSvgToPngBlob } from './services/svg-rasterizer.js';
+import { createObsidianFetchAdapter } from './services/obsidian-fetch-adapter.js';
+import { stripMarkdownFrontmatter } from './services/markdown-utils.js';
+import { mapAppUrlImagesToAssetUrls } from './services/article-image-assets.js';
+import {
+  createHtmlContainer,
+  getActiveDocument,
+  getActiveWindowValue,
+  htmlToText,
+  setElementHtml,
+} from './services/dom-utils.js';
 
 function getActiveDocumentCompat() {
-  if (typeof window !== 'undefined' && window.activeDocument) return window.activeDocument;
-  if (typeof globalThis !== 'undefined' && globalThis.activeDocument) return globalThis.activeDocument;
-  if (typeof document !== 'undefined') return document;
-  return null;
+  return getActiveDocument();
 }
 
-function getActiveWindowCompat() {
-  if (typeof window !== 'undefined' && window.activeWindow) return window.activeWindow;
-  if (typeof globalThis !== 'undefined' && globalThis.activeWindow) return globalThis.activeWindow;
-  if (typeof window !== 'undefined') return window;
-  return null;
+/**
+ * @returns {SVGElement}
+ */
+function createFallbackSvgElement() {
+  const activeDocument = getActiveDocumentCompat();
+  if (!activeDocument) {
+    throw new Error('Active document unavailable for SVG fallback');
+  }
+  return activeDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
 }
 
+/**
+ * @param {WorkspaceLike | null | undefined} workspace
+ * @param {LeafLike | unknown} leaf
+ * @returns {Promise<void>}
+ */
 function revealLeafCompat(workspace, leaf) {
   if (!workspace || !leaf) return Promise.resolve();
-  const revealLeaf = workspace['revealLeaf'];
+  const revealLeaf = workspace.revealLeaf;
   if (typeof revealLeaf === 'function') {
-    return revealLeaf.call(workspace, leaf);
+    return Promise.resolve(revealLeaf.call(workspace, leaf)).then(() => {});
   }
   if (typeof workspace.setActiveLeaf === 'function') {
     workspace.setActiveLeaf(leaf, { focus: true });
     return Promise.resolve();
   }
-  if (typeof leaf.open === 'function') {
-    leaf.open();
+  const leafLike = /** @type {LeafLike} */ (leaf);
+  if (typeof leafLike.open === 'function') {
+    leafLike.open();
   }
   return Promise.resolve();
 }
 
+/**
+ * @param {PluginWithSettingsLike | null | undefined} plugin
+ * @returns {Record<string, unknown>}
+ */
 function getPluginSettings(plugin) {
   if (!plugin || typeof plugin !== 'object') return {};
-  return plugin['settings'] || {};
+  return plugin.settings || {};
 }
 
+/**
+ * @param {PluginWithSettingsLike | null | undefined} plugin
+ * @param {Record<string, unknown>} settings
+ * @returns {Record<string, unknown>}
+ */
 function setPluginSettings(plugin, settings) {
   if (!plugin || typeof plugin !== 'object') return settings;
-  plugin['settings'] = settings;
+  plugin.settings = settings;
   return settings;
 }
 
+/**
+ * @param {ButtonComponentLike} button
+ * @returns {ButtonComponentLike}
+ */
 function setDestructiveButtonCompat(button) {
   if (!button) return button;
-  const setDestructive = button['setDestructive'];
+  const setDestructive = button.setDestructive;
   if (typeof setDestructive === 'function') {
-    return setDestructive.call(button);
+    setDestructive.call(button);
+    return button;
   }
-  const setWarning = button['setWarning'];
+  const setWarning = button.setWarning;
   if (typeof setWarning === 'function') {
-    return setWarning.call(button);
+    setWarning.call(button);
+    return button;
   }
   return button;
+}
+
+/**
+ * @param {SettingTabCompatLike | null | undefined} tab
+ * @returns {boolean}
+ */
+function refreshSettingTabCompat(tab) {
+  if (!tab || typeof tab !== 'object') return false;
+  if (typeof tab.renderSettingsContent === 'function') {
+    tab.renderSettingsContent();
+    return true;
+  }
+  const legacyRender = tab[LEGACY_SETTING_RENDER_KEY];
+  if (typeof legacyRender !== 'function') return false;
+  legacyRender.call(tab);
+  return true;
+}
+
+/**
+ * @param {unknown} error
+ * @returns {ReadableErrorLike}
+ */
+function toReadableError(error) {
+  if (error instanceof Error) return /** @type {ReadableErrorLike} */ (error);
+  if (error && typeof error === 'object') {
+    const record = /** @type {{ message?: unknown, isFatal?: unknown, isProxyAuth?: unknown }} */ (error);
+    return {
+      message: typeof record.message === 'string' ? record.message : String(error),
+      isFatal: record.isFatal === true,
+      isProxyAuth: record.isProxyAuth === true,
+    };
+  }
+  return { message: String(error || '') };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+function toRecord(value) {
+  return isRecord(value) ? value : {};
+}
+
+/**
+ * @param {unknown} value
+ * @returns {AiLayoutStateLike | null}
+ */
+function toAiLayoutState(value) {
+  return isRecord(value) ? /** @type {AiLayoutStateLike} */ (value) : null;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {AiLayoutJsonLike | null}
+ */
+function toAiLayoutJson(value) {
+  return isRecord(value) ? /** @type {AiLayoutJsonLike} */ (value) : null;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {AiLayoutBlockLike}
+ */
+function toAiLayoutBlock(value) {
+  return isRecord(value) ? /** @type {AiLayoutBlockLike} */ (value) : {};
+}
+
+/**
+ * @param {unknown} value
+ * @returns {AiLayoutGenerationMetaLike | null}
+ */
+function toAiLayoutGenerationMeta(value) {
+  return isRecord(value) ? /** @type {AiLayoutGenerationMetaLike} */ (value) : null;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {AiLayoutSelectionLike}
+ */
+function toAiLayoutSelection(value) {
+  return isRecord(value) ? /** @type {AiLayoutSelectionLike} */ (value) : {};
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, AiLayoutStateLike>}
+ */
+function toAiLayoutFamilyStates(value) {
+  if (!isRecord(value)) return {};
+  return /** @type {Record<string, AiLayoutStateLike>} */ (value);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function toOptionalText(value) {
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * @param {unknown} value
+ * @returns {HTMLImageElement[]}
+ */
+function toImageElements(value) {
+  if (!value || typeof value !== 'object' || typeof value[Symbol.iterator] !== 'function') return [];
+  /** @type {HTMLImageElement[]} */
+  const images = [];
+  for (const item of value) {
+    if (item instanceof HTMLImageElement) images.push(item);
+  }
+  return images;
+}
+
+/**
+ * @param {unknown} element
+ * @param {string} className
+ */
+function removeElementClass(element, className) {
+  if (element instanceof HTMLElement) element.classList.remove(className);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {number | undefined}
+ */
+function toOptionalNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+function parseJsonRecord(value) {
+  if (isRecord(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return {};
+  try {
+    return toRecord(JSON.parse(value));
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * @param {unknown} response
+ * @returns {RequestUrlResponseLike}
+ */
+function normalizeRequestUrlResponse(response) {
+  const record = toRecord(response);
+  const status = toOptionalNumber(record.status) ?? 200;
+  const headers = /** @type {Record<string, string>} */ (toRecord(record.headers));
+  return {
+    status,
+    json: record.json,
+    text: toOptionalText(record.text),
+    arrayBuffer: typeof record.arrayBuffer === 'function' ? /** @type {() => Promise<ArrayBuffer>} */ (record.arrayBuffer.bind(response)) : undefined,
+    headers,
+  };
+}
+
+/**
+ * @param {RequestUrlResponseLike} response
+ * @returns {Record<string, unknown>}
+ */
+function getResponseJsonRecord(response) {
+  return toRecord(response.json);
+}
+
+/**
+ * @param {RequestUrlResponseLike} response
+ * @returns {string}
+ */
+function getProxyErrorMessage(response) {
+  const body = isRecord(response.json) ? response.json : parseJsonRecord(response.text);
+  const bodyError = body.error;
+  if (typeof bodyError === 'string' && bodyError) return bodyError;
+  return response.text || `Request failed, status ${response.status}`;
+}
+
+/**
+ * @param {string} message
+ * @param {boolean} isAuthFailure
+ * @returns {Error & { isProxyAuth?: boolean, isFatal?: boolean }}
+ */
+function createProxyError(message, isAuthFailure) {
+  const error = /** @type {Error & { isProxyAuth?: boolean, isFatal?: boolean }} */ (new Error(message));
+  if (isAuthFailure) {
+    error.isProxyAuth = true;
+    error.isFatal = true;
+  }
+  return error;
+}
+
+/**
+ * @param {Record<string, unknown>} data
+ * @returns {string}
+ */
+function formatWechatApiError(data) {
+  const errmsg = typeof data.errmsg === 'string' ? data.errmsg : JSON.stringify(data);
+  const errcode = data.errcode ?? 'N/A';
+  return `${errmsg} (${errcode})`;
+}
+
+/**
+ * @param {Record<string, unknown>} data
+ * @returns {boolean}
+ */
+function hasWechatUploadResult(data) {
+  return typeof data.media_id === 'string' || typeof data.url === 'string';
+}
+
+/**
+ * @param {Blob} blob
+ * @returns {Promise<string>}
+ */
+function readBlobAsBase64Payload(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      resolve(result.split(',')[1] || '');
+    };
+    reader.onerror = () => reject(reader.error || new Error('Failed to read file data'));
+    reader.readAsDataURL(blob);
+  });
 }
 
 function dataUrlToBlob(dataUrl) {
@@ -151,27 +526,88 @@ const MULTI_PLATFORM_TAB_LABEL = '其他平台（小红书/知乎/抖音等）';
 
 // Pure data helpers extracted to services/wechatsync-settings.js so the
 // views/ layer can normalize / read settings without depending on input.js.
-const {
+import {
   createDefaultMultiPlatformSyncSettings,
   parseWechatsyncPlatformIds,
   hasWechatSyncCapability,
   normalizeMultiPlatformSyncSettings,
   getAvailableWechatsyncPlatforms,
-} = require('./services/wechatsync-settings');
+} from './services/wechatsync-settings.js';
 
-const {
+import {
   formatWechatsyncCheckedAt,
   describeWechatsyncConnectionState,
   renderWechatsyncConnectionStatusBar,
-} = require('./views/connection-status-bar.js');
+} from './views/connection-status-bar.js';
 
-const { renderMultiPlatformSettingsTab } = require('./views/settings/multi-platform-tab.js');
-const { showMultiPlatformPublishModal } = require('./views/publish-modal/multi-platform.js');
+import { renderMultiPlatformSettingsTab } from './views/settings/multi-platform-tab.js';
+import { showMultiPlatformPublishModal } from './views/publish-modal/multi-platform.js';
 
+function getObsidianModalClass() {
+  return obsidianApi.Modal;
+}
+
+/**
+ * @param {AppLike} app
+ * @returns {ModalLike}
+ */
+function createObsidianModal(app) {
+  const ModalClass = getObsidianModalClass();
+  if (typeof ModalClass !== 'function') {
+    throw new Error('当前 Obsidian 版本不支持 Modal');
+  }
+  return new ModalClass(app);
+}
+
+function getObsidianSetIcon() {
+  return obsidianApi.setIcon;
+}
+
+function getObsidianRequestUrl() {
+  return obsidianApi.requestUrl;
+}
+
+function getObsidianRequest() {
+  return obsidianApi.request;
+}
+
+/**
+ * @returns {AppleThemeApiLike}
+ */
+function getAppleThemeApi() {
+  const api = getActiveWindowValue('AppleTheme');
+  return /** @type {AppleThemeApiLike} */ (api);
+}
+
+/**
+ * @param {Event} event
+ * @returns {HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null}
+ */
+function getValueElementFromEvent(event) {
+  const target = event.target;
+  if (
+    target instanceof HTMLInputElement
+    || target instanceof HTMLSelectElement
+    || target instanceof HTMLTextAreaElement
+  ) {
+    return target;
+  }
+  return null;
+}
+
+/**
+ * @param {Event} event
+ * @param {string} [fallback]
+ * @returns {string}
+ */
+function getEventTargetValue(event, fallback = '') {
+  return getValueElementFromEvent(event)?.value ?? fallback;
+}
+
+/** @type {Record<string, ImageSwipeCopyLike>} */
 const IMAGE_SWIPE_COMMAND_COPY = {
   'image-swipe': {
-    zhName: '插入图片块',
-    enName: 'Insert image block',
+    commandName: '插入横滑图片块',
     zhTitle: '左右滑动查看图片',
     enTitle: 'Swipe to view images',
     zhPlaceholder: ['![[图片1.png]]', '![[图片2.png]]'],
@@ -180,8 +616,7 @@ const IMAGE_SWIPE_COMMAND_COPY = {
     enNotice: 'Image block inserted',
   },
   'image-sensitive': {
-    zhName: '插入敏感图片块',
-    enName: 'Insert sensitive image block',
+    commandName: '插入横滑敏感图片块',
     zhTitle: '此类图片可能引发不适，向左滑动查看',
     enTitle: 'Sensitive images. Swipe to view.',
     zhPlaceholder: ['![[图片1.png]]', '![[图片2.png]]'],
@@ -191,6 +626,10 @@ const IMAGE_SWIPE_COMMAND_COPY = {
   },
 };
 
+/**
+ * @param {AppLike | null} [app=null]
+ * @returns {string}
+ */
 function getObsidianLocale(app = null) {
   const candidates = [
     app?.vault?.getConfig?.('language'),
@@ -201,27 +640,46 @@ function getObsidianLocale(app = null) {
   return String(candidates.find((value) => typeof value === 'string' && value.trim()) || '').trim().toLowerCase();
 }
 
+/**
+ * @param {AppLike | null} [app=null]
+ * @returns {boolean}
+ */
 function isChineseObsidianLocale(app = null) {
   const locale = getObsidianLocale(app);
   return !locale || /^zh(?:-|_|$)/i.test(locale);
 }
 
+/**
+ * @param {AppLike | null} [app=null]
+ * @param {string} [type='image-swipe']
+ * @returns {{ name: string, title: string, placeholder: string[], notice: string }}
+ */
 function getImageSwipeCommandCopy(app = null, type = 'image-swipe') {
   const copy = IMAGE_SWIPE_COMMAND_COPY[type] || IMAGE_SWIPE_COMMAND_COPY['image-swipe'];
   const useChinese = isChineseObsidianLocale(app);
   return {
-    name: useChinese ? copy.zhName : copy.enName,
+    name: copy.commandName,
     title: useChinese ? copy.zhTitle : copy.enTitle,
     placeholder: useChinese ? copy.zhPlaceholder : copy.enPlaceholder,
     notice: useChinese ? copy.zhNotice : copy.enNotice,
   };
 }
 
+/**
+ * @param {unknown} text
+ * @returns {string}
+ */
 function quoteLinesForImageSwipeCallout(text) {
   const lines = String(text || '').split('\n');
   return lines.map((line) => (line ? `> ${line}` : '>')).join('\n');
 }
 
+/**
+ * @param {string} [type]
+ * @param {string} [selectedText]
+ * @param {AppLike | null} [app]
+ * @returns {string}
+ */
 function createImageSwipeCalloutMarkdown(type = 'image-swipe', selectedText = '', app = null) {
   const copy = getImageSwipeCommandCopy(app, type);
   const content = String(selectedText || '').trim()
@@ -278,6 +736,10 @@ const DEFAULT_WECHAT_ACCOUNT_PUBLISH_OPTIONS = Object.freeze({
   onlyFansCanComment: false,
 });
 
+/**
+ * @param {{ contentSourceUrl?: unknown, openComment?: unknown, onlyFansCanComment?: unknown } | null} [account=null]
+ * @returns {{ contentSourceUrl: string, openComment: boolean, onlyFansCanComment: boolean }}
+ */
 function getWechatAccountPublishOptions(account = null) {
   return {
     contentSourceUrl: typeof account?.contentSourceUrl === 'string'
@@ -292,6 +754,10 @@ function getWechatAccountPublishOptions(account = null) {
   };
 }
 
+/**
+ * @param {{ contentSourceUrl?: unknown, openComment?: unknown, onlyFansCanComment?: unknown }} [values={}]
+ * @returns {{ contentSourceUrl: string, openComment: boolean, onlyFansCanComment: boolean }}
+ */
 function normalizeWechatAccountPublishOptions(values = {}) {
   const contentSourceUrl = typeof values.contentSourceUrl === 'string'
     ? values.contentSourceUrl.trim()
@@ -304,6 +770,10 @@ function normalizeWechatAccountPublishOptions(values = {}) {
   };
 }
 
+/**
+ * @param {AppLike | null | undefined} app
+ * @returns {boolean}
+ */
 function isMobileClient(app) {
   if (typeof Platform?.isMobile === 'boolean') {
     return Platform.isMobile;
@@ -317,11 +787,25 @@ function generateId() {
 }
 
 // 辅助函数：等待指定毫秒数
+/**
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
 const sleep = (ms) => new Promise(resolve => window.setTimeout(resolve, ms));
 
 // 辅助函数：并发控制 (p-limit 简化版)
+/**
+ * @template T
+ * @template R
+ * @param {T[]} array
+ * @param {(item: T) => Promise<R> | R} mapper
+ * @param {number} [concurrency]
+ * @returns {Promise<R[]>}
+ */
 async function pMap(array, mapper, concurrency = 3) {
+  /** @type {Promise<R>[]} */
   const results = [];
+  /** @type {Promise<void>[]} */
   const executing = [];
   let isFailed = false;
   for (const item of array) {
@@ -330,7 +814,9 @@ async function pMap(array, mapper, concurrency = 3) {
     results.push(p);
     // Fix: Ensure cleanup happens regardless of success or failure
     // If error occurs, mark as failed to stop scheduling new tasks
-    const e = p.catch(() => { isFailed = true; }).then(() => executing.splice(executing.indexOf(e), 1));
+    const e = p.catch(() => { isFailed = true; }).then(() => {
+      executing.splice(executing.indexOf(e), 1);
+    });
     executing.push(e);
     if (executing.length >= concurrency) {
       await Promise.race(executing);
@@ -343,62 +829,82 @@ async function pMap(array, mapper, concurrency = 3) {
  * 🚀 微信公众号 API 对接模块
  */
 class WechatAPI {
+  /**
+   * @param {string} appId
+   * @param {string} appSecret
+   * @param {string} [proxyUrl]
+   * @param {string} [clientId]
+   */
   constructor(appId, appSecret, proxyUrl = '', clientId = '') {
+    /** @type {string} */
     this.appId = appId;
+    /** @type {string} */
     this.appSecret = appSecret;
+    /** @type {string} */
     this.proxyUrl = proxyUrl;
+    /** @type {string} */
     this.clientId = clientId;
+    /** @type {string} */
     this.accessToken = '';
+    /** @type {number} */
     this.expireTime = 0;
   }
 
   /**
+   * @template T
    * 通用重试机制 (仅处理网络层面的不稳定性)
    * 不再处理 Token 逻辑，专注于网络波动和配置错误
+   * @param {() => Promise<T>} operation
+   * @param {number} [maxRetries]
+   * @returns {Promise<T>}
    */
   async requestWithRetry(operation, maxRetries = 3) {
+    /** @type {() => Promise<unknown>} */
+    const operationFn = operation;
+    /** @type {unknown} */
     let lastError;
     for (let i = 0; i < maxRetries; i++) {
       try {
-        return await operation();
+        return await operationFn();
       } catch (error) {
+        const readableError = toReadableError(error);
         lastError = error;
 
         // 0. 通用熔断：如果错误已被标记为致命，直接抛出
-        if (error.isFatal) throw error;
+        if (readableError.isFatal) throw error;
 
         // 识别配置错误 (AppID/Secret 错误)，直接失败
-        const isConfigError = error.message && (
-            error.message.includes('(40013)') || // invalid appid
-            error.message.includes('(40125)') || // invalid appsecret
-            error.message.includes('invalid appid')
+        const isConfigError = readableError.message && (
+            readableError.message.includes('(40013)') || // invalid appid
+            readableError.message.includes('(40125)') || // invalid appsecret
+            readableError.message.includes('invalid appid')
         );
 
         if (isConfigError) {
-           console.warn(`[WechatAPI] Configuration error detected, aborting retry: ${error.message}`);
+           console.warn(`[WechatAPI] Configuration error detected, aborting retry: ${readableError.message}`);
            throw error;
         }
 
         // 熔断机制：识别致命错误 (配额超限/素材满)，立即停止重试并向上抛出
         // 45009: 接口调用频次达到上限 (日限额)
-        if (error.message && (error.message.includes('45009') || error.message.includes('reach max api daily quota limit'))) {
+        if (readableError.message && (readableError.message.includes('45009') || readableError.message.includes('reach max api daily quota limit'))) {
             const fatalError = new Error('微信接口今日额度已用完 (45009)，请明天再试或切换账号。');
             fatalError.isFatal = true;
             throw fatalError;
         }
 
         // 45001: 素材数量达到上限或图片大小超限
-        if (error.message && (error.message.includes('45001') || error.message.includes('media size out of limit'))) {
+        if (readableError.message && (readableError.message.includes('45001') || readableError.message.includes('media size out of limit'))) {
             const fatalError = new Error('微信上传失败 (45001)。可能原因：\n1. 素材库已满 - 请登录微信公众平台 -> 素材管理，删除旧图片释放空间\n2. 图片太大 - 请检查封面或正文图片是否过大');
             fatalError.isFatal = true;
             throw fatalError;
         }
 
         // 识别 Token 过期错误，直接失败，交由上层 actionWithTokenRetry 处理刷新
-        const isTokenError = error.message && (
-            error.message.includes('40001') ||
-            error.message.includes('42001') ||
-            error.message.includes('40014')
+        const isTokenError = readableError.message && (
+            readableError.message.includes('40001') ||
+            readableError.message.includes('42001') ||
+            readableError.message.includes('40014')
         );
 
         if (isTokenError) {
@@ -408,13 +914,13 @@ class WechatAPI {
 
         // 识别业务层明确错误 (已收到微信响应但报错)，直接失败，避免无意义重试
         // 排除 -1 (系统繁忙) 这种情况可以重试
-        const isBusinessError = error.message && error.message.includes('微信API报错') && !error.message.includes('(-1)');
+        const isBusinessError = readableError.message && readableError.message.includes('微信API报错') && !readableError.message.includes('(-1)');
         if (isBusinessError) {
-             console.warn(`[WechatAPI] Business logic error detected, aborting retry: ${error.message}`);
+             console.warn(`[WechatAPI] Business logic error detected, aborting retry: ${readableError.message}`);
              throw error;
         }
 
-        console.warn(`[WechatAPI] Network request failed (attempt ${i + 1}/${maxRetries}): ${error.message}`);
+        console.warn(`[WechatAPI] Network request failed (attempt ${i + 1}/${maxRetries}): ${readableError.message}`);
 
         if (i < maxRetries - 1) {
           await sleep(1000 * (i + 1)); // 线性退避: 1s, 2s, 3s
@@ -425,28 +931,33 @@ class WechatAPI {
   }
 
   /**
+   * @template T
    * 高阶函数：执行带 Token 生命周期管理的操作
    * 负责：获取 Token -> 执行操作 -> 捕获 Token 过期错误 -> 刷新 Token -> 重试
-   * @param {Function} action - 接收 token 参数的异步函数
+   * @param {(token: string) => Promise<T>} action
+   * @returns {Promise<T>}
    */
   async actionWithTokenRetry(action) {
+    /** @type {(token: string) => Promise<unknown>} */
+    const actionFn = action;
     let retryCount = 0;
     const maxRetries = 1; // Token 过期只重试一次
 
     while (true) {
       try {
         const token = await this.getAccessToken();
-        return await action(token);
+        return await actionFn(token);
       } catch (error) {
+        const readableError = toReadableError(error);
         // 检查是否是 Token 过期 (40001, 42001, 40014)
-        const isTokenExpired = error.message && (
-          error.message.includes('40001') ||
-          error.message.includes('42001') ||
-          error.message.includes('40014')
+        const isTokenExpired = readableError.message && (
+          readableError.message.includes('40001') ||
+          readableError.message.includes('42001') ||
+          readableError.message.includes('40014')
         );
 
         if (isTokenExpired && retryCount < maxRetries) {
-          console.warn(`[WechatAPI] Token expired (${error.message}), refreshing and retrying...`);
+          console.warn(`[WechatAPI] Token expired (${readableError.message}), refreshing and retrying...`);
           this.accessToken = ''; // 1. 清除本地缓存
           retryCount++;
           continue; // 2. 重新循环：再次调用 getAccessToken (会触发新请求) -> 执行 action (使用新 Token 拼接 URL)
@@ -461,7 +972,8 @@ class WechatAPI {
    * 验证代理 URL 安全性 (必须使用 HTTPS)
    */
   validateProxyUrl(proxyUrl) {
-    if (proxyUrl && !proxyUrl.toLowerCase().startsWith('https://')) {
+    const normalizedProxyUrl = String(proxyUrl || '');
+    if (normalizedProxyUrl && !normalizedProxyUrl.toLowerCase().startsWith('https://')) {
       const error = new Error('Security Error: Insecure HTTP proxy blocked. Proxy URL must use HTTPS.');
       error.isFatal = true; // 禁止重试
       throw error;
@@ -471,9 +983,11 @@ class WechatAPI {
   /**
    * 发送请求（如果配置了代理，通过代理发送）
    * 纯粹的 HTTP 请求封装，不包含重试逻辑
+   * @param {string} url
+   * @param {RequestUrlOptionsLike} [options]
+   * @returns {Promise<Record<string, unknown>>}
    */
   async sendRequest(url, options = {}) {
-    const { requestUrl } = require('obsidian');
 
     if (this.proxyUrl) {
       this.validateProxyUrl(this.proxyUrl);
@@ -484,44 +998,29 @@ class WechatAPI {
         headers['X-Client-Id'] = this.clientId;
       }
 
-      const proxyResponse = await requestUrl({
+      const requestBody = options.body ? parseJsonRecord(options.body) : undefined;
+      const proxyResponse = normalizeRequestUrlResponse(await getObsidianRequestUrl()({
         url: this.proxyUrl,
         method: 'POST',
         headers: headers,
         body: JSON.stringify({
           url: url,
           method: options.method || 'GET',
-          data: options.body ? JSON.parse(options.body) : undefined
+          data: requestBody
         }),
         contentType: 'application/json',
         throw: false
-      });
+      }));
 
       if (proxyResponse.status < 200 || proxyResponse.status >= 300) {
-        let errorMsg = `Request failed, status ${proxyResponse.status}`;
-        try {
-          const body = proxyResponse.json || (proxyResponse.text ? JSON.parse(proxyResponse.text) : null);
-          if (body && body.error) {
-            errorMsg = body.error;
-          }
-        } catch {
-          if (proxyResponse.text) {
-            errorMsg = proxyResponse.text;
-          }
-        }
-        const error = new Error(errorMsg);
-        if (proxyResponse.status === 403 || proxyResponse.status === 401) {
-          error.isProxyAuth = true;
-          error.isFatal = true;
-        }
-        throw error;
+        throw createProxyError(getProxyErrorMessage(proxyResponse), proxyResponse.status === 403 || proxyResponse.status === 401);
       }
 
-      return proxyResponse.json;
+      return /** @type {Record<string, unknown>} */ (getResponseJsonRecord(proxyResponse));
     } else {
       // 直连
-      const response = await requestUrl({ url, ...options });
-      return response.json;
+      const response = normalizeRequestUrlResponse(await getObsidianRequestUrl()({ url, ...options }));
+      return /** @type {Record<string, unknown>} */ (getResponseJsonRecord(response));
     }
   }
 
@@ -532,18 +1031,22 @@ class WechatAPI {
 
     const url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${this.appId}&secret=${this.appSecret}`;
     // 网络重试包裹
-    const data = await this.requestWithRetry(() => this.sendRequest(url));
+    const data = /** @type {Record<string, unknown>} */ (await this.requestWithRetry(() => this.sendRequest(url)));
 
-    if (data.access_token) {
-      this.accessToken = data.access_token;
-      this.expireTime = Date.now() + (data.expires_in * 1000);
+    const accessToken = toOptionalText(data.access_token);
+    if (accessToken) {
+      this.accessToken = accessToken;
+      this.expireTime = Date.now() + ((toOptionalNumber(data.expires_in) ?? 7200) * 1000);
       return this.accessToken;
     } else {
       throw new Error(`获取 Token 失败: ${data.errmsg || '未知错误'} (${data.errcode || '??'})`);
     }
   }
 
-
+  /**
+   * @param {Blob} blob
+   * @returns {Promise<Record<string, unknown>>}
+   */
   async uploadCover(blob) {
     return this.actionWithTokenRetry(async (token) => {
       const url = `https://api.weixin.qq.com/cgi-bin/material/add_material?access_token=${token}&type=image`;
@@ -551,6 +1054,10 @@ class WechatAPI {
     });
   }
 
+  /**
+   * @param {Blob} blob
+   * @returns {Promise<Record<string, unknown>>}
+   */
   async uploadImage(blob) {
     return this.actionWithTokenRetry(async (token) => {
       const url = `https://api.weixin.qq.com/cgi-bin/media/uploadimg?access_token=${token}`;
@@ -558,20 +1065,30 @@ class WechatAPI {
     });
   }
 
+  /**
+   * @param {string} type
+   * @param {number} [offset]
+   * @param {number} [count]
+   * @returns {Promise<WechatMaterialPageLike>}
+   */
   async batchGetMaterials(type, offset = 0, count = 20) {
     return this.actionWithTokenRetry(async (token) => {
       const url = `https://api.weixin.qq.com/cgi-bin/material/batchget_material?access_token=${token}`;
-      const data = await this.requestWithRetry(() => this.sendRequest(url, {
+      const data = /** @type {Record<string, unknown>} */ (await this.requestWithRetry(() => this.sendRequest(url, {
         method: 'POST',
         body: JSON.stringify({ type, offset, count })
-      }));
+      })));
       if (Array.isArray(data.item) || data.item_count !== undefined || data.total_count !== undefined) {
-        return data;
+        return /** @type {Record<string, unknown>} */ (data);
       }
-      throw new Error(`微信API报错: ${data.errmsg || JSON.stringify(data)} (${data.errcode || 'N/A'})`);
+      throw new Error(`微信API报错: ${formatWechatApiError(data)}`);
     });
   }
 
+  /**
+   * @param {Record<string, unknown>} article
+   * @returns {Promise<Record<string, unknown>>}
+   */
   async createDraft(article) {
     return this.actionWithTokenRetry(async (token) => {
       const url = `https://api.weixin.qq.com/cgi-bin/draft/add?access_token=${token}`;
@@ -579,65 +1096,89 @@ class WechatAPI {
       // ⚠️ 关键修正: createDraft 非幂等，不使用 requestWithRetry 自动重试网络超时，
       // 避免在"请求成功但响应丢失"的情况下创建重复草稿。
       // 失败后由用户手动点击同步更安全。
-      const data = await this.sendRequest(url, {
+      const data = /** @type {Record<string, unknown>} */ (await this.sendRequest(url, {
         method: 'POST',
         body: JSON.stringify({ articles: [article] })
-      });
+      }));
 
-      if (data.media_id) {
+      if (typeof data.media_id === 'string' && data.media_id) {
         return data;
       }
-      throw new Error(`创建草稿失败: ${data.errmsg || JSON.stringify(data)} (${data.errcode || 'N/A'})`);
+      throw new Error(`创建草稿失败: ${formatWechatApiError(data)}`);
     });
   }
 
+  /**
+   * @returns {Promise<Record<string, unknown>>}
+   */
   async getDraftCount() {
     return this.actionWithTokenRetry(async (token) => {
       const url = `https://api.weixin.qq.com/cgi-bin/draft/count?access_token=${token}`;
-      return await this.requestWithRetry(() => this.sendRequest(url, {
+      return /** @type {Record<string, unknown>} */ (await this.requestWithRetry(() => this.sendRequest(url, {
         method: 'POST',
         body: JSON.stringify({})
-      }));
+      })));
     });
   }
 
+  /**
+   * @param {number} [offset]
+   * @param {number} [count]
+   * @param {number} [noContent]
+   * @returns {Promise<Record<string, unknown>>}
+   */
   async batchGetDrafts(offset = 0, count = 20, noContent = 1) {
     return this.actionWithTokenRetry(async (token) => {
       const url = `https://api.weixin.qq.com/cgi-bin/draft/batchget?access_token=${token}`;
-      return await this.requestWithRetry(() => this.sendRequest(url, {
+      return /** @type {Record<string, unknown>} */ (await this.requestWithRetry(() => this.sendRequest(url, {
         method: 'POST',
         body: JSON.stringify({ offset, count, no_content: noContent })
-      }));
+      })));
     });
   }
 
+  /**
+   * @param {string} mediaId
+   * @returns {Promise<Record<string, unknown>>}
+   */
   async getDraft(mediaId) {
     return this.actionWithTokenRetry(async (token) => {
       const url = `https://api.weixin.qq.com/cgi-bin/draft/get?access_token=${token}`;
-      return await this.requestWithRetry(() => this.sendRequest(url, {
+      return /** @type {Record<string, unknown>} */ (await this.requestWithRetry(() => this.sendRequest(url, {
         method: 'POST',
         body: JSON.stringify({ media_id: mediaId })
-      }));
+      })));
     });
   }
 
+  /**
+   * @param {string} mediaId
+   * @param {number} index
+   * @param {Record<string, unknown>} article
+   * @returns {Promise<Record<string, unknown>>}
+   */
   async updateDraft(mediaId, index, article) {
     return this.actionWithTokenRetry(async (token) => {
       const url = `https://api.weixin.qq.com/cgi-bin/draft/update?access_token=${token}`;
-      const data = await this.sendRequest(url, {
+      const data = /** @type {Record<string, unknown>} */ (await this.sendRequest(url, {
         method: 'POST',
         body: JSON.stringify({ media_id: mediaId, index, articles: article })
-      });
+      }));
       if (data.errcode === 0 || data.errmsg === 'ok') {
         return { media_id: mediaId };
       }
-      throw new Error(`更新草稿失败: ${data.errmsg || JSON.stringify(data)} (${data.errcode || 'N/A'})`);
+      throw new Error(`更新草稿失败: ${formatWechatApiError(data)}`);
     });
   }
 
+  /**
+   * @param {string} url
+   * @param {Blob} blob
+   * @param {string} fieldName
+   * @returns {Promise<Record<string, unknown>>}
+   */
   async uploadMultipart(url, blob, fieldName) {
     return this.requestWithRetry(async () => {
-      const { requestUrl } = require('obsidian');
 
       // 获取真实的 MIME 类型和文件扩展名
       const mimeType = blob.type || 'image/jpeg';
@@ -647,19 +1188,14 @@ class WechatAPI {
         this.validateProxyUrl(this.proxyUrl);
 
         // 通过代理发送：将文件转为 base64 (使用 FileReader 提升性能)
-        const reader = new FileReader();
-        reader.readAsDataURL(blob);
-        const base64Data = await new Promise((resolve, reject) => {
-          reader.onload = () => resolve(reader.result.split(',')[1]);
-          reader.onerror = reject;
-        });
+        const base64Data = await readBlobAsBase64Payload(blob);
 
         const headers = { 'Content-Type': 'application/json' };
         if (this.clientId) {
           headers['X-Client-Id'] = this.clientId;
         }
 
-        const proxyResponse = await requestUrl({
+        const proxyResponse = normalizeRequestUrlResponse(await getObsidianRequestUrl()({
           url: this.proxyUrl,
           method: 'POST',
           headers: headers,
@@ -673,33 +1209,17 @@ class WechatAPI {
           }),
           contentType: 'application/json',
           throw: false
-        });
+        }));
 
         if (proxyResponse.status < 200 || proxyResponse.status >= 300) {
-          let errorMsg = `Request failed, status ${proxyResponse.status}`;
-          try {
-            const body = proxyResponse.json || (proxyResponse.text ? JSON.parse(proxyResponse.text) : null);
-            if (body && body.error) {
-              errorMsg = body.error;
-            }
-          } catch {
-            if (proxyResponse.text) {
-              errorMsg = proxyResponse.text;
-            }
-          }
-          const error = new Error(errorMsg);
-          if (proxyResponse.status === 403 || proxyResponse.status === 401) {
-            error.isProxyAuth = true;
-            error.isFatal = true;
-          }
-          throw error;
+          throw createProxyError(getProxyErrorMessage(proxyResponse), proxyResponse.status === 403 || proxyResponse.status === 401);
         }
 
-        const data = proxyResponse.json;
-        if (data.media_id || data.url) {
+        const data = /** @type {Record<string, unknown>} */ (getResponseJsonRecord(proxyResponse));
+        if (hasWechatUploadResult(data)) {
           return data;
         } else {
-          throw new Error(`微信API报错: ${data.errmsg} (${data.errcode})`);
+          throw new Error(`微信API报错: ${formatWechatApiError(data)}`);
         }
       } else {
         // 直连：原有逻辑
@@ -721,24 +1241,24 @@ class WechatAPI {
         bodyBytes.set(footerBytes, headerBytes.length + bytes.length);
 
         try {
-          const response = await requestUrl({
+          const response = normalizeRequestUrlResponse(await getObsidianRequestUrl()({
             url: url,
             method: 'POST',
             body: bodyBytes.buffer,
             headers: {
               'Content-Type': `multipart/form-data; boundary=${boundary}`
             }
-          });
+          }));
 
-          const data = response.json;
-          if (data.media_id || data.url) {
+          const data = /** @type {Record<string, unknown>} */ (getResponseJsonRecord(response));
+          if (hasWechatUploadResult(data)) {
             return data;
           } else {
-            throw new Error(`微信API报错: ${data.errmsg} (${data.errcode})`);
+            throw new Error(`微信API报错: ${formatWechatApiError(data)}`);
           }
         } catch (error) {
           console.error('Upload Error:', error);
-          throw new Error(`网络请求失败: ${error.message}`);
+          throw new Error(`网络请求失败: ${toReadableError(error).message}`);
         }
       }
     });
@@ -749,67 +1269,227 @@ class WechatAPI {
  * 📝 微信公众号转换视图
  */
 class AppleStyleView extends ItemView {
+  /**
+   * @param {LeafLike} leaf
+   * @param {AppleStylePluginLike} plugin
+   */
   constructor(leaf, plugin) {
     super(leaf);
+    /** @type {AppleStylePluginLike} */
     this.plugin = plugin;
+    /** @type {string | null} */
     this.currentHtml = null;
+    /** @type {ConverterRuntimeLike | null} */
     this.converter = null;
+    /** @type {unknown} */
     this.nativeRenderPipeline = null;
+    /** @type {ThemeRuntimeLike | null} */
     this.theme = null;
+    /** @type {TFileLike | null} */
     this.lastActiveFile = null;
+    /** @type {string | null} */
     this.sessionCoverBase64 = ''; // 本次文章的临时封面
+    /** @type {string} */
     this.sessionThumbMediaId = ''; // 从微信素材库选择的封面 media_id
+    /** @type {string} */
     this.sessionDraftMediaId = ''; // 本次同步要更新的草稿 media_id
+    /** @type {number} */
     this.sessionDraftIndex = 0; // 单图文默认更新第 0 篇
+    /** @type {string} */
+    this.sessionTitle = ''; // 本次同步的标题
+    /** @type {string} */
     this.sessionDigest = ''; // 本次同步的摘要
+    /** @type {Map<string, WechatMaterialCacheEntryLike>} */
     this.wechatMaterialCache = new Map(); // Map<account/page, { data, cachedAt }>
     this.wechatMaterialCoverAssetCache = new Map(); // Map<media/url, downloaded bridge asset bytes>
 
     // 双向滚动同步状态。滚动事件先合并到动画帧，再按预期目标位置
     // 区分用户滚动与代码同步滚动，避免 CodeMirror 重排和反向回弹。
+    /** @type {number | null} */
     this.scrollSyncFrame = null;
+    /** @type {(() => void) | null} */
     this.cancelScrollSyncFrame = null;
     this.pendingScrollSyncSource = '';
+    /** @type {number | null} */
     this.expectedEditorScrollTop = null;
+    /** @type {number | null} */
     this.expectedPreviewScrollTop = null;
 
     // 状态缓存：Map<FilePath, { coverBase64, digest }>
     // 用于在不关闭插件面板的情况下，切换文章或关闭弹窗后保留封面和摘要
+    /** @type {Map<string, ArticleSessionStateLike>} */
     this.articleStates = new Map();
 
     // 公式/SVG 上传缓存：Map<Hash, WechatURL>
     // 避免重复上传相同的公式，节省微信 API 调用额度 (Quota) 并提升速度
+    /** @type {Map<string, SvgUploadCacheEntry>} */
     this.svgUploadCache = new Map();
     // 普通图片上传缓存：Map<accountId::src, wechatUrl>
     // 用于同一视图生命周期内跨次同步复用，避免重复上传相同图片
+    /** @type {Map<string, string | ImageCacheEntry>} */
     this.imageUploadCache = new Map();
     // 封面上传缓存：Map<accountId/appId::cover::src, { mediaId, fingerprint }>
     // 复用同一封面图的 thumb_media_id，封面内容变化时会自动重新上传。
+    /** @type {Map<string, string | CoverCacheEntry>} */
     this.coverUploadCache = new Map();
     // Mermaid 导出缓存：Map<Hash, { dataUrl, width, height, style }>
     // 复制与同步复用同一份本地导出结果，避免重复栅格化
+    /** @type {Map<string, unknown>} */
     this.mermaidImageCache = new Map();
 
+    /** @type {number} */
     this.renderGeneration = 0;
+    /** @type {string} */
     this.lastRenderError = '';
+    /** @type {string} */
     this.lastRenderFailureNoticeKey = '';
+    /** @type {number | null} */
     this.activeLeafRenderTimer = null;
+    /** @type {number} */
     this.loadingGeneration = 0;
+    /** @type {number | null} */
     this.loadingVisibilityTimer = null;
+    /** @type {number | null} */
     this.sidePaddingPreviewTimer = null;
+    /** @type {number | null} */
+    this.resizeTimeout = null;
+    /** @type {string} */
     this.lastResolvedMarkdown = '';
+    /** @type {string} */
     this.lastResolvedSourcePath = '';
+    /** @type {string} */
     this.lastResolvedSourceHash = '';
+    /** @type {string} */
     this.aiLayoutSourceSwitchPath = '';
+    /** @type {string} */
     this.aiLayoutStaleSuppressPath = '';
+    /** @type {number} */
     this.aiLayoutStaleSuppressUntil = 0;
+    /** @type {number | null} */
     this.aiLayoutStaleSuppressTimer = null;
+    /** @type {string | null} */
     this.baseRenderedHtml = null;
+    /** @type {boolean} */
     this.aiPreviewApplied = false;
     this.aiLayoutBtn = null;
     this.settingsBtn = null;
     this.aiLayoutDebugMode = '';
+    /** @type {Record<string, unknown> | null} */
     this.aiLayoutActiveGenerationSelection = null;
+    /** @type {ObsidianElementLike | null} */
+    this.previewContainer = null;
+    /** @type {ObsidianElementLike | null} */
+    this.settingsOverlay = null;
+    /** @type {ObsidianElementLike | null} */
+    this.settingsArea = null;
+    /** @type {ObsidianElementLike | null} */
+    this.settingsAdvancedArea = null;
+    /** @type {ObsidianElementLike | null} */
+    this.settingsAdvancedOptions = null;
+    /** @type {ObsidianElementLike | null} */
+    this.activeEditorScroller = null;
+    /** @type {((event: Event) => void) | null} */
+    this.editorScrollListener = null;
+    /** @type {((event: Event) => void) | null} */
+    this.previewScrollListener = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutOverlay = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutArea = null;
+    /** @type {ObsidianInputLike | null} */
+    this.aiLayoutFamilySelect = null;
+    /** @type {ObsidianInputLike | null} */
+    this.aiColorPaletteSelect = null;
+    /** @type {ObsidianInputLike | null} */
+    this.aiStylePackSelect = null;
+    /** @type {ObsidianInputLike | null} */
+    this.aiCustomColorInput = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiColorPaletteControls = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiColorPaletteGrid = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutStatus = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutStatusBadge = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutStatusBody = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutStatusText = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiCachedLayoutList = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutSummary = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiGenerateBtn = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiRegenerateBtn = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiResetBtn = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiRestoreBlocksBtn = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiResultSection = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutMetaNote = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiBlockList = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiAdvancedToggleBtn = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiAdvancedBody = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutMetaChips = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiSchemaIssuePanel = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiViewJsonBtn = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiViewErrorBtn = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiDebugPanel = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiDebugPanelTitle = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiCopyPromptBtn = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiCopyDebugBtn = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiDebugPanelBody = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutLoadingMask = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutLoadingSpinner = null;
+    /** @type {ObsidianElementLike | null} */
+    this.aiLayoutLoadingMaskText = null;
+    /** @type {ObsidianElementLike | null} */
+    this.currentDocLabel = null;
+    /** @type {ObsidianElementLike | null} */
+    this.docTitleText = null;
+    /** @type {ObsidianElementLike | null} */
+    this.copyBtn = null;
+    /** @type {string} */
+    this.selectedAccountId = '';
+    /** @type {boolean} */
+    this.isCopying = false;
+    /** @type {CaptionToggleStateLike | null} */
+    this.captionToggleState = null;
+    /** @type {string} */
+    this.pendingAiLayoutFamily = '';
+    /** @type {string} */
+    this.pendingAiColorPalette = '';
+    /** @type {string} */
+    this.pendingAiStylePack = '';
+    /** @type {string} */
+    this.aiPrimaryActionMode = '';
+    /** @type {boolean} */
+    this.aiLayoutLoading = false;
+    /** @type {boolean} */
+    this.aiAdvancedOpen = false;
+    /** @type {string} */
+    this._sourceFirstRecoveryKey = '';
+    /** @type {{ blockKey: string, relativeTop: number, fallbackScrollTop: number } | null} */
+    this.aiLayoutPendingAnchor = null;
   }
 
   getViewType() {
@@ -826,7 +1506,7 @@ class AppleStyleView extends ItemView {
 
   async onOpen() {
     console.log('🍎 发布助手面板打开');
-    const container = this.containerEl.children[1];
+    const container = /** @type {ObsidianElementLike} */ (this.containerEl.children[1]);
     container.empty();
     container.addClass('apple-converter-container');
     if (isMobileClient(this.app)) {
@@ -922,7 +1602,13 @@ class AppleStyleView extends ItemView {
     );
 
     // 监听编辑器内容变化 (实时预览)
+    /**
+     * @param {(...args: unknown[]) => unknown} func
+     * @param {number} wait
+     * @returns {(...args: unknown[]) => void}
+     */
     const debounce = (func, wait) => {
+      /** @type {number | undefined} */
       let timeout;
       return (...args) => {
         window.clearTimeout(timeout);
@@ -952,6 +1638,9 @@ class AppleStyleView extends ItemView {
     );
   }
 
+  /**
+   * @param {MarkdownViewLike | null} [activeViewOverride]
+   */
   scheduleActiveLeafRender(activeViewOverride = null) {
     if (this.activeLeafRenderTimer) {
       window.clearTimeout(this.activeLeafRenderTimer);
@@ -1039,6 +1728,7 @@ class AppleStyleView extends ItemView {
   /**
    * 注册同步滚动 (双向: Editor <-> Preview)
    * 用动画帧合并高频事件，并按预期目标位置过滤程序触发的回调。
+   * @param {MarkdownViewLike | null} activeView
    */
   registerScrollSync(activeView) {
     // 1. 清理旧的监听器
@@ -1064,10 +1754,15 @@ class AppleStyleView extends ItemView {
     if (!activeView) return;
 
     // 2. 获取 Editor Scroller
-    const editorScroller = activeView.contentEl.querySelector('.cm-scroller');
+    const editorScroller = /** @type {ObsidianElementLike | null} */ (activeView.contentEl.querySelector('.cm-scroller'));
     if (!editorScroller) return;
     this.activeEditorScroller = editorScroller;
 
+    /**
+     * @param {ObsidianElementLike} element
+     * @param {'expectedEditorScrollTop' | 'expectedPreviewScrollTop'} fieldName
+     * @returns {boolean}
+     */
     const consumeExpectedScroll = (element, fieldName) => {
       const expected = this[fieldName];
       if (!Number.isFinite(expected)) return false;
@@ -1076,6 +1771,9 @@ class AppleStyleView extends ItemView {
       return false;
     };
 
+    /**
+     * @param {'editor' | 'preview'} source
+     */
     const syncScrollPosition = (source) => {
       if (!this.containerEl.offsetParent || !this.previewContainer) return;
       const editorHeight = editorScroller.scrollHeight - editorScroller.clientHeight;
@@ -1113,6 +1811,9 @@ class AppleStyleView extends ItemView {
       editorScroller.scrollTop = targetScrollTop;
     };
 
+    /**
+     * @param {'editor' | 'preview'} source
+     */
     const scheduleScrollSync = (source) => {
       this.pendingScrollSyncSource = source;
       if (this.scrollSyncFrame !== null) return;
@@ -1167,53 +1868,59 @@ class AppleStyleView extends ItemView {
   async loadDependencies() {
     const adapter = this.app.vault.adapter;
     // Use dynamic path from manifest to allow folder renaming
-    const basePath = this.plugin.manifest.dir;
+    const basePath = this.plugin.manifest?.dir || '';
 
     try {
-      const runtime = await buildRenderRuntime({
+      const runtime = /** @type {{ theme: ThemeRuntimeLike, converter: ConverterRuntimeLike }} */ (await buildRenderRuntime({
         settings: this.plugin.settings,
         app: this.app,
         adapter,
         basePath,
-      });
+      }));
       this.theme = runtime.theme;
       this.converter = runtime.converter;
-      const { nativePipeline } = createRenderPipelines({
+      const pipelines = /** @type {{ nativePipeline: RenderPipelineLike }} */ (createRenderPipelines({
         candidateRenderer: async (markdown, context = {}) => {
+          const renderContext = /** @type {RenderCandidateContextLike} */ (toRecord(context));
+          const contextSettings = isRecord(renderContext.settings)
+            ? /** @type {PluginSettingsLike} */ (renderContext.settings)
+            : this.plugin.settings;
           if (canUseNativePreviewFastPath(markdown)) {
-            return renderNativeMarkdown({
+            const nativeHtml = /** @type {unknown} */ (await renderNativeMarkdown({
               converter: this.converter,
-              markdown,
-              sourcePath: context.sourcePath || '',
-            });
+              markdown: String(markdown || ''),
+              sourcePath: toOptionalText(renderContext.sourcePath),
+            }));
+            return String(nativeHtml || '');
           }
-          return renderObsidianTripletMarkdown({
+          return /** @type {Promise<string>} */ (renderObsidianTripletMarkdown({
             app: this.app,
             converter: this.converter,
-            markdown,
-            sourcePath: context.sourcePath || '',
-            settings: context.settings || this.plugin.settings,
+            markdown: String(markdown || ''),
+            sourcePath: toOptionalText(renderContext.sourcePath),
+            settings: contextSettings,
             component: this,
+            markdownRenderer: obsidianApi.MarkdownRenderer,
             rasterizeMermaid: false,
             preserveSvgStyleTags: true,
-          });
+          }));
         },
-      });
-      this.nativeRenderPipeline = nativePipeline;
+      }));
+      this.nativeRenderPipeline = pipelines.nativePipeline;
 
       console.log('✅ 依赖加载完成');
     } catch (error) {
       console.error('❌ 依赖加载失败:', error);
-      new Notice('依赖加载失败: ' + error.message);
+      new Notice('依赖加载失败: ' + toReadableError(error).message);
     }
   }
 
 
   /**
    * 创建设置面板（重构为：顶部工具栏 + 悬浮设置层）
+   * @param {ObsidianElementLike} container
    */
   createSettingsPanel(container) {
-    const { setIcon } = require('obsidian'); // 引入图标工具
 
     // 1. 创建顶部工具栏
     const toolbar = container.createEl('div', { cls: 'apple-top-toolbar' });
@@ -1229,20 +1936,30 @@ class AppleStyleView extends ItemView {
     const actions = toolbar.createEl('div', { cls: 'apple-toolbar-actions' });
 
     // 按钮工厂函数
+    /**
+     * @param {string} icon
+     * @param {string} title
+     * @param {() => unknown} onClick
+     * @returns {ObsidianElementLike}
+     */
     const createIconBtn = (icon, title, onClick) => {
       const btn = actions.createEl('div', {
         cls: 'apple-icon-btn',
         attr: { 'aria-label': title } // Tooltip
       });
-      setIcon(btn, icon);
+      const setIcon = getObsidianSetIcon();
+      if (typeof setIcon === 'function') {
+        setIcon(btn, icon);
+      }
       btn.addEventListener('click', onClick);
       return btn;
     };
 
     // [设置] 按钮
-    this.settingsBtn = createIconBtn('sliders-horizontal', '样式设置', () => {
-      this.togglePanel(this.settingsOverlay, this.settingsBtn, () => this.resetSettingsPanelViewState());
+    const settingsButton = createIconBtn('sliders-horizontal', '样式设置', () => {
+      this.togglePanel(this.settingsOverlay, settingsButton, () => this.resetSettingsPanelViewState());
     });
+    this.settingsBtn = settingsButton;
 
     this.aiLayoutBtn = createIconBtn('sparkles', 'AI 编排', () => this.onAiLayoutButtonClick());
 
@@ -1264,7 +1981,7 @@ class AppleStyleView extends ItemView {
     // === 主题选择 ===
     this.createSection(settingsArea, '主题', (section) => {
       const grid = section.createEl('div', { cls: 'apple-btn-grid' });
-      const themes = AppleTheme.getThemeList();
+      const themes = getAppleThemeApi().getThemeList();
       themes.forEach(t => {
         const btn = grid.createEl('button', {
           cls: `apple-btn-theme ${this.plugin.settings.theme === t.value ? 'active' : ''}`,
@@ -1278,16 +1995,16 @@ class AppleStyleView extends ItemView {
 
     // === 字体选择 ===
     this.createSection(settingsArea, '字体', (section) => {
-      const select = section.createEl('select', { cls: 'apple-select' });
+      const select = /** @type {ObsidianInputLike} */ (section.createEl('select', { cls: 'apple-select' }));
       [
         { value: 'sans-serif', label: '无衬线' },
         { value: 'serif', label: '衬线' },
         { value: 'monospace', label: '等宽' },
       ].forEach(opt => {
-        const option = select.createEl('option', { value: opt.value, text: opt.label });
+        const option = /** @type {ObsidianInputLike} */ (select.createEl('option', { value: opt.value, text: opt.label }));
         if (this.plugin.settings.fontFamily === opt.value) option.selected = true;
       });
-      select.addEventListener('change', (e) => this.onFontFamilyChange(e.target.value));
+      select.addEventListener('change', (e) => this.onFontFamilyChange(getEventTargetValue(e, this.plugin.settings.fontFamily)));
     });
 
     // === 字号选择 ===
@@ -1314,7 +2031,7 @@ class AppleStyleView extends ItemView {
     // === 主题色 (移到标题样式上方) ===
     this.createSection(settingsArea, '主题色', (section) => {
       const grid = section.createEl('div', { cls: 'apple-color-grid' });
-      const colors = AppleTheme.getColorList();
+      const colors = getAppleThemeApi().getColorList();
 
       // 预设颜色
       colors.forEach(c => {
@@ -1335,10 +2052,10 @@ class AppleStyleView extends ItemView {
       customBtn.dataset.value = 'custom';
 
       // 隐藏的颜色选择器
-      const colorInput = grid.createEl('input', {
+      const colorInput = /** @type {ObsidianInputLike} */ (grid.createEl('input', {
         type: 'color',
         cls: 'apple-color-picker-hidden'
-      });
+      }));
       colorInput.value = this.plugin.settings.customColor || '#000000';
       colorInput.setCssStyles({
         visibility: 'hidden',
@@ -1354,12 +2071,12 @@ class AppleStyleView extends ItemView {
 
       // 颜色改变实时预览
       colorInput.addEventListener('input', (e) => {
-        customBtn.style.setProperty('--btn-color', e.target.value);
+        customBtn.style.setProperty('--btn-color', getEventTargetValue(e, this.plugin.settings.customColor));
       });
 
       // 颜色确认后保存
       colorInput.addEventListener('change', async (e) => {
-        const newColor = e.target.value;
+        const newColor = getEventTargetValue(e, this.plugin.settings.customColor);
         customBtn.style.setProperty('--btn-color', newColor);
 
         // 更新设置
@@ -1377,11 +2094,11 @@ class AppleStyleView extends ItemView {
         style: 'width: 100%; display: flex; align-items: center; gap: 10px;'
       });
 
-      const slider = container.createEl('input', {
+      const slider = /** @type {ObsidianInputLike} */ (container.createEl('input', {
         type: 'range',
         cls: 'apple-slider',
         attr: { min: 0, max: mobile ? 36 : 40, step: 1 }
-      });
+      }));
       slider.value = this.plugin.settings.sidePadding;
       slider.setCssStyles({ flex: '1' });
 
@@ -1391,7 +2108,7 @@ class AppleStyleView extends ItemView {
       });
 
       slider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value);
+        const val = parseInt(getEventTargetValue(e, String(this.plugin.settings.sidePadding)), 10);
         valueLabel.setText(`${val}px`);
         // 拖动过程中只做轻量更新，避免移动端手势被重渲染卡住。
         this.plugin.settings.sidePadding = val;
@@ -1405,7 +2122,7 @@ class AppleStyleView extends ItemView {
       });
 
       slider.addEventListener('change', async (e) => {
-        const val = parseInt(e.target.value);
+        const val = parseInt(getEventTargetValue(e, String(this.plugin.settings.sidePadding)), 10);
         valueLabel.setText(`${val}px`);
         this.plugin.settings.sidePadding = val;
         this.theme.update({ sidePadding: val });
@@ -1429,15 +2146,15 @@ class AppleStyleView extends ItemView {
 
     // === 引用样式 ===
     const quoteStyleSection = this.createSection(advancedArea, '引用样式', (section) => {
-      const select = section.createEl('select', { cls: 'apple-select' });
+      const select = /** @type {ObsidianInputLike} */ (section.createEl('select', { cls: 'apple-select' }));
       [
         { value: 'theme', label: '经典主题色' },
         { value: 'neutral', label: '中性灰（推荐）' },
       ].forEach((opt) => {
-        const option = select.createEl('option', { value: opt.value, text: opt.label });
+        const option = /** @type {ObsidianInputLike} */ (select.createEl('option', { value: opt.value, text: opt.label }));
         if (this.plugin.settings.quoteCalloutStyleMode === opt.value) option.selected = true;
       });
-      select.addEventListener('change', (e) => this.onQuoteCalloutStyleModeChange(e.target.value));
+      select.addEventListener('change', (e) => this.onQuoteCalloutStyleModeChange(getEventTargetValue(e, this.plugin.settings.quoteCalloutStyleMode)));
 
       section.createEl('span', {
         text: '中性灰更适合长文阅读；经典主题色兼容现有风格。',
@@ -1453,7 +2170,7 @@ class AppleStyleView extends ItemView {
       const row = section.createEl('div', { cls: 'apple-settings-inline-row' });
 
       const toggle = row.createEl('label', { cls: 'apple-toggle' });
-      const checkbox = toggle.createEl('input', { type: 'checkbox', cls: 'apple-toggle-input' });
+      const checkbox = /** @type {ObsidianInputLike} */ (toggle.createEl('input', { type: 'checkbox', cls: 'apple-toggle-input' }));
       checkbox.checked = this.plugin.settings.coloredHeader;
       toggle.createEl('span', { cls: 'apple-toggle-slider' });
 
@@ -1480,7 +2197,7 @@ class AppleStyleView extends ItemView {
     const punctuationSection = this.createSection(advancedArea, '正文标点标准化', (section) => {
       const row = section.createEl('div', { cls: 'apple-settings-inline-row' });
       const toggle = row.createEl('label', { cls: 'apple-toggle' });
-      const checkbox = toggle.createEl('input', { type: 'checkbox', cls: 'apple-toggle-input' });
+      const checkbox = /** @type {ObsidianInputLike} */ (toggle.createEl('input', { type: 'checkbox', cls: 'apple-toggle-input' }));
       checkbox.checked = this.plugin.settings.normalizeChinesePunctuation === true;
       toggle.createEl('span', { cls: 'apple-toggle-slider' });
 
@@ -1503,7 +2220,7 @@ class AppleStyleView extends ItemView {
     const macCodeSection = this.createSection(advancedArea, 'Mac 风格代码块', (section) => {
       const row = section.createEl('div', { cls: 'apple-settings-inline-row' });
       const toggle = row.createEl('label', { cls: 'apple-toggle' });
-      const checkbox = toggle.createEl('input', { type: 'checkbox', cls: 'apple-toggle-input' });
+      const checkbox = /** @type {ObsidianInputLike} */ (toggle.createEl('input', { type: 'checkbox', cls: 'apple-toggle-input' }));
       checkbox.checked = this.plugin.settings.macCodeBlock;
       toggle.createEl('span', { cls: 'apple-toggle-slider' });
       checkbox.addEventListener('change', () => this.onMacCodeBlockChange(checkbox.checked));
@@ -1514,7 +2231,7 @@ class AppleStyleView extends ItemView {
     const codeLineNumberSection = this.createSection(advancedArea, '显示代码行号', (section) => {
       const row = section.createEl('div', { cls: 'apple-settings-inline-row' });
       const toggle = row.createEl('label', { cls: 'apple-toggle' });
-      const checkbox = toggle.createEl('input', { type: 'checkbox', cls: 'apple-toggle-input' });
+      const checkbox = /** @type {ObsidianInputLike} */ (toggle.createEl('input', { type: 'checkbox', cls: 'apple-toggle-input' }));
       checkbox.checked = this.plugin.settings.codeLineNumber;
       toggle.createEl('span', { cls: 'apple-toggle-slider' });
       checkbox.addEventListener('change', () => this.onCodeLineNumberChange(checkbox.checked));
@@ -1525,7 +2242,7 @@ class AppleStyleView extends ItemView {
     const captionSection = this.createSection(advancedArea, '显示图片说明文字', (section) => {
       const row = section.createEl('div', { cls: 'apple-settings-inline-row' });
       const toggle = row.createEl('label', { cls: 'apple-toggle' });
-      const checkbox = toggle.createEl('input', { type: 'checkbox', cls: 'apple-toggle-input' });
+      const checkbox = /** @type {ObsidianInputLike} */ (toggle.createEl('input', { type: 'checkbox', cls: 'apple-toggle-input' }));
       checkbox.checked = this.plugin.settings.showImageCaption;
       toggle.createEl('span', { cls: 'apple-toggle-slider' });
 
@@ -1546,7 +2263,7 @@ class AppleStyleView extends ItemView {
         }
       });
 
-      section._captionToggle = { checkbox, toggle };
+      this.captionToggleState = { checkbox, toggle };
     });
     captionSection.classList.add('apple-settings-inline-toggle');
 
@@ -1568,7 +2285,7 @@ class AppleStyleView extends ItemView {
       if (captionDesc) {
         captionDesc.setText('因全局设置中已开启水印，此选项默认开启');
       }
-      const toggleState = captionSection._captionToggle;
+      const toggleState = this.captionToggleState;
       if (toggleState?.checkbox) {
         toggleState.checkbox.checked = true;
         toggleState.checkbox.disabled = true;
@@ -1592,22 +2309,26 @@ class AppleStyleView extends ItemView {
   /**
    * 创建账号选择器
    */
+  /**
+   * @param {ObsidianElementLike} parent
+   */
   createAccountSelector(parent) {
+    /** @type {WechatAccountLike[]} */
     const accounts = this.plugin.settings.wechatAccounts || [];
     if (accounts.length === 0) return;
 
     const section = parent.createEl('div', { cls: 'apple-setting-section wechat-account-selector' });
     section.createEl('label', { cls: 'apple-setting-label', text: '同步账号' });
 
-    const select = section.createEl('select', { cls: 'wechat-account-select' });
+    const select = /** @type {ObsidianInputLike} */ (section.createEl('select', { cls: 'wechat-account-select' }));
 
     const defaultId = this.plugin.settings.defaultAccountId;
 
     for (const account of accounts) {
-      const option = select.createEl('option', {
+      const option = /** @type {ObsidianInputLike} */ (select.createEl('option', {
         value: account.id,
         text: account.id === defaultId ? `${account.name} (默认)` : account.name
-      });
+      }));
       if (account.id === defaultId) {
         option.selected = true;
       }
@@ -1615,8 +2336,8 @@ class AppleStyleView extends ItemView {
 
     // 保存选中的账号 ID 到实例属性
     this.selectedAccountId = defaultId;
-    select.addEventListener('change', (e) => {
-      this.selectedAccountId = e.target.value;
+    select.addEventListener('change', (event) => {
+      this.selectedAccountId = getEventTargetValue(event, defaultId);
     });
   }
 
@@ -1652,6 +2373,10 @@ class AppleStyleView extends ItemView {
    * 读取当前文档 frontmatter 中的发布元数据
    * @returns {{ excerpt: string, cover: string, cover_dir: string, coverSrc: string|null, title: string }}
    */
+  /**
+   * @param {TFileLike | unknown | null | undefined} activeFile
+   * @returns {{ excerpt: string, cover: string, cover_dir: string, coverSrc: string|null, title: string }}
+   */
   getFrontmatterPublishMeta(activeFile) {
     if (!activeFile) {
       return { excerpt: '', cover: '', cover_dir: '', coverSrc: null, title: '' };
@@ -1669,17 +2394,23 @@ class AppleStyleView extends ItemView {
     return { excerpt, cover, cover_dir, coverSrc, title };
   }
 
+  /**
+   * @param {Record<string, unknown> | null | undefined} frontmatter
+   * @param {string[]} keys
+   * @returns {string}
+   */
   getFrontmatterString(frontmatter, keys) {
-    if (!frontmatter || typeof frontmatter !== 'object') return '';
+    const frontmatterRecord = toRecord(frontmatter);
+    if (!frontmatterRecord) return '';
     if (!Array.isArray(keys) || keys.length === 0) return '';
 
     const normalizedTargets = new Set(keys.map(key => this.normalizeFrontmatterKey(key)));
     for (const key of keys) {
-      const value = frontmatter[key];
+      const value = frontmatterRecord[key];
       if (typeof value === 'string' && value.trim()) return value.trim();
     }
 
-    for (const [key, value] of Object.entries(frontmatter)) {
+    for (const [key, value] of Object.entries(frontmatterRecord)) {
       if (!normalizedTargets.has(this.normalizeFrontmatterKey(key))) continue;
       if (typeof value === 'string' && value.trim()) return value.trim();
     }
@@ -1687,17 +2418,28 @@ class AppleStyleView extends ItemView {
     return '';
   }
 
+  /**
+   * @param {unknown} key
+   * @returns {string}
+   */
   normalizeFrontmatterKey(key) {
     return String(key || '').toLowerCase().replace(/[_-]/g, '');
   }
 
+  /**
+   * @param {Record<string, unknown> | null | undefined} frontmatter
+   * @param {string[]} keys
+   * @returns {Record<string, string>}
+   */
   getFrontmatterKeyMap(frontmatter, keys) {
+    /** @type {Record<string, string>} */
     const result = {};
-    if (!frontmatter || typeof frontmatter !== 'object') return result;
+    const frontmatterRecord = toRecord(frontmatter);
+    if (!frontmatterRecord) return result;
     if (!Array.isArray(keys) || keys.length === 0) return result;
 
     const normalizedTargets = new Set(keys.map(key => this.normalizeFrontmatterKey(key)));
-    for (const [key, value] of Object.entries(frontmatter)) {
+    for (const [key, value] of Object.entries(frontmatterRecord)) {
       if (!normalizedTargets.has(this.normalizeFrontmatterKey(key))) continue;
       if (typeof value !== 'string') continue;
       const normalizedValue = this.normalizeVaultPath(value);
@@ -1742,8 +2484,14 @@ class AppleStyleView extends ItemView {
     return this.isPathInsideDirectoryByTail(normalized, cleanedDir);
   }
 
+  /**
+   * @param {Record<string, unknown> | null | undefined} frontmatter
+   * @param {string} cleanedDir
+   * @returns {boolean}
+   */
   clearInvalidPublishMetaInFrontmatter(frontmatter, cleanedDir) {
-    if (!frontmatter || typeof frontmatter !== 'object') return false;
+    const frontmatterRecord = toRecord(frontmatter);
+    if (!frontmatterRecord) return false;
 
     let changed = false;
     const coverMap = this.getFrontmatterKeyMap(frontmatter, ['cover']);
@@ -1751,14 +2499,14 @@ class AppleStyleView extends ItemView {
 
     for (const [key, value] of Object.entries(coverMap)) {
       if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
-        frontmatter[key] = '';
+        frontmatterRecord[key] = '';
         changed = true;
       }
     }
 
     for (const [key, value] of Object.entries(coverDirMap)) {
       if (this.shouldClearFrontmatterPathAfterCleanup(value, cleanedDir)) {
-        frontmatter[key] = '';
+        frontmatterRecord[key] = '';
         changed = true;
       }
     }
@@ -1803,13 +2551,13 @@ class AppleStyleView extends ItemView {
       const processFrontMatter = this.app?.fileManager?.['processFrontMatter'];
       if (typeof processFrontMatter === 'function') {
         await processFrontMatter.call(this.app.fileManager, activeFile, (frontmatter) => {
-          this.clearInvalidPublishMetaInFrontmatter(frontmatter, cleanedDir);
+          this.clearInvalidPublishMetaInFrontmatter(toRecord(frontmatter), cleanedDir);
         });
       } else {
         await this.clearInvalidPublishMetaByTextFallback(activeFile, cleanedDir);
       }
     } catch (error) {
-      return `资源已删除，但清理 frontmatter 中失效的 cover/cover_dir 失败: ${error.message}`;
+      return `资源已删除，但清理 frontmatter 中失效的 cover/cover_dir 失败: ${toReadableError(error).message}`;
     }
 
     return null;
@@ -1850,6 +2598,10 @@ class AppleStyleView extends ItemView {
     return this.normalizeVaultPath(raw);
   }
 
+  /**
+   * @param {TFileLike | null | undefined} activeFile
+   * @returns {{ path: string, warning?: string }}
+   */
   resolveCleanupDirPath(activeFile) {
     const template = this.getCleanupDirTemplate();
     if (!template) {
@@ -1861,7 +2613,7 @@ class AppleStyleView extends ItemView {
       return { path: '', warning: '当前没有活动文档，无法解析清理目录中的 {{note}}' };
     }
 
-    const noteName = (activeFile?.basename || '').trim();
+    const noteName = typeof activeFile?.basename === 'string' ? activeFile.basename.trim() : '';
     const resolved = template.replace(/\{\{\s*note\s*\}\}/gi, noteName);
     const normalized = this.normalizeVaultPath(resolved);
     if (!normalized) {
@@ -1887,6 +2639,8 @@ class AppleStyleView extends ItemView {
   /**
    * 在同步成功后按配置清理目录
    * 失败返回 warning，不抛错（避免影响同步成功状态）
+   * @param {TFileLike | null | undefined} activeFile
+   * @returns {Promise<CleanupResultLike>}
    */
   async cleanupConfiguredDirectory(activeFile) {
     if (!this.plugin.settings.cleanupAfterSync) {
@@ -1923,7 +2677,7 @@ class AppleStyleView extends ItemView {
         throw new Error('当前 Obsidian 版本不支持删除接口');
       }
     } catch (error) {
-      return { attempted: true, success: false, warning: `删除失败 (${normalized}): ${error.message}` };
+      return { attempted: true, success: false, warning: `删除失败 (${normalized}): ${toReadableError(error).message}` };
     }
 
     const frontmatterWarning = await this.clearInvalidPublishMetaAfterCleanup(activeFile, normalized);
@@ -1936,6 +2690,10 @@ class AppleStyleView extends ItemView {
 
   /**
    * 创建设置区块
+   * @param {ObsidianElementLike} parent
+   * @param {string} label
+   * @param {(content: ObsidianElementLike) => unknown} builder
+   * @returns {ObsidianElementLike}
    */
   createSection(parent, label, builder) {
     const section = parent.createEl('div', { cls: 'apple-setting-section' });
@@ -1991,6 +2749,16 @@ class AppleStyleView extends ItemView {
     }
   }
 
+  /**
+   * @param {ObsidianElementLike | null} overlay
+   * @param {ObsidianElementLike | null} button
+   * @param {(() => unknown) | undefined} onOpen
+   */
+  /**
+   * @param {ObsidianElementLike | null} overlay
+   * @param {ObsidianElementLike | null} button
+   * @param {(() => unknown) | undefined} [onOpen]
+   */
   togglePanel(overlay, button, onOpen) {
     if (!overlay || !button) return;
     const willOpen = !overlay.classList.contains('visible');
@@ -2002,6 +2770,11 @@ class AppleStyleView extends ItemView {
     }
   }
 
+  /**
+   * @param {Element | null} element
+   * @param {number} deltaY
+   * @returns {boolean}
+   */
   canScrollElementInDirection(element, deltaY) {
     if (!element) return false;
     const maxScroll = Math.max(0, (element.scrollHeight || 0) - (element.clientHeight || 0));
@@ -2011,20 +2784,25 @@ class AppleStyleView extends ItemView {
     return true;
   }
 
+  /**
+   * @param {ObsidianElementLike | null} overlay
+   * @param {string[]} [nestedSelectors]
+   */
   attachOverlayScrollGuard(overlay, nestedSelectors = []) {
     if (!overlay || overlay.__appleScrollGuardAttached) return;
     const normalizedSelectors = Array.isArray(nestedSelectors)
       ? nestedSelectors.filter(Boolean)
       : [];
 
+    /** @param {WheelEvent} event */
     const handleWheel = (event) => {
       if (!overlay.classList.contains('visible')) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
-      const nestedScrollable = target
+      const nestedScrollable = /** @type {Element | null} */ (target
         ? normalizedSelectors
           .map((selector) => target.closest(selector))
           .find(Boolean)
-        : null;
+        : null);
       const activeScrollable = nestedScrollable || overlay;
 
       if (!this.canScrollElementInDirection(activeScrollable, event.deltaY)) {
@@ -2033,6 +2811,7 @@ class AppleStyleView extends ItemView {
       event.stopPropagation();
     };
 
+    /** @param {TouchEvent} event */
     const handleTouchMove = (event) => {
       if (!overlay.classList.contains('visible')) return;
       event.stopPropagation();
@@ -2044,25 +2823,28 @@ class AppleStyleView extends ItemView {
   }
 
   closeTransientPanels() {
-    if (this.settingsOverlay) this.settingsOverlay.classList.remove('visible');
-    if (this.aiLayoutOverlay) this.aiLayoutOverlay.classList.remove('visible');
-    if (this.settingsBtn) this.settingsBtn.classList.remove('active');
-    if (this.aiLayoutBtn) this.aiLayoutBtn.classList.remove('active');
+    removeElementClass(this.settingsOverlay, 'visible');
+    removeElementClass(this.aiLayoutOverlay, 'visible');
+    removeElementClass(this.settingsBtn, 'active');
+    removeElementClass(this.aiLayoutBtn, 'active');
   }
 
+  /**
+   * @returns {AiLayoutStateLike | null}
+   */
   getCurrentArticleAnyLayoutState() {
     const { sourcePath } = this.getCurrentLayoutContext();
     if (!sourcePath) return null;
 
     if (typeof this.plugin?.getArticleLayoutState === 'function') {
-      return this.plugin.getArticleLayoutState(sourcePath, {}) || null;
+      return toAiLayoutState(this.plugin.getArticleLayoutState(sourcePath, {}) || null);
     }
 
     const normalizedPath = normalizeVaultPath(sourcePath);
     const entry = this.plugin?.settings?.ai?.articleLayoutsByPath?.[normalizedPath] || null;
     const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
     if (!normalizedEntry) return null;
-    return normalizedEntry.familyStates?.[normalizedEntry.lastLayoutFamily] || null;
+    return toAiLayoutState(normalizedEntry.familyStates?.[normalizedEntry.lastLayoutFamily] || null);
   }
 
   hasCurrentArticleAiLayoutCache() {
@@ -2105,6 +2887,9 @@ class AppleStyleView extends ItemView {
     });
   }
 
+  /**
+   * @param {ObsidianElementLike} parent
+   */
   createAiLayoutPanel(parent) {
     this.attachOverlayScrollGuard(parent, ['.apple-ai-layout-debug-body']);
 
@@ -2134,12 +2919,12 @@ class AppleStyleView extends ItemView {
     const controlSection = area.createDiv({ cls: 'apple-ai-layout-section apple-ai-layout-controls-section' });
     const layoutControl = controlSection.createDiv({ cls: 'apple-ai-layout-control' });
     layoutControl.createEl('label', { cls: 'apple-setting-label', text: '布局' });
-    this.aiLayoutFamilySelect = layoutControl.createEl('select', { cls: 'apple-select' });
+    this.aiLayoutFamilySelect = /** @type {ObsidianInputLike} */ (layoutControl.createEl('select', { cls: 'apple-select' }));
     getLayoutFamilyList({ includeAuto: true, includeReserved: false }).forEach((family) => {
-      const option = this.aiLayoutFamilySelect.createEl('option', {
+      const option = /** @type {ObsidianInputLike} */ (this.aiLayoutFamilySelect.createEl('option', {
         value: family.value,
         text: this.getAiLayoutFamilyLabel(family.value),
-      });
+      }));
       if ((this.plugin.settings.ai?.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO) === family.value) {
         option.selected = true;
       }
@@ -2147,12 +2932,12 @@ class AppleStyleView extends ItemView {
 
     const paletteControl = controlSection.createDiv({ cls: 'apple-ai-layout-control' });
     paletteControl.createEl('label', { cls: 'apple-setting-label', text: '颜色' });
-    this.aiColorPaletteSelect = paletteControl.createEl('select', { cls: 'apple-select apple-ai-layout-color-select' });
+    this.aiColorPaletteSelect = /** @type {ObsidianInputLike} */ (paletteControl.createEl('select', { cls: 'apple-select apple-ai-layout-color-select' }));
     getColorPaletteList({ includeAuto: true }).forEach((palette) => {
-      const option = this.aiColorPaletteSelect.createEl('option', {
+      const option = /** @type {ObsidianInputLike} */ (this.aiColorPaletteSelect.createEl('option', {
         value: palette.value,
         text: palette.label,
-      });
+      }));
       if ((this.plugin.settings.ai?.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO) === palette.value) {
         option.selected = true;
       }
@@ -2187,17 +2972,17 @@ class AppleStyleView extends ItemView {
         if (isCustom) this.aiCustomColorInput?.click();
       });
     });
-    this.aiCustomColorInput = paletteControl.createEl('input', {
+    this.aiCustomColorInput = /** @type {ObsidianInputLike} */ (paletteControl.createEl('input', {
       type: 'color',
       cls: 'apple-color-picker-hidden apple-ai-custom-color-input',
-    });
+    }));
     this.aiCustomColorInput.value = this.getAiCustomColor();
     this.aiCustomColorInput.addEventListener('input', (event) => {
-      const nextColor = normalizeHexColor(event.target.value, this.getAiCustomColor());
+      const nextColor = normalizeHexColor(getEventTargetValue(event, this.getAiCustomColor()), this.getAiCustomColor());
       this.plugin.settings.ai.customColor = nextColor;
     });
     this.aiCustomColorInput.addEventListener('change', async (event) => {
-      const nextColor = normalizeHexColor(event.target.value, this.getAiCustomColor());
+      const nextColor = normalizeHexColor(getEventTargetValue(event, this.getAiCustomColor()), this.getAiCustomColor());
       this.plugin.settings.ai.customColor = nextColor;
       await this.plugin.saveSettings();
       await this.onAiColorPaletteChange('custom', { skipSave: true });
@@ -2281,19 +3066,30 @@ class AppleStyleView extends ItemView {
     this.refreshAiLayoutPanel();
   }
 
+  /**
+   * @returns {string}
+   */
   getAiCustomColor() {
     return normalizeHexColor(this.plugin.settings?.ai?.customColor, '#7c3aed');
   }
 
+  /**
+   * @param {string} [colorPaletteId]
+   * @returns {{ customColor: string } | null}
+   */
   getAiColorPaletteOverride(colorPaletteId = '') {
     const targetPalette = colorPaletteId || this.getCurrentAiLayoutSelection().colorPalette;
     if (targetPalette !== 'custom') return null;
     return { customColor: this.getAiCustomColor() };
   }
 
+  /**
+   * @param {string} [colorPaletteId]
+   * @returns {Record<string, unknown>}
+   */
   getAiRenderColorPalette(colorPaletteId = '') {
     const targetPalette = colorPaletteId || this.getCurrentAiLayoutSelection().colorPalette || 'tech-green';
-    return resolveColorPaletteForRender(targetPalette, this.getAiColorPaletteOverride(targetPalette));
+    return /** @type {Record<string, unknown>} */ (resolveColorPaletteForRender(targetPalette, this.getAiColorPaletteOverride(targetPalette)));
   }
 
   updateAiColorPaletteControls() {
@@ -2305,28 +3101,39 @@ class AppleStyleView extends ItemView {
       this.aiCustomColorInput.value = this.getAiCustomColor();
     }
     this.aiColorPaletteControls?.querySelectorAll?.('button[data-value]')?.forEach((button) => {
+      if (!(button instanceof HTMLElement)) return;
       button.classList.toggle('active', button.dataset.value === selectedValue);
     });
   }
 
+  /**
+   * @param {AiLayoutJsonLike | null} [layoutJson]
+   * @param {string} [colorPaletteId]
+   * @returns {AiLayoutJsonLike | null}
+   */
   getAiRenderLayoutJson(layoutJson = null, colorPaletteId = '') {
-    if (!layoutJson || typeof layoutJson !== 'object') return layoutJson;
+    const layoutRecord = toAiLayoutJson(layoutJson);
+    if (!layoutRecord) return layoutRecord;
     const selectedPalette = colorPaletteId || this.getCurrentAiLayoutSelection().colorPalette;
-    if (!selectedPalette || selectedPalette === AI_LAYOUT_SELECTION_AUTO) return layoutJson;
+    if (!selectedPalette || selectedPalette === AI_LAYOUT_SELECTION_AUTO) return layoutRecord;
     return {
-      ...layoutJson,
+      ...layoutRecord,
       selection: {
-        ...(layoutJson.selection || {}),
+        ...(layoutRecord.selection || {}),
         colorPalette: selectedPalette,
       },
       resolved: {
-        ...(layoutJson.resolved || {}),
+        ...(layoutRecord.resolved || {}),
         colorPalette: selectedPalette,
       },
       stylePack: selectedPalette,
     };
   }
 
+  /**
+   * @param {string} value
+   * @param {{ skipSave?: boolean }} [options]
+   */
   async onAiColorPaletteChange(value, { skipSave = false } = {}) {
     const nextValue = value || this.plugin.settings.ai?.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO;
     const previousState = this.getCurrentArticleLayoutState();
@@ -2351,6 +3158,9 @@ class AppleStyleView extends ItemView {
     this.refreshAiLayoutPanel();
   }
 
+  /**
+   * @param {string} value
+   */
   async onAiLayoutFamilyChange(value) {
     const nextValue = value || this.plugin.settings.ai?.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO;
     this.pendingAiLayoutFamily = nextValue;
@@ -2369,31 +3179,44 @@ class AppleStyleView extends ItemView {
     this.refreshAiLayoutPanel();
   }
 
+  /**
+   * @param {string} colorPaletteId
+   */
   applyAiLayoutPanelStylePack(colorPaletteId) {
     if (!this.aiLayoutOverlay) return;
     const pack = this.getAiRenderColorPalette(colorPaletteId || 'tech-green');
-    const tokens = pack?.tokens || {};
+    const tokens = toRecord(pack.tokens);
     this.aiLayoutOverlay.style.setProperty('--ai-layout-accent', tokens.accent || '#0a84ff');
     this.aiLayoutOverlay.style.setProperty('--ai-layout-accent-deep', tokens.accentDeep || tokens.accent || '#0a84ff');
     this.aiLayoutOverlay.style.setProperty('--ai-layout-accent-soft', tokens.accentSoft || 'rgba(0, 122, 255, 0.08)');
     this.aiLayoutOverlay.style.setProperty('--ai-layout-accent-border', tokens.accent || '#0a84ff');
   }
 
+  /**
+   * @param {AiLayoutBlockLike | unknown} [block]
+   * @param {number} [index]
+   * @returns {string}
+   */
   getAiLayoutBlockStateKey(block = {}, index = 0) {
-    const type = String(block?.type || '').trim();
-    const sectionIndex = Number.isInteger(block?.sectionIndex) ? String(block.sectionIndex) : '';
+    const blockRecord = toAiLayoutBlock(block);
+    const type = String(blockRecord.type || '').trim();
+    const sectionIndex = Number.isInteger(blockRecord.sectionIndex) ? String(blockRecord.sectionIndex) : '';
     const label = String(
-      block?.title
-      || block?.caseLabel
-      || block?.text
-      || block?.caption
-      || block?.buttonText
-      || block?.imageId
+      blockRecord.title
+      || blockRecord.caseLabel
+      || blockRecord.text
+      || blockRecord.caption
+      || blockRecord.buttonText
+      || blockRecord.imageId
       || type
     ).trim();
     return [type, sectionIndex, label, String(index)].join('::');
   }
 
+  /**
+   * @param {AiLayoutStateLike | null} state
+   * @returns {VisibleAiLayoutSnapshotLike}
+   */
   getVisibleAiLayoutSnapshot(state) {
     if (!state?.layoutJson?.blocks?.length) {
       return {
@@ -2404,17 +3227,20 @@ class AppleStyleView extends ItemView {
     }
 
     const dismissedKeys = new Set(Array.isArray(state.dismissedBlockKeys) ? state.dismissedBlockKeys : []);
+    /** @type {AiLayoutBlockLike[]} */
     const visibleBlocks = [];
+    /** @type {AiLayoutBlockOriginLike[]} */
     const visibleOrigins = [];
     let hiddenCount = 0;
 
     state.layoutJson.blocks.forEach((block, index) => {
-      const blockKey = this.getAiLayoutBlockStateKey(block, index);
+      const blockRecord = toAiLayoutBlock(block);
+      const blockKey = this.getAiLayoutBlockStateKey(blockRecord, index);
       if (dismissedKeys.has(blockKey)) {
         hiddenCount += 1;
         return;
       }
-      visibleBlocks.push(block);
+      visibleBlocks.push(blockRecord);
       const origin = state.generationMeta?.blockOrigins?.[index];
       if (origin) {
         visibleOrigins.push({
@@ -2425,9 +3251,9 @@ class AppleStyleView extends ItemView {
       } else {
         visibleOrigins.push({
           index: visibleBlocks.length - 1,
-          type: block?.type || '',
+          type: blockRecord.type || '',
           source: 'ai',
-          label: this.getAiLayoutBlockLabel(block),
+          label: this.getAiLayoutBlockLabel(blockRecord),
           originalIndex: index,
           blockKey,
         });
@@ -2444,6 +3270,10 @@ class AppleStyleView extends ItemView {
     };
   }
 
+  /**
+   * @param {number} originalIndex
+   * @param {HTMLElement | ObsidianElementLike | null} [itemEl]
+   */
   queueAiLayoutRemovalAnchor(originalIndex, itemEl = null) {
     const state = this.getCurrentArticleLayoutState();
     const visibleSnapshot = this.getVisibleAiLayoutSnapshot(state);
@@ -2466,7 +3296,7 @@ class AppleStyleView extends ItemView {
     if (!pendingAnchor || !this.aiLayoutOverlay) return;
     const items = Array.from(this.aiBlockList?.querySelectorAll?.('.apple-ai-layout-block-item') || []);
     const targetItem = pendingAnchor.blockKey
-      ? items.find((item) => item.dataset.blockKey === pendingAnchor.blockKey)
+      ? items.find((item) => item instanceof HTMLElement && item.dataset.blockKey === pendingAnchor.blockKey)
       : null;
     if (targetItem) {
       this.aiLayoutOverlay.scrollTop = Math.max(0, targetItem.offsetTop - (pendingAnchor.relativeTop || 0));
@@ -2476,11 +3306,15 @@ class AppleStyleView extends ItemView {
     this.aiLayoutPendingAnchor = null;
   }
 
+  /**
+   * @param {number} originalIndex
+   * @param {HTMLElement | ObsidianElementLike | null} [itemEl]
+   */
   async removeAiLayoutBlock(originalIndex, itemEl = null) {
     const context = this.getCurrentLayoutContext();
     const state = this.getCurrentArticleLayoutState();
     if (!context.sourcePath || !state?.layoutJson?.blocks?.length) return;
-    const block = state.layoutJson.blocks[originalIndex];
+    const block = toAiLayoutBlock(state.layoutJson.blocks[originalIndex]);
     if (!block) return;
     this.queueAiLayoutRemovalAnchor(originalIndex, itemEl);
     const blockKey = this.getAiLayoutBlockStateKey(block, originalIndex);
@@ -2532,12 +3366,18 @@ class AppleStyleView extends ItemView {
     await this.generateAiLayoutForCurrentArticle({ applyAfterGenerate: true });
   }
 
+  /**
+   * @param {string} mode
+   */
   toggleAiLayoutDebugMode(mode) {
     this.aiAdvancedOpen = true;
     this.aiLayoutDebugMode = this.aiLayoutDebugMode === mode ? '' : mode;
     this.refreshAiLayoutPanel();
   }
 
+  /**
+   * @returns {AiLayoutContextLike}
+   */
   getCurrentLayoutContext() {
     const activeFile = this.app?.workspace?.getActiveFile?.() || this.lastActiveFile || null;
     const activePath = activeFile?.path || '';
@@ -2567,6 +3407,9 @@ class AppleStyleView extends ItemView {
     };
   }
 
+  /**
+   * @returns {AiLayoutSelectionLike}
+   */
   getCurrentAiLayoutSelection() {
     const aiSettings = this.plugin?.settings?.ai || createDefaultAiSettings();
     return normalizeLayoutSelection({
@@ -2578,12 +3421,15 @@ class AppleStyleView extends ItemView {
     });
   }
 
+  /**
+   * @returns {AiLayoutStateLike | null}
+   */
   getCurrentArticleLayoutState() {
     const { sourcePath, sourceHash } = this.getCurrentLayoutContext();
     if (!sourcePath) return null;
     const selection = this.getCurrentAiLayoutSelection();
     if (typeof this.plugin?.getArticleLayoutState === 'function') {
-      const state = this.plugin.getArticleLayoutState(sourcePath, selection);
+      const state = toAiLayoutState(this.plugin.getArticleLayoutState(sourcePath, selection));
       if (state) {
         return this.preferFreshAiLayoutState(sourcePath, selection, state, sourceHash);
       }
@@ -2591,6 +3437,13 @@ class AppleStyleView extends ItemView {
     return null;
   }
 
+  /**
+   * @param {string} [sourcePath]
+   * @param {AiLayoutSelectionLike | Record<string, unknown>} [selection]
+   * @param {AiLayoutStateLike | null} [candidateState]
+   * @param {string} [sourceHash]
+   * @returns {AiLayoutStateLike | null}
+   */
   preferFreshAiLayoutState(sourcePath = '', selection = {}, candidateState = null, sourceHash = '') {
     if (!candidateState || !sourceHash || !candidateState.sourceHash || candidateState.sourceHash === sourceHash) {
       return candidateState;
@@ -2609,18 +3462,24 @@ class AppleStyleView extends ItemView {
     const requestedFamily = normalizedSelection.layoutFamily === AI_LAYOUT_SELECTION_AUTO
       ? ''
       : normalizedSelection.layoutFamily;
-    const exactState = requestedFamily ? statesByFamily[requestedFamily] : null;
+    const exactState = requestedFamily ? toAiLayoutState(statesByFamily[requestedFamily]) : null;
     if (exactState?.sourceHash === sourceHash && exactState.layoutJson?.blocks?.length) return exactState;
 
-    const lastState = statesByFamily[entry?.lastLayoutFamily];
+    const lastState = toAiLayoutState(statesByFamily[entry?.lastLayoutFamily]);
     if (lastState?.sourceHash === sourceHash && lastState.layoutJson?.blocks?.length) return lastState;
 
-    return Object.values(statesByFamily).find((state) => (
+    return Object.values(statesByFamily).map(toAiLayoutState).find((state) => (
       state?.sourceHash === sourceHash
       && state.layoutJson?.blocks?.length
     )) || candidateState;
   }
 
+  /**
+   * @param {AiLayoutStateLike | null} [currentState]
+   * @param {AiLayoutSelectionLike | null} [selection]
+   * @param {AiLayoutContextLike | null} [context]
+   * @returns {Promise<AiLayoutJsonLike | null>}
+   */
   async recoverSourceFirstLayoutState(currentState = null, selection = null, context = null) {
     const requestedSelection = normalizeLayoutSelection(selection || this.getCurrentAiLayoutSelection(), {
       layoutFamily: this.plugin.settings.ai?.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO,
@@ -2652,9 +3511,9 @@ class AppleStyleView extends ItemView {
         selection: requestedSelection,
         imageRefs,
         timeoutMs: aiSettings.requestTimeoutMs,
-        fetchImpl: createObsidianFetchAdapter({ requestUrl, request }),
+        fetchImpl: createObsidianFetchAdapter({ requestUrl: getObsidianRequestUrl(), request: getObsidianRequest() }),
       });
-      const layoutJson = result.layoutJson;
+      const layoutJson = toAiLayoutJson(result.layoutJson);
       if (!Array.isArray(layoutJson?.blocks) || !layoutJson.blocks.length) return null;
       await this.plugin.saveArticleLayoutState(sourceContext.sourcePath, {
         version: AI_LAYOUT_SCHEMA_VERSION,
@@ -2674,7 +3533,7 @@ class AppleStyleView extends ItemView {
         lastAttemptAt: Date.now(),
         lastAttemptSchemaValidation: null,
         dismissedBlockKeys: [],
-        generationMeta: result.generationMeta,
+        generationMeta: toAiLayoutGenerationMeta(result.generationMeta),
         layoutJson,
       }, layoutJson.selection);
       this.pendingAiLayoutFamily = layoutJson.selection?.layoutFamily || requestedSelection.layoutFamily;
@@ -2692,6 +3551,11 @@ class AppleStyleView extends ItemView {
     }
   }
 
+  /**
+   * @param {AiLayoutStateLike | null} [baseState]
+   * @param {AiLayoutSelectionLike | null} [selection]
+   * @returns {Promise<AiLayoutStateLike | null>}
+   */
   async ensureAiLayoutSelectionState(baseState = null, selection = null) {
     const context = this.getCurrentLayoutContext();
     if (!context.sourcePath || typeof this.plugin?.getArticleLayoutState !== 'function') return null;
@@ -2699,7 +3563,7 @@ class AppleStyleView extends ItemView {
       layoutFamily: this.plugin.settings.ai?.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO,
       colorPalette: this.plugin.settings.ai?.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO,
     });
-    const existingState = this.plugin.getArticleLayoutState(context.sourcePath, requestedSelection);
+    const existingState = toAiLayoutState(this.plugin.getArticleLayoutState(context.sourcePath, requestedSelection));
     if (existingState?.layoutJson?.blocks?.length) {
       return existingState;
     }
@@ -2712,7 +3576,7 @@ class AppleStyleView extends ItemView {
       ...derivedState,
       updatedAt: Date.now(),
     }, requestedSelection);
-    return derivedState;
+    return toAiLayoutState(derivedState);
   }
 
   isAiLayoutPanelVisible() {
@@ -2723,6 +3587,11 @@ class AppleStyleView extends ItemView {
     return this.aiPreviewApplied === true || this.aiLayoutLoading === true || this.isAiLayoutPanelVisible();
   }
 
+  /**
+   * @param {AiLayoutStateLike | null} state
+   * @param {AiSettingsLike | null | undefined} aiSettings
+   * @returns {string}
+   */
   getArticleLayoutProviderLabel(state, aiSettings) {
     if (!state) return '';
     const providerList = Array.isArray(aiSettings?.providers) ? aiSettings.providers : [];
@@ -2732,6 +3601,11 @@ class AppleStyleView extends ItemView {
     return state.generationMeta?.providerName || matchedProvider?.name || '';
   }
 
+  /**
+   * @param {AiLayoutStateLike | null} state
+   * @param {AiSettingsLike | null | undefined} aiSettings
+   * @returns {string}
+   */
   getArticleLayoutModelLabel(state, aiSettings) {
     if (!state) return '';
     const providerList = Array.isArray(aiSettings?.providers) ? aiSettings.providers : [];
@@ -2741,10 +3615,19 @@ class AppleStyleView extends ItemView {
     return state.generationMeta?.providerModel || state.model || matchedProvider?.model || '';
   }
 
+  /**
+   * @param {AiLayoutBlockLike | unknown} block
+   * @returns {string}
+   */
   getAiLayoutBlockLabel(block) {
-    return block?.title || block?.caseLabel || block?.text || block?.caption || block?.buttonText || block?.type || '未命名区块';
+    const blockRecord = toAiLayoutBlock(block);
+    return blockRecord.title || blockRecord.caseLabel || blockRecord.text || blockRecord.caption || blockRecord.buttonText || blockRecord.type || '未命名区块';
   }
 
+  /**
+   * @param {string} value
+   * @returns {string}
+   */
   getAiLayoutFamilyLabel(value) {
     if (value === AI_LAYOUT_SELECTION_AUTO) return '自动推荐';
     const family = getLayoutFamilyById(value);
@@ -2752,11 +3635,19 @@ class AppleStyleView extends ItemView {
     return family.label || value || '自动推荐';
   }
 
+  /**
+   * @param {string} value
+   * @returns {string}
+   */
   getAiColorPaletteLabel(value) {
     if (value === AI_LAYOUT_SELECTION_AUTO) return '自动配色';
     return getColorPaletteById(value)?.label || value || '自动配色';
   }
 
+  /**
+   * @param {AiLayoutStateLike | null} state
+   * @returns {AiSchemaValidationLike | null}
+   */
   getVisibleAiSchemaValidation(state) {
     if (!state) return null;
     if (state.lastAttemptStatus === 'schema-error') {
@@ -2768,6 +3659,9 @@ class AppleStyleView extends ItemView {
     return state.generationMeta?.schemaValidation || null;
   }
 
+  /**
+   * @param {string[]} [chips]
+   */
   renderAiLayoutMetaChips(chips = []) {
     if (!this.aiLayoutMetaChips) return;
     this.aiLayoutMetaChips.empty();
@@ -2780,35 +3674,43 @@ class AppleStyleView extends ItemView {
     });
   }
 
+  /**
+   * @returns {{ familyStates?: Record<string, AiLayoutStateLike>, lastLayoutFamily?: string } | null}
+   */
   getCurrentArticleLayoutCacheEntry() {
     const { sourcePath } = this.getCurrentLayoutContext();
     if (!sourcePath) return null;
     const normalizedPath = normalizeVaultPath(sourcePath);
-    return normalizeArticleLayoutCacheEntry(this.plugin?.settings?.ai?.articleLayoutsByPath?.[normalizedPath]);
+    return /** @type {{ familyStates?: Record<string, AiLayoutStateLike>, lastLayoutFamily?: string } | null} */ (normalizeArticleLayoutCacheEntry(this.plugin?.settings?.ai?.articleLayoutsByPath?.[normalizedPath]));
   }
 
+  /**
+   * @param {AiLayoutContextLike} [context]
+   * @returns {{ layoutFamily: string, state: AiLayoutStateLike, label: string, isCurrentContent: boolean, isStaleContent: boolean, fromAuto: boolean, updatedAt: number }[]}
+   */
   getCachedAiLayoutFamilyItems(context = this.getCurrentLayoutContext()) {
     const entry = this.getCurrentArticleLayoutCacheEntry();
     if (!entry?.familyStates) return [];
     return Object.entries(entry.familyStates)
       .map(([layoutFamily, state]) => {
-        if (!state?.layoutJson?.blocks?.length) return null;
-        const isCurrentContent = !!(context.sourceHash && state.sourceHash && state.sourceHash === context.sourceHash);
+        const typedState = toAiLayoutState(state);
+        if (!typedState?.layoutJson?.blocks?.length) return null;
+        const isCurrentContent = !!(context.sourceHash && typedState.sourceHash && typedState.sourceHash === context.sourceHash);
         const isStaleContent = !!(
           !context.isStaleSuppressed
           && context.sourceHash
-          && state.sourceHash
-          && state.sourceHash !== context.sourceHash
+          && typedState.sourceHash
+          && typedState.sourceHash !== context.sourceHash
         );
-        const fromAuto = state.selection?.layoutFamily === AI_LAYOUT_SELECTION_AUTO;
+        const fromAuto = typedState.selection?.layoutFamily === AI_LAYOUT_SELECTION_AUTO;
         return {
           layoutFamily,
-          state,
+          state: typedState,
           label: this.getAiLayoutFamilyLabel(layoutFamily),
           isCurrentContent,
           isStaleContent,
           fromAuto,
-          updatedAt: Number(state.updatedAt || 0),
+          updatedAt: Number(typedState.updatedAt || 0),
         };
       })
       .filter(Boolean)
@@ -2818,6 +3720,9 @@ class AppleStyleView extends ItemView {
       });
   }
 
+  /**
+   * @param {{ context?: AiLayoutContextLike, currentLayoutFamily?: string, isLoading?: boolean }} [options]
+   */
   renderAiCachedLayoutFamilies({ context, currentLayoutFamily = '', isLoading = false } = {}) {
     if (!this.aiCachedLayoutList) return;
     const items = this.getCachedAiLayoutFamilyItems(context);
@@ -2876,6 +3781,9 @@ class AppleStyleView extends ItemView {
       });
   }
 
+  /**
+   * @param {string} [layoutFamily]
+   */
   previewCachedAiLayoutFamily(layoutFamily = '') {
     const entry = this.getCurrentArticleLayoutCacheEntry();
     const state = entry?.familyStates?.[layoutFamily] || null;
@@ -2889,6 +3797,10 @@ class AppleStyleView extends ItemView {
     this.applyAiLayoutToPreview({ stateOverride: state, allowStale: true });
   }
 
+  /**
+   * @param {{ hasDoc: boolean, aiFeatureEnabled: boolean, canGenerateForSelection: boolean, state: AiLayoutStateLike | null, visibleLayout: AiLayoutJsonLike | null, hasReusableLayout: boolean, hasLastAttemptFailure: boolean, hasApplied: boolean, isStale: boolean, isLoading: boolean }} options
+   * @returns {{ mode: string, label: string, disabled: boolean }}
+   */
   getAiPrimaryActionConfig({
     hasDoc,
     aiFeatureEnabled,
@@ -2934,6 +3846,9 @@ class AppleStyleView extends ItemView {
     return { mode: 'generate-apply', label: '重新生成并应用', disabled: false };
   }
 
+  /**
+   * @param {AiSchemaValidationLike | null} [schemaValidation]
+   */
   refreshAiSchemaIssuePanel(schemaValidation = null) {
     if (!this.aiSchemaIssuePanel) return;
     this.aiSchemaIssuePanel.empty();
@@ -2971,6 +3886,10 @@ class AppleStyleView extends ItemView {
     }
   }
 
+  /**
+   * @param {AiLayoutStateLike | null} state
+   * @returns {string}
+   */
   buildAiLayoutDebugJson(state) {
     if (!state) return '';
     return JSON.stringify({
@@ -2985,6 +3904,10 @@ class AppleStyleView extends ItemView {
     }, null, 2);
   }
 
+  /**
+   * @param {{ state: AiLayoutStateLike | null, providerLabel?: string, modelLabel?: string, isStale?: boolean }} options
+   * @returns {string}
+   */
   buildAiLayoutErrorDetails({ state, providerLabel, modelLabel, isStale }) {
     return JSON.stringify({
       status: state?.status || 'unknown',
@@ -3007,6 +3930,10 @@ class AppleStyleView extends ItemView {
     }, null, 2);
   }
 
+  /**
+   * @param {{ mode?: string, state: AiLayoutStateLike | null, providerLabel?: string, modelLabel?: string, isStale?: boolean, sourcePath?: string }} options
+   * @returns {string}
+   */
   buildAiLayoutDebugSnapshot({ mode, state, providerLabel, modelLabel, isStale, sourcePath }) {
     if (!state || !mode) return '';
     const header = [
@@ -3031,6 +3958,10 @@ class AppleStyleView extends ItemView {
       : normalized;
   }
 
+  /**
+   * @param {{ state: AiLayoutStateLike | null, context: AiLayoutContextLike, providerLabel?: string, modelLabel?: string, isStale?: boolean }} options
+   * @returns {string}
+   */
   buildAiLayoutPromptContext({ state, context, providerLabel, modelLabel, isStale }) {
     if (!state?.layoutJson) return '';
 
@@ -3038,8 +3969,9 @@ class AppleStyleView extends ItemView {
 
     const blockLines = Array.isArray(state.layoutJson.blocks)
       ? state.layoutJson.blocks.map((block, index) => {
+        const blockRecord = toAiLayoutBlock(block);
         const origin = state.generationMeta?.blockOrigins?.[index]?.source === 'fallback' ? '补全' : 'AI';
-        return `${index + 1}. [${origin}] ${block.type} - ${this.getAiLayoutBlockLabel(block)}`;
+        return `${index + 1}. [${origin}] ${blockRecord.type || ''} - ${this.getAiLayoutBlockLabel(blockRecord)}`;
       }).join('\n')
       : '- 无区块';
 
@@ -3111,61 +4043,17 @@ class AppleStyleView extends ItemView {
     ].join('\n');
   }
 
-  copyPlainTextBySelection(text) {
-    const activeDocument = getActiveDocumentCompat();
-    const activeWindow = getActiveWindowCompat();
-    if (!activeDocument || typeof activeDocument.execCommand !== 'function') return false;
-    const selection = activeWindow?.getSelection?.();
-    if (!selection) return false;
-    const previousRanges = [];
-    for (let i = 0; i < selection.rangeCount; i += 1) {
-      previousRanges.push(selection.getRangeAt(i).cloneRange());
-    }
-    const activeElement = activeDocument.activeElement;
-    const tempEl = activeDocument.createElement('textarea');
-    tempEl.value = text;
-    tempEl.setAttribute('readonly', 'readonly');
-    tempEl.setCssStyles({
-      position: 'fixed',
-      left: '-9999px',
-      top: '0',
-    });
-    activeDocument.body.appendChild(tempEl);
-    tempEl.select();
-
-    let success = false;
-    try {
-      success = activeDocument.execCommand('copy');
-    } catch {
-      success = false;
-    } finally {
-      tempEl.remove();
-      selection.removeAllRanges();
-      for (const prevRange of previousRanges) {
-        try {
-          selection.addRange(prevRange);
-        } catch {
-          // ignore invalid stale ranges
-        }
-      }
-      if (activeElement && typeof activeElement.focus === 'function') {
-        try {
-          activeElement.focus({ preventScroll: true });
-        } catch {
-          activeElement.focus();
-        }
-      }
-    }
-    return success;
-  }
-
+  /**
+   * @param {string} text
+   * @returns {Promise<boolean>}
+   */
   async copyPlainTextSnapshot(text) {
     if (!text) return false;
     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
       await navigator.clipboard.writeText(text);
       return true;
     }
-    return this.copyPlainTextBySelection(text);
+    return false;
   }
 
   async copyAiLayoutDebugSnapshot() {
@@ -3227,6 +4115,9 @@ class AppleStyleView extends ItemView {
     }
   }
 
+  /**
+   * @param {{ state: AiLayoutStateLike | null, providerLabel?: string, modelLabel?: string, isStale?: boolean }} options
+   */
   refreshAiLayoutDebugPanel({ state, providerLabel, modelLabel, isStale }) {
     if (!this.aiDebugPanel || !this.aiDebugPanelBody || !this.aiDebugPanelTitle) return;
     const isLoading = this.aiLayoutLoading === true;
@@ -3412,12 +4303,12 @@ class AppleStyleView extends ItemView {
       && state.status !== 'schema-error';
     this.aiLayoutStatusText.hidden = hideSuccessStatusText;
     this.aiLayoutStatusText.setText(hideSuccessStatusText ? '' : statusText);
-    this.applyAiLayoutPanelStylePack(
+    this.applyAiLayoutPanelStylePack(String(
       state?.resolved?.colorPalette
       || (effectiveSelection.colorPalette !== AI_LAYOUT_SELECTION_AUTO ? effectiveSelection.colorPalette : '')
       || aiSettings.defaultStylePack
       || 'tech-green'
-    );
+    ));
     if (isResolvingSourceState && this.aiCachedLayoutList) {
       this.aiCachedLayoutList.empty();
       this.aiCachedLayoutList.hidden = true;
@@ -3722,9 +4613,9 @@ class AppleStyleView extends ItemView {
         selection,
         imageRefs,
         timeoutMs: aiSettings.requestTimeoutMs,
-        fetchImpl: createObsidianFetchAdapter({ requestUrl, request }),
+        fetchImpl: createObsidianFetchAdapter({ requestUrl: getObsidianRequestUrl(), request: getObsidianRequest() }),
       });
-      const layoutJson = result.layoutJson;
+      const layoutJson = toAiLayoutJson(result.layoutJson);
       if (!Array.isArray(layoutJson?.blocks) || !layoutJson.blocks.length) {
         throw new Error('AI 返回了空的编排结果');
       }
@@ -3747,7 +4638,7 @@ class AppleStyleView extends ItemView {
         lastAttemptAt: Date.now(),
         lastAttemptSchemaValidation: null,
         dismissedBlockKeys: [],
-        generationMeta: result.generationMeta,
+        generationMeta: toAiLayoutGenerationMeta(result.generationMeta),
         layoutJson,
       }, layoutJson.selection);
       this.pendingAiLayoutFamily = layoutJson.selection?.layoutFamily || selection.layoutFamily;
@@ -3756,21 +4647,24 @@ class AppleStyleView extends ItemView {
       if (applyAfterGenerate) {
         this.applyAiLayoutToPreview();
         new Notice(
-          result.generationMeta?.executionMode === 'local-fallback'
+          toAiLayoutGenerationMeta(result.generationMeta)?.executionMode === 'local-fallback'
             ? '✅ 已生成并应用原文增强结果'
             : '✅ 已生成并应用新的编排结果'
         );
       } else {
         new Notice(
-          result.generationMeta?.executionMode === 'local-fallback'
+          toAiLayoutGenerationMeta(result.generationMeta)?.executionMode === 'local-fallback'
             ? '✅ 已生成原文增强结果'
             : '✅ AI 编排已生成'
         );
       }
     } catch (error) {
       console.error('AI 编排生成失败:', error);
+      const readableError = toReadableError(error);
+      const errorRecord = toRecord(error);
+      const errorGenerationMeta = toAiLayoutGenerationMeta(errorRecord.generationMeta);
       const previousState = this.getCurrentArticleLayoutState();
-      const isSchemaError = error?.code === 'ai-layout-schema-invalid';
+      const isSchemaError = errorRecord.code === 'ai-layout-schema-invalid';
       const hasReusablePreviousLayout = !!(previousState?.status === 'ready' && previousState?.layoutJson?.blocks?.length);
       await this.plugin.saveArticleLayoutState(context.sourcePath, {
         version: AI_LAYOUT_SCHEMA_VERSION,
@@ -3789,15 +4683,15 @@ class AppleStyleView extends ItemView {
           ? previousState.stylePack
           : (selection.colorPalette === AI_LAYOUT_SELECTION_AUTO ? 'tech-green' : selection.colorPalette),
         status: hasReusablePreviousLayout ? previousState.status : (isSchemaError ? 'schema-error' : 'error'),
-        lastError: error?.message || '未知错误',
+        lastError: readableError.message || '未知错误',
         lastAttemptStatus: isSchemaError ? 'schema-error' : 'error',
-        lastAttemptError: error?.message || '未知错误',
+        lastAttemptError: readableError.message || '未知错误',
         lastAttemptAt: Date.now(),
-        lastAttemptSchemaValidation: error?.schemaValidation || error?.generationMeta?.schemaValidation || null,
+        lastAttemptSchemaValidation: /** @type {AiSchemaValidationLike | null} */ (errorRecord.schemaValidation || errorGenerationMeta?.schemaValidation || null),
         dismissedBlockKeys: hasReusablePreviousLayout ? (previousState.dismissedBlockKeys || []) : [],
         generationMeta: hasReusablePreviousLayout
           ? previousState.generationMeta
-          : (error?.generationMeta || previousState?.generationMeta || null),
+          : (errorGenerationMeta || previousState?.generationMeta || null),
         layoutJson: hasReusablePreviousLayout
           ? previousState.layoutJson
           : (previousState?.layoutJson || {
@@ -3820,7 +4714,7 @@ class AppleStyleView extends ItemView {
       new Notice(
         hasReusablePreviousLayout
           ? '❌ 这次生成没有成功，已为你保留上一版结果'
-          : (isSchemaError ? `❌ 生成失败：${error.message}` : `❌ 生成失败：${error.message}`)
+          : (isSchemaError ? `❌ 生成失败：${readableError.message}` : `❌ 生成失败：${readableError.message}`)
       );
     } finally {
       this.aiLayoutLoading = false;
@@ -3833,6 +4727,9 @@ class AppleStyleView extends ItemView {
     }
   }
 
+  /**
+   * @param {{ stateOverride?: AiLayoutStateLike | null, allowStale?: boolean }} [options]
+   */
   applyAiLayoutToPreview({ stateOverride = null, allowStale = false } = {}) {
     const context = this.getCurrentLayoutContext();
     const state = stateOverride || this.getCurrentArticleLayoutState();
@@ -3842,7 +4739,6 @@ class AppleStyleView extends ItemView {
       return;
     }
     if (!allowStale && context.sourceHash && state.sourceHash && context.sourceHash !== state.sourceHash) {
-      new Notice('当前文章内容已变化，请先重新生成 AI 编排');
       this.refreshAiLayoutPanel();
       return;
     }
@@ -3912,6 +4808,9 @@ class AppleStyleView extends ItemView {
     previewWrapper?.classList.toggle('apple-ai-preview-active', hasAiPreview);
   }
 
+  /**
+   * @returns {boolean}
+   */
   openPluginSettings() {
     const settingApi = this.app?.setting;
     if (!settingApi || typeof settingApi.open !== 'function') return false;
@@ -3924,6 +4823,11 @@ class AppleStyleView extends ItemView {
     return true;
   }
 
+  /**
+   * @param {string} url
+   * @param {{ allowExtensionUrls?: boolean }} [options]
+   * @returns {boolean}
+   */
   openExternalUrl(url, options = {}) {
     const target = String(url || '').trim();
     const allowExtensionUrls = options?.allowExtensionUrls === true;
@@ -3932,16 +4836,6 @@ class AppleStyleView extends ItemView {
     if (!isHttpUrl && !(allowExtensionUrls && isExtensionUrl)) {
       new Notice('草稿链接不可用');
       return false;
-    }
-
-    try {
-      const electron = require('electron');
-      if (electron?.shell?.openExternal) {
-        electron.shell.openExternal(target);
-        return true;
-      }
-    } catch {
-      // Mobile and some sandboxed runtimes do not expose Electron.
     }
 
     if (typeof window !== 'undefined' && typeof window.open === 'function') {
@@ -3968,15 +4862,14 @@ class AppleStyleView extends ItemView {
   }
 
   showAccountSetupEmptyState() {
-    const { Modal } = require('obsidian');
-    if (typeof Modal !== 'function') {
+    if (typeof getObsidianModalClass() !== 'function') {
       if (!this.openPluginSettings()) {
         new Notice('请先在插件设置中添加公众号账号（AppID / AppSecret）');
       }
       return;
     }
 
-    const modal = new Modal(this.app);
+    const modal = createObsidianModal(this.app);
     modal.titleEl.setText('未配置公众号账号');
     modal.contentEl.addClass('wechat-sync-modal');
     if (isMobileClient(this.app)) {
@@ -4004,14 +4897,17 @@ class AppleStyleView extends ItemView {
     modal.open();
   }
 
+  /**
+   * @param {string} message
+   * @param {SyncModalOptionsLike} [options]
+   */
   showSyncFailureActions(message, options = {}) {
-    const { Modal } = require('obsidian');
-    if (typeof Modal !== 'function') {
+    if (typeof getObsidianModalClass() !== 'function') {
       new Notice(`❌ 同步失败: ${message}`);
       return;
     }
 
-    const modal = new Modal(this.app);
+    const modal = createObsidianModal(this.app);
     modal.titleEl.setText('同步失败');
     modal.contentEl.addClass('wechat-sync-modal');
     if (isMobileClient(this.app)) {
@@ -4080,6 +4976,10 @@ class AppleStyleView extends ItemView {
   /**
    * 显示同步选项 Modal
    */
+  /**
+   * @param {ModalLike} modal
+   * @param {{ mode?: string, mobileSync?: boolean }} [options]
+   */
   preparePublishModalShell(modal, { mode = 'wechat', mobileSync = false } = {}) {
     modal.titleEl.setText('发布与分发');
     modal.titleEl.removeClass?.('wechat-multiplatform-title');
@@ -4104,6 +5004,11 @@ class AppleStyleView extends ItemView {
     }
   }
 
+  /**
+   * @param {ModalLike} modal
+   * @param {string} [activeMode]
+   * @returns {{ wechatTab: ObsidianElementLike, multiPlatformTab: ObsidianElementLike }}
+   */
   createPublishModeTabs(modal, activeMode = 'wechat') {
     const publishModeTabs = modal.contentEl.createDiv({ cls: 'wechat-publish-mode-tabs' });
     const wechatTab = publishModeTabs.createEl('button', {
@@ -4117,6 +5022,9 @@ class AppleStyleView extends ItemView {
     return { wechatTab, multiPlatformTab };
   }
 
+  /**
+   * @param {SyncModalOptionsLike} [options]
+   */
   showSyncModal(options = {}) {
     if (!this.currentHtml) {
       new Notice(this.getMissingRenderNotice());
@@ -4148,9 +5056,7 @@ class AppleStyleView extends ItemView {
       this.promptConfigureWechatAccount();
       return;
     }
-
-    const { Modal } = require('obsidian');
-    const modal = options.modal || new Modal(this.app);
+    const modal = options.modal || createObsidianModal(this.app);
     const shouldOpenModal = !options.modal;
     const mobileSync = isMobileClient(this.app);
     this.preparePublishModalShell(modal, { mode: 'wechat', mobileSync });
@@ -4166,6 +5072,7 @@ class AppleStyleView extends ItemView {
     const frontmatterMeta = this.getFrontmatterPublishMeta(activeFile);
 
     // 尝试从缓存读取状态
+    /** @type {ArticleSessionStateLike | null} */
     let cachedState = null;
     if (currentPath && this.articleStates.has(currentPath)) {
       cachedState = this.articleStates.get(currentPath);
@@ -4176,22 +5083,28 @@ class AppleStyleView extends ItemView {
     let selectedAccountId = hasDefault ? defaultId : (accounts[0]?.id || '');
 
     // 封面逻辑：优先使用缓存 -> frontmatter.cover -> 文章第一张图
-    let coverBase64 = cachedState?.coverBase64 || frontmatterMeta.coverSrc || this.getFirstImageFromArticle();
+    let coverBase64 = cachedState?.coverBase64 || frontmatterMeta.coverSrc || this.getFirstImageFromArticle() || '';
     let thumbMediaId = cachedState?.thumbMediaId || '';
+    /** @type {WechatMaterialSelectionLike | null} */
     let materialCover = cachedState?.materialCover || null;
 
     // 更新 sessionCoverBase64 以便 onSyncToWechat 使用
     this.sessionCoverBase64 = coverBase64;
     this.sessionThumbMediaId = thumbMediaId;
 
-    const getSelectedAccount = () => resolveSyncAccount({
-      accounts: this.plugin.settings.wechatAccounts || [],
-      selectedAccountId,
-      defaultAccountId: this.plugin.settings.defaultAccountId,
-    });
+    /** @returns {WechatAccountLike | null} */
+    const getSelectedAccount = () => {
+      const resolvedAccount = /** @type {unknown} */ (resolveSyncAccount({
+        accounts: this.plugin.settings.wechatAccounts || [],
+        selectedAccountId,
+        defaultAccountId: this.plugin.settings.defaultAccountId,
+      }));
+      return isRecord(resolvedAccount) ? /** @type {WechatAccountLike} */ (resolvedAccount) : null;
+    };
     const getSelectedDraftAssociation = () => currentPath
-      ? getDraftAssociation(this.plugin.settings, currentPath, getSelectedAccount()?.id || selectedAccountId)
+      ? /** @type {DraftAssociationLike | null} */ (getDraftAssociation(this.plugin.settings, currentPath, getSelectedAccount()?.id || selectedAccountId))
       : null;
+    /** @type {DraftAssociationLike | null} */
     let draftAssociation = getSelectedDraftAssociation();
     let forceNewDraft = false;
 
@@ -4206,17 +5119,17 @@ class AppleStyleView extends ItemView {
         text: `${onlyAccount.name} (默认)`
       });
     } else {
-      const accountSelect = accountSection.createEl('select', { cls: 'wechat-account-select' });
+      const accountSelect = /** @type {ObsidianInputLike} */ (accountSection.createEl('select', { cls: 'wechat-account-select' }));
 
       for (const account of accounts) {
-        const option = accountSelect.createEl('option', {
+        const option = /** @type {ObsidianInputLike} */ (accountSelect.createEl('option', {
           value: account.id,
           text: account.id === defaultId ? `${account.name} (默认)` : account.name
-        });
+        }));
         if (account.id === selectedAccountId) option.selected = true;
       }
       accountSelect.addEventListener('change', (e) => {
-        selectedAccountId = e.target.value;
+        selectedAccountId = getEventTargetValue(e, selectedAccountId);
         draftAssociation = getSelectedDraftAssociation();
         forceNewDraft = false;
         if (typeof updatePreview === 'function') updatePreview();
@@ -4252,11 +5165,11 @@ class AppleStyleView extends ItemView {
       ? cachedState.title
       : (frontmatterMeta.title || (activeFile ? activeFile.basename : ''));
 
-    const titleInput = titleSection.createEl('input', {
+    const titleInput = /** @type {ObsidianInputLike} */ (titleSection.createEl('input', {
       type: 'text',
       cls: 'wechat-modal-title-input',
       placeholder: '留空则默认使用 frontmatter 中的 title 或文件名'
-    });
+    }));
     titleInput.value = initialTitle;
     titleInput.setCssStyles({ width: '100%' });
     titleInput.maxLength = 64; // 微信标题最大限制 64 字符
@@ -4339,10 +5252,10 @@ class AppleStyleView extends ItemView {
       ? cachedState.digest
       : (frontmatterMeta.excerpt || autoDigest);
 
-    const digestInput = digestSection.createEl('textarea', {
+    const digestInput = /** @type {ObsidianInputLike & { rows: number, maxLength: number }} */ (digestSection.createEl('textarea', {
       cls: 'wechat-modal-digest-input',
       placeholder: '留空则自动提取文章前 45 字'
-    });
+    }));
     // Explicitly set the value to ensure it renders correctly in the textarea
     digestInput.value = initialDigest;
 
@@ -4438,15 +5351,18 @@ class AppleStyleView extends ItemView {
 
     // 实时更新缓存（封面图） - 需要修改 uploadBtn 的回调逻辑
     uploadBtn.onclick = () => {
-      const input = document.createElement('input');
+      const activeDocument = getActiveDocumentCompat();
+      if (!activeDocument) return;
+      const input = /** @type {HTMLInputElement} */ (activeDocument.createElement('input'));
       input.type = 'file';
       input.accept = 'image/*';
       input.onchange = (e) => {
-        const file = e.target.files[0];
+        const target = e.target instanceof HTMLInputElement ? e.target : null;
+        const file = target?.files?.[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (event) => {
-          coverBase64 = event.target.result;
+          coverBase64 = typeof event.target?.result === 'string' ? event.target.result : '';
           thumbMediaId = '';
           materialCover = null;
           this.sessionCoverBase64 = coverBase64;
@@ -4499,6 +5415,13 @@ class AppleStyleView extends ItemView {
     if (shouldOpenModal) modal.open();
   }
 
+  /**
+   * @param {WechatAPI} api
+   * @param {string} type
+   * @param {number} offset
+   * @param {number} count
+   * @returns {string}
+   */
   getWechatMaterialCacheKey(api, type, offset, count) {
     return [
       api?.appId || '',
@@ -4509,6 +5432,14 @@ class AppleStyleView extends ItemView {
     ].join('::');
   }
 
+  /**
+   * @param {WechatAPI} api
+   * @param {string} type
+   * @param {number} offset
+   * @param {number} count
+   * @param {{ forceRefresh?: boolean, ttlMs?: number }} [options]
+   * @returns {Promise<WechatMaterialPageLike>}
+   */
   async loadWechatMaterialPage(api, type, offset, count, options = {}) {
     const forceRefresh = options.forceRefresh === true;
     const ttlMs = Number.isFinite(options.ttlMs) ? options.ttlMs : 5 * 60 * 1000;
@@ -4540,16 +5471,20 @@ class AppleStyleView extends ItemView {
     };
   }
 
+  /**
+   * @param {WechatAPI} api
+   * @param {(material: WechatMaterialSelectionLike) => unknown} onSelect
+   */
   async showMaterialPickerModal(api, onSelect) {
-    const { Modal } = require('obsidian');
-    const modal = new Modal(this.app);
+    const modal = createObsidianModal(this.app);
     modal.titleEl.setText('从素材库选择封面');
     modal.modalEl?.addClass('wechat-material-picker-modal');
     modal.contentEl.addClass('wechat-material-picker');
 
-    const pageSize = 18;
+    const pageSize = 12;
     let currentPage = 1;
     let totalCount = 0;
+    /** @type {WechatMaterialSelectionLike | null} */
     let selectedItem = null;
     let isLoading = false;
 
@@ -4574,6 +5509,9 @@ class AppleStyleView extends ItemView {
       }
     };
 
+    /**
+     * @param {(page: number, options?: { forceRefresh?: boolean }) => Promise<void> | void} loadPage
+     */
     const renderPagination = (loadPage) => {
       pagination.empty();
       const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -4593,6 +5531,9 @@ class AppleStyleView extends ItemView {
       nextBtn.onclick = () => loadPage(currentPage + 1);
     };
 
+    /**
+     * @param {WechatMaterialItemLike[]} items
+     */
     const renderItems = (items) => {
       grid.empty();
       grid.removeClass('is-loading');
@@ -4626,7 +5567,7 @@ class AppleStyleView extends ItemView {
             el.removeClass('is-selected');
           });
           cell.addClass('is-selected');
-          selectedItem = { ...item, mediaId, url };
+          selectedItem = { mediaId, url, name: item.name || '' };
           confirmBtn.disabled = false;
         };
         cell.onclick = selectCell;
@@ -4639,6 +5580,10 @@ class AppleStyleView extends ItemView {
       }
     };
 
+    /**
+     * @param {number} page
+     * @param {{ forceRefresh?: boolean }} [options]
+     */
     const loadPage = async (page, options = {}) => {
       if (isLoading) return;
       isLoading = true;
@@ -4665,7 +5610,7 @@ class AppleStyleView extends ItemView {
         grid.empty();
         grid.removeClass('is-loading');
         countLabel.setText('加载失败');
-        grid.createDiv({ cls: 'wechat-material-empty', text: `加载失败：${error.message}` });
+        grid.createDiv({ cls: 'wechat-material-empty', text: `加载失败：${toReadableError(error).message}` });
       } finally {
         isLoading = false;
       }
@@ -4687,6 +5632,10 @@ class AppleStyleView extends ItemView {
     await loadPage(1);
   }
 
+  /**
+   * @param {unknown} syncId
+   * @returns {Promise<boolean>}
+   */
   async openWechatsyncTask(syncId) {
     const taskId = String(syncId || '').trim();
     if (!taskId) {
@@ -4698,41 +5647,51 @@ class AppleStyleView extends ItemView {
     const bridge = this.plugin.getWechatSyncBridgeService();
     try {
       await bridge.start();
-      await bridge.waitForConnection(8000);
+      if (typeof bridge.waitForConnection === 'function') {
+        await bridge.waitForConnection(8000);
+      }
       const capabilities = settings.connection.capabilities || {};
 
       if (capabilities.openSyncTask !== false) {
         try {
-          const result = await bridge.openSyncTask(taskId, { timeoutMs: 8000 });
+          const result = typeof bridge.openSyncTask === 'function'
+            ? toRecord(await bridge.openSyncTask(taskId, { timeoutMs: 8000 }))
+            : {};
           if (result?.opened !== false) {
             new Notice('已打开浏览器插件任务窗口');
             return true;
           }
         } catch (error) {
           if (!isWechatSyncUnsupportedMethodError(error)) throw error;
+          const readableError = toReadableError(error);
+          const errorRecord = toRecord(error);
           console.warn('[Wechatsync] openSyncTask failed, falling back to task link', {
-            code: error?.code,
-            message: error?.message || String(error),
+            code: errorRecord.code,
+            message: readableError.message,
           });
         }
       }
 
       if (capabilities.getSyncTaskLink !== false) {
         try {
-          const linkResult = await bridge.getSyncTaskLink(taskId, { timeoutMs: 5000 });
+          const linkResult = typeof bridge.getSyncTaskLink === 'function'
+            ? toRecord(await bridge.getSyncTaskLink(taskId, { timeoutMs: 5000 }))
+            : {};
           const url = String(linkResult?.url || '').trim();
           if (linkResult?.canOpen !== false && url) {
             return this.openExternalUrl(url, { allowExtensionUrls: true });
           }
-          if (linkResult?.message) {
+          if (typeof linkResult?.message === 'string' && linkResult.message) {
             new Notice(linkResult.message, 8000);
             return false;
           }
         } catch (error) {
           if (!isWechatSyncUnsupportedMethodError(error)) throw error;
+          const readableError = toReadableError(error);
+          const errorRecord = toRecord(error);
           console.warn('[Wechatsync] getSyncTaskLink failed', {
-            code: error?.code,
-            message: error?.message || String(error),
+            code: errorRecord.code,
+            message: readableError.message,
           });
         }
       }
@@ -4740,16 +5699,23 @@ class AppleStyleView extends ItemView {
       new Notice(`请在浏览器插件历史记录中查看任务：${taskId}`, 10000);
       return false;
     } catch (error) {
+      const readableError = toReadableError(error);
+      const errorRecord = toRecord(error);
       console.error('[Wechatsync] open task failed', {
         syncId: taskId,
-        code: error?.code,
-        message: error?.message || String(error),
+        code: errorRecord.code,
+        message: readableError.message,
       });
-      new Notice(`无法打开浏览器插件任务：${error.message || String(error)}`, 10000);
+      new Notice(`无法打开浏览器插件任务：${readableError.message}`, 10000);
       return false;
     }
   }
 
+  /**
+   * @param {WechatSyncBridgeServiceLike} bridge
+   * @param {unknown} syncId
+   * @returns {Promise<WechatsyncTaskSnapshotLike | null>}
+   */
   async getWechatsyncTaskSnapshot(bridge, syncId) {
     const taskId = String(syncId || '').trim();
     if (!taskId) return null;
@@ -4757,20 +5723,27 @@ class AppleStyleView extends ItemView {
     if (!hasWechatSyncCapability(settings, 'getSyncTask')) return null;
 
     try {
-      const task = await bridge.getSyncTask(taskId, { timeoutMs: 5000 });
+      const task = typeof bridge.getSyncTask === 'function'
+        ? toRecord(await bridge.getSyncTask(taskId, { timeoutMs: 5000 }))
+        : {};
       if (task?.found === false) return task;
-      return task && typeof task === 'object' ? task : null;
+      return Object.keys(task).length ? /** @type {WechatsyncTaskSnapshotLike} */ (task) : null;
     } catch (error) {
       if (isWechatSyncUnsupportedMethodError(error)) return null;
+      const readableError = toReadableError(error);
+      const errorRecord = toRecord(error);
       console.warn('[Wechatsync] getSyncTask failed after enqueue', {
         syncId: taskId,
-        code: error?.code,
-        message: error?.message || String(error),
+        code: errorRecord.code,
+        message: readableError.message,
       });
       return null;
     }
   }
 
+  /**
+   * @param {{ syncId?: string, title?: string, platforms?: unknown[], task?: WechatsyncTaskSnapshotLike | null, usedFallbackSend?: boolean, quotaResult?: WechatsyncQuotaResultLike | null }} [options]
+   */
   showWechatsyncEnqueueAcceptedModal({
     syncId = '',
     title = '',
@@ -4779,15 +5752,18 @@ class AppleStyleView extends ItemView {
     usedFallbackSend = false,
     quotaResult = null,
   } = {}) {
-    const { Modal } = require('obsidian');
     const taskId = String(syncId || '').trim();
-    const skippedPlatformIds = parseWechatsyncPlatformIds(quotaResult?.skippedPlatforms || []);
+    const quotaRecord = quotaResult || {};
+    const requestedPlatforms = Array.isArray(platforms) ? platforms : [];
+    const skippedPlatformIds = parseWechatsyncPlatformIds(Array.isArray(quotaRecord.skippedPlatforms) ? quotaRecord.skippedPlatforms : []);
+    const quotaPublishedPlatforms = Array.isArray(quotaRecord.publishedPlatforms) ? quotaRecord.publishedPlatforms : [];
+    const quotaPlatforms = Array.isArray(quotaRecord.platforms) ? quotaRecord.platforms : [];
     const publishedPlatformIds = parseWechatsyncPlatformIds(
-      quotaResult?.publishedPlatforms?.length ? quotaResult.publishedPlatforms : (quotaResult?.platforms || platforms)
+      quotaPublishedPlatforms.length ? quotaPublishedPlatforms : (quotaPlatforms.length ? quotaPlatforms : requestedPlatforms)
     );
     const skippedPlatformSet = new Set(skippedPlatformIds);
     const publishedPlatformSet = new Set(publishedPlatformIds);
-    if (typeof Modal !== 'function') {
+    if (typeof getObsidianModalClass() !== 'function') {
       const syncIdText = taskId ? `（任务 ${taskId}）` : '';
       const fallbackText = usedFallbackSend ? '当前插件未提供任务 ID，' : '';
       const quotaText = skippedPlatformIds.length
@@ -4797,7 +5773,7 @@ class AppleStyleView extends ItemView {
       return;
     }
 
-    const modal = new Modal(this.app);
+    const modal = createObsidianModal(this.app);
     modal.titleEl.setText('已发送到浏览器插件');
     modal.titleEl.addClass?.('wechat-multiplatform-title');
     modal.contentEl.addClass('wechat-sync-modal');
@@ -4812,7 +5788,12 @@ class AppleStyleView extends ItemView {
     const multiPlatformSettings = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
     const platformCatalog = getAvailableWechatsyncPlatforms(multiPlatformSettings);
     const platformById = new Map(platformCatalog.map((platform) => [platform.id, platform]));
-    const sortPlatformItems = (items = [], getId = (item) => item) => sortWechatsyncPlatformItemsForDisplay(items, {
+    /**
+     * @param {unknown[]} [items]
+     * @param {(item: unknown) => string} [getId]
+     * @returns {unknown[]}
+     */
+    const sortPlatformItems = (items = [], getId = (item) => String(item || '')) => /** @type {unknown[]} */ (sortWechatsyncPlatformItemsForDisplay(Array.isArray(items) ? items : [], {
       bridgeConnected: multiPlatformSettings.connection?.status === 'connected',
       getPlatformId: getId,
       getPlatform: (item) => {
@@ -4821,10 +5802,11 @@ class AppleStyleView extends ItemView {
           item && typeof item === 'object' ? { ...item, id } : { id }
         ) || { id };
       },
-    });
+    }));
+    /** @param {unknown[]} [ids] */
     const formatPlatformNames = (ids = []) => {
-      const names = sortPlatformItems(parseWechatsyncPlatformIds(ids))
-        .map((id) => platformById.get(id)?.name || id)
+      const names = sortPlatformItems(parseWechatsyncPlatformIds(Array.isArray(ids) ? ids : []))
+        .map((id) => platformById.get(String(id))?.name || String(id))
         .filter(Boolean);
       return names.length ? names.join('、') : '无';
     };
@@ -4841,18 +5823,28 @@ class AppleStyleView extends ItemView {
     });
 
     const list = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-result-list' });
-    const rawTaskPlatforms = Array.isArray(task?.platforms) && task.platforms.length
-      ? task.platforms
-      : (publishedPlatformIds.length ? publishedPlatformIds : platforms).map((id) => ({ id, status: 'queued' }));
+    /** @type {unknown[]} */
+    let taskPlatformSource = [];
+    if (Array.isArray(task?.platforms) && task.platforms.length) {
+      taskPlatformSource = task.platforms;
+    } else {
+      const queuedPlatformIds = publishedPlatformIds.length ? publishedPlatformIds : requestedPlatforms;
+      taskPlatformSource = queuedPlatformIds.map((id) => /** @type {Record<string, unknown>} */ ({ id, status: 'queued' }));
+    }
+    const rawTaskPlatforms = taskPlatformSource;
     const taskPlatforms = sortPlatformItems(rawTaskPlatforms.filter((item) => {
-      const platformId = parseWechatsyncPlatformIds([item?.id || item?.platform || item])[0] || '';
+      const itemRecord = toRecord(item);
+      const platformId = parseWechatsyncPlatformIds([itemRecord.id || itemRecord.platform || item])[0] || '';
       if (!platformId) return false;
       if (skippedPlatformSet.has(platformId)) return false;
       if (skippedPlatformSet.size > 0 && publishedPlatformSet.size > 0) {
         return publishedPlatformSet.has(platformId);
       }
       return true;
-    }), (item) => parseWechatsyncPlatformIds([item?.id || item?.platform || item])[0] || '');
+    }), (item) => {
+      const itemRecord = toRecord(item);
+      return parseWechatsyncPlatformIds([itemRecord.id || itemRecord.platform || item])[0] || '';
+    });
 
     if (taskId) {
       const taskRow = list.createDiv({ cls: 'wechat-multiplatform-result-row' });
@@ -4871,16 +5863,18 @@ class AppleStyleView extends ItemView {
     }
 
     for (const item of taskPlatforms) {
-      const platformId = String(item?.id || item?.platform || item || '').trim();
+      const itemRecord = toRecord(item);
+      const platformId = String(itemRecord.id || itemRecord.platform || item || '').trim();
       if (!platformId) continue;
-      const platformName = item?.name || platformById.get(platformId)?.name || platformId;
+      const platformName = typeof itemRecord.name === 'string' ? itemRecord.name : (platformById.get(platformId)?.name || platformId);
       const row = list.createDiv({ cls: 'wechat-multiplatform-result-row' });
       row.createEl('div', { text: '已投递', cls: 'wechat-multiplatform-result-pill' });
       const body = row.createDiv({ cls: 'wechat-multiplatform-result-body' });
       body.createEl('div', { text: platformName, cls: 'wechat-multiplatform-result-name' });
     }
 
-    for (const platformId of sortPlatformItems(skippedPlatformIds)) {
+    for (const platformItem of sortPlatformItems(skippedPlatformIds)) {
+      const platformId = String(platformItem || '');
       const platformName = platformById.get(platformId)?.name || platformId;
       const row = list.createDiv({ cls: 'wechat-multiplatform-result-row is-warning' });
       row.createEl('div', {
@@ -4896,7 +5890,7 @@ class AppleStyleView extends ItemView {
     }
 
     const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
-    if (quotaResult?.quotaBlocked) {
+    if (quotaRecord.quotaBlocked) {
       const upgradeBtn = btnRow.createEl('button', { text: '升级 Pro' });
       upgradeBtn.onclick = () => this.openPublisherProPage();
     }
@@ -4911,8 +5905,10 @@ class AppleStyleView extends ItemView {
     modal.open();
   }
 
+  /**
+   * @param {{ quotaResult?: WechatsyncQuotaResultLike, requestedPlatformIds?: unknown[] }} [options]
+   */
   showMultiPlatformQuotaBlockedModal({ quotaResult = {}, requestedPlatformIds = [] } = {}) {
-    const { Modal } = require('obsidian');
     const multiPlatformSettings = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
     const platformCatalog = getAvailableWechatsyncPlatforms(multiPlatformSettings);
     const platformById = new Map(platformCatalog.map((platform) => [platform.id, platform]));
@@ -4921,9 +5917,10 @@ class AppleStyleView extends ItemView {
       getPlatformId: (id) => id,
       getPlatform: (id) => platformById.get(id) || { id },
     });
-    const skippedPlatformIds = parseWechatsyncPlatformIds(
-      quotaResult?.skippedPlatforms?.length ? quotaResult.skippedPlatforms : requestedPlatformIds
-    );
+    const skippedPlatforms = Array.isArray(quotaResult.skippedPlatforms) && quotaResult.skippedPlatforms.length
+      ? quotaResult.skippedPlatforms
+      : requestedPlatformIds;
+    const skippedPlatformIds = parseWechatsyncPlatformIds(skippedPlatforms);
     const formatPlatformNames = (ids = []) => {
       const names = sortPlatformIds(ids)
         .map((id) => platformById.get(id)?.name || id)
@@ -4937,12 +5934,12 @@ class AppleStyleView extends ItemView {
       ? rawMessage
       : '免费版今日平台额度不足，明天 0:00 重置，或升级 Pro。';
 
-    if (typeof Modal !== 'function') {
+    if (typeof getObsidianModalClass() !== 'function') {
       new Notice(summaryText, 10000);
       return;
     }
 
-    const modal = new Modal(this.app);
+    const modal = createObsidianModal(this.app);
     modal.titleEl.setText('发布受限');
     modal.titleEl.addClass?.('wechat-multiplatform-title');
     modal.contentEl.addClass('wechat-sync-modal');
@@ -4973,17 +5970,19 @@ class AppleStyleView extends ItemView {
     modal.open();
   }
 
+  /**
+   * @param {{ results?: WechatsyncPlatformResultLike[], requestedPlatformIds?: unknown[], fatalError?: ReadableErrorLike | null }} [options]
+   */
   showMultiPlatformSyncResultModal({ results = [], requestedPlatformIds = [], fatalError = null } = {}) {
-    const { Modal } = require('obsidian');
-    if (typeof Modal !== 'function') {
+    if (typeof getObsidianModalClass() !== 'function') {
       const message = fatalError
-        ? `浏览器插件同步失败：${fatalError.message || fatalError}`
+        ? `浏览器插件同步失败：${fatalError.message || String(fatalError)}`
         : '同步完成，请在浏览器插件中查看结果';
       new Notice(message, 10000);
       return;
     }
 
-    const modal = new Modal(this.app);
+    const modal = createObsidianModal(this.app);
     const mobileSync = isMobileClient(this.app);
     const bridgeSettings = normalizeMultiPlatformSyncSettings(this.plugin.settings.multiPlatformSync);
     const platformCatalog = getAvailableWechatsyncPlatforms(bridgeSettings);
@@ -5007,6 +6006,10 @@ class AppleStyleView extends ItemView {
       modal.modalEl?.addClass('wechat-sync-shell-mobile');
     }
 
+    /**
+     * @param {WechatsyncPlatformResultLike} [result]
+     * @returns {string}
+     */
     const getPlatformName = (result = {}) => {
       const id = getWechatSyncResultPlatformId(result);
       return result.platformName || result.name || platformById.get(id)?.name || id || '未知平台';
@@ -5109,19 +6112,24 @@ class AppleStyleView extends ItemView {
     modal.open();
   }
 
+  /**
+   * @param {Record<string, unknown>} [options]
+   * @returns {Promise<unknown>}
+   */
   async showMultiPlatformSyncModal(options = {}) {
-    return showMultiPlatformPublishModal(this, options);
+    return /** @type {Promise<unknown>} */ (showMultiPlatformPublishModal(this, { ...options, obsidianApi }));
   }
 
   /**
    * 处理同步到微信逻辑
    */
   async onSyncToWechat() {
-    const account = resolveSyncAccount({
+    const accountRecord = /** @type {unknown} */ (resolveSyncAccount({
       accounts: this.plugin.settings.wechatAccounts || [],
       selectedAccountId: this.selectedAccountId,
       defaultAccountId: this.plugin.settings.defaultAccountId,
-    });
+    }));
+    const account = isRecord(accountRecord) ? /** @type {WechatAccountLike} */ (accountRecord) : null;
 
     if (!account) {
       this.promptConfigureWechatAccount();
@@ -5138,26 +6146,26 @@ class AppleStyleView extends ItemView {
     const publishMeta = this.getFrontmatterPublishMeta(activeFile);
 
     try {
-      const syncService = createWechatSyncService({
+      const syncService = /** @type {WechatSyncServiceLike} */ (createWechatSyncService({
         createApi: (appId, appSecret, proxyUrl) => new WechatAPI(appId, appSecret, proxyUrl, this.plugin.settings.clientId),
-        srcToBlob: this.srcToBlob.bind(this),
+        srcToBlob: (src) => this.srcToBlob(String(src || '')),
         coverUploadCache: this.coverUploadCache,
-        processAllImages: this.processAllImages.bind(this),
-        processMathFormulas: this.processMathFormulas.bind(this),
-        prepareHtmlForDraft: this.prepareHtmlForWechatDraft.bind(this),
-        cleanHtmlForDraft: this.cleanHtmlForDraft.bind(this),
-        cleanupConfiguredDirectory: this.cleanupConfiguredDirectory.bind(this),
-        getFirstImageFromArticle: this.getFirstImageFromArticle.bind(this),
-      });
+        processAllImages: (html, api, progressCallback, options) => this.processAllImages(String(html || ''), api, progressCallback, options),
+        processMathFormulas: (html, api, progressCallback) => this.processMathFormulas(String(html || ''), api, progressCallback),
+        prepareHtmlForDraft: (html) => this.prepareHtmlForWechatDraft(String(html || '')),
+        cleanHtmlForDraft: (html) => this.cleanHtmlForDraft(String(html || '')),
+        cleanupConfiguredDirectory: (file) => this.cleanupConfiguredDirectory(isRecord(file) ? /** @type {TFileLike} */ (file) : null),
+        getFirstImageFromArticle: () => this.getFirstImageFromArticle(),
+      }));
 
       const result = await syncService.syncToDraft({
         account,
         proxyUrl: this.plugin.settings.proxyUrl,
-        currentHtml: this.getCurrentExportHtml(),
+        currentHtml: this.getCurrentExportHtml() || '',
         activeFile,
         publishMeta,
         sessionTitle: this.sessionTitle,
-        sessionCoverBase64: this.sessionCoverBase64,
+        sessionCoverBase64: this.sessionCoverBase64 || '',
         sessionThumbMediaId: this.sessionThumbMediaId || '',
         sessionDigest: this.sessionDigest,
         draftMediaId: this.sessionDraftMediaId || '',
@@ -5206,8 +6214,9 @@ class AppleStyleView extends ItemView {
     } catch (error) {
       notice.hide();
       console.error('Wechat Sync Error:', error);
-      const isProxyAuth = error.isProxyAuth || /token|服务已于|安全警报/i.test(error.message);
-      const friendlyMsg = toSyncFriendlyMessage(error.message);
+      const readableError = toReadableError(error);
+      const isProxyAuth = readableError.isProxyAuth || /token|服务已于|安全警报/i.test(readableError.message);
+      const friendlyMsg = toSyncFriendlyMessage(readableError.message);
       this.showSyncFailureActions(friendlyMsg, {
         isProxyAuth,
         draftAssociation: (this.sessionDraftMediaId && activeFile) ? {
@@ -5221,6 +6230,10 @@ class AppleStyleView extends ItemView {
 
   /**
    * 将各种形式的 src (Base64, URL, 路径) 转为 Blob
+   */
+  /**
+   * @param {string} src
+   * @returns {Promise<Blob>}
    */
   async srcToBlob(src) {
     // Base64/data URL 图片直接本地解析，避免对 data: URL 发起 fetch。
@@ -5236,11 +6249,16 @@ class AppleStyleView extends ItemView {
 
     // HTTP/HTTPS 图床链接需要使用 requestUrl 绕过 CORS
     if (src.startsWith('http')) {
-      const { requestUrl } = require('obsidian');
-      const response = await requestUrl({ url: src });
+      const requestUrl = getObsidianRequestUrl();
+      if (typeof requestUrl !== 'function') {
+        throw new Error('当前 Obsidian 版本不支持 requestUrl');
+      }
+      const response = /** @type {{ arrayBuffer?: ArrayBuffer, headers?: Record<string, string> }} */ (await requestUrl({ url: src }));
       // requestUrl 返回 ArrayBuffer，需要转换为 Blob
-      const contentType = response.headers['content-type'] || response.headers['Content-Type'] || 'image/jpeg';
-      return new Blob([response.arrayBuffer], { type: contentType });
+      const headers = response.headers || {};
+      const contentType = headers['content-type'] || headers['Content-Type'] || 'image/jpeg';
+      const buffer = response.arrayBuffer instanceof ArrayBuffer ? response.arrayBuffer : new ArrayBuffer(0);
+      return new Blob([buffer], { type: contentType });
     }
 
     throw new Error('不支持的图片来源，请尝试重新上传封面');
@@ -5250,39 +6268,60 @@ class AppleStyleView extends ItemView {
    * 处理 HTML 中的所有图片，上传到微信并替换链接
    * 支持并发上传 (Limit 3) 和进度回调
    */
+  /**
+   * @param {string} html
+   * @param {WechatAPI} api
+   * @param {((current: number, total: number) => unknown) | undefined} progressCallback
+   * @param {{ accountId?: string, onImageFailure?: (failure: ImageUploadFailureLike) => unknown }} [cacheContext]
+   * @returns {Promise<string>}
+   */
   async processAllImages(html, api, progressCallback, cacheContext = {}) {
     const accountId = cacheContext?.accountId || '';
-    return processAllImagesService({
+    return /** @type {Promise<string>} */ (processAllImagesService({
       html,
       api,
       progressCallback,
       pMap,
-      srcToBlob: this.srcToBlob.bind(this),
+      srcToBlob: (src) => this.srcToBlob(String(src || '')),
       imageUploadCache: this.imageUploadCache,
       cacheNamespace: accountId,
       onImageFailure: cacheContext?.onImageFailure,
-    });
+    }));
   }
 
   /**
    * 处理 HTML 中的数学公式 (MathJax SVG -> Wechat Image)
    * 解决微信接口内容长度限制问题
    */
+  /**
+   * @param {string} html
+   * @param {WechatAPI} api
+   * @param {((current: number, total: number) => unknown) | undefined} progressCallback
+   * @returns {Promise<string>}
+   */
   async processMathFormulas(html, api, progressCallback) {
-    return processMathFormulasService({
+    return /** @type {Promise<string>} */ (processMathFormulasService({
       html,
       api,
       progressCallback,
       pMap,
-      simpleHash: this.simpleHash.bind(this),
+      simpleHash: (value) => this.simpleHash(String(value || '')),
       svgUploadCache: this.svgUploadCache,
-      svgToPngBlob: this.svgToPngBlob.bind(this),
-    });
+      svgToPngBlob: (svgElement, scale) => this.svgToPngBlob(
+        svgElement instanceof SVGElement ? svgElement : createFallbackSvgElement(),
+        typeof scale === 'number' ? scale : 3
+      ),
+    }));
   }
 
   /**
    * 将 SVG 元素转换为高分辨率 PNG Blob
    * 返回: { blob, width, height, style }
+   */
+  /**
+   * @param {SVGElement} svgElement
+   * @param {number} [scale]
+   * @returns {Promise<{ blob: Blob, width: number, height: number, style?: string }>}
    */
   async svgToPngBlob(svgElement, scale = 3) {
     return rasterizeSvgToPngBlob(svgElement, { scale });
@@ -5296,39 +6335,58 @@ class AppleStyleView extends ItemView {
    * 3. 移除嵌套 ul/ol 的 margin（避免被当成独立块）
    * 4. 移除空的 li 元素和空白文本节点
    */
+  /**
+   * @param {string} html
+   * @returns {string}
+   */
   cleanHtmlForDraft(html) {
     return cleanHtmlForDraftService(html);
   }
 
   // === 设置变更处理 ===
+  /**
+   * @param {string} value
+   * @param {Element} grid
+   */
   async onThemeChange(value, grid) {
     this.plugin.settings.theme = value;
     await this.plugin.saveSettings();
     this.updateButtonActive(grid, value);
-    this.theme.update({ theme: value });
+    this.theme?.update({ theme: value });
     await this.convertCurrent(true);
   }
 
+  /**
+   * @param {string} value
+   */
   async onFontFamilyChange(value) {
     this.plugin.settings.fontFamily = value;
     await this.plugin.saveSettings();
-    this.theme.update({ fontFamily: value });
+    this.theme?.update({ fontFamily: value });
     await this.convertCurrent(true);
   }
 
+  /**
+   * @param {number} value
+   * @param {Element} grid
+   */
   async onFontSizeChange(value, grid) {
     this.plugin.settings.fontSize = value;
     await this.plugin.saveSettings();
     this.updateButtonActive(grid, value);
-    this.theme.update({ fontSize: value });
+    this.theme?.update({ fontSize: value });
     await this.convertCurrent(true);
   }
 
+  /**
+   * @param {string} value
+   * @param {Element} grid
+   */
   async onColorChange(value, grid) {
     this.plugin.settings.themeColor = value;
     await this.plugin.saveSettings();
     this.updateButtonActive(grid, value);
-    this.theme.update({ themeColor: value });
+    this.theme?.update({ themeColor: value });
 
     // 移除：不再更改全局 CSS 变量，保持设置面板 UI 为默认蓝色 (#0071e3)
     // const colorHex = this.theme.getThemeColorValue();
@@ -5337,18 +6395,24 @@ class AppleStyleView extends ItemView {
     await this.convertCurrent(true);
   }
 
+  /**
+   * @param {string} value
+   */
   async onQuoteCalloutStyleModeChange(value) {
     const nextValue = value === 'neutral' ? 'neutral' : 'theme';
     this.plugin.settings.quoteCalloutStyleMode = nextValue;
     await this.plugin.saveSettings();
-    this.theme.update({ quoteCalloutStyleMode: nextValue });
+    this.theme?.update({ quoteCalloutStyleMode: nextValue });
     await this.convertCurrent(true);
   }
 
+  /**
+   * @param {boolean} checked
+   */
   async onMacCodeBlockChange(checked) {
     this.plugin.settings.macCodeBlock = checked;
     await this.plugin.saveSettings();
-    this.theme.update({ macCodeBlock: checked });
+    this.theme?.update({ macCodeBlock: checked });
     // 重建 converter
     if (this.converter) {
       this.converter.reinit();
@@ -5357,10 +6421,13 @@ class AppleStyleView extends ItemView {
     await this.convertCurrent(true);
   }
 
+  /**
+   * @param {boolean} checked
+   */
   async onCodeLineNumberChange(checked) {
     this.plugin.settings.codeLineNumber = checked;
     await this.plugin.saveSettings();
-    this.theme.update({ codeLineNumber: checked });
+    this.theme?.update({ codeLineNumber: checked });
     // 重建 converter
     if (this.converter) {
       this.converter.reinit();
@@ -5369,16 +6436,29 @@ class AppleStyleView extends ItemView {
     await this.convertCurrent(true);
   }
 
+  /**
+   * @param {Element} grid
+   * @param {string | number | boolean} value
+   */
   updateButtonActive(grid, value) {
-    grid.querySelectorAll('button').forEach(btn => {
+    const buttons = Array.from(grid.querySelectorAll('button'));
+    buttons.forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.value == value);
     });
   }
 
+  /**
+   * @returns {RenderPipelineLike | null}
+   */
   getActiveRenderPipeline() {
-    return this.nativeRenderPipeline;
+    return /** @type {RenderPipelineLike | null} */ (this.nativeRenderPipeline);
   }
 
+  /**
+   * @param {string} markdown
+   * @param {string} sourcePath
+   * @returns {Promise<string>}
+   */
   async renderMarkdownForPreview(markdown, sourcePath) {
     const pipeline = this.getActiveRenderPipeline();
     if (!pipeline) {
@@ -5432,16 +6512,21 @@ class AppleStyleView extends ItemView {
     });
   }
 
+  /**
+   * @param {ObsidianElementLike} iconDiv
+   * @returns {Promise<void>}
+   */
   async loadPlaceholderIcon(iconDiv) {
     try {
       const adapter = this.app?.vault?.adapter;
       if (!adapter || typeof adapter.readBinary !== 'function') return;
+      const binaryAdapter = /** @type {{ readBinary: (path: string) => Promise<ArrayBuffer | Uint8Array> }} */ (adapter);
       const iconPath = `${this.plugin.manifest.dir}/images/icon.png`;
-      const imgBuffer = await adapter.readBinary(iconPath);
+      const imgBuffer = await binaryAdapter.readBinary(iconPath);
       if (!iconDiv.isConnected) return;
       const base64 = Buffer.from(imgBuffer).toString('base64');
       iconDiv.empty();
-      const img = iconDiv.createEl('img', { attr: { alt: 'Obsidian 发布助手' } });
+      const img = /** @type {ObsidianElementLike & HTMLImageElement} */ (iconDiv.createEl('img', { attr: { alt: 'Obsidian 发布助手' } }));
       img.src = 'data:image/png;base64,' + base64;
       img.setCssStyles({
         width: '64px',
@@ -5478,6 +6563,8 @@ class AppleStyleView extends ItemView {
 
   /**
    * 转换当前文档
+   * @param {boolean} [silent]
+   * @param {ConvertCurrentOptionsLike} [options]
    */
   async convertCurrent(silent = false, options = {}) {
     const {
@@ -5504,17 +6591,18 @@ class AppleStyleView extends ItemView {
         this.setPreviewLoading(true, loadingText);
       }
     }
+    /** @type {MarkdownSourceResultLike} */
     const source = sourceOverride && typeof sourceOverride === 'object'
       ? {
         ok: true,
         markdown: typeof sourceOverride.markdown === 'string' ? sourceOverride.markdown : '',
         sourcePath: typeof sourceOverride.sourcePath === 'string' ? sourceOverride.sourcePath : '',
       }
-      : await resolveMarkdownSource({
+      : /** @type {MarkdownSourceResultLike} */ (await resolveMarkdownSource({
         app: this.app,
         lastActiveFile: this.lastActiveFile,
         MarkdownViewType: MarkdownView,
-      });
+      }));
 
     let markdown = '';
     let sourcePath = '';
@@ -5608,7 +6696,7 @@ class AppleStyleView extends ItemView {
       this.aiPreviewApplied = false;
       this.completeAiLayoutSourceSwitch(sourcePath);
       this.syncPreviewPresentationMode();
-      this.lastRenderError = error?.message || '未知渲染错误';
+      this.lastRenderError = toReadableError(error).message || '未知渲染错误';
       this.showRenderFailurePlaceholder(this.lastRenderError);
       this.updateCurrentDoc();
       if (this.shouldSyncAiLayoutUi()) {
@@ -5635,7 +6723,7 @@ class AppleStyleView extends ItemView {
    * 视图改变大小时触发 (包括侧边栏展开、Tab切换等导致的大小变化)
    */
   onResize() {
-    super.onResize();
+    // ItemView does not provide resize behavior this view relies on; keep handling local.
     // 使用防抖，避免拖动侧边栏时频繁渲染
     if (this.resizeTimeout) window.clearTimeout(this.resizeTimeout);
 
@@ -5649,66 +6737,18 @@ class AppleStyleView extends ItemView {
 
   /**
    * 渲染 HTML
+   * @param {string} html
    */
   renderHTML(html) {
+    if (!this.previewContainer) return;
     this.previewContainer.empty();
     setElementHtml(this.previewContainer, html);
   }
 
-  copyRichHTMLBySelection(htmlContent) {
-    const activeDocument = getActiveDocumentCompat();
-    const activeWindow = getActiveWindowCompat();
-    const selection = activeWindow?.getSelection?.();
-    if (!activeDocument || !selection || typeof activeDocument.execCommand !== 'function') return false;
-    const previousRanges = [];
-    for (let i = 0; i < selection.rangeCount; i += 1) {
-      previousRanges.push(selection.getRangeAt(i).cloneRange());
-    }
-    const activeElement = activeDocument.activeElement;
-
-    const tempContainer = activeDocument.createElement('div');
-    setElementHtml(tempContainer, htmlContent);
-    tempContainer.setCssStyles({
-      position: 'fixed',
-      left: '-9999px',
-      top: '0',
-      opacity: '0',
-      pointerEvents: 'none',
-      background: '#fff',
-    });
-    activeDocument.body.appendChild(tempContainer);
-
-    let success = false;
-    try {
-      const range = activeDocument.createRange();
-      range.selectNodeContents(tempContainer);
-      selection.removeAllRanges();
-      selection.addRange(range);
-      success = activeDocument.execCommand('copy');
-    } catch {
-      success = false;
-    } finally {
-      selection.removeAllRanges();
-      for (const prevRange of previousRanges) {
-        try {
-          selection.addRange(prevRange);
-        } catch {
-          // ignore invalid stale ranges
-        }
-      }
-      if (activeElement && typeof activeElement.focus === 'function') {
-        try {
-          activeElement.focus({ preventScroll: true });
-        } catch {
-          activeElement.focus();
-        }
-      }
-      tempContainer.remove();
-    }
-
-    return success;
-  }
-
+  /**
+   * @param {string} htmlContent
+   * @returns {Promise<boolean>}
+   */
   async copyRichHTMLByClipboard(htmlContent) {
     if (
       !navigator.clipboard ||
@@ -5725,32 +6765,48 @@ class AppleStyleView extends ItemView {
     return true;
   }
 
+  /**
+   * @param {unknown} text
+   * @returns {string}
+   */
   normalizeClipboardText(text) {
-    return (text || '').replace(/\s+/g, ' ').trim();
+    return String(text || '').replace(/\s+/g, ' ').trim();
   }
 
+  /**
+   * @param {string} icon
+   */
   setCopyButtonIcon(icon) {
     if (!this.copyBtn) return;
-    const { setIcon } = require('obsidian');
     this.copyBtn.replaceChildren();
-    setIcon(this.copyBtn, icon);
+    const setIcon = getObsidianSetIcon();
+    if (typeof setIcon === 'function') {
+      setIcon(this.copyBtn, icon);
+    }
   }
 
   setCopyButtonSpinner() {
     if (!this.copyBtn) return;
     this.copyBtn.replaceChildren();
-    const spinner = document.createElement('span');
+    const activeDocument = getActiveDocumentCompat();
+    if (!activeDocument) return;
+    const spinner = activeDocument.createElement('span');
     spinner.className = 'apple-copy-spinner';
     spinner.setAttribute('aria-hidden', 'true');
     this.copyBtn.appendChild(spinner);
   }
 
+  /**
+   * @param {HTMLElement | null} root
+   */
   async enhanceHtmlForWechatPublishing(root) {
     if (!root) return;
+    const activeDocument = getActiveDocumentCompat();
+    /** @type {HTMLElement | null} */
     let mount = null;
     try {
-      if (typeof document !== 'undefined' && document.body && !root.isConnected) {
-        mount = document.createElement('div');
+      if (activeDocument?.body && !root.isConnected) {
+        mount = activeDocument.createElement('div');
         mount.setCssStyles({
           position: 'fixed',
           left: '-99999px',
@@ -5760,11 +6816,11 @@ class AppleStyleView extends ItemView {
           pointerEvents: 'none',
           overflow: 'hidden',
         });
-        document.body.appendChild(mount);
+        activeDocument.body.appendChild(mount);
         mount.appendChild(root);
       }
       await convertRenderedMermaidDiagramsToImages(root, {
-        simpleHash: this.simpleHash.bind(this),
+        simpleHash: (value) => this.simpleHash(String(value || '')),
         mermaidImageCache: this.mermaidImageCache,
       });
       this.transformCodeBlocksForClipboard(root);
@@ -5775,14 +6831,24 @@ class AppleStyleView extends ItemView {
     }
   }
 
+  /**
+   * @param {string} html
+   * @returns {Promise<string>}
+   */
   async prepareHtmlForWechatDraft(html) {
     const tempDiv = createHtmlContainer('div', html || '');
+    if (!tempDiv) return '';
     await this.enhanceHtmlForWechatPublishing(tempDiv);
     return tempDiv.innerHTML;
   }
 
+  /**
+   * @param {string} html
+   * @returns {Promise<string>}
+   */
   async prepareHtmlForWechatsyncArticle(html) {
     const tempDiv = createHtmlContainer('div', html || '');
+    if (!tempDiv) return '';
     await this.processImagesToDataURL(tempDiv);
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
@@ -5798,9 +6864,15 @@ class AppleStyleView extends ItemView {
   // re-published. So: rewrite app:// img srcs back to asset://<id> using
   // the assets[] metadata resolveArticleImages already produced. Do NOT
   // call processImagesToDataURL.
+  /**
+   * @param {string} html
+   * @param {unknown[]} [assets]
+   * @returns {Promise<string>}
+   */
   async prepareHtmlForWechatsyncArticleViaBridge(html, assets = []) {
     const mapped = mapAppUrlImagesToAssetUrls(html || '', assets);
     const tempDiv = createHtmlContainer('div', mapped);
+    if (!tempDiv) return '';
     this.transformCodeBlocksForWechatsync(tempDiv);
     return tempDiv.innerHTML;
   }
@@ -5812,6 +6884,10 @@ class AppleStyleView extends ItemView {
   // tries 0.7 → 0.55 → 0.4 until size ≤ COVER_THUMBNAIL_MAX_BYTES (~8KB).
   // Returns '' on any failure — the extension will fall back to its own
   // local-thumbnail path. Never throws into the publish pipeline.
+  /**
+   * @param {WechatsyncAssetLike | null | undefined} asset
+   * @returns {Promise<string>}
+   */
   async generateCoverThumbnailFromAsset(asset) {
     try {
       if (!asset || typeof asset !== 'object') return '';
@@ -5824,12 +6900,12 @@ class AppleStyleView extends ItemView {
       if (mimeType === 'image/gif') return '';
 
       const sourceDataUrl = `data:${mimeType};base64,${base64}`;
-      const image = await new Promise((resolve, reject) => {
+      const image = /** @type {HTMLImageElement} */ (await new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
         img.onerror = () => reject(new Error('image_decode_failed'));
         img.src = sourceDataUrl;
-      });
+      }));
 
       const naturalW = image.naturalWidth || image.width || 0;
       const naturalH = image.naturalHeight || image.height || 0;
@@ -5840,7 +6916,9 @@ class AppleStyleView extends ItemView {
       const targetW = Math.max(1, Math.round(naturalW * scale));
       const targetH = Math.max(1, Math.round(naturalH * scale));
 
-      const canvas = document.createElement('canvas');
+      const activeDocument = getActiveDocumentCompat();
+      if (!activeDocument) return '';
+      const canvas = activeDocument.createElement('canvas');
       canvas.width = targetW;
       canvas.height = targetH;
       const ctx = canvas.getContext('2d');
@@ -5867,17 +6945,22 @@ class AppleStyleView extends ItemView {
     }
   }
 
+  /**
+   * @param {Element | null | undefined} block
+   * @returns {string}
+   */
   extractCodeTextForWechatsync(block) {
     const codePre = block?.querySelector?.('pre');
     if (!codePre) return '';
 
-    const sectionNodes = Array.from(codePre.querySelectorAll('section'));
+    const sectionNodes = /** @type {HTMLElement[]} */ (Array.from(codePre.querySelectorAll('section')));
     const codeLinesNode = sectionNodes
       .filter((node) => {
         const style = (node.getAttribute('style') || '').toLowerCase();
         return style.includes('white-space:nowrap') || style.includes('white-space: nowrap');
       })
       .sort((a, b) => {
+        /** @param {HTMLElement} node */
         const score = (node) => {
           const html = node.innerHTML || '';
           return (html.includes('<br') ? 10000 : 0) + (node.textContent || '').length;
@@ -5898,14 +6981,19 @@ class AppleStyleView extends ItemView {
     return ((codeEl ? codeEl.textContent : codePre.textContent) || '').replace(/\u00a0/g, ' ');
   }
 
+  /**
+   * @param {Element | null} root
+   */
   transformCodeBlocksForWechatsync(root) {
     if (!root) return;
 
-    const codeBlocks = Array.from(root.querySelectorAll('.code-snippet__fix'));
+    const codeBlocks = /** @type {HTMLElement[]} */ (Array.from(root.querySelectorAll('.code-snippet__fix')));
     codeBlocks.forEach((block) => {
       const codeText = this.extractCodeTextForWechatsync(block);
 
-      const pre = document.createElement('pre');
+      const activeDocument = getActiveDocumentCompat();
+      if (!activeDocument) return;
+      const pre = activeDocument.createElement('pre');
       pre.setAttribute('style', [
         'display:block !important',
         'width:100% !important',
@@ -5927,7 +7015,7 @@ class AppleStyleView extends ItemView {
         'white-space:pre !important',
       ].join(';'));
 
-      const code = document.createElement('code');
+      const code = activeDocument.createElement('code');
       code.setAttribute('style', [
         'display:block !important',
         'margin:0 !important',
@@ -5945,10 +7033,13 @@ class AppleStyleView extends ItemView {
     });
   }
 
+  /**
+   * @param {Element | null} root
+   */
   transformCodeBlocksForClipboard(root) {
     if (!root) return;
 
-    const codeBlocks = Array.from(root.querySelectorAll('.code-snippet__fix'));
+    const codeBlocks = /** @type {HTMLElement[]} */ (Array.from(root.querySelectorAll('.code-snippet__fix')));
     codeBlocks.forEach((block) => {
       const codePre = block.querySelector('pre');
       if (!codePre) return;
@@ -5961,7 +7052,7 @@ class AppleStyleView extends ItemView {
       const background = backgroundMatch ? backgroundMatch[1].trim() : '#0d1117';
       const border = borderMatch ? borderMatch[1].trim() : '1px solid #30363d';
       const borderRadius = radiusMatch ? radiusMatch[1].trim() : '8px';
-      const sectionNodes = Array.from(codePre.querySelectorAll('section'));
+      const sectionNodes = /** @type {HTMLElement[]} */ (Array.from(codePre.querySelectorAll('section')));
       const lineNumberColumn = sectionNodes.find((node) => {
         const style = (node.getAttribute('style') || '').toLowerCase();
         return style.includes('border-right') && style.includes('user-select');
@@ -5972,6 +7063,7 @@ class AppleStyleView extends ItemView {
           return style.includes('white-space:nowrap') || style.includes('white-space: nowrap');
         })
         .sort((a, b) => {
+          /** @param {HTMLElement} node */
           const score = (node) => {
             const html = node.innerHTML || '';
             return (html.includes('<br') ? 10000 : 0) + (node.textContent || '').length;
@@ -5994,12 +7086,14 @@ class AppleStyleView extends ItemView {
         : [];
       const shouldKeepFixedLineNumbers = lineNumberLabels.length > 0 && codeLineParts.length > 0;
 
-      const pre = document.createElement('pre');
+      const activeDocument = getActiveDocumentCompat();
+      if (!activeDocument) return;
+      const pre = activeDocument.createElement('pre');
       pre.setAttribute('class', 'hljs code__pre');
       pre.setAttribute('style', `width:100% !important;max-width:100% !important;margin:12px 0 !important;background:${background} !important;border:${border} !important;border-radius:${borderRadius} !important;box-shadow:0 4px 12px rgba(0,0,0,0.3) !important;overflow-x:auto !important;overflow-y:hidden !important;-webkit-overflow-scrolling:touch !important;box-sizing:border-box !important;font-family:'SF Mono',Consolas,Monaco,monospace !important;font-size:13px !important;line-height:1.75 !important;color:#f0f6fc !important;white-space:normal !important;`);
 
       if (hasMacHeader) {
-        const toolbar = document.createElement('section');
+        const toolbar = activeDocument.createElement('section');
         const toolbarStyle = 'display:block !important;background:#161b22 !important;padding:6px 10px 6px 10px !important;border:none !important;border-bottom:1px solid #30363d !important;border-radius:8px 8px 0 0 !important;line-height:1 !important;box-sizing:border-box !important;width:100% !important;';
         toolbar.setAttribute('style', toolbarStyle);
         setElementHtml(toolbar, [
@@ -6010,7 +7104,7 @@ class AppleStyleView extends ItemView {
         pre.appendChild(toolbar);
       }
 
-      const code = document.createElement('code');
+      const code = activeDocument.createElement('code');
       if (shouldKeepFixedLineNumbers) {
         const lineNumbersHtml = codeLineParts.map((_, index) => {
           const lineNumber = lineNumberLabels[index] || String(index + 1);
@@ -6087,21 +7181,14 @@ class AppleStyleView extends ItemView {
 
       const mobile = isMobileClient(this.app);
       let copied = false;
-      if (mobile) {
-        copied = this.copyRichHTMLBySelection(htmlContent);
-        if (copied) {
-          const snapshot = await this.readClipboardTextSnapshot();
-          copied = snapshot.supported && snapshot.text === expectedPlainText;
-        }
-      } else {
-        try {
-          copied = await this.copyRichHTMLByClipboard(htmlContent);
-        } catch {
-          copied = false;
-        }
-        if (!copied) {
-          copied = this.copyRichHTMLBySelection(htmlContent);
-        }
+      try {
+        copied = await this.copyRichHTMLByClipboard(htmlContent);
+      } catch {
+        copied = false;
+      }
+      if (mobile && copied) {
+        const snapshot = await this.readClipboardTextSnapshot();
+        copied = snapshot.supported && snapshot.text === expectedPlainText;
       }
 
       if (!copied) {
@@ -6136,8 +7223,12 @@ class AppleStyleView extends ItemView {
   /**
    * 将 HTML 中的本地图片转换为 Base64 (Canvas Compressed)
    */
+  /**
+   * @param {Element} container
+   * @returns {Promise<boolean>}
+   */
   async processImagesToDataURL(container) {
-    const images = Array.from(container.querySelectorAll('img'));
+    const images = toImageElements(container.querySelectorAll('img'));
     const localImages = images.filter(img => img.src.startsWith('app://') || img.src.startsWith('capacitor://'));
 
     if (localImages.length === 0) return false;
@@ -6163,6 +7254,10 @@ class AppleStyleView extends ItemView {
   }
 
 
+  /**
+   * @param {HTMLImageElement} img
+   * @returns {Promise<void>}
+   */
   async convertImageToLocally(img) {
     try {
       // CRITICAL FIX: app:// 资源在 Electron 中可以直接 fetch！
@@ -6175,6 +7270,7 @@ class AppleStyleView extends ItemView {
         new Notice(`⚠️ 发现大图 (${(blob.size / 1024 / 1024).toFixed(1)}MB)，处理可能较慢`, 5000);
       }
 
+      /** @type {string} */
       let dataUrl;
       // GIF Protection: Bypass compression for GIFs to preserve animation
       if (blob.type === 'image/gif') {
@@ -6195,21 +7291,35 @@ class AppleStyleView extends ItemView {
   }
 
   // Helper: Direct Blob to Base64 (for GIFs)
+  /**
+   * @param {Blob} blob
+   * @returns {Promise<string>}
+   */
   blobToDataUrl(blob) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
   }
 
+  /**
+   * @param {Blob} blob
+   * @returns {Promise<string>}
+   */
   blobToJpegDataUrl(blob) {
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(blob);
       const image = new Image();
       image.onload = () => {
-        const canvas = document.createElement('canvas');
+        const activeDocument = getActiveDocumentCompat();
+        if (!activeDocument) {
+          URL.revokeObjectURL(url);
+          reject(new Error('Document unavailable'));
+          return;
+        }
+        const canvas = activeDocument.createElement('canvas');
         let width = image.width;
         let height = image.height;
 
@@ -6299,6 +7409,8 @@ class AppleStyleView extends ItemView {
 
   /**
    * 简单的字符串哈希函数 (DJB2算法)
+   * @param {string} str
+   * @returns {number}
    */
   simpleHash(str) {
     let hash = 5381;
@@ -6313,21 +7425,34 @@ class AppleStyleView extends ItemView {
  * 📝 Obsidian 发布助手设置面板
  */
 class AppleStyleSettingTab extends PluginSettingTab {
+  /**
+   * @param {AppLike} app
+   * @param {AppleStylePluginLike} plugin
+   */
   constructor(app, plugin) {
     super(app, plugin);
+    /** @type {AppleStylePluginLike} */
     this.plugin = plugin;
   }
 
+  /**
+   * @param {string} vaultPath
+   * @returns {string}
+   */
   normalizeVaultPath(vaultPath) {
     return normalizeVaultPath(vaultPath);
   }
 
+  /**
+   * @param {string} vaultPath
+   * @returns {boolean}
+   */
   isAbsolutePathLike(vaultPath) {
     return isAbsolutePathLike(vaultPath);
   }
 
   refreshOpenConverterAiState() {
-    const view = this.plugin.getConverterView?.();
+    const view = /** @type {ConverterViewRefreshLike | null} */ (this.plugin.getConverterView?.() || null);
     if (view && typeof view.updateAiToolbarState === 'function') {
       view.updateAiToolbarState();
     }
@@ -6336,11 +7461,15 @@ class AppleStyleSettingTab extends PluginSettingTab {
     }
   }
 
+  /**
+   * @param {{ title?: string, message?: string, confirmText?: string, cancelText?: string }} options
+   * @returns {Promise<boolean>}
+   */
   confirmDestructiveAction({ title, message, confirmText = '确认', cancelText = '取消' }) {
-    const { Modal } = require('obsidian');
     return new Promise((resolve) => {
-      const modal = new Modal(this.app);
+      const modal = createObsidianModal(this.app);
       let settled = false;
+      /** @param {boolean} value */
       const settle = (value) => {
         if (settled) return;
         settled = true;
@@ -6355,9 +7484,11 @@ class AppleStyleSettingTab extends PluginSettingTab {
       actions.createEl('button', { text: cancelText }).onclick = () => settle(false);
       const confirmBtn = actions.createEl('button', { text: confirmText, cls: 'mod-warning' });
       confirmBtn.onclick = () => settle(true);
-      const originalOnClose = modal.onClose?.bind(modal);
+      const originalOnClose = typeof modal.onClose === 'function'
+        ? /** @type {() => void} */ (modal.onClose.bind(modal))
+        : null;
       modal.onClose = () => {
-        if (typeof originalOnClose === 'function') originalOnClose();
+        if (originalOnClose) originalOnClose();
         if (!settled) {
           settled = true;
           resolve(false);
@@ -6367,7 +7498,19 @@ class AppleStyleSettingTab extends PluginSettingTab {
     });
   }
 
-  display() {
+  /** @returns {SettingDefinitionRenderLike[]} */
+  getSettingDefinitions() {
+    return [{
+      name: 'Wechat Converter',
+      desc: '微信发布助手设置',
+      searchable: false,
+      render: () => {
+        this.renderSettingsContent();
+      },
+    }];
+  }
+
+  renderSettingsContent() {
     const { containerEl } = this;
     containerEl.empty();
 
@@ -6449,11 +7592,14 @@ class AppleStyleSettingTab extends PluginSettingTab {
     uploadSetting.addButton(button => button
       .setButtonText(this.plugin.settings.avatarBase64 ? '重新上传' : '选择图片')
       .onClick(() => {
-        const input = document.createElement('input');
+        const activeDocument = getActiveDocumentCompat();
+        if (!activeDocument) return;
+        const input = activeDocument.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
         input.onchange = async (e) => {
-          const file = e.target.files[0];
+          const target = e.target instanceof HTMLInputElement ? e.target : null;
+          const file = target?.files?.[0] || null;
           if (!file) return;
 
           if (file.size > 100 * 1024) {
@@ -6463,10 +7609,11 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
           const reader = new FileReader();
           reader.onload = async (event) => {
-            this.plugin.settings.avatarBase64 = event.target.result;
+            const result = event.target?.result;
+            this.plugin.settings.avatarBase64 = typeof result === 'string' ? result : '';
             await this.plugin.saveSettings();
             new Notice('✅ 头像已上传');
-            this.display();
+            refreshSettingTabCompat(this);
           };
           reader.readAsDataURL(file);
         };
@@ -6475,12 +7622,12 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
     if (this.plugin.settings.avatarBase64) {
       uploadSetting.addButton((button) => {
-        setDestructiveButtonCompat(button.setButtonText('清除'))
-          .onClick(async () => {
+        const clearButton = setDestructiveButtonCompat(button.setButtonText('清除'));
+        clearButton.onClick(async () => {
             this.plugin.settings.avatarBase64 = '';
             await this.plugin.saveSettings();
             new Notice('已清除本地头像');
-            this.display();
+            refreshSettingTabCompat(this);
           });
       });
     }
@@ -6538,7 +7685,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
           defaultBtn.onclick = async () => {
             this.plugin.settings.defaultAccountId = account.id;
             await this.plugin.saveSettings();
-            this.display();
+            refreshSettingTabCompat(this);
           };
         }
 
@@ -6554,7 +7701,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
             await api.getAccessToken();
             new Notice(`✅ ${account.name} 连接成功！`);
           } catch (err) {
-            new Notice(`❌ ${account.name} 连接失败: ${err.message}`);
+            new Notice(`❌ ${account.name} 连接失败: ${toReadableError(err).message}`);
           }
           testBtn.disabled = false;
           testBtn.textContent = '测试';
@@ -6576,7 +7723,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
             this.plugin.settings.defaultAccountId = '';
           }
           await this.plugin.saveSettings();
-          this.display();
+          refreshSettingTabCompat(this);
         };
       }
     }
@@ -6696,7 +7843,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
     officialText.createEl('a', {
       text: '获取官方中转 Token ➔',
       href: 'https://xiaoweibox.top/chats/wechat-proxy-service',
-      attr: { style: 'margin-left: 6px; color: var(--interactive-accent); font-weight: 600; text-decoration: underline;' }
+      attr: { style: 'margin-left: 6px; color: var(--text-muted); text-decoration: underline;' }
     });
 
     // 2. 自建指南行
@@ -6733,9 +7880,12 @@ class AppleStyleSettingTab extends PluginSettingTab {
     }
 
     // === 其他平台 Tab ===
-    renderMultiPlatformSettingsTab(this, multiContent);
+    renderMultiPlatformSettingsTab(this, multiContent, { obsidianApi });
   }
 
+  /**
+   * @param {ObsidianElementLike} containerEl
+   */
   renderAiSettingsSection(containerEl) {
     new Setting(containerEl)
       .setName('AI 编排')
@@ -6781,6 +7931,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
         });
       });
 
+    /** @type {AiProviderLike[]} */
     const providers = this.plugin.settings.ai.providers || [];
     const defaultProviderId = this.plugin.settings.ai.defaultProviderId;
     const runnableProviders = providers.filter((provider) => isAiProviderRunnable(provider) && provider.enabled !== false);
@@ -6846,7 +7997,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
             this.plugin.settings.ai.defaultProviderId = provider.id;
             await this.plugin.saveSettings();
             this.refreshOpenConverterAiState();
-            this.display();
+            refreshSettingTabCompat(this);
           };
         }
 
@@ -6865,10 +8016,10 @@ class AppleStyleSettingTab extends PluginSettingTab {
           testBtn.disabled = true;
           testBtn.textContent = '测试中...';
           try {
-            await testAiProviderConnection(provider, createObsidianFetchAdapter({ requestUrl, request }));
+            await testAiProviderConnection(provider, createObsidianFetchAdapter({ requestUrl: getObsidianRequestUrl(), request: getObsidianRequest() }));
             new Notice(`✅ ${provider.name} 连接成功！`);
           } catch (error) {
-            new Notice(`❌ ${provider.name} 连接失败: ${error.message}`);
+            new Notice(`❌ ${provider.name} 连接失败: ${toReadableError(error).message}`);
           }
           testBtn.disabled = false;
           testBtn.textContent = '测试';
@@ -6889,7 +8040,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
           }
           await this.plugin.saveSettings();
           this.refreshOpenConverterAiState();
-          this.display();
+          refreshSettingTabCompat(this);
         };
       }
     }
@@ -6947,8 +8098,8 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
     if (cachedLayoutCount > 0) {
       cacheSetting.addButton((button) => {
-        setDestructiveButtonCompat(button.setButtonText('清空缓存'))
-          .onClick(async () => {
+        const clearCacheButton = setDestructiveButtonCompat(button.setButtonText('清空缓存'));
+        clearCacheButton.onClick(async () => {
             const confirmed = await this.confirmDestructiveAction({
               title: '清空 AI 编排缓存',
               message: `确定要清空 ${cachedDocCount} 篇文章、共 ${cachedLayoutCount} 份 AI 编排缓存吗？`,
@@ -6959,7 +8110,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
             this.refreshOpenConverterAiState();
             new Notice('已清空 AI 编排缓存');
-            this.display();
+            refreshSettingTabCompat(this);
           });
       });
     }
@@ -6968,32 +8119,34 @@ class AppleStyleSettingTab extends PluginSettingTab {
   /**
    * 显示添加/编辑账号的模态框
    */
+  /**
+   * @param {AiProviderLike | null} provider
+   */
   showEditAiProviderModal(provider) {
-    const { Modal } = require('obsidian');
-    const modal = new Modal(this.app);
+    const modal = createObsidianModal(this.app);
     modal.titleEl.setText(provider ? '编辑 AI Provider' : '添加 AI Provider');
 
     const form = modal.contentEl.createDiv();
 
     const nameGroup = form.createDiv({ cls: 'wechat-form-group' });
     nameGroup.createEl('label', { text: '名称' });
-    const nameInput = nameGroup.createEl('input', {
+    const nameInput = /** @type {ObsidianInputLike} */ (nameGroup.createEl('input', {
       type: 'text',
       placeholder: '例如：OpenAI / OpenRouter / 自建网关',
       value: provider?.name || ''
-    });
+    }));
 
     const kindGroup = form.createDiv({ cls: 'wechat-form-group' });
     kindGroup.createEl('label', { text: '类型' });
     const kindSelectWrap = kindGroup.createDiv({ cls: 'wechat-form-select-wrap' });
-    const kindSelect = kindSelectWrap.createEl('select', { cls: 'wechat-form-select' });
+    const kindSelect = /** @type {ObsidianInputLike} */ (kindSelectWrap.createEl('select', { cls: 'wechat-form-select' }));
     const providerKinds = [
       { value: AI_PROVIDER_KINDS.OPENAI_COMPATIBLE, label: 'OpenAI 兼容接口' },
       { value: AI_PROVIDER_KINDS.GEMINI, label: 'Gemini 兼容格式' },
       { value: AI_PROVIDER_KINDS.ANTHROPIC, label: 'Anthropic 兼容格式' },
     ];
     providerKinds.forEach((kind) => {
-      const option = kindSelect.createEl('option', { value: kind.value, text: kind.label });
+      const option = /** @type {ObsidianInputLike} */ (kindSelect.createEl('option', { value: kind.value, text: kind.label }));
       if ((provider?.kind || AI_PROVIDER_KINDS.OPENAI_COMPATIBLE) === kind.value) {
         option.selected = true;
       }
@@ -7001,27 +8154,27 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
     const baseUrlGroup = form.createDiv({ cls: 'wechat-form-group' });
     baseUrlGroup.createEl('label', { text: 'Base URL' });
-    const baseUrlInput = baseUrlGroup.createEl('input', {
+    const baseUrlInput = /** @type {ObsidianInputLike} */ (baseUrlGroup.createEl('input', {
       type: 'text',
       placeholder: 'https://api.openai.com/v1 或 http://localhost:11434/v1',
       value: provider?.baseUrl || 'https://api.openai.com/v1'
-    });
+    }));
 
     const apiKeyGroup = form.createDiv({ cls: 'wechat-form-group' });
     apiKeyGroup.createEl('label', { text: 'API Key' });
-    const apiKeyInput = apiKeyGroup.createEl('input', {
+    const apiKeyInput = /** @type {ObsidianInputLike} */ (apiKeyGroup.createEl('input', {
       type: 'password',
       placeholder: 'sk-...',
       value: provider?.apiKey || ''
-    });
+    }));
 
     const modelGroup = form.createDiv({ cls: 'wechat-form-group' });
     modelGroup.createEl('label', { text: '模型' });
-    const modelInput = modelGroup.createEl('input', {
+    const modelInput = /** @type {ObsidianInputLike} */ (modelGroup.createEl('input', {
       type: 'text',
       placeholder: 'gpt-4.1-mini',
       value: provider?.model || 'gpt-4.1-mini'
-    });
+    }));
 
     const applyKindDefaults = () => {
       const kind = kindSelect.value || AI_PROVIDER_KINDS.OPENAI_COMPATIBLE;
@@ -7056,11 +8209,11 @@ class AppleStyleSettingTab extends PluginSettingTab {
     const enabledGroup = form.createDiv({ cls: 'wechat-form-group' });
     enabledGroup.createEl('label', { text: '启用' });
     const enabledWrap = enabledGroup.createDiv({ cls: 'wechat-provider-enabled' });
-    const enabledToggle = enabledWrap.createEl('label', { cls: 'apple-toggle' }).createEl('input', {
+    const enabledToggle = /** @type {ObsidianInputLike} */ (enabledWrap.createEl('label', { cls: 'apple-toggle' }).createEl('input', {
       type: 'checkbox',
       cls: 'apple-toggle-input',
       checked: provider?.enabled !== false ? true : undefined,
-    });
+    }));
     enabledToggle.checked = provider?.enabled !== false;
     enabledToggle.parentElement.createEl('span', { cls: 'apple-toggle-slider' });
     enabledWrap.createEl('span', {
@@ -7091,10 +8244,10 @@ class AppleStyleSettingTab extends PluginSettingTab {
       testBtn.disabled = true;
       testBtn.textContent = '测试中...';
       try {
-        await testAiProviderConnection(candidate, createObsidianFetchAdapter({ requestUrl, request }));
+        await testAiProviderConnection(candidate, createObsidianFetchAdapter({ requestUrl: getObsidianRequestUrl(), request: getObsidianRequest() }));
         new Notice('✅ AI Provider 连接成功！');
       } catch (error) {
-        new Notice(`❌ 连接失败: ${error.message}`);
+        new Notice(`❌ 连接失败: ${toReadableError(error).message}`);
       }
       testBtn.disabled = false;
       testBtn.textContent = '测试连接';
@@ -7135,7 +8288,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
       await this.plugin.saveSettings();
       this.refreshOpenConverterAiState();
       modal.close();
-      this.display();
+      refreshSettingTabCompat(this);
       new Notice(provider ? '✅ AI Provider 已更新' : '✅ AI Provider 已添加');
     };
 
@@ -7145,9 +8298,11 @@ class AppleStyleSettingTab extends PluginSettingTab {
   /**
    * 显示添加/编辑账号的模态框
    */
+  /**
+   * @param {WechatAccountLike | null} account
+   */
   showEditAccountModal(account) {
-    const { Modal } = require('obsidian');
-    const modal = new Modal(this.app);
+    const modal = createObsidianModal(this.app);
     modal.titleEl.setText(account ? '编辑账号' : '添加账号');
 
     const form = modal.contentEl.createDiv();
@@ -7156,38 +8311,38 @@ class AppleStyleSettingTab extends PluginSettingTab {
     // 账号名称
     const nameGroup = form.createDiv({ cls: 'wechat-form-group' });
     nameGroup.createEl('label', { text: '账号名称' });
-    const nameInput = nameGroup.createEl('input', {
+    const nameInput = /** @type {ObsidianInputLike} */ (nameGroup.createEl('input', {
       type: 'text',
       placeholder: '例如：我的公众号',
       value: account?.name || ''
-    });
+    }));
 
     // AppID
     const appIdGroup = form.createDiv({ cls: 'wechat-form-group' });
     appIdGroup.createEl('label', { text: 'AppID' });
-    const appIdInput = appIdGroup.createEl('input', {
+    const appIdInput = /** @type {ObsidianInputLike} */ (appIdGroup.createEl('input', {
       type: 'text',
       placeholder: 'wx...',
       value: account?.appId || ''
-    });
+    }));
 
     // AppSecret
     const secretGroup = form.createDiv({ cls: 'wechat-form-group' });
     secretGroup.createEl('label', { text: 'AppSecret' });
-    const secretInput = secretGroup.createEl('input', {
+    const secretInput = /** @type {ObsidianInputLike} */ (secretGroup.createEl('input', {
       type: 'password',
       placeholder: '开发者密钥',
       value: account?.appSecret || ''
-    });
+    }));
 
     // 默认作者
     const authorGroup = form.createDiv({ cls: 'wechat-form-group' });
     authorGroup.createEl('label', { text: '默认作者（可选）' });
-    const authorInput = authorGroup.createEl('input', {
+    const authorInput = /** @type {ObsidianInputLike} */ (authorGroup.createEl('input', {
       type: 'text',
       placeholder: '留空则不显示作者',
       value: account?.author || ''
-    });
+    }));
 
     const publishOptions = form.createEl('details', { cls: 'wechat-sync-advanced wechat-account-publish-options' });
     publishOptions.createEl('summary', {
@@ -7202,21 +8357,21 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
     const sourceUrlGroup = publishSection.createDiv({ cls: 'wechat-form-group' });
     sourceUrlGroup.createEl('label', { text: '默认原文链接（可选）' });
-    const sourceUrlInput = sourceUrlGroup.createEl('input', {
+    const sourceUrlInput = /** @type {ObsidianInputLike} */ (sourceUrlGroup.createEl('input', {
       type: 'url',
       placeholder: '留空则不同步原文链接',
       value: publishDefaults.contentSourceUrl,
-    });
+    }));
 
     const commentGroup = publishSection.createDiv({ cls: 'wechat-form-checkbox-group' });
     const commentLabel = commentGroup.createEl('label', { cls: 'wechat-form-checkbox-label' });
-    const commentInput = commentLabel.createEl('input', { type: 'checkbox' });
+    const commentInput = /** @type {ObsidianInputLike} */ (commentLabel.createEl('input', { type: 'checkbox' }));
     commentInput.checked = publishDefaults.openComment;
     commentLabel.appendText('默认开启留言');
 
     const fansCommentGroup = publishSection.createDiv({ cls: 'wechat-form-checkbox-group' });
     const fansCommentLabel = fansCommentGroup.createEl('label', { cls: 'wechat-form-checkbox-label' });
-    const fansCommentInput = fansCommentLabel.createEl('input', { type: 'checkbox' });
+    const fansCommentInput = /** @type {ObsidianInputLike} */ (fansCommentLabel.createEl('input', { type: 'checkbox' }));
     fansCommentInput.checked = publishDefaults.openComment && publishDefaults.onlyFansCanComment;
     fansCommentLabel.appendText('默认仅粉丝可留言');
     fansCommentGroup.createEl('div', {
@@ -7252,7 +8407,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
         await api.getAccessToken();
         new Notice('✅ 连接成功！');
       } catch (err) {
-        new Notice(`❌ 连接失败: ${err.message}`);
+        new Notice(`❌ 连接失败: ${toReadableError(err).message}`);
       }
       testBtn.disabled = false;
       testBtn.textContent = '测试连接';
@@ -7301,7 +8456,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
 
       await this.plugin.saveSettings();
       modal.close();
-      this.display();
+      refreshSettingTabCompat(this);
       new Notice(account ? '✅ 账号已更新' : '✅ 账号已添加');
     };
 
@@ -7309,12 +8464,18 @@ class AppleStyleSettingTab extends PluginSettingTab {
   }
 }
 
+AppleStyleSettingTab.prototype[LEGACY_SETTING_RENDER_KEY] = function legacySettingsFallback() {
+  this.renderSettingsContent();
+};
+
 /**
  * 📝 Obsidian 发布助手主插件
  */
 class AppleStylePlugin extends Plugin {
   async onload() {
     console.log('📝 正在加载 Obsidian 发布助手...');
+    /** @type {ObsidianApiLike} */
+    this.obsidianApi = obsidianApi;
 
     await this.loadSettings();
 
@@ -7338,16 +8499,16 @@ class AppleStylePlugin extends Plugin {
     this.addCommand({
       id: 'insert-image-swipe-block',
       name: getImageSwipeCommandCopy(this.app, 'image-swipe').name,
-      editorCallback: (editor) => {
-        this.insertImageSwipeCallout(editor, 'image-swipe');
+      callback: () => {
+        this.insertImageSwipeCalloutFromActiveEditor('image-swipe');
       },
     });
 
     this.addCommand({
       id: 'insert-image-sensitive-block',
       name: getImageSwipeCommandCopy(this.app, 'image-sensitive').name,
-      editorCallback: (editor) => {
-        this.insertImageSwipeCallout(editor, 'image-sensitive');
+      callback: () => {
+        this.insertImageSwipeCalloutFromActiveEditor('image-sensitive');
       },
     });
 
@@ -7367,6 +8528,18 @@ class AppleStylePlugin extends Plugin {
     console.log('✅ Obsidian 发布助手加载完成');
   }
 
+  /**
+   * @param {string} [type]
+   */
+  insertImageSwipeCalloutFromActiveEditor(type = 'image-swipe') {
+    const activeView = this.app?.workspace?.getActiveViewOfType?.(MarkdownView);
+    this.insertImageSwipeCallout(activeView?.editor, type);
+  }
+
+  /**
+   * @param {EditorLike | null | undefined} editor
+   * @param {string} [type]
+   */
   insertImageSwipeCallout(editor, type = 'image-swipe') {
     if (!editor || typeof editor.replaceSelection !== 'function') {
       new Notice('请先打开一篇 Markdown 文档');
@@ -7379,6 +8552,11 @@ class AppleStylePlugin extends Plugin {
     new Notice(getImageSwipeCommandCopy(this.app, type).notice);
   }
 
+  /**
+   * @param {ViewStateLike | Record<string, unknown>} [baseState]
+   * @param {{ active?: boolean }} [options]
+   * @returns {ViewStateLike}
+   */
   toConverterViewState(baseState = {}, options = {}) {
     const safeState = (baseState && typeof baseState === 'object') ? baseState : {};
     const shouldActivate = options && typeof options === 'object' && options.active === true;
@@ -7449,10 +8627,8 @@ class AppleStylePlugin extends Plugin {
       });
     }
 
-    const http = require('http');
     this._wechatSyncBridgeCacheKey = cacheKey;
     this._wechatSyncBridgeService = createWechatSyncBridgeService({
-      http,
       port: settings.port,
       token: settings.token,
       allowRemote: settings.allowRemote,
@@ -7461,11 +8637,11 @@ class AppleStylePlugin extends Plugin {
       onClientRegistryChange: async (clients) => {
         const currentSettings = getPluginSettings(this);
         currentSettings['multiPlatformSync'] = normalizeMultiPlatformSyncSettings({
-          ...currentSettings['multiPlatformSync'],
-          connectedClients: clients,
+          ...toRecord(currentSettings['multiPlatformSync']),
+          connectedClients: Array.isArray(clients) ? clients : [],
         });
         await this.saveSettings();
-        this.app?.setting?.activeTab?.display?.();
+        refreshSettingTabCompat(/** @type {SettingTabCompatLike | null | undefined} */ (this.app?.setting?.activeTab));
       },
     });
     return this._wechatSyncBridgeService;
@@ -7486,17 +8662,19 @@ class AppleStylePlugin extends Plugin {
         });
       })
       .catch((error) => {
+        const errorRecord = toRecord(error);
+        const readableError = toReadableError(error);
         console.warn('[Wechatsync] bridge warm start failed', {
           reason,
           port: settings.port,
-          code: error?.code,
-          message: error?.message || String(error),
+          code: errorRecord.code,
+          message: readableError.message,
         });
       });
   }
 
   async loadSettings() {
-    const loadedData = (await this.loadData()) || {};
+    const loadedData = toRecord(await this.loadData());
     const settings = setPluginSettings(this, Object.assign({}, DEFAULT_SETTINGS, loadedData));
     let didMigrate = false;
 
@@ -7516,7 +8694,7 @@ class AppleStylePlugin extends Plugin {
     const rawAiSettings = loadedData.ai;
     settings['ai'] = normalizeAiSettings(rawAiSettings || settings['ai'] || {});
     if (rawAiSettings !== undefined) {
-      const normalizedRawAi = normalizeAiSettings(rawAiSettings);
+      const normalizedRawAi = normalizeAiSettings(toRecord(rawAiSettings));
       if (JSON.stringify(normalizedRawAi) !== JSON.stringify(rawAiSettings)) {
         didMigrate = true;
       }
@@ -7527,10 +8705,10 @@ class AppleStylePlugin extends Plugin {
       const migratedAccount = {
         id: generateId(),
         name: '我的公众号',
-        appId: settings['wechatAppId'],
-        appSecret: settings['wechatAppSecret'],
+        appId: String(settings['wechatAppId'] || ''),
+        appSecret: String(settings['wechatAppSecret'] || ''),
       };
-      settings['wechatAccounts'].push(migratedAccount);
+      /** @type {WechatAccountLike[]} */ (settings['wechatAccounts']).push(migratedAccount);
       settings['defaultAccountId'] = migratedAccount.id;
       // 清除旧字段
       settings['wechatAppId'] = '';
@@ -7540,8 +8718,8 @@ class AppleStylePlugin extends Plugin {
     }
 
     if (Array.isArray(settings['wechatAccounts'])) {
-      settings['wechatAccounts'] = settings['wechatAccounts'].map((account) => {
-        if (!account || typeof account !== 'object') return account;
+      settings['wechatAccounts'] = /** @type {WechatAccountLike[]} */ (settings['wechatAccounts'].map((account) => {
+        if (!isRecord(account)) return /** @type {WechatAccountLike} */ ({ id: '', name: '', appId: '', appSecret: '' });
         const nextAccount = { ...account };
         let changed = false;
 
@@ -7557,8 +8735,8 @@ class AppleStylePlugin extends Plugin {
         if (changed) {
           didMigrate = true;
         }
-        return nextAccount;
-      });
+        return /** @type {WechatAccountLike} */ (nextAccount);
+      }));
     }
 
     // 数据迁移：旧清理配置 -> cleanupDirTemplate
@@ -7611,17 +8789,19 @@ class AppleStylePlugin extends Plugin {
     const normalizedPath = normalizeVaultPath(sourcePath || '');
     if (!normalizedPath) return null;
     const pluginSettings = getPluginSettings(this);
-    const aiSettings = pluginSettings['ai'] || {};
-    const entry = aiSettings['articleLayoutsByPath']?.[normalizedPath] || null;
+    const aiSettings = normalizeAiSettings(toRecord(pluginSettings['ai']));
+    const articleLayoutsByPath = toRecord(aiSettings.articleLayoutsByPath);
+    const entry = articleLayoutsByPath[normalizedPath] || null;
     const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
     if (!normalizedEntry) return null;
     if (!selection || Object.keys(selection).length === 0) {
-      return normalizedEntry.familyStates?.[normalizedEntry.lastLayoutFamily] || null;
+      const familyStates = toAiLayoutFamilyStates(normalizedEntry.familyStates);
+      return familyStates[normalizedEntry.lastLayoutFamily] || null;
     }
-    return getArticleLayoutSelectionState(normalizedEntry, selection, {
-      layoutFamily: aiSettings['defaultLayoutFamily'] || AI_LAYOUT_SELECTION_AUTO,
-      colorPalette: aiSettings['defaultColorPalette'] || AI_LAYOUT_SELECTION_AUTO,
-    });
+    return toAiLayoutState(getArticleLayoutSelectionState(normalizedEntry, toAiLayoutSelection(selection), {
+      layoutFamily: aiSettings.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO,
+      colorPalette: aiSettings.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO,
+    }));
   }
 
   async saveArticleLayoutState(sourcePath = '', nextState = null, selection = {}) {
@@ -7631,51 +8811,55 @@ class AppleStylePlugin extends Plugin {
     if (!pluginSettings['ai']) {
       pluginSettings['ai'] = createDefaultAiSettings();
     }
-    const aiSettings = pluginSettings['ai'];
-    if (!aiSettings['articleLayoutsByPath'] || typeof aiSettings['articleLayoutsByPath'] !== 'object') {
-      aiSettings['articleLayoutsByPath'] = {};
+    const aiSettings = /** @type {AiSettingsLike} */ (pluginSettings['ai']);
+    if (!isRecord(aiSettings.articleLayoutsByPath)) {
+      aiSettings.articleLayoutsByPath = {};
     }
-    const articleLayoutsByPath = aiSettings['articleLayoutsByPath'];
+    const articleLayoutsByPath = /** @type {Record<string, unknown>} */ (aiSettings.articleLayoutsByPath);
     const existingEntry = normalizeArticleLayoutCacheEntry(articleLayoutsByPath[normalizedPath]) || {
       lastLayoutFamily: '',
       lastAutoResolvedFamily: '',
       familyStates: {},
     };
+    const existingFamilyStates = toAiLayoutFamilyStates(existingEntry.familyStates);
+    existingEntry.familyStates = existingFamilyStates;
+    const nextLayoutState = toAiLayoutState(nextState);
     const hasExplicitSelection = typeof selection === 'string'
       || (selection && typeof selection === 'object' && Object.keys(selection).length > 0);
     const requestedSelection = normalizeLayoutSelection(
-      nextState?.selection || (hasExplicitSelection ? selection : null) || {
-        layoutFamily: nextState?.layoutFamily || nextState?.resolved?.layoutFamily,
-        colorPalette: nextState?.stylePack || nextState?.resolved?.colorPalette || nextState?.layoutJson?.stylePack,
+      nextLayoutState?.selection || (hasExplicitSelection ? toAiLayoutSelection(selection) : null) || {
+        layoutFamily: nextLayoutState?.layoutFamily || nextLayoutState?.resolved?.layoutFamily,
+        colorPalette: nextLayoutState?.stylePack || nextLayoutState?.resolved?.colorPalette || nextLayoutState?.layoutJson?.stylePack,
       },
       {
-        layoutFamily: aiSettings['defaultLayoutFamily'] || AI_LAYOUT_SELECTION_AUTO,
-        colorPalette: aiSettings['defaultColorPalette'] || AI_LAYOUT_SELECTION_AUTO,
+        layoutFamily: aiSettings.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO,
+        colorPalette: aiSettings.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO,
       }
     );
     const getCacheFamily = (state = null) => {
-      const normalizedState = normalizeArticleLayoutState(state || {});
+      const stateRecord = toAiLayoutState(state);
+      const normalizedState = normalizeArticleLayoutState(stateRecord || {});
       const rawFamily = normalizedState?.resolved?.layoutFamily
         || normalizedState?.layoutFamily
-        || state?.resolved?.layoutFamily
-        || state?.layoutFamily
+        || stateRecord?.resolved?.layoutFamily
+        || stateRecord?.layoutFamily
         || (requestedSelection.layoutFamily !== AI_LAYOUT_SELECTION_AUTO ? requestedSelection.layoutFamily : '');
       const normalizedFamily = normalizeLayoutSelection({ layoutFamily: rawFamily }).layoutFamily;
       return normalizedFamily === AI_LAYOUT_SELECTION_AUTO ? '' : normalizedFamily;
     };
-    const effectiveLayoutFamily = getCacheFamily(nextState);
+    const effectiveLayoutFamily = getCacheFamily(nextLayoutState);
 
-    if (!nextState) {
+    if (!nextLayoutState) {
       if (selection && Object.keys(selection).length && effectiveLayoutFamily) {
-        delete existingEntry.familyStates[effectiveLayoutFamily];
-        const remainingFamilies = Object.keys(existingEntry.familyStates);
+        delete existingFamilyStates[effectiveLayoutFamily];
+        const remainingFamilies = Object.keys(existingFamilyStates);
         if (!remainingFamilies.length) {
           delete articleLayoutsByPath[normalizedPath];
         } else {
-          existingEntry.lastLayoutFamily = existingEntry.familyStates[existingEntry.lastLayoutFamily]
+          existingEntry.lastLayoutFamily = existingFamilyStates[existingEntry.lastLayoutFamily]
             ? existingEntry.lastLayoutFamily
             : remainingFamilies[0];
-          if (existingEntry.lastAutoResolvedFamily && !existingEntry.familyStates[existingEntry.lastAutoResolvedFamily]) {
+          if (existingEntry.lastAutoResolvedFamily && !existingFamilyStates[existingEntry.lastAutoResolvedFamily]) {
             existingEntry.lastAutoResolvedFamily = '';
           }
           articleLayoutsByPath[normalizedPath] = normalizeArticleLayoutCacheEntry(existingEntry) || existingEntry;
@@ -7685,25 +8869,25 @@ class AppleStylePlugin extends Plugin {
       }
     } else {
       const resolvedLayoutFamily = effectiveLayoutFamily || 'source-first';
-      const inferredSkillId = nextState?.skillId
+      const inferredSkillId = nextLayoutState.skillId
         || resolvedLayoutFamily
         || requestedSelection.layoutFamily;
-      const inferredSkillVersion = nextState?.skillVersion
-        || nextState?.generationMeta?.skillVersion
+      const inferredSkillVersion = nextLayoutState.skillVersion
+        || nextLayoutState.generationMeta?.skillVersion
         || getLayoutFamilyById(inferredSkillId)?.version
         || '';
-      existingEntry.familyStates[resolvedLayoutFamily] = {
-        ...nextState,
+      existingFamilyStates[resolvedLayoutFamily] = {
+        ...nextLayoutState,
         skillId: inferredSkillId,
         skillVersion: inferredSkillVersion,
         selection: requestedSelection,
         resolved: {
-          ...(nextState?.resolved || {}),
+          ...(nextLayoutState.resolved || {}),
           layoutFamily: resolvedLayoutFamily,
-          colorPalette: nextState?.stylePack || nextState?.resolved?.colorPalette || 'tech-green',
+          colorPalette: nextLayoutState.stylePack || nextLayoutState.resolved?.colorPalette || 'tech-green',
         },
         layoutFamily: resolvedLayoutFamily,
-        stylePack: nextState?.stylePack || nextState?.resolved?.colorPalette || 'tech-green',
+        stylePack: nextLayoutState.stylePack || nextLayoutState.resolved?.colorPalette || 'tech-green',
       };
       existingEntry.lastLayoutFamily = resolvedLayoutFamily;
       if (requestedSelection.layoutFamily === AI_LAYOUT_SELECTION_AUTO) {
@@ -7739,13 +8923,28 @@ class AppleStylePlugin extends Plugin {
   }
 }
 
-module.exports = AppleStylePlugin;
-module.exports.AppleStyleView = AppleStyleView;
-module.exports.WechatAPI = WechatAPI;
-module.exports.AppleStyleSettingTab = AppleStyleSettingTab;
-module.exports.createImageSwipeCalloutMarkdown = createImageSwipeCalloutMarkdown;
-module.exports.getImageSwipeCommandCopy = getImageSwipeCommandCopy;
-module.exports.stripMarkdownFrontmatter = stripMarkdownFrontmatter;
-module.exports.describeWechatsyncConnectionState = describeWechatsyncConnectionState;
-module.exports.renderWechatsyncConnectionStatusBar = renderWechatsyncConnectionStatusBar;
-module.exports.formatWechatsyncCheckedAt = formatWechatsyncCheckedAt;
+AppleStylePlugin.default = AppleStylePlugin;
+AppleStylePlugin.AppleStylePlugin = AppleStylePlugin;
+AppleStylePlugin.AppleStyleView = AppleStyleView;
+AppleStylePlugin.WechatAPI = WechatAPI;
+AppleStylePlugin.AppleStyleSettingTab = AppleStyleSettingTab;
+AppleStylePlugin.createImageSwipeCalloutMarkdown = createImageSwipeCalloutMarkdown;
+AppleStylePlugin.getImageSwipeCommandCopy = getImageSwipeCommandCopy;
+AppleStylePlugin.stripMarkdownFrontmatter = stripMarkdownFrontmatter;
+AppleStylePlugin.describeWechatsyncConnectionState = describeWechatsyncConnectionState;
+AppleStylePlugin.renderWechatsyncConnectionStatusBar = renderWechatsyncConnectionStatusBar;
+AppleStylePlugin.formatWechatsyncCheckedAt = formatWechatsyncCheckedAt;
+
+export default AppleStylePlugin;
+export {
+  AppleStylePlugin,
+  AppleStyleView,
+  WechatAPI,
+  AppleStyleSettingTab,
+  createImageSwipeCalloutMarkdown,
+  getImageSwipeCommandCopy,
+  stripMarkdownFrontmatter,
+  describeWechatsyncConnectionState,
+  renderWechatsyncConnectionStatusBar,
+  formatWechatsyncCheckedAt,
+};

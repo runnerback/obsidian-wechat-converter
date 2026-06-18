@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+const { loadInputModule } = require('./helpers/input-module.cjs');
 describe('AppleStylePlugin - openConverter title refresh', () => {
   let AppleStylePlugin;
 
   beforeEach(() => {
     vi.resetModules();
-    AppleStylePlugin = require('../input.js');
+    AppleStylePlugin = loadInputModule().default;
   });
 
   it('should refresh stale converter leaf title to unified name', async () => {

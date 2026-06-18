@@ -11,7 +11,8 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-const { AppleStyleView } = require('../input.js');
+const { loadInputModule } = require('./helpers/input-module.cjs');
+const { AppleStyleView } = loadInputModule();
 const obsidian = require('obsidian');
 const { __applyExtensions: applyExtensions } = obsidian;
 

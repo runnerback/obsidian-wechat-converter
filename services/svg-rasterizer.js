@@ -1,4 +1,17 @@
-function isMathJaxSvg(svgElement) {
+import { getActiveDocument } from './dom-utils.js';
+
+/**
+ * @typedef {{ logicalWidth: number, logicalHeight: number, rawStyle: string }} SvgLogicalSize
+ * @typedef {{ clonedSvg: SVGElement, logicalWidth: number, logicalHeight: number, rawStyle: string }} PreparedSvgClone
+ * @typedef {{ scale?: number, output?: 'blob' | 'dataUrl' }} SvgRasterizeOptions
+ * @typedef {{ blob?: Blob, dataUrl?: string, width: number, height: number, style: string }} SvgRasterizeResult
+ */
+
+/**
+ * @param {Element | null | undefined} svgElement
+ * @returns {boolean}
+ */
+export function isMathJaxSvg(svgElement) {
   if (!svgElement || typeof svgElement.getAttribute !== 'function') return false;
   if (svgElement.getAttribute('role') === 'img') return true;
   if (svgElement.getAttribute('focusable') === 'false') return true;
@@ -32,9 +45,14 @@ const SVG_INLINE_STYLE_PROPS = [
   'white-space',
 ];
 
+/**
+ * @param {Element | null | undefined} el
+ * @param {Record<string, string>} [declarations]
+ */
 function appendInlineStyle(el, declarations = {}) {
   if (!el || typeof el.setAttribute !== 'function') return;
   const current = String(el.getAttribute('style') || '').trim();
+  /** @type {string[]} */
   const nextParts = [];
   Object.entries(declarations).forEach(([key, value]) => {
     const normalized = String(value || '').trim();
@@ -46,6 +64,10 @@ function appendInlineStyle(el, declarations = {}) {
   el.setAttribute('style', joined);
 }
 
+/**
+ * @param {SVGElement | null | undefined} sourceSvg
+ * @param {SVGElement | null | undefined} clonedSvg
+ */
 function inlineSvgComputedStyles(sourceSvg, clonedSvg) {
   if (
     !sourceSvg
@@ -56,8 +78,8 @@ function inlineSvgComputedStyles(sourceSvg, clonedSvg) {
     return;
   }
 
-  const sourceElements = [sourceSvg, ...Array.from(sourceSvg.querySelectorAll('*'))];
-  const clonedElements = [clonedSvg, ...Array.from(clonedSvg.querySelectorAll('*'))];
+  const sourceElements = /** @type {Element[]} */ ([sourceSvg, ...Array.from(sourceSvg.querySelectorAll('*'))]);
+  const clonedElements = /** @type {Element[]} */ ([clonedSvg, ...Array.from(clonedSvg.querySelectorAll('*'))]);
   const pairCount = Math.min(sourceElements.length, clonedElements.length);
 
   for (let index = 0; index < pairCount; index += 1) {
@@ -66,6 +88,7 @@ function inlineSvgComputedStyles(sourceSvg, clonedSvg) {
     if (!sourceEl || !clonedEl) continue;
 
     const computed = window.getComputedStyle(sourceEl);
+    /** @type {Record<string, string>} */
     const styleMap = {};
     SVG_INLINE_STYLE_PROPS.forEach((prop) => {
       const value = computed.getPropertyValue(prop);
@@ -84,7 +107,11 @@ function inlineSvgComputedStyles(sourceSvg, clonedSvg) {
   }
 }
 
-function getSvgLogicalSize(svgElement) {
+/**
+ * @param {SVGElement | Element | null | undefined} svgElement
+ * @returns {SvgLogicalSize}
+ */
+export function getSvgLogicalSize(svgElement) {
   const rect = typeof svgElement?.getBoundingClientRect === 'function'
     ? svgElement.getBoundingClientRect()
     : { width: 0, height: 0 };
@@ -124,8 +151,12 @@ function getSvgLogicalSize(svgElement) {
   };
 }
 
+/**
+ * @param {SVGElement} svgElement
+ * @returns {PreparedSvgClone}
+ */
 function prepareSvgClone(svgElement) {
-  const clonedSvg = svgElement.cloneNode(true);
+  const clonedSvg = /** @type {SVGElement} */ (svgElement.cloneNode(true));
   const { logicalWidth, logicalHeight, rawStyle } = getSvgLogicalSize(svgElement);
 
   inlineSvgComputedStyles(svgElement, clonedSvg);
@@ -155,6 +186,11 @@ function prepareSvgClone(svgElement) {
   };
 }
 
+/**
+ * @param {SVGElement} svgElement
+ * @param {SvgRasterizeOptions} [options]
+ * @returns {Promise<SvgRasterizeResult>}
+ */
 async function rasterizeSvg(svgElement, options = {}) {
   const { scale = 3, output = 'blob' } = options;
 
@@ -175,7 +211,13 @@ async function rasterizeSvg(svgElement, options = {}) {
       const image = new Image();
       image.onload = () => {
         try {
-          const canvas = document.createElement('canvas');
+          const activeDocument = getActiveDocument();
+          if (!activeDocument) {
+            URL.revokeObjectURL(url);
+            reject(new Error('Document unavailable'));
+            return;
+          }
+          const canvas = activeDocument.createElement('canvas');
           canvas.width = logicalWidth * scale;
           canvas.height = logicalHeight * scale;
 
@@ -229,17 +271,20 @@ async function rasterizeSvg(svgElement, options = {}) {
   });
 }
 
-async function rasterizeSvgToPngBlob(svgElement, options = {}) {
+/**
+ * @param {SVGElement} svgElement
+ * @param {SvgRasterizeOptions} [options]
+ * @returns {Promise<SvgRasterizeResult>}
+ */
+export async function rasterizeSvgToPngBlob(svgElement, options = {}) {
   return rasterizeSvg(svgElement, { ...options, output: 'blob' });
 }
 
-async function rasterizeSvgToPngDataUrl(svgElement, options = {}) {
+/**
+ * @param {SVGElement} svgElement
+ * @param {SvgRasterizeOptions} [options]
+ * @returns {Promise<SvgRasterizeResult>}
+ */
+export async function rasterizeSvgToPngDataUrl(svgElement, options = {}) {
   return rasterizeSvg(svgElement, { ...options, output: 'dataUrl' });
 }
-
-module.exports = {
-  isMathJaxSvg,
-  getSvgLogicalSize,
-  rasterizeSvgToPngBlob,
-  rasterizeSvgToPngDataUrl,
-};

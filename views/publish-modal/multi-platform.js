@@ -11,46 +11,41 @@
 // follow-up modals (showWechatsyncEnqueueAcceptedModal, showMultiPlatformSyncResultModal),
 // so the view stays the orchestrator — this module only owns the UI shell.
 
-// NOTE: Modal is read lazily inside the function (not destructured at the
-// top) so that test code which monkey-patches `obsidian.Modal` after this
-// module is required (see tests/multi_platform_modal.test.js) takes effect.
-const obsidian = require('obsidian');
-const { Notice, Platform } = obsidian;
-
-const {
+import {
   isWechatSyncConnectionFailure,
   getWechatsyncPlatformStatusBadge,
   normalizeWechatSyncResponseResults,
   normalizeWechatsyncPlatform,
   summarizeWechatsyncPlatformResponse,
   updateCachedPlatformsAfterSync,
-} = require('../../services/wechatsync-results');
+} from '../../services/wechatsync-results.js';
 
-const {
-  isUnsupportedBridgeMethodError: isWechatSyncUnsupportedMethodError,
-} = require('../../services/wechatsync-bridge');
+import {
+  isUnsupportedBridgeMethodError as isWechatSyncUnsupportedMethodError,
+} from '../../services/wechatsync-bridge.js';
 
-const {
+import {
   getAvailableWechatsyncPlatforms,
   normalizeWechatSyncCapabilities,
   normalizeMultiPlatformConnection,
   normalizeMultiPlatformSyncSettings,
   normalizeWechatSyncRecentTasks,
   parseWechatsyncPlatformIds,
-} = require('../../services/wechatsync-settings');
+} from '../../services/wechatsync-settings.js';
 
-const {
+import {
   describeWechatsyncConnectionState,
   renderWechatsyncConnectionStatusBar,
-} = require('../connection-status-bar.js');
+} from '../connection-status-bar.js';
 
-const { stripMarkdownFrontmatter } = require('../../services/markdown-utils');
-const {
+import { stripMarkdownFrontmatter } from '../../services/markdown-utils.js';
+import {
   DEFAULT_MAX_IMAGE_SIZE_BYTES,
   findAssetForCover,
   formatArticleImageWarnings,
   resolveArticleImages,
-} = require('../../services/article-image-assets');
+} from '../../services/article-image-assets.js';
+import { getActiveWindowValue } from '../../services/dom-utils.js';
 
 const QUOTA_POLICY = 'truncate';
 const FREE_DAILY_PLATFORM_QUOTA = 3;
@@ -58,6 +53,256 @@ const MODAL_SELECTED_PLATFORM_IDS = '__wechatMultiPlatformSelectedPlatformIds';
 const MATERIAL_COVER_ASSET_TTL_MS = 5 * 60 * 1000;
 const MAX_MATERIAL_COVER_ASSET_CACHE_ENTRIES = 3;
 
+/**
+ * @typedef {{ id?: string, filename: string, mimeType: string, size: number, base64: string, source?: Record<string, unknown> }} BridgeAssetLike
+ * @typedef {{ cachedAt: number, asset: BridgeAssetLike }} MaterialCoverCacheEntryLike
+ * @typedef {{ requestUrl?: (options: Record<string, unknown>) => Promise<unknown>, obsidianApi?: Partial<ObsidianApiLike>, modal?: PublishModalLike }} PublishModalOptionsLike
+ * @typedef {{ isMobile?: boolean }} PlatformLike
+ * @typedef {{ Modal: new (app: unknown) => PublishModalLike, Notice: new (message: string, timeout?: number) => NoticeLike, Platform?: PlatformLike, requestUrl?: (options: Record<string, unknown>) => Promise<unknown> }} ObsidianApiLike
+ * @typedef {{ hide: () => void, setMessage?: (message: string) => void }} NoticeLike
+ * @typedef {{ contentEl: ModalContentElementLike, open: () => void, close: () => void, [MODAL_SELECTED_PLATFORM_IDS]?: string[] }} PublishModalLike
+ * @typedef {HTMLElement & { createDiv: (options?: { cls?: string }) => ModalContentElementLike, createEl: (tagName: string, options?: { text?: string, cls?: string, attr?: Record<string, string> }) => ModalContentElementLike, empty?: () => void, addClass?: (className: string) => void, removeClass?: (className: string) => void }} ModalContentElementLike
+ * @typedef {{ status?: string, checkedAt?: number, message?: string, platforms?: unknown, capabilities?: unknown }} ConnectionLike
+ * @typedef {{ id?: string, name?: string, status?: string, authenticated?: boolean, username?: string, success?: boolean, error?: string, message?: string, platform?: string }} PlatformLikeRecord
+ * @typedef {{ syncId?: string, requestId?: string, accepted?: boolean, quotaBlocked?: boolean, skippedPlatforms?: unknown, message?: string, publishedPlatforms?: unknown, platforms?: unknown }} EnqueueResultLike
+ * @typedef {{ cls: string, text: string, status?: string }} PlatformStatusBadgeLike
+ * @typedef {{ code?: string, message: string, stack?: string }} ReadableErrorLike
+ * @typedef {{ health?: (options?: Record<string, unknown>) => Promise<unknown>, getActiveClientDescriptor?: () => unknown, getStatus?: () => unknown, enqueueSyncArticle?: (payload: Record<string, unknown>) => Promise<unknown>, sendArticle?: (payload: Record<string, unknown>) => Promise<unknown> }} BridgeLike
+ * @typedef {{ settings: { multiPlatformSync?: unknown }, obsidianApi?: Partial<ObsidianApiLike>, getWechatSyncBridgeService: () => BridgeLike, saveSettings: () => Promise<void> }} PluginLike
+ * @typedef {{ path: string, basename: string }} FileLike
+ * @typedef {{ title?: string, cover?: string }} PublishMetaLike
+ * @typedef {{ markdown: string, assets: BridgeAssetLike[], cover?: string, firstImageSrc?: string, warnings?: unknown[] }} ResolvedImagesLike
+ * @typedef {{ app?: unknown, currentHtml?: string, lastResolvedMarkdown?: string, sessionCoverBase64?: string, sessionThumbMediaId?: string, wechatMaterialCoverAssetCache?: Map<string, MaterialCoverCacheEntryLike>, articleStates: Map<string, Record<string, unknown>>, plugin: PluginLike, getMissingRenderNotice: () => string, preparePublishModalShell: (modal: PublishModalLike, options: Record<string, unknown>) => void, createPublishModeTabs: (modal: PublishModalLike, mode: string) => { wechatTab: ModalContentElementLike }, showSyncModal: (options: Record<string, unknown>) => void, openPluginSettings: () => boolean, getPublishContextFile: () => FileLike | null, getFrontmatterPublishMeta: (file: FileLike | null) => PublishMetaLike, getCurrentExportHtml: () => string, getFirstImageFromArticle: () => string, prepareHtmlForWechatsyncArticleViaBridge: (html: string, assets: BridgeAssetLike[]) => Promise<string>, generateCoverThumbnailFromAsset: (asset: BridgeAssetLike) => Promise<string>, getWechatsyncTaskSnapshot: (bridge: BridgeLike, syncId: string) => Promise<unknown>, showMultiPlatformQuotaBlockedModal: (options: Record<string, unknown>) => void, showWechatsyncEnqueueAcceptedModal: (options: Record<string, unknown>) => void, showMultiPlatformSyncResultModal: (options: Record<string, unknown>) => void }} PublishViewLike
+ */
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+function toRecord(value) {
+  return isRecord(value) ? value : {};
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, unknown>[]}
+ */
+function toRecordList(value) {
+  return Array.isArray(value)
+    ? value.filter(isRecord).map((item) => ({ ...item }))
+    : [];
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function toText(value) {
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * @param {unknown} target
+ * @param {string} methodName
+ * @param {unknown[]} [args]
+ * @returns {boolean | null}
+ */
+function callBooleanMethod(target, methodName, args = []) {
+  const method = toRecord(target)[methodName];
+  if (typeof method !== 'function') return null;
+  const methodFn = /** @type {(...methodArgs: unknown[]) => unknown} */ (method);
+  return methodFn(...args) === true;
+}
+
+/**
+ * @param {unknown} error
+ * @returns {ReadableErrorLike}
+ */
+function toReadableError(error) {
+  if (error instanceof Error) {
+    const errorRecord = /** @type {{ code?: unknown }} */ (error);
+    return {
+      message: error.message,
+      code: toText(errorRecord.code),
+      stack: toText(error.stack),
+    };
+  }
+  const record = toRecord(error);
+  return {
+    message: toText(record.message) || String(error || ''),
+    code: toText(record.code),
+    stack: toText(record.stack),
+  };
+}
+
+/**
+ * @param {unknown} platform
+ * @returns {string}
+ */
+function getPlatformId(platform) {
+  const record = toRecord(platform);
+  return toText(record.id || record.platform);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {EnqueueResultLike}
+ */
+function toEnqueueResult(value) {
+  return /** @type {EnqueueResultLike} */ ({ ...toRecord(value) });
+}
+
+/**
+ * @param {unknown} value
+ * @returns {BridgeAssetLike[]}
+ */
+function toBridgeAssets(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isRecord)
+    .map((asset) => /** @type {BridgeAssetLike} */ ({ ...asset }));
+}
+
+/**
+ * @param {unknown} value
+ * @returns {ResolvedImagesLike}
+ */
+function toResolvedImages(value) {
+  const record = toRecord(value);
+  return {
+    markdown: toText(record.markdown),
+    assets: toBridgeAssets(record.assets),
+    cover: toText(record.cover),
+    firstImageSrc: toText(record.firstImageSrc),
+    warnings: Array.isArray(record.warnings) ? record.warnings : [],
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {BridgeAssetLike | null}
+ */
+function toBridgeAsset(value) {
+  const record = toRecord(value);
+  if (!record.filename || !record.mimeType || typeof record.size !== 'number' || typeof record.base64 !== 'string') {
+    return null;
+  }
+  return /** @type {BridgeAssetLike} */ ({
+    ...record,
+    filename: toText(record.filename),
+    mimeType: toText(record.mimeType),
+    size: record.size,
+    base64: record.base64,
+    source: isRecord(record.source) ? { ...record.source } : undefined,
+  });
+}
+
+/**
+ * @param {unknown} value
+ * @returns {PlatformStatusBadgeLike}
+ */
+function toPlatformStatusBadge(value) {
+  const record = toRecord(value);
+  return {
+    cls: toText(record.cls),
+    text: toText(record.text),
+    status: toText(record.status),
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {PlatformLikeRecord | null}
+ */
+function toNormalizedPlatform(value) {
+  const record = toRecord(value);
+  const id = toText(record.id);
+  const name = toText(record.name) || id;
+  if (!id) return null;
+  return /** @type {PlatformLikeRecord} */ ({
+    ...record,
+    id,
+    name,
+  });
+}
+
+/**
+ * @param {unknown} value
+ * @returns {{ platform?: string, platformName?: string, success?: boolean, error?: string }[]}
+ */
+function toTaskResults(value) {
+  return toRecordList(value).map((item) => {
+    const record = toRecord(item);
+    return {
+      platform: toText(record.id || record.platform),
+      platformName: toText(record.name),
+      success: record.success === true || record.status === 'success',
+      error: toText(record.error || record.message),
+    };
+  }).filter((item) => item.platform);
+}
+
+/**
+ * @param {EnqueueResultLike} result
+ * @param {string[]} requestedPlatformIds
+ * @returns {unknown[]}
+ */
+function getRecentTaskPlatforms(result, requestedPlatformIds) {
+  const publishedPlatforms = toUnknownList(result.publishedPlatforms);
+  if (publishedPlatforms.length) return publishedPlatforms;
+  const resultPlatforms = toUnknownList(result.platforms);
+  return resultPlatforms.length ? resultPlatforms : requestedPlatformIds;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {unknown[]}
+ */
+function toUnknownList(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+/**
+ * @param {unknown} response
+ * @returns {Promise<unknown>}
+ */
+async function getResponseArrayBuffer(response) {
+  const responseRecord = toRecord(response);
+  const arrayBuffer = responseRecord.arrayBuffer;
+  if (typeof arrayBuffer !== 'function') return /** @type {unknown} */ (arrayBuffer);
+  const readArrayBuffer = /** @type {() => Promise<unknown>} */ (arrayBuffer);
+  return readArrayBuffer();
+}
+
+/**
+ * @param {unknown} element
+ * @returns {ModalContentElementLike}
+ */
+function asModalElement(element) {
+  return /** @type {ModalContentElementLike} */ (element);
+}
+
+/**
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+function isUnsupportedBridgeError(error) {
+  return isWechatSyncUnsupportedMethodError(toReadableError(error));
+}
+
+/**
+ * @param {number} [selectedCount]
+ * @param {{ proLicensed?: boolean }} [options]
+ * @returns {string}
+ */
 function getQuotaHintText(selectedCount = 0, { proLicensed = false } = {}) {
   if (proLicensed) {
     return selectedCount > 0
@@ -76,27 +321,39 @@ function getQuotaHintText(selectedCount = 0, { proLicensed = false } = {}) {
   return `免费版每天 ${FREE_DAILY_PLATFORM_QUOTA} 个平台额度。`;
 }
 
-function isMobileClient(app) {
-  if (typeof Platform?.isMobile === 'boolean') return Platform.isMobile;
-  return !!app?.isMobile;
+/**
+ * @param {unknown} app
+ * @param {PlatformLike | null} [platformApi]
+ * @returns {boolean}
+ */
+function isMobileClient(app, platformApi = null) {
+  if (typeof platformApi?.isMobile === 'boolean') return platformApi.isMobile;
+  return toRecord(app).isMobile === true;
 }
 
+/**
+ * @param {unknown} view
+ * @returns {boolean}
+ */
 function openPublisherProPage(view) {
-  if (typeof view?.openPublisherProPage === 'function') return view.openPublisherProPage();
-  if (typeof view?.openExternalUrl === 'function') {
-    return view.openExternalUrl('https://xiaoweibox.top/obsidian-publisher/pro/');
-  }
+  const openedProPage = callBooleanMethod(view, 'openPublisherProPage');
+  if (openedProPage !== null) return openedProPage;
+  const openedExternalUrl = callBooleanMethod(view, 'openExternalUrl', ['https://xiaoweibox.top/obsidian-publisher/pro/']);
+  if (openedExternalUrl !== null) return openedExternalUrl;
   return false;
 }
 
+/**
+ * @param {unknown} view
+ * @param {string} [section]
+ * @returns {boolean}
+ */
 function openPublisherGuidePage(view, section = 'install-extension') {
-  if (typeof view?.openPublisherGuidePage === 'function') {
-    return view.openPublisherGuidePage(section);
-  }
-  if (typeof view?.openExternalUrl === 'function') {
-    const hash = section === 'bridge' ? 'bridge' : 'install-extension';
-    return view.openExternalUrl(`https://xiaoweibox.top/obsidian-publisher/guide/?from=obsidian-plugin#${hash}`);
-  }
+  const openedGuidePage = callBooleanMethod(view, 'openPublisherGuidePage', [section]);
+  if (openedGuidePage !== null) return openedGuidePage;
+  const hash = section === 'bridge' ? 'bridge' : 'install-extension';
+  const openedExternalUrl = callBooleanMethod(view, 'openExternalUrl', [`https://xiaoweibox.top/obsidian-publisher/guide/?from=obsidian-plugin#${hash}`]);
+  if (openedExternalUrl !== null) return openedExternalUrl;
   return false;
 }
 
@@ -125,6 +382,10 @@ function normalizeRemoteCoverFilename(url, mimeType = '') {
   return `${rawName}.jpg`;
 }
 
+/**
+ * @param {ArrayBuffer | ArrayBufferView | Buffer | unknown} arrayBuffer
+ * @returns {Buffer}
+ */
 function bufferFromArrayBuffer(arrayBuffer) {
   if (Buffer.isBuffer(arrayBuffer)) return arrayBuffer;
   if (arrayBuffer instanceof ArrayBuffer) return Buffer.from(arrayBuffer);
@@ -136,34 +397,41 @@ function bufferFromArrayBuffer(arrayBuffer) {
 
 function getMaterialCoverAssetCacheKey(view, url) {
   return [
-    view?.sessionThumbMediaId || '',
+    toText(toRecord(view).sessionThumbMediaId),
     String(url || '').trim(),
   ].join('::');
 }
 
 function pruneMaterialCoverAssetCache(view, now = Date.now()) {
-  if (!view.wechatMaterialCoverAssetCache) view.wechatMaterialCoverAssetCache = new Map();
+  const viewRecord = toRecord(view);
+  if (!(viewRecord.wechatMaterialCoverAssetCache instanceof Map)) viewRecord.wechatMaterialCoverAssetCache = new Map();
+  const cache = /** @type {Map<string, MaterialCoverCacheEntryLike>} */ (viewRecord.wechatMaterialCoverAssetCache);
 
-  for (const [key, entry] of view.wechatMaterialCoverAssetCache.entries()) {
+  for (const [key, entry] of cache.entries()) {
     if (!entry || now - entry.cachedAt >= MATERIAL_COVER_ASSET_TTL_MS) {
-      view.wechatMaterialCoverAssetCache.delete(key);
+      cache.delete(key);
     }
   }
 
-  while (view.wechatMaterialCoverAssetCache.size > MAX_MATERIAL_COVER_ASSET_CACHE_ENTRIES) {
+  while (cache.size > MAX_MATERIAL_COVER_ASSET_CACHE_ENTRIES) {
     let oldestKey = '';
     let oldestAt = Infinity;
-    for (const [key, entry] of view.wechatMaterialCoverAssetCache.entries()) {
+    for (const [key, entry] of cache.entries()) {
       if ((entry?.cachedAt || 0) < oldestAt) {
         oldestAt = entry.cachedAt || 0;
         oldestKey = key;
       }
     }
     if (!oldestKey) break;
-    view.wechatMaterialCoverAssetCache.delete(oldestKey);
+    cache.delete(oldestKey);
   }
 }
 
+/**
+ * @param {BridgeAssetLike} cachedAsset
+ * @param {string} id
+ * @returns {BridgeAssetLike}
+ */
 function cloneMaterialCoverAsset(cachedAsset, id) {
   return {
     id,
@@ -175,7 +443,14 @@ function cloneMaterialCoverAsset(cachedAsset, id) {
   };
 }
 
-async function downloadMaterialCoverAsBridgeAsset(view, coverUrl, assets = []) {
+/**
+ * @param {PublishViewLike} view
+ * @param {unknown} coverUrl
+ * @param {BridgeAssetLike[]} [assets]
+ * @param {PublishModalOptionsLike} [options]
+ */
+async function downloadMaterialCoverAsBridgeAsset(view, coverUrl, assets = [], options = {}) {
+  const viewRecord = toRecord(view);
   const url = String(coverUrl || '').trim();
   if (!/^https?:\/\//i.test(url)) {
     throw new Error('微信素材库封面缺少可下载 URL，无法用于多平台发布。请改用本地封面或 frontmatter cover。');
@@ -184,7 +459,8 @@ async function downloadMaterialCoverAsBridgeAsset(view, coverUrl, assets = []) {
   const now = Date.now();
   const cacheKey = getMaterialCoverAssetCacheKey(view, url);
   pruneMaterialCoverAssetCache(view, now);
-  const cached = view.wechatMaterialCoverAssetCache?.get(cacheKey);
+  const cache = /** @type {Map<string, MaterialCoverCacheEntryLike>} */ (viewRecord.wechatMaterialCoverAssetCache);
+  const cached = cache.get(cacheKey);
   if (cached && now - cached.cachedAt < MATERIAL_COVER_ASSET_TTL_MS) {
     const id = `image-${assets.length + 1}`;
     const asset = cloneMaterialCoverAsset(cached.asset, id);
@@ -198,14 +474,17 @@ async function downloadMaterialCoverAsBridgeAsset(view, coverUrl, assets = []) {
 
   let response;
   try {
-    response = await obsidian.requestUrl({ url, method: 'GET' });
+    const requestUrl = options.requestUrl;
+    if (typeof requestUrl !== 'function') {
+      throw new Error('Obsidian requestUrl is unavailable');
+    }
+    response = await requestUrl({ url, method: 'GET' });
   } catch (error) {
-    throw new Error(`微信素材库封面下载失败：${error.message || String(error)}`);
+    throw new Error(`微信素材库封面下载失败：${toReadableError(error).message}`);
   }
 
-  const arrayBuffer = typeof response?.arrayBuffer === 'function'
-    ? await response.arrayBuffer()
-    : response?.arrayBuffer;
+  const responseRecord = toRecord(response);
+  const arrayBuffer = await getResponseArrayBuffer(response);
   const buffer = bufferFromArrayBuffer(arrayBuffer);
   if (!buffer.length) {
     throw new Error('微信素材库封面下载失败：图片内容为空。');
@@ -214,7 +493,7 @@ async function downloadMaterialCoverAsBridgeAsset(view, coverUrl, assets = []) {
     throw new Error(`微信素材库封面超过 ${Math.round(DEFAULT_MAX_IMAGE_SIZE_BYTES / 1024 / 1024)} MB，无法用于多平台发布。`);
   }
 
-  const headers = response?.headers || {};
+  const headers = toRecord(responseRecord.headers);
   const mimeType = String(headers['content-type'] || headers['Content-Type'] || 'image/jpeg').split(';')[0].trim() || 'image/jpeg';
   if (!/^image\/(png|jpe?g|gif|webp)$/i.test(mimeType)) {
     throw new Error(`微信素材库封面格式不支持：${mimeType}`);
@@ -231,12 +510,11 @@ async function downloadMaterialCoverAsBridgeAsset(view, coverUrl, assets = []) {
     source: {
       kind: 'wechat-material-cover',
       originalSrc: url,
-      thumbMediaId: view.sessionThumbMediaId || '',
+      thumbMediaId: toText(viewRecord.sessionThumbMediaId),
     },
   };
   assets.push(asset);
-  if (!view.wechatMaterialCoverAssetCache) view.wechatMaterialCoverAssetCache = new Map();
-  view.wechatMaterialCoverAssetCache.set(cacheKey, {
+  cache.set(cacheKey, {
     cachedAt: now,
     asset: {
       filename,
@@ -254,73 +532,120 @@ async function downloadMaterialCoverAsBridgeAsset(view, coverUrl, assets = []) {
   };
 }
 
+/**
+ * @param {PublishModalLike} modal
+ * @param {Set<string>} defaultSelectedPlatforms
+ * @returns {Set<string>}
+ */
 function getModalSelectedPlatformIds(modal, defaultSelectedPlatforms) {
-  if (!Array.isArray(modal?.[MODAL_SELECTED_PLATFORM_IDS])) {
+  if (!Array.isArray(modal[MODAL_SELECTED_PLATFORM_IDS])) {
     modal[MODAL_SELECTED_PLATFORM_IDS] = Array.from(defaultSelectedPlatforms);
   }
   return new Set(parseWechatsyncPlatformIds(modal[MODAL_SELECTED_PLATFORM_IDS]));
 }
 
+/**
+ * @param {PublishModalLike} modal
+ * @param {Set<string>} selectedPlatforms
+ */
 function saveModalSelectedPlatformIds(modal, selectedPlatforms) {
-  if (!modal) return;
   modal[MODAL_SELECTED_PLATFORM_IDS] = Array.from(selectedPlatforms);
 }
 
+/**
+ * @param {BridgeLike | null | undefined} bridge
+ * @param {ConnectionLike} [cachedConnection]
+ * @returns {Promise<Record<string, unknown>>}
+ */
 async function detectQuotaPolicySupport(bridge, cachedConnection = {}) {
-  const cachedCapabilities = normalizeWechatSyncCapabilities(cachedConnection.capabilities || {});
+  const cachedCapabilities = normalizeWechatSyncCapabilities(toRecord(cachedConnection.capabilities));
   if (cachedCapabilities.quotaPolicy === true) return cachedCapabilities;
   if (!bridge || typeof bridge.health !== 'function') return cachedCapabilities;
 
   try {
     const health = await bridge.health({ timeoutMs: 5000 });
+    const healthRecord = toRecord(health);
     return {
       ...cachedCapabilities,
-      ...normalizeWechatSyncCapabilities(health?.capabilities || {}),
+      ...normalizeWechatSyncCapabilities(toRecord(healthRecord.capabilities)),
     };
   } catch (error) {
-    if (isWechatSyncUnsupportedMethodError(error)) return cachedCapabilities;
+    if (isUnsupportedBridgeError(error)) return cachedCapabilities;
+    const readableError = toReadableError(error);
     console.debug?.('[Wechatsync] quota feature detection skipped', {
-      code: error?.code,
-      message: error?.message || String(error),
+      code: readableError.code,
+      message: readableError.message,
     });
     return cachedCapabilities;
   }
 }
 
+/**
+ * @param {PublishViewLike} view
+ * @param {ConnectionLike} [cachedConnection]
+ * @returns {Record<string, unknown>}
+ */
 function resolvePublishModalCapabilities(view, cachedConnection = {}) {
-  const cachedCapabilities = normalizeWechatSyncCapabilities(cachedConnection.capabilities || {});
-  const bridge = view?.plugin?.getWechatSyncBridgeService?.();
-  const activeClient = typeof bridge?.getActiveClientDescriptor === 'function'
+  const cachedCapabilities = normalizeWechatSyncCapabilities(toRecord(cachedConnection.capabilities));
+  const bridge = /** @type {BridgeLike} */ (view.plugin.getWechatSyncBridgeService());
+  const activeClient = typeof bridge.getActiveClientDescriptor === 'function'
     ? bridge.getActiveClientDescriptor()
     : null;
-  if (activeClient?.capabilities) {
+  const activeClientRecord = toRecord(activeClient);
+  if (activeClientRecord.capabilities) {
     return {
       ...cachedCapabilities,
-      ...normalizeWechatSyncCapabilities(activeClient.capabilities),
+      ...normalizeWechatSyncCapabilities(toRecord(activeClientRecord.capabilities)),
     };
   }
 
-  const status = typeof bridge?.getStatus === 'function' ? bridge.getStatus() : null;
-  const liveClient = Array.isArray(status?.connectedClients)
-    ? status.connectedClients.find((client) => client?.status === 'connected' && client.capabilities)
-    : null;
+  const status = typeof bridge.getStatus === 'function' ? toRecord(bridge.getStatus()) : {};
+  const connectedClients = toRecordList(status.connectedClients);
+  const liveClient = connectedClients.find((client) => client.status === 'connected' && client.capabilities);
+  const liveClientRecord = toRecord(liveClient);
   return {
     ...cachedCapabilities,
-    ...normalizeWechatSyncCapabilities(liveClient?.capabilities || {}),
+    ...normalizeWechatSyncCapabilities(toRecord(liveClientRecord.capabilities)),
   };
 }
 
+/**
+ * @param {PublishViewLike} view
+ * @param {PublishModalOptionsLike} [options]
+ * @returns {ObsidianApiLike}
+ */
+/**
+ * @param {PublishViewLike} view
+ * @param {PublishModalOptionsLike} [options]
+ * @returns {ObsidianApiLike}
+ */
+function getObsidianApi(view, options = {}) {
+  return /** @type {ObsidianApiLike} */ (options.obsidianApi
+    || view.plugin.obsidianApi
+    || getActiveWindowValue('obsidian')
+    || {});
+}
+
+/**
+ * @param {PublishViewLike} view
+ * @param {PublishModalOptionsLike} [options]
+ * @returns {Promise<void>}
+ */
 async function showMultiPlatformPublishModal(view, options = {}) {
+  const obsidian = getObsidianApi(view, options);
+  const { Notice, Platform } = obsidian;
   if (!view.currentHtml) {
     new Notice(view.getMissingRenderNotice());
     return;
   }
 
   const modal = options.modal || new obsidian.Modal(view.app);
+  modal.contentEl = asModalElement(modal.contentEl);
   const shouldOpenModal = !options.modal;
-  const mobileSync = isMobileClient(view.app);
-  const bridgeSettings = normalizeMultiPlatformSyncSettings(view.plugin.settings.multiPlatformSync);
+  const mobileSync = isMobileClient(view.app, Platform);
+  const bridgeSettings = normalizeMultiPlatformSyncSettings(toRecord(view.plugin.settings.multiPlatformSync));
   const cachedConnection = bridgeSettings.connection || normalizeMultiPlatformConnection();
+  const cachedConnectionRecord = toRecord(cachedConnection);
   view.preparePublishModalShell(modal, { mode: 'multi', mobileSync });
 
   const { wechatTab } = view.createPublishModeTabs(modal, 'multi');
@@ -328,16 +653,16 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     view.showSyncModal({ modal });
   };
 
-  const intro = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-intro' });
-  const introText = intro.createDiv({ cls: 'wechat-multiplatform-intro-text' });
+  const intro = asModalElement(modal.contentEl.createDiv({ cls: 'wechat-multiplatform-intro' }));
+  const introText = asModalElement(intro.createDiv({ cls: 'wechat-multiplatform-intro-text' }));
   introText.createEl('p', {
     text: '选择平台后通过浏览器插件保存为草稿。',
   });
   const publishModalCapabilities = resolvePublishModalCapabilities(view, cachedConnection);
   const isProLicensed = publishModalCapabilities.proLicensed === true;
-  const quotaHint = modal.contentEl.createDiv({
+  const quotaHint = asModalElement(modal.contentEl.createDiv({
     cls: `wechat-multiplatform-quota-hint ${isProLicensed ? 'is-pro' : 'is-free'}`,
-  });
+  }));
   if (isProLicensed) {
     quotaHint.createEl('span', {
       text: 'Pro',
@@ -354,55 +679,56 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     text: getQuotaHintText(0, { proLicensed: isProLicensed }),
   });
   if (!isProLicensed) {
-    const quotaUpgradeBtn = quotaHint.createEl('button', {
+    const quotaUpgradeBtn = asModalElement(quotaHint.createEl('button', {
       text: '升级 Pro',
       cls: 'wechat-multiplatform-quota-link',
-    });
+    }));
     quotaUpgradeBtn.onclick = () => openPublisherProPage(view);
   }
 
   if (!bridgeSettings.enabled) {
-    const disabledHint = modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' });
+    const disabledHint = asModalElement(modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' }));
     disabledHint.createEl('h3', { text: '尚未启用浏览器插件发布' });
     disabledHint.createEl('p', { text: '请先安装浏览器插件，再到设置中启用浏览器插件发布、测试连接并选择平台。免费版每天可发布到 3 个平台。' });
-    const settingsBtn = disabledHint.createEl('button', { text: '去设置', cls: 'mod-cta' });
+    const settingsBtn = asModalElement(disabledHint.createEl('button', { text: '去设置', cls: 'mod-cta' }));
     settingsBtn.onclick = () => {
       modal.close();
       if (!view.openPluginSettings()) {
         new Notice('请在设置中打开 Obsidian 发布助手并开启浏览器插件发布');
       }
     };
-    const guideBtn = disabledHint.createEl('button', { text: '安装浏览器插件教程' });
+    const guideBtn = asModalElement(disabledHint.createEl('button', { text: '安装浏览器插件教程' }));
     guideBtn.onclick = () => openPublisherGuidePage(view, 'install-extension');
     if (shouldOpenModal) modal.open();
     return;
   }
 
-  const availablePlatforms = getAvailableWechatsyncPlatforms(bridgeSettings);
+  const availablePlatforms = toRecordList(getAvailableWechatsyncPlatforms(bridgeSettings));
   const defaultSelectedPlatforms = new Set(
     parseWechatsyncPlatformIds(bridgeSettings.selectedPlatforms || [])
   );
   // 只显示插件设置中已勾选的平台
-  const displayedPlatforms = availablePlatforms.filter((p) => defaultSelectedPlatforms.has(p.id));
-  const isBridgeReady = cachedConnection.status === 'connected';
+  const displayedPlatforms = availablePlatforms.filter((p) => defaultSelectedPlatforms.has(getPlatformId(p)));
+  const isBridgeReady = cachedConnectionRecord.status === 'connected';
   const modalSelectedPlatforms = getModalSelectedPlatformIds(modal, defaultSelectedPlatforms);
 
   {
-    const description = describeWechatsyncConnectionState(cachedConnection, { variant: 'modal' });
+    const description = describeWechatsyncConnectionState(cachedConnectionRecord, { variant: 'modal' });
     renderWechatsyncConnectionStatusBar(modal.contentEl, description);
   }
-  const platformListEl = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-list' });
+  const platformListEl = asModalElement(modal.contentEl.createDiv({ cls: 'wechat-multiplatform-list' }));
+  /** @type {Set<string>} */
   const selectedPlatforms = new Set();
   console.debug('[Wechatsync] render cached platform state', {
-    status: cachedConnection.status,
-    checkedAt: cachedConnection.checkedAt,
-    message: cachedConnection.message,
-    ...summarizeWechatsyncPlatformResponse(cachedConnection.platforms),
+    status: cachedConnectionRecord.status,
+    checkedAt: cachedConnectionRecord.checkedAt,
+    message: cachedConnectionRecord.message,
+    ...summarizeWechatsyncPlatformResponse(cachedConnectionRecord.platforms),
   });
 
-  const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
-  const cancelBtn = btnRow.createEl('button', { text: '取消' });
-  const syncBtn = btnRow.createEl('button', { text: '发送到浏览器插件', cls: 'mod-cta' });
+  const btnRow = asModalElement(modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' }));
+  const cancelBtn = asModalElement(btnRow.createEl('button', { text: '取消' }));
+  const syncBtn = asModalElement(btnRow.createEl('button', { text: '发送到浏览器插件', cls: 'mod-cta' }));
   syncBtn.disabled = true;
   syncBtn.addClass?.('apple-btn-disabled');
   cancelBtn.onclick = () => modal.close();
@@ -421,15 +747,19 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     updateQuotaHintText();
   };
 
+  /**
+   * @param {Record<string, unknown>[]} [platforms]
+   */
   const renderPlatforms = (platforms = []) => {
     platformListEl.empty();
     selectedPlatforms.clear();
     const normalizedPlatforms = platforms
       .map((platform) => normalizeWechatsyncPlatform(platform))
-      .filter(Boolean);
+      .map(toNormalizedPlatform)
+      .filter((platform) => platform !== null);
 
     if (normalizedPlatforms.length === 0) {
-      const empty = platformListEl.createDiv({ cls: 'wechat-multiplatform-state' });
+      const empty = asModalElement(platformListEl.createDiv({ cls: 'wechat-multiplatform-state' }));
       empty.createEl('div', { text: '还没有可分发的平台', cls: 'wechat-multiplatform-state-title' });
       empty.createEl('p', { text: '请先连接浏览器插件，或稍后重试读取平台清单。' });
       updateSyncButtonState();
@@ -437,25 +767,25 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     }
 
     for (const platform of normalizedPlatforms) {
-      const authInfo = getWechatsyncPlatformStatusBadge(platform, { bridgeConnected: isBridgeReady });
+      const authBadge = toPlatformStatusBadge(getWechatsyncPlatformStatusBadge(platform, { bridgeConnected: isBridgeReady }));
       const isSelected = isBridgeReady && modalSelectedPlatforms.has(platform.id);
-      const row = platformListEl.createDiv({
-        cls: `wechat-multiplatform-platform ${isSelected ? `${authInfo.cls} is-selected` : ''} ${!isBridgeReady ? 'is-disabled' : ''}`.trim(),
-      });
-      row.setAttribute('title', isSelected ? `${platform.name} · ${authInfo.text}` : platform.name);
-      const checkbox = row.createEl('input');
+      const row = asModalElement(platformListEl.createDiv({
+        cls: `wechat-multiplatform-platform ${isSelected ? `${authBadge.cls} is-selected` : ''} ${!isBridgeReady ? 'is-disabled' : ''}`.trim(),
+      }));
+      row.setAttribute('title', isSelected ? `${platform.name} · ${authBadge.text}` : platform.name);
+      const checkbox = asModalElement(row.createEl('input'));
       checkbox.type = 'checkbox';
       checkbox.value = platform.id;
       checkbox.checked = isSelected;
       checkbox.disabled = !isBridgeReady;
       if (isSelected) selectedPlatforms.add(platform.id);
-      const label = row.createEl('label', { cls: 'wechat-multiplatform-platform-label' });
+      const label = asModalElement(row.createEl('label', { cls: 'wechat-multiplatform-platform-label' }));
       label.createEl('span', { text: platform.name, cls: 'wechat-multiplatform-platform-name' });
-      const statusEl = label.createEl('span', {
-        text: authInfo.text,
-        cls: `wechat-multiplatform-platform-status ${authInfo.cls}`,
-      });
-      statusEl.setAttribute('title', authInfo.text);
+      const statusEl = asModalElement(label.createEl('span', {
+        text: authBadge.text,
+        cls: `wechat-multiplatform-platform-status ${authBadge.cls}`,
+      }));
+      statusEl.setAttribute('title', authBadge.text);
       const setStatusVisible = (visible) => {
         for (const cls of ['is-ok', 'is-error', 'is-unknown', 'is-bridge']) {
           row.removeClass?.(cls);
@@ -463,14 +793,14 @@ async function showMultiPlatformPublishModal(view, options = {}) {
           statusEl.removeClass?.(cls);
           statusEl.classList?.remove(cls);
         }
-        statusEl.textContent = authInfo.text;
+        statusEl.textContent = authBadge.text;
         if (visible) {
-          row.addClass?.(authInfo.cls);
-          row.classList?.add(authInfo.cls);
-          statusEl.addClass?.(authInfo.cls);
-          statusEl.classList?.add(authInfo.cls);
+          row.addClass?.(authBadge.cls);
+          row.classList?.add(authBadge.cls);
+          statusEl.addClass?.(authBadge.cls);
+          statusEl.classList?.add(authBadge.cls);
         }
-        row.setAttribute('title', visible ? `${platform.name} · ${authInfo.text}` : platform.name);
+        row.setAttribute('title', visible ? `${platform.name} · ${authBadge.text}` : platform.name);
       };
       label.onclick = () => {
         if (!checkbox.disabled) checkbox.click();
@@ -481,10 +811,10 @@ async function showMultiPlatformPublishModal(view, options = {}) {
           row.addClass?.('is-selected');
           row.classList?.add('is-selected');
           setStatusVisible(true);
-          if (authInfo.status === 'login_required') {
+          if (authBadge.status === 'login_required') {
             new Notice(`${platform.name} 上次状态为需登录。请先在浏览器插件打开平台登录页，或继续尝试由插件返回实际结果。`, 8000);
           }
-          if (authInfo.status === 'unknown') {
+          if (authBadge.status === 'unknown') {
             new Notice(`${platform.name} 此前未检测，发布结果以浏览器插件实际执行为准。`, 6000);
           }
         } else {
@@ -526,10 +856,10 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     const sendStartedAt = Date.now();
     const requestedPlatformIds = Array.from(selectedPlatforms);
     try {
-      const resolvedImages = await resolveArticleImages(rawMarkdown, activeFile, {
+      const resolvedImages = toResolvedImages(await resolveArticleImages(rawMarkdown, activeFile, {
         app: view.app,
         cover: rawCover,
-      });
+      }));
       if (resolvedImages.warnings?.length) {
         throw new Error(`本地图片处理失败：${formatArticleImageWarnings(resolvedImages.warnings)}`);
       }
@@ -541,7 +871,9 @@ async function showMultiPlatformPublishModal(view, options = {}) {
         || (/^(https?:\/\/|data:image\/)/i.test(fallbackCover || '') ? fallbackCover : '')
         || '';
       if (selectedWechatMaterialCover) {
-        const materialCover = await downloadMaterialCoverAsBridgeAsset(view, view.sessionCoverBase64, assets);
+        const materialCover = await downloadMaterialCoverAsBridgeAsset(view, view.sessionCoverBase64, assets, {
+          requestUrl: obsidian.requestUrl,
+        });
         cover = materialCover.cover;
       }
       // Bridge flow: do NOT inline base64 (assets[] carries bytes
@@ -575,7 +907,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
       // first paint. coverThumbnail short-circuits that: a ≤8KB JPEG data
       // URL the extension can drop straight into <img src>. Purely
       // additive — older extensions just ignore the field.
-      const coverAsset = findAssetForCover(cover, assets);
+      const coverAsset = toBridgeAsset(findAssetForCover(cover, assets));
       const coverThumbnail = coverAsset
         ? await view.generateCoverThumbnailFromAsset(coverAsset)
         : '';
@@ -594,10 +926,11 @@ async function showMultiPlatformPublishModal(view, options = {}) {
       });
       const bridge = view.plugin.getWechatSyncBridgeService();
       const detectedCapabilities = await detectQuotaPolicySupport(bridge, cachedConnection);
+      /** @type {EnqueueResultLike | null} */
       let result = null;
       let usedFallbackSend = false;
       try {
-        result = await bridge.enqueueSyncArticle({
+        result = toEnqueueResult(await bridge.enqueueSyncArticle({
           platforms: requestedPlatformIds,
           title,
           markdown,
@@ -607,12 +940,12 @@ async function showMultiPlatformPublishModal(view, options = {}) {
           assets,
           source: 'obsidian',
           quotaPolicy: QUOTA_POLICY,
-        });
+        }));
       } catch (enqueueError) {
-        if (!isWechatSyncUnsupportedMethodError(enqueueError)) throw enqueueError;
+        if (!isUnsupportedBridgeError(enqueueError)) throw enqueueError;
         usedFallbackSend = true;
         console.warn('[Wechatsync] enqueueSyncArticle unsupported, falling back to one-way syncArticle', enqueueError);
-        result = await bridge.sendArticle({
+        result = toEnqueueResult(await bridge.sendArticle({
           platforms: requestedPlatformIds,
           title,
           markdown,
@@ -621,7 +954,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
           coverThumbnail,
           assets,
           quotaPolicy: QUOTA_POLICY,
-        });
+        }));
       }
       console.info('[Wechatsync] enqueueSyncArticle accepted', {
         elapsedMs: Date.now() - sendStartedAt,
@@ -636,17 +969,18 @@ async function showMultiPlatformPublishModal(view, options = {}) {
         supportsQuotaPolicy: detectedCapabilities.quotaPolicy === true,
       });
       const currentMultiPlatformSettings = normalizeMultiPlatformSyncSettings(view.plugin.settings.multiPlatformSync);
+      const connectionRecord = toRecord(currentMultiPlatformSettings.connection);
       if (result?.accepted === false) {
         notice.hide();
         modal.close();
         view.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
           ...currentMultiPlatformSettings,
           connection: {
-            ...currentMultiPlatformSettings.connection,
+            ...connectionRecord,
             status: 'connected',
             checkedAt: Date.now(),
             capabilities: {
-              ...(currentMultiPlatformSettings.connection?.capabilities || {}),
+              ...toRecord(connectionRecord.capabilities),
               ...detectedCapabilities,
             },
             message: result?.message || '浏览器插件已拒绝本次发布。',
@@ -663,17 +997,11 @@ async function showMultiPlatformPublishModal(view, options = {}) {
       const taskSnapshot = result?.syncId
         ? await view.getWechatsyncTaskSnapshot(bridge, result.syncId)
         : null;
-      const immediateResults = normalizeWechatSyncResponseResults(result);
-      const taskResults = Array.isArray(taskSnapshot?.platforms)
-        ? taskSnapshot.platforms.map((item) => ({
-          platform: item?.id || item?.platform,
-          platformName: item?.name,
-          success: item?.success === true || item?.status === 'success',
-          error: item?.error || item?.message || '',
-        }))
-        : [];
+      const immediateResults = toUnknownList(normalizeWechatSyncResponseResults(result));
+      const taskSnapshotRecord = toRecord(taskSnapshot);
+      const taskResults = toTaskResults(taskSnapshotRecord.platforms);
       const cachedPlatformsAfterSync = updateCachedPlatformsAfterSync(
-        currentMultiPlatformSettings.connection?.platforms || [],
+        toRecordList(connectionRecord.platforms),
         immediateResults.length ? immediateResults : taskResults
       );
       notice.hide();
@@ -683,24 +1011,22 @@ async function showMultiPlatformPublishModal(view, options = {}) {
           {
             syncId: result.syncId,
             title,
-            platforms: Array.isArray(result?.publishedPlatforms) && result.publishedPlatforms.length
-              ? result.publishedPlatforms
-              : (Array.isArray(result?.platforms) && result.platforms.length ? result.platforms : requestedPlatformIds),
+            platforms: getRecentTaskPlatforms(result, requestedPlatformIds),
             createdAt: Date.now(),
           },
-          ...(currentMultiPlatformSettings.recentTasks || []),
+          ...toUnknownList(currentMultiPlatformSettings.recentTasks),
         ])
         : currentMultiPlatformSettings.recentTasks;
       view.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
         ...currentMultiPlatformSettings,
         recentTasks: nextRecentTasks,
         connection: {
-          ...currentMultiPlatformSettings.connection,
+          ...connectionRecord,
           status: 'connected',
           checkedAt: Date.now(),
           platforms: cachedPlatformsAfterSync,
           capabilities: {
-            ...(currentMultiPlatformSettings.connection?.capabilities || {}),
+            ...toRecord(connectionRecord.capabilities),
             ...detectedCapabilities,
           },
           message: '',
@@ -717,25 +1043,26 @@ async function showMultiPlatformPublishModal(view, options = {}) {
       });
     } catch (error) {
       notice.hide();
+      const readableError = toReadableError(error);
       console.error('[Wechatsync] enqueueSyncArticle failed', {
         elapsedMs: Date.now() - sendStartedAt,
-        code: error?.code,
-        message: error?.message || String(error),
-        stack: error?.stack,
+        code: readableError.code,
+        message: readableError.message,
+        stack: readableError.stack,
         requestedPlatformIds,
       });
       // §4.1: surface EXTENSION_NOT_AUTHENTICATED with a dedicated message
       // so users know the extension is reachable but failed the handshake,
       // rather than reusing the generic "connection failed" copy.
-      const displayMessage = error?.code === 'EXTENSION_NOT_AUTHENTICATED'
+      const displayMessage = readableError.code === 'EXTENSION_NOT_AUTHENTICATED'
         ? '浏览器插件已连接但未通过握手认证。如果你刚刚在浏览器插件设置中重置过令牌，请到本插件的"多平台同步"设置页粘贴新令牌；否则请确认插件已升级到支持安全握手的版本。'
-        : (error?.message || '浏览器插件连接失败');
-      if (isWechatSyncConnectionFailure(error)) {
+        : (readableError.message || '浏览器插件连接失败');
+      if (isWechatSyncConnectionFailure(readableError)) {
         const currentMultiPlatformSettings = normalizeMultiPlatformSyncSettings(view.plugin.settings.multiPlatformSync);
         view.plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
           ...currentMultiPlatformSettings,
           connection: {
-            ...currentMultiPlatformSettings.connection,
+            ...toRecord(currentMultiPlatformSettings.connection),
             status: 'failed',
             checkedAt: Date.now(),
             message: displayMessage,
@@ -757,4 +1084,4 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   if (shouldOpenModal) modal.open();
 }
 
-module.exports = { showMultiPlatformPublishModal };
+export { showMultiPlatformPublishModal };

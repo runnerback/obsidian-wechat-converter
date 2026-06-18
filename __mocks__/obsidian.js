@@ -20,6 +20,9 @@ if (!globalThis.__obsidianButtonRegistry) {
 if (!globalThis.__obsidianModalRegistry) {
   globalThis.__obsidianModalRegistry = [];
 }
+if (!globalThis.__obsidianNoticeRegistry) {
+  globalThis.__obsidianNoticeRegistry = [];
+}
 
 // Sentinel exposed on globalThis so tests can assert that the resolver patch
 // is wired up correctly: `expect(globalThis.__obsidianMockLoaded).toBe(true)`.
@@ -204,6 +207,7 @@ module.exports = {
     constructor(message = '', duration = 0) {
       this.message = message;
       this.duration = duration;
+      globalThis.__obsidianNoticeRegistry.push({ message, duration, instance: this });
     }
     setMessage(message) { this.message = message; }
     hide() { this.hidden = true; }

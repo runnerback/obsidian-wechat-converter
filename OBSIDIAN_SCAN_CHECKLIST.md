@@ -10,7 +10,15 @@ Run this before merging a feature branch or preparing a release candidate:
 npm run review:guard
 ```
 
-The guard runs lint, production build, generated-artifact checks, the full Vitest suite, release packaging, and release validation. If it fails, fix the failure instead of bypassing the guard.
+The guard runs the scan-risk gate, lint, production build, generated-artifact checks, the full Vitest suite, release packaging, and release validation. If it fails, fix the failure instead of bypassing the guard.
+
+For faster local feedback while developing, run:
+
+```bash
+npm run scan:guard
+```
+
+That catches the high-risk Obsidian scan patterns early without paying the full release packaging cost.
 
 For focused local work, run the smaller loop first:
 
@@ -26,6 +34,7 @@ Review every new usage of these APIs before committing:
 
 - `innerHTML`, `outerHTML`, `insertAdjacentHTML`: prefer DOM APIs or existing helpers. If rendered HTML must be assigned, add a narrow `eslint-disable-next-line @microsoft/sdl/no-inner-html -- reason` comment that explains why the input is already sanitized or trusted.
 - Static style assignment: do not use `element.style.foo = ...` for static UI styles. Use `setCssStyles(element, { ... })` or the Obsidian element extension `element.setCssStyles({ ... })`.
+- Stylesheet `!important`: do not add `!important` in CSS files. Increase selector specificity, use CSS variables, or keep unavoidable compatibility styles inside already-sanitized rendered HTML with focused tests.
 - `confirm()`, `alert()`, `prompt()`: use an Obsidian `Modal` or `Notice` instead.
 - Clipboard fallback: do not remove the rich HTML `execCommand('copy')` fallback without manual regression coverage in Obsidian/Electron and mobile-like environments.
 - `fetch(data:)`: parse `data:` URLs locally instead of fetching them.

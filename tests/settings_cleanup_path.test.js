@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-const { AppleStyleSettingTab } = require('../input.js');
+const { loadInputModule } = require('./helpers/input-module.cjs');
+const { AppleStyleSettingTab } = loadInputModule();
 
 describe('AppleStyleSettingTab - Cleanup Path Normalize', () => {
   it('should normalize vault-relative cleanup path safely', () => {

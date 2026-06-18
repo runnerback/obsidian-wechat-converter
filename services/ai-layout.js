@@ -1,4 +1,4 @@
-const {
+import {
   AI_LAYOUT_SKILL_VERSION,
   AI_LAYOUT_SELECTION_AUTO,
   AI_LAYOUT_FAMILIES,
@@ -11,8 +11,47 @@ const {
   getAiLayoutSkillList,
   getAiLayoutSharedResources,
   validateAiLayoutPayload,
-} = require('./ai-layout-skill-bundle');
-const { createHtmlContainer } = require('./dom-utils');
+} from './ai-layout-skill-bundle.js';
+import { createHtmlContainer, getActiveDocument } from './dom-utils.js';
+
+/**
+ * @typedef {{ type: string, fields: string[] }} AiLayoutBlockDefinition
+ * @typedef {{ id: string, label: string, description?: string, recommendedFor?: string[], tokens?: Record<string, string> }} AiLayoutColorPalette
+ * @typedef {{ id: string, label?: string, description?: string, version?: string }} AiLayoutSkillManifest
+ * @typedef {{ id: string, label: string, description?: string, version?: string, manifest: AiLayoutSkillManifest, prompt: string, blocks: unknown, fallback: unknown }} AiLayoutSkill
+ * @typedef {{ typography?: Record<string, unknown>, image?: Record<string, unknown>, profiles?: Record<string, Record<string, unknown>>, sectionLabels?: Record<string, string>, allowedCssNotes?: unknown[] }} AiLayoutStylePrimitives
+ * @typedef {{ version?: string, colorPalettes?: { colorPalettes?: AiLayoutColorPalette[] }, blockCatalog?: { blocks?: AiLayoutBlockDefinition[], outputFields?: string[] }, wechatSafeStylePrimitives?: AiLayoutStylePrimitives, schema?: Record<string, unknown>, template?: Record<string, unknown> }} AiLayoutSharedResources
+ * @typedef {{ layoutFamily?: string, layout?: string, family?: string, colorPalette?: string, palette?: string, stylePack?: string }} AiLayoutSelectionLike
+ * @typedef {{ layoutFamily?: string, colorPalette?: string }} AiLayoutResolvedSelectionLike
+ * @typedef {{ baseUrl?: string, apiKey?: string, model?: string, id?: string, kind?: string, name?: string, enabled?: boolean }} AiProviderLike
+ * @typedef {{ customColor?: string, accentColor?: string, accent?: string }} AiColorPaletteOverride
+ * @typedef {{ path?: string, message?: string, fatal?: boolean }} AiLayoutSchemaIssue
+ * @typedef {{ isValid?: boolean, fatal?: boolean, issueCount?: number, issues?: AiLayoutSchemaIssue[] }} AiLayoutSchemaValidationLike
+ * @typedef {{ index?: number, type?: string, source?: 'ai' | 'fallback', label?: string }} AiLayoutBlockOriginLike
+ * @typedef {{ providerName?: string, providerModel?: string, skillId?: string, skillLabel?: string, skillVersion?: string, executionMode?: string, layoutFamilyLabel?: string, colorPaletteLabel?: string, stylePackLabel?: string, recommendedLayoutFamilyLabel?: string, recommendedColorPaletteLabel?: string, headingCount?: number, sectionCount?: number, leadParagraphCount?: number, bulletGroupCount?: number, imageCount?: number, aiBlockCount?: number, finalBlockCount?: number, fallbackUsed?: boolean, fallbackBlockCount?: number, fallbackBlockTypes?: string[], schemaValidation?: AiLayoutSchemaValidationLike, blockOrigins?: AiLayoutBlockOriginLike[] } AiLayoutGenerationMetaLike
+ * @typedef {{ version?: number, updatedAt?: number, sourceHash?: string, providerId?: string, model?: string, skillId?: string, skillVersion?: string, selection?: AiLayoutSelectionLike, resolved?: AiLayoutResolvedSelectionLike, recommendedLayoutFamily?: string, recommendedColorPalette?: string, stylePack?: string, layoutFamily?: string, status?: 'ready'|'error'|'schema-error', lastError?: string, lastAttemptStatus?: 'idle'|'success'|'error'|'schema-error', lastAttemptError?: string, lastAttemptAt?: number, lastAttemptSchemaValidation?: AiLayoutSchemaValidationLike, dismissedBlockKeys?: string[], generationMeta?: AiLayoutGenerationMetaLike, layoutJson?: Record<string, unknown> } AiLayoutStateLike
+ * @typedef {{ type?: string, label?: string, text?: string, title?: string, summary?: string, caseLabel?: string, highlight?: string, note?: string, imageId?: string, coverImageId?: string, variant?: string, eyebrow?: string, subtitle?: string, sectionIndex?: number|string, sectionLabel?: string, headingLevel?: number, paragraphs?: string[], bulletGroups?: string[][], bullets?: string[], callouts?: AiLayoutCalloutLike[], imageIds?: string[], items?: Array<{ label?: string, text?: string, title?: string }>, subsections?: AiLayoutSubsectionLike[], quote?: string }} AiLayoutBlockLike
+ * @typedef {{ type?: string, title?: string, body?: string }} AiLayoutCalloutLike
+ * @typedef {{ title?: string, heading?: string, level?: number, paragraphs?: string[], bulletGroups?: string[][], callouts?: AiLayoutCalloutLike[] }} AiLayoutSubsectionLike
+ * @typedef {{ title?: string, heading?: string, index?: number|string, level?: number, paragraphs?: string[], bulletGroups?: string[][], callouts?: AiLayoutCalloutLike[], subsections?: AiLayoutSubsectionLike[] }} AiLayoutSourceSectionLike
+ * @typedef {{ headings: string[], sectionTitles: string[], paragraphs: string[], leadParagraphs: string[], bulletGroups: string[][], lastParagraph: string }} MarkdownSignals
+ * @typedef {{ level: number, text: string }} MarkdownHeading
+ * @typedef {{ type: string, title: string, body: string }} MarkdownCallout
+ * @typedef {{ level?: number, title: string, paragraphs: string[], bulletGroups: string[][], callouts: MarkdownCallout[] }} MarkdownSubsection
+ * @typedef {{ index: number, level: number, title: string, paragraphs: string[], bulletGroups: string[][], callouts: MarkdownCallout[], subsections: MarkdownSubsection[] }} MarkdownSection
+ * @typedef {{ introParagraphs: string[], introBulletGroups: string[][], introCallouts: MarkdownCallout[], headings: MarkdownHeading[], sections: MarkdownSection[] }} MarkdownStructure
+ * @typedef {{ id?: string, src?: string, alt?: string, caption?: string }} AiImageRefLike
+ * @typedef {{ accent?: string, accentDeep?: string, accentSoft?: string, text?: string, muted?: string, border?: string, surface?: string, surfaceSoft?: string, quoteBg?: string }} AiColorTokens
+ * @typedef {{ articleType?: string, selection?: AiLayoutSelectionLike, resolved?: AiLayoutResolvedSelectionLike, recommendedLayoutFamily?: string, recommendedColorPalette?: string, title?: string, summary?: string, stylePack?: string, layoutFamily?: string, blocks?: AiLayoutBlockLike[] }} AiLayoutJsonLike
+ * @typedef {{ lastLayoutFamily?: string, lastAutoResolvedFamily?: string, familyStates?: Record<string, AiLayoutStateLike>, lastSelectionKey?: string, selectionStates?: Record<string, AiLayoutStateLike>, lastStylePack?: string, stylePackStates?: Record<string, AiLayoutStateLike> }} AiLayoutCacheEntryLike
+ * @typedef {{ enabled: boolean, defaultProviderId: string, defaultLayoutFamily: string, defaultColorPalette: string, defaultStylePack?: string, customColor: string, includeImagesInLayout: boolean, requestTimeoutMs: number, providers: ReturnType<typeof normalizeAiProvider>[], articleLayoutsByPath: Record<string, AiLayoutCacheEntryLike> }} AiSettingsLike
+ * @typedef {{ title?: string, leadHtml?: string, subsections?: RenderedSubsectionFragmentLike[] }} RenderedSectionFragmentLike
+ * @typedef {{ title?: string, titleKey?: string, contentHtml?: string }} RenderedSubsectionFragmentLike
+ * @typedef {{ ok: boolean, status: number, statusText?: string, text: () => Promise<string>, json: () => Promise<unknown> }} FetchResponseLike
+ * @typedef {(url: string, options: Record<string, unknown>) => Promise<FetchResponseLike>} FetchLike
+ * @typedef {typeof globalThis.fetch} GlobalFetchLike
+ * @typedef {{ provider: ReturnType<typeof normalizeAiProvider>, title?: string, markdown: string, selection?: AiLayoutSelectionLike, stylePack?: string, imageRefs?: AiImageRefLike[], timeoutMs: number, abortTimeoutMs?: number, fetchImpl: FetchLike }} AiLayoutRequestOptions
+ */
 
 const AI_LAYOUT_SCHEMA_VERSION = 1;
 
@@ -30,10 +69,15 @@ const ANTHROPIC_LAYOUT_MAX_TOKENS = 8192;
 const DEFAULT_AI_REQUEST_TIMEOUT_MS = 120000;
 const AI_LAYOUT_DEFAULT_FAMILY = 'source-first';
 const AI_LAYOUT_DEFAULT_COLOR_PALETTE = 'tech-green';
+/** @type {Set<string>} */
 const AI_LAYOUT_IMPLEMENTED_FAMILIES = new Set(AI_LAYOUT_FAMILIES);
+/** @type {Record<string, string>} */
 const AI_LAYOUT_RESERVED_FAMILY_FALLBACKS = {};
+/** @type {AiLayoutSharedResources} */
 const AI_LAYOUT_SHARED_RESOURCES = getAiLayoutSharedResources();
+/** @type {AiLayoutSkill[]} */
 const AI_LAYOUT_SKILL_LIST = getAiLayoutSkillList();
+/** @type {Record<string, AiLayoutSkill>} */
 const AI_LAYOUT_FAMILY_DEFS = AI_LAYOUT_SKILL_LIST.reduce((acc, skill) => {
   acc[skill.id] = {
     id: skill.id,
@@ -46,8 +90,9 @@ const AI_LAYOUT_FAMILY_DEFS = AI_LAYOUT_SKILL_LIST.reduce((acc, skill) => {
     fallback: skill.fallback,
   };
   return acc;
-}, {});
+}, /** @type {Record<string, AiLayoutSkill>} */ ({}));
 
+/** @type {Record<string, AiLayoutColorPalette>} */
 const AI_COLOR_PALETTES = (AI_LAYOUT_SHARED_RESOURCES.colorPalettes?.colorPalettes || []).reduce((acc, palette) => {
   acc[palette.id] = {
     id: palette.id,
@@ -57,8 +102,9 @@ const AI_COLOR_PALETTES = (AI_LAYOUT_SHARED_RESOURCES.colorPalettes?.colorPalett
     tokens: { ...(palette.tokens || {}) },
   };
   return acc;
-}, {});
+}, /** @type {Record<string, AiLayoutColorPalette>} */ ({}));
 
+/** @type {AiLayoutStylePrimitives} */
 const AI_WECHAT_SAFE_STYLE_PRIMITIVES = AI_LAYOUT_SHARED_RESOURCES.wechatSafeStylePrimitives || {
   typography: {},
   image: {},
@@ -83,21 +129,92 @@ const AI_PROVIDER_KIND_DEFAULTS = {
   },
 };
 
-function getActiveTimerApi() {
-  if (typeof window !== 'undefined' && window?.setTimeout && window?.clearTimeout) {
-    return window;
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {AiLayoutSelectionLike}
+ */
+function toSelectionRecord(value) {
+  return isRecord(value) ? /** @type {AiLayoutSelectionLike} */ (value) : {};
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+function toRecord(value) {
+  return isRecord(value) ? /** @type {Record<string, unknown>} */ (value) : {};
+}
+
+/**
+ * @param {unknown} value
+ * @returns {AiLayoutBlockLike[]}
+ */
+function toAiLayoutBlocks(value) {
+  return Array.isArray(value)
+    ? value.map((item) => /** @type {AiLayoutBlockLike} */ (toRecord(item)))
+    : [];
+}
+
+/**
+ * @param {unknown} value
+ * @returns {AiImageRefLike[]}
+ */
+function toAiImageRefs(value) {
+  return Array.isArray(value)
+    ? value.map((image) => /** @type {AiImageRefLike} */ (toRecord(image)))
+    : [];
+}
+
+/**
+ * @param {Element | null | undefined} element
+ * @param {Record<string, string | number | null | undefined>} styles
+ */
+function applyElementCssStyles(element, styles) {
+  const target = /** @type {Element & { setCssStyles?: (styles: Record<string, string | number | null | undefined>) => void }} */ (element);
+  if (!target || typeof target.setCssStyles !== 'function') return;
+  target.setCssStyles(styles);
+}
+
+/** @returns {GlobalFetchLike | undefined} */
+function getDefaultFetch() {
+  const activeWindow = typeof window !== 'undefined' ? /** @type {Window & typeof globalThis} */ (window) : null;
+  if (activeWindow && typeof activeWindow.fetch === 'function') {
+    /** @type {GlobalFetchLike} */
+    const fetchFromActiveWindow = (input, init) => activeWindow.fetch(input, init);
+    return fetchFromActiveWindow;
   }
-  return globalThis;
+  return undefined;
 }
 
+/**
+ * @param {TimerHandler} callback
+ * @param {number} delay
+ * @returns {number | null}
+ */
 function setAiLayoutTimeout(callback, delay) {
-  return getActiveTimerApi().setTimeout(callback, delay);
+  if (typeof window === 'undefined' || typeof window.setTimeout !== 'function') return null;
+  return window.setTimeout(callback, delay);
 }
 
+/**
+ * @param {number | null | undefined} timer
+ */
 function clearAiLayoutTimeout(timer) {
-  return getActiveTimerApi().clearTimeout(timer);
+  if (!timer || typeof window === 'undefined' || typeof window.clearTimeout !== 'function') return;
+  window.clearTimeout(timer);
 }
 
+/**
+ * @returns {AiSettingsLike}
+ */
 function createDefaultAiSettings() {
   return {
     enabled: true,
@@ -112,12 +229,24 @@ function createDefaultAiSettings() {
   };
 }
 
+/**
+ * @param {unknown} value
+ * @param {number} fallback
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
 function clampNumber(value, fallback, min, max) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.round(parsed)));
 }
 
+/**
+ * @param {unknown} value
+ * @param {string} [fallback='#7c3aed']
+ * @returns {string}
+ */
 function normalizeHexColor(value, fallback = '#7c3aed') {
   const raw = String(value || '').trim();
   if (/^#[0-9a-f]{6}$/i.test(raw)) return raw.toLowerCase();
@@ -125,6 +254,10 @@ function normalizeHexColor(value, fallback = '#7c3aed') {
   return fallback;
 }
 
+/**
+ * @param {unknown} hex
+ * @returns {{ r: number, g: number, b: number }}
+ */
 function hexToRgb(hex) {
   const normalized = normalizeHexColor(hex).slice(1);
   return {
@@ -134,6 +267,10 @@ function hexToRgb(hex) {
   };
 }
 
+/**
+ * @param {{ r: number, g: number, b: number }} rgb
+ * @returns {string}
+ */
 function rgbToHex({ r, g, b }) {
   return `#${[r, g, b].map((channel) => {
     const clamped = Math.max(0, Math.min(255, Math.round(channel)));
@@ -141,6 +278,12 @@ function rgbToHex({ r, g, b }) {
   }).join('')}`;
 }
 
+/**
+ * @param {unknown} color
+ * @param {unknown} target
+ * @param {number} amount
+ * @returns {string}
+ */
 function mixHexColor(color, target, amount) {
   const sourceRgb = hexToRgb(color);
   const targetRgb = hexToRgb(target);
@@ -151,6 +294,11 @@ function mixHexColor(color, target, amount) {
   });
 }
 
+/**
+ * @param {unknown} accentColor
+ * @param {{ id?: string, label?: string }} [options={}]
+ * @returns {AiLayoutColorPalette}
+ */
 function createColorPaletteFromAccent(accentColor, { id = 'custom', label = '自定义' } = {}) {
   const accent = normalizeHexColor(accentColor);
   return {
@@ -172,18 +320,33 @@ function createColorPaletteFromAccent(accentColor, { id = 'custom', label = '自
   };
 }
 
+/**
+ * @param {string | null | undefined} value
+ * @param {string} [fallback=AI_LAYOUT_SELECTION_AUTO]
+ * @returns {string}
+ */
 function normalizeLayoutFamily(value, fallback = AI_LAYOUT_SELECTION_AUTO) {
   const normalized = coerceString(value);
   if (normalized === AI_LAYOUT_SELECTION_AUTO) return AI_LAYOUT_SELECTION_AUTO;
   return AI_LAYOUT_FAMILY_DEFS[normalized] ? normalized : fallback;
 }
 
+/**
+ * @param {string | null | undefined} value
+ * @param {string} [fallback=AI_LAYOUT_SELECTION_AUTO]
+ * @returns {string}
+ */
 function normalizeColorPalette(value, fallback = AI_LAYOUT_SELECTION_AUTO) {
   const normalized = coerceString(value);
   if (normalized === AI_LAYOUT_SELECTION_AUTO) return AI_LAYOUT_SELECTION_AUTO;
   return AI_COLOR_PALETTES[normalized] ? normalized : fallback;
 }
 
+/**
+ * @param {string | null | undefined} value
+ * @param {string} [fallback=AI_LAYOUT_DEFAULT_FAMILY]
+ * @returns {string}
+ */
 function normalizeResolvedLayoutFamily(value, fallback = AI_LAYOUT_DEFAULT_FAMILY) {
   const normalized = coerceString(value);
   if (!normalized) return fallback;
@@ -194,12 +357,22 @@ function normalizeResolvedLayoutFamily(value, fallback = AI_LAYOUT_DEFAULT_FAMIL
   return AI_LAYOUT_IMPLEMENTED_FAMILIES.has(fallback) ? fallback : AI_LAYOUT_DEFAULT_FAMILY;
 }
 
+/**
+ * @param {string | null | undefined} value
+ * @param {string} [fallback=AI_LAYOUT_DEFAULT_COLOR_PALETTE]
+ * @returns {string}
+ */
 function normalizeResolvedColorPalette(value, fallback = AI_LAYOUT_DEFAULT_COLOR_PALETTE) {
   const normalized = coerceString(value);
   if (AI_COLOR_PALETTES[normalized]) return normalized;
   return AI_COLOR_PALETTES[fallback] ? fallback : AI_LAYOUT_DEFAULT_COLOR_PALETTE;
 }
 
+/**
+ * @param {string | null | undefined} value
+ * @param {string} [fallback=AI_LAYOUT_DEFAULT_COLOR_PALETTE]
+ * @returns {string}
+ */
 function normalizeAutoRecommendedColorPalette(value, fallback = AI_LAYOUT_DEFAULT_COLOR_PALETTE) {
   const normalized = normalizeResolvedColorPalette(value, fallback);
   if (normalized === 'custom') {
@@ -209,47 +382,67 @@ function normalizeAutoRecommendedColorPalette(value, fallback = AI_LAYOUT_DEFAUL
   return normalized;
 }
 
+/**
+ * @param {AiLayoutSelectionLike | string | null | undefined} [raw={}]
+ * @param {AiLayoutSelectionLike | string | null | undefined} [fallback={}]
+ * @returns {{ layoutFamily: string, colorPalette: string }}
+ */
 function normalizeLayoutSelection(raw = {}, fallback = {}) {
   const candidate = (typeof raw === 'string')
     ? (AI_COLOR_PALETTES[raw]
       ? { colorPalette: raw }
       : (AI_LAYOUT_FAMILY_DEFS[raw] ? { layoutFamily: raw } : {}))
-    : raw;
+    : toSelectionRecord(raw);
+  const fallbackRecord = toSelectionRecord(fallback);
   return {
     layoutFamily: normalizeLayoutFamily(
-      candidate?.layoutFamily ?? candidate?.layout ?? candidate?.family ?? fallback?.layoutFamily,
-      normalizeLayoutFamily(fallback?.layoutFamily, AI_LAYOUT_SELECTION_AUTO)
+      candidate.layoutFamily ?? candidate.layout ?? candidate.family ?? fallbackRecord.layoutFamily,
+      normalizeLayoutFamily(fallbackRecord.layoutFamily, AI_LAYOUT_SELECTION_AUTO)
     ),
     colorPalette: normalizeColorPalette(
-      candidate?.colorPalette ?? candidate?.palette ?? candidate?.stylePack ?? fallback?.colorPalette,
-      normalizeColorPalette(fallback?.colorPalette, AI_LAYOUT_SELECTION_AUTO)
+      candidate.colorPalette ?? candidate.palette ?? candidate.stylePack ?? fallbackRecord.colorPalette,
+      normalizeColorPalette(fallbackRecord.colorPalette, AI_LAYOUT_SELECTION_AUTO)
     ),
   };
 }
 
+/**
+ * @param {AiLayoutResolvedSelectionLike | AiLayoutSelectionLike | string | null | undefined} [raw={}]
+ * @param {AiLayoutResolvedSelectionLike | AiLayoutSelectionLike | string | null | undefined} [fallback={}]
+ * @returns {{ layoutFamily: string, colorPalette: string }}
+ */
 function normalizeResolvedSelection(raw = {}, fallback = {}) {
   const candidate = (typeof raw === 'string')
     ? (AI_COLOR_PALETTES[raw]
       ? { colorPalette: raw }
       : (AI_LAYOUT_FAMILY_DEFS[raw] ? { layoutFamily: raw } : {}))
-    : raw;
+    : toSelectionRecord(raw);
+  const fallbackRecord = toSelectionRecord(fallback);
   return {
     layoutFamily: normalizeResolvedLayoutFamily(
-      candidate?.layoutFamily ?? candidate?.layout ?? candidate?.family ?? fallback?.layoutFamily,
-      normalizeResolvedLayoutFamily(fallback?.layoutFamily, AI_LAYOUT_DEFAULT_FAMILY)
+      candidate.layoutFamily ?? candidate.layout ?? candidate.family ?? fallbackRecord.layoutFamily,
+      normalizeResolvedLayoutFamily(fallbackRecord.layoutFamily, AI_LAYOUT_DEFAULT_FAMILY)
     ),
     colorPalette: normalizeResolvedColorPalette(
-      candidate?.colorPalette ?? candidate?.palette ?? candidate?.stylePack ?? fallback?.colorPalette,
-      normalizeResolvedColorPalette(fallback?.colorPalette, AI_LAYOUT_DEFAULT_COLOR_PALETTE)
+      candidate.colorPalette ?? candidate.palette ?? candidate.stylePack ?? fallbackRecord.colorPalette,
+      normalizeResolvedColorPalette(fallbackRecord.colorPalette, AI_LAYOUT_DEFAULT_COLOR_PALETTE)
     ),
   };
 }
 
+/**
+ * @param {AiLayoutSelectionLike | string | null | undefined} [selection={}]
+ * @returns {string}
+ */
 function getArticleLayoutSelectionKey(selection = {}) {
   const normalized = normalizeLayoutSelection(selection);
   return `${normalized.layoutFamily || AI_LAYOUT_SELECTION_AUTO}::${normalized.colorPalette || AI_LAYOUT_SELECTION_AUTO}`;
 }
 
+/**
+ * @param {{ includeAuto?: boolean, includeReserved?: boolean }} [options={}]
+ * @returns {{ value: string, label: string, description?: string }[]}
+ */
 function getLayoutFamilyList({ includeAuto = true, includeReserved = false } = {}) {
   const list = [];
   if (includeAuto) {
@@ -270,23 +463,38 @@ function getLayoutFamilyList({ includeAuto = true, includeReserved = false } = {
   return list;
 }
 
+/**
+ * @param {string | null | undefined} id
+ * @returns {AiLayoutSkill}
+ */
 function getLayoutFamilyById(id) {
   const normalizedId = normalizeResolvedLayoutFamily(id, AI_LAYOUT_DEFAULT_FAMILY);
   return AI_LAYOUT_FAMILY_DEFS[normalizedId] || AI_LAYOUT_FAMILY_DEFS[AI_LAYOUT_DEFAULT_FAMILY];
 }
 
+/**
+ * @param {string | null | undefined} id
+ * @returns {AiLayoutSkill}
+ */
 function getLayoutSkillById(id) {
   const normalizedId = normalizeResolvedLayoutFamily(id, AI_LAYOUT_DEFAULT_FAMILY);
   return getAiLayoutSkillById(normalizedId) || getAiLayoutSkillById(AI_LAYOUT_DEFAULT_FAMILY);
 }
 
+/**
+ * @param {string | null | undefined} layoutFamilyId
+ * @returns {Record<string, unknown>}
+ */
 function getWechatSafeRenderProfile(layoutFamilyId) {
   const normalizedId = normalizeResolvedLayoutFamily(layoutFamilyId, AI_LAYOUT_DEFAULT_FAMILY);
-  return AI_WECHAT_SAFE_STYLE_PRIMITIVES.profiles?.[normalizedId]
-    || AI_WECHAT_SAFE_STYLE_PRIMITIVES.profiles?.[AI_LAYOUT_DEFAULT_FAMILY]
-    || {};
+  const profiles = AI_WECHAT_SAFE_STYLE_PRIMITIVES.profiles || {};
+  return toRecord(profiles[normalizedId] || profiles[AI_LAYOUT_DEFAULT_FAMILY] || {});
 }
 
+/**
+ * @param {{ includeAuto?: boolean }} [options={}]
+ * @returns {{ value: string, label: string, description?: string }[]}
+ */
 function getColorPaletteList({ includeAuto = true } = {}) {
   const list = [];
   if (includeAuto) {
@@ -306,10 +514,19 @@ function getColorPaletteList({ includeAuto = true } = {}) {
   return list;
 }
 
+/**
+ * @param {string | null | undefined} id
+ * @returns {AiLayoutColorPalette}
+ */
 function getColorPaletteById(id) {
   return AI_COLOR_PALETTES[normalizeResolvedColorPalette(id)] || AI_COLOR_PALETTES[AI_LAYOUT_DEFAULT_COLOR_PALETTE];
 }
 
+/**
+ * @param {string | null | undefined} id
+ * @param {AiColorPaletteOverride} [override={}]
+ * @returns {AiLayoutColorPalette}
+ */
 function resolveColorPaletteForRender(id, override = {}) {
   const normalizedId = normalizeResolvedColorPalette(id);
   const customColor = normalizeHexColor(
@@ -325,6 +542,10 @@ function resolveColorPaletteForRender(id, override = {}) {
   return getColorPaletteById(normalizedId);
 }
 
+/**
+ * @param {{ requestedSelection?: AiLayoutSelectionLike | string, rawLayout?: AiLayoutStateLike | Record<string, unknown>, signals?: Record<string, unknown> | null, imageRefs?: unknown[] }} [options={}]
+ * @returns {{ selection: { layoutFamily: string, colorPalette: string }, resolved: { layoutFamily: string, colorPalette: string }, recommendedLayoutFamily: string, recommendedColorPalette: string }}
+ */
 function resolveLayoutSelection({
   requestedSelection = {},
   rawLayout = {},
@@ -332,14 +553,16 @@ function resolveLayoutSelection({
   imageRefs = [],
 } = {}) {
   const selection = normalizeLayoutSelection(requestedSelection);
+  const rawLayoutRecord = toRecord(rawLayout);
+  const rawResolved = toSelectionRecord(rawLayoutRecord.resolved);
   const inferredLayoutFamily = recommendLayoutFamily({ rawLayout, signals, imageRefs });
   const inferredColorPalette = recommendColorPalette({ rawLayout, signals });
   const recommendedLayoutFamily = normalizeResolvedLayoutFamily(
-    rawLayout?.recommendedLayoutFamily || rawLayout?.resolved?.layoutFamily || rawLayout?.layoutFamily,
+    rawLayoutRecord.recommendedLayoutFamily || rawResolved.layoutFamily || rawLayoutRecord.layoutFamily,
     inferredLayoutFamily
   );
   const recommendedColorPalette = normalizeAutoRecommendedColorPalette(
-    rawLayout?.recommendedColorPalette || rawLayout?.resolved?.colorPalette || rawLayout?.stylePack,
+    rawLayoutRecord.recommendedColorPalette || rawResolved.colorPalette || rawLayoutRecord.stylePack,
     inferredColorPalette
   );
   const resolved = {
@@ -359,30 +582,36 @@ function resolveLayoutSelection({
   };
 }
 
+/**
+ * @param {AiProviderLike} [raw={}]
+ * @returns {{ id: string, name: string, kind: string, baseUrl: string, apiKey: string, model: string, enabled: boolean }}
+ */
 function normalizeAiProvider(raw = {}) {
-  const id = typeof raw.id === 'string' && raw.id.trim()
-    ? raw.id.trim()
+  const source = toRecord(raw);
+  const id = typeof source.id === 'string' && source.id.trim()
+    ? source.id.trim()
     : `ai_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-  const kind = typeof raw.kind === 'string' && raw.kind.trim()
-    ? raw.kind.trim()
+  const kind = typeof source.kind === 'string' && source.kind.trim()
+    ? source.kind.trim()
     : AI_PROVIDER_KINDS.OPENAI_COMPATIBLE;
   const defaults = AI_PROVIDER_KIND_DEFAULTS[kind] || AI_PROVIDER_KIND_DEFAULTS[AI_PROVIDER_KINDS.OPENAI_COMPATIBLE];
   return {
     id,
-    name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : '未命名 Provider',
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : '未命名 Provider',
     kind,
-    baseUrl: typeof raw.baseUrl === 'string' && raw.baseUrl.trim()
-      ? raw.baseUrl.trim().replace(/\/+$/, '')
+    baseUrl: typeof source.baseUrl === 'string' && source.baseUrl.trim()
+      ? source.baseUrl.trim().replace(/\/+$/, '')
       : defaults.baseUrl,
-    apiKey: typeof raw.apiKey === 'string' ? raw.apiKey : '',
-    model: typeof raw.model === 'string' && raw.model.trim() ? raw.model.trim() : defaults.model,
-    enabled: raw.enabled !== false,
+    apiKey: typeof source.apiKey === 'string' ? source.apiKey : '',
+    model: typeof source.model === 'string' && source.model.trim() ? source.model.trim() : defaults.model,
+    enabled: source.enabled !== false,
   };
 }
 
+/** @param {unknown} baseUrl */
 function isAllowedAiProviderBaseUrl(baseUrl) {
   try {
-    const parsed = new URL(baseUrl);
+    const parsed = new URL(String(baseUrl || ''));
     if (parsed.protocol === 'https:') return true;
     if (parsed.protocol !== 'http:') return false;
 
@@ -403,11 +632,16 @@ function isAllowedAiProviderBaseUrl(baseUrl) {
   }
 }
 
+/**
+ * @param {AiProviderLike} [provider={}]
+ * @returns {string[]}
+ */
 function getAiProviderIssues(provider = {}) {
+  const source = toRecord(provider);
   const issues = [];
-  const baseUrl = coerceString(provider.baseUrl);
-  const apiKey = coerceString(provider.apiKey);
-  const model = coerceString(provider.model);
+  const baseUrl = coerceString(source.baseUrl);
+  const apiKey = coerceString(source.apiKey);
+  const model = coerceString(source.model);
 
   if (!baseUrl) {
     issues.push('missing-base-url');
@@ -417,20 +651,29 @@ function getAiProviderIssues(provider = {}) {
 
   if (!apiKey) issues.push('missing-api-key');
   if (!model) issues.push('missing-model');
-  if (provider.enabled === false) issues.push('disabled');
+  if (source.enabled === false) issues.push('disabled');
 
   return issues;
 }
 
+/**
+ * @param {AiProviderLike} [provider={}]
+ * @returns {boolean}
+ */
 function isAiProviderRunnable(provider = {}) {
   const issues = getAiProviderIssues(provider);
   return !issues.some((issue) => issue !== 'disabled');
 }
 
+/**
+ * @param {AiProviderLike} [provider={}]
+ * @returns {string}
+ */
 function summarizeAiProviderIssues(provider = {}) {
   const issues = getAiProviderIssues(provider);
   if (!issues.length) return '配置完整';
 
+  /** @type {Record<string, string>} */
   const labels = {
     'missing-base-url': '缺少 Base URL',
     'invalid-base-url': 'Base URL 必须是 HTTPS，或指向本机/局域网的 HTTP 地址',
@@ -442,98 +685,123 @@ function summarizeAiProviderIssues(provider = {}) {
 }
 
 function getLayoutBlockLabel(block = {}) {
+  const source = toRecord(block);
   return coerceString(
-    block.title
-    || block.caseLabel
-    || block.text
-    || block.caption
-    || block.buttonText
-    || block.imageId
-    || block.type
+    source.title
+    || source.caseLabel
+    || source.text
+    || source.caption
+    || source.buttonText
+    || source.imageId
+    || source.type
   );
 }
 
 function getLayoutBlockKey(block = {}) {
-  return `${coerceString(block.type)}:${getLayoutBlockLabel(block)}`;
+  const source = toRecord(block);
+  return `${coerceString(source.type)}:${getLayoutBlockLabel(source)}`;
 }
 
+/**
+ * @param {AiLayoutBlockOriginLike | null | undefined} [raw={}]
+ * @param {number} [fallbackIndex=0]
+ * @returns {{ index: number, type: string, source: 'ai' | 'fallback', label: string } | null}
+ */
 function normalizeGenerationBlockOrigin(raw = {}, fallbackIndex = 0) {
-  if (!raw || typeof raw !== 'object') return null;
-  const source = raw.source === 'fallback' ? 'fallback' : 'ai';
-  const type = coerceString(raw.type);
+  const rawRecord = toRecord(raw);
+  if (!Object.keys(rawRecord).length) return null;
+  const source = rawRecord.source === 'fallback' ? 'fallback' : 'ai';
+  const type = coerceString(rawRecord.type);
   if (!type) return null;
   return {
-    index: clampNumber(raw.index, fallbackIndex, 0, 99),
+    index: clampNumber(rawRecord.index, fallbackIndex, 0, 99),
     type,
     source,
-    label: coerceString(raw.label || type),
+    label: coerceString(rawRecord.label || type),
   };
 }
 
+/**
+ * @param {AiLayoutGenerationMetaLike | null | undefined} [raw={}]
+ * @param {Record<string, unknown> | null} [layoutJson=null]
+ * @returns {AiLayoutGenerationMetaLike}
+ */
 function normalizeLayoutGenerationMeta(raw = {}, layoutJson = null) {
-  const blockOrigins = Array.isArray(raw?.blockOrigins)
-    ? raw.blockOrigins
+  const source = toRecord(raw);
+  const layoutJsonRecord = toRecord(layoutJson);
+  const blocks = toAiLayoutBlocks(layoutJsonRecord.blocks);
+  const rawBlockOrigins = Array.isArray(source.blockOrigins) ? /** @type {unknown[]} */ (source.blockOrigins) : [];
+  const blockOrigins = rawBlockOrigins.length
+    ? rawBlockOrigins
       .map((item, index) => normalizeGenerationBlockOrigin(item, index))
       .filter(Boolean)
     : [];
   const derivedFallbackCount = blockOrigins.filter((item) => item.source === 'fallback').length;
   const finalBlockCount = clampNumber(
-    raw?.finalBlockCount,
-    layoutJson?.blocks?.length || blockOrigins.length || 0,
+    source.finalBlockCount,
+    blocks.length || blockOrigins.length || 0,
     0,
     99
   );
   const fallbackBlockCount = clampNumber(
-    raw?.fallbackBlockCount,
+    source.fallbackBlockCount,
     derivedFallbackCount,
     0,
     finalBlockCount
   );
 
   return {
-    providerName: coerceString(raw?.providerName),
-    providerModel: coerceString(raw?.providerModel),
-    skillId: coerceString(raw?.skillId),
-    skillLabel: coerceString(raw?.skillLabel),
-    skillVersion: coerceString(raw?.skillVersion),
-    executionMode: coerceString(raw?.executionMode),
-    layoutFamilyLabel: coerceString(raw?.layoutFamilyLabel),
-    colorPaletteLabel: coerceString(raw?.colorPaletteLabel),
-    stylePackLabel: coerceString(raw?.stylePackLabel),
-    recommendedLayoutFamilyLabel: coerceString(raw?.recommendedLayoutFamilyLabel),
-    recommendedColorPaletteLabel: coerceString(raw?.recommendedColorPaletteLabel),
-    headingCount: clampNumber(raw?.headingCount, 0, 0, 999),
-    sectionCount: clampNumber(raw?.sectionCount, 0, 0, 999),
-    leadParagraphCount: clampNumber(raw?.leadParagraphCount, 0, 0, 999),
-    bulletGroupCount: clampNumber(raw?.bulletGroupCount, 0, 0, 999),
-    imageCount: clampNumber(raw?.imageCount, 0, 0, 999),
-    aiBlockCount: clampNumber(raw?.aiBlockCount, Math.max(0, finalBlockCount - fallbackBlockCount), 0, 99),
+    providerName: coerceString(source.providerName),
+    providerModel: coerceString(source.providerModel),
+    skillId: coerceString(source.skillId),
+    skillLabel: coerceString(source.skillLabel),
+    skillVersion: coerceString(source.skillVersion),
+    executionMode: coerceString(source.executionMode),
+    layoutFamilyLabel: coerceString(source.layoutFamilyLabel),
+    colorPaletteLabel: coerceString(source.colorPaletteLabel),
+    stylePackLabel: coerceString(source.stylePackLabel),
+    recommendedLayoutFamilyLabel: coerceString(source.recommendedLayoutFamilyLabel),
+    recommendedColorPaletteLabel: coerceString(source.recommendedColorPaletteLabel),
+    headingCount: clampNumber(source.headingCount, 0, 0, 999),
+    sectionCount: clampNumber(source.sectionCount, 0, 0, 999),
+    leadParagraphCount: clampNumber(source.leadParagraphCount, 0, 0, 999),
+    bulletGroupCount: clampNumber(source.bulletGroupCount, 0, 0, 999),
+    imageCount: clampNumber(source.imageCount, 0, 0, 999),
+    aiBlockCount: clampNumber(source.aiBlockCount, Math.max(0, finalBlockCount - fallbackBlockCount), 0, 99),
     finalBlockCount,
-    fallbackUsed: raw?.fallbackUsed === true || fallbackBlockCount > 0,
+    fallbackUsed: source.fallbackUsed === true || fallbackBlockCount > 0,
     fallbackBlockCount,
-    fallbackBlockTypes: Array.isArray(raw?.fallbackBlockTypes)
-      ? raw.fallbackBlockTypes.map((item) => coerceString(item)).filter(Boolean).slice(0, 6)
+    fallbackBlockTypes: Array.isArray(source.fallbackBlockTypes)
+      ? source.fallbackBlockTypes.map((item) => coerceString(item)).filter(Boolean).slice(0, 6)
       : [],
-    schemaValidation: normalizeSchemaValidation(raw?.schemaValidation),
+    schemaValidation: normalizeSchemaValidation(source.schemaValidation),
     blockOrigins,
   };
 }
 
+/**
+ * @param {AiLayoutSchemaValidationLike | null | undefined} [raw={}]
+ * @returns {AiLayoutSchemaValidationLike}
+ */
 function normalizeSchemaValidation(raw = {}) {
-  const issues = Array.isArray(raw?.issues)
-    ? raw.issues
-      .map((item) => ({
-        path: coerceString(item?.path),
-        message: coerceString(item?.message),
-        fatal: item?.fatal === true,
-      }))
+  const source = toRecord(raw);
+  const issues = Array.isArray(source.issues)
+    ? source.issues
+      .map((item) => {
+        const issue = toRecord(item);
+        return {
+          path: coerceString(issue.path),
+          message: coerceString(issue.message),
+          fatal: issue.fatal === true,
+        };
+      })
       .filter((item) => item.path || item.message)
       .slice(0, 12)
     : [];
-  const issueCount = clampNumber(raw?.issueCount, issues.length, 0, 99);
-  const fatal = raw?.fatal === true || issues.some((item) => item.fatal);
+  const issueCount = clampNumber(source.issueCount, issues.length, 0, 99);
+  const fatal = source.fatal === true || issues.some((item) => item.fatal);
   return {
-    isValid: raw?.isValid === true && issueCount === 0,
+    isValid: source.isValid === true && issueCount === 0,
     fatal,
     issueCount,
     issues,
@@ -541,6 +809,11 @@ function normalizeSchemaValidation(raw = {}) {
 }
 
 class AiLayoutSchemaError extends Error {
+  /**
+   * @param {string} message
+   * @param {unknown} schemaValidation
+   * @param {AiLayoutGenerationMetaLike | null} [generationMeta=null]
+   */
   constructor(message, schemaValidation, generationMeta = null) {
     super(message);
     this.name = 'AiLayoutSchemaError';
@@ -560,14 +833,19 @@ class AiLayoutTimeoutError extends Error {
   }
 }
 
+/**
+ * @param {AiLayoutStateLike | null | undefined} [raw={}]
+ * @returns {AiLayoutStateLike | null}
+ */
 function normalizeArticleLayoutState(raw = {}) {
-  if (!raw || typeof raw !== 'object') return null;
-  const layoutJson = raw.layoutJson && typeof raw.layoutJson === 'object' ? raw.layoutJson : null;
+  const source = toRecord(raw);
+  if (!Object.keys(source).length) return null;
+  const layoutJson = isRecord(source.layoutJson) ? source.layoutJson : null;
   if (!layoutJson) return null;
   const selection = normalizeLayoutSelection(
-    raw.selection || layoutJson.selection || {
-      layoutFamily: raw.layoutFamily || layoutJson.layoutFamily || 'tutorial-cards',
-      colorPalette: raw.colorPalette || raw.stylePack || layoutJson.stylePack || AI_LAYOUT_DEFAULT_COLOR_PALETTE,
+    source.selection || layoutJson.selection || {
+      layoutFamily: source.layoutFamily || layoutJson.layoutFamily || 'tutorial-cards',
+      colorPalette: source.colorPalette || source.stylePack || layoutJson.stylePack || AI_LAYOUT_DEFAULT_COLOR_PALETTE,
     },
     {
       layoutFamily: 'tutorial-cards',
@@ -575,66 +853,79 @@ function normalizeArticleLayoutState(raw = {}) {
     }
   );
   const resolved = normalizeResolvedSelection(
-    raw.resolved || layoutJson.resolved || {
-      layoutFamily: raw.resolvedLayoutFamily || raw.layoutFamily || layoutJson.layoutFamily || 'tutorial-cards',
-      colorPalette: raw.resolvedColorPalette || raw.colorPalette || raw.stylePack || layoutJson.stylePack || AI_LAYOUT_DEFAULT_COLOR_PALETTE,
+    source.resolved || layoutJson.resolved || {
+      layoutFamily: source.resolvedLayoutFamily || source.layoutFamily || layoutJson.layoutFamily || 'tutorial-cards',
+      colorPalette: source.resolvedColorPalette || source.colorPalette || source.stylePack || layoutJson.stylePack || AI_LAYOUT_DEFAULT_COLOR_PALETTE,
     },
     {
       layoutFamily: AI_LAYOUT_DEFAULT_FAMILY,
       colorPalette: AI_LAYOUT_DEFAULT_COLOR_PALETTE,
     }
   );
-  const dismissedBlockKeys = Array.isArray(raw.dismissedBlockKeys)
-    ? raw.dismissedBlockKeys.map((item) => coerceString(item)).filter(Boolean).slice(0, 128)
+  const dismissedBlockKeys = Array.isArray(source.dismissedBlockKeys)
+    ? source.dismissedBlockKeys.map((item) => coerceString(item)).filter(Boolean).slice(0, 128)
     : [];
   return {
-    version: clampNumber(raw.version, AI_LAYOUT_SCHEMA_VERSION, 1, 999),
-    updatedAt: clampNumber(raw.updatedAt, Date.now(), 0, 9999999999999),
-    sourceHash: typeof raw.sourceHash === 'string' ? raw.sourceHash : '',
-    providerId: typeof raw.providerId === 'string' ? raw.providerId : '',
-    model: typeof raw.model === 'string' ? raw.model : '',
-    skillId: coerceString(raw.skillId || raw.layoutFamily || resolved.layoutFamily),
-    skillVersion: coerceString(raw.skillVersion || raw.generationMeta?.skillVersion || getLayoutFamilyById(resolved.layoutFamily)?.version),
+    version: clampNumber(source.version, AI_LAYOUT_SCHEMA_VERSION, 1, 999),
+    updatedAt: clampNumber(source.updatedAt, Date.now(), 0, 9999999999999),
+    sourceHash: typeof source.sourceHash === 'string' ? source.sourceHash : '',
+    providerId: typeof source.providerId === 'string' ? source.providerId : '',
+    model: typeof source.model === 'string' ? source.model : '',
+    skillId: coerceString(source.skillId || source.layoutFamily || resolved.layoutFamily),
+    skillVersion: coerceString(source.skillVersion || toRecord(source.generationMeta).skillVersion || getLayoutFamilyById(resolved.layoutFamily)?.version),
     selection,
     resolved,
     recommendedLayoutFamily: normalizeResolvedLayoutFamily(
-      raw.recommendedLayoutFamily || layoutJson.recommendedLayoutFamily,
+      source.recommendedLayoutFamily || layoutJson.recommendedLayoutFamily,
       resolved.layoutFamily
     ),
     recommendedColorPalette: normalizeResolvedColorPalette(
-      raw.recommendedColorPalette || layoutJson.recommendedColorPalette || raw.stylePack || layoutJson.stylePack,
+      source.recommendedColorPalette || layoutJson.recommendedColorPalette || source.stylePack || layoutJson.stylePack,
       resolved.colorPalette
     ),
     stylePack: resolved.colorPalette,
     layoutFamily: resolved.layoutFamily,
-    status: raw.status === 'schema-error' ? 'schema-error' : (raw.status === 'error' ? 'error' : 'ready'),
-    lastError: typeof raw.lastError === 'string' ? raw.lastError : '',
-    lastAttemptStatus: raw.lastAttemptStatus === 'schema-error'
+    status: source.status === 'schema-error' ? 'schema-error' : (source.status === 'error' ? 'error' : 'ready'),
+    lastError: typeof source.lastError === 'string' ? source.lastError : '',
+    lastAttemptStatus: source.lastAttemptStatus === 'schema-error'
       ? 'schema-error'
-      : (raw.lastAttemptStatus === 'error' ? 'error' : (raw.lastAttemptStatus === 'success' ? 'success' : 'idle')),
-    lastAttemptError: typeof raw.lastAttemptError === 'string' ? raw.lastAttemptError : '',
-    lastAttemptAt: clampNumber(raw.lastAttemptAt, 0, 0, 9999999999999),
-    lastAttemptSchemaValidation: normalizeSchemaValidation(raw.lastAttemptSchemaValidation),
+      : (source.lastAttemptStatus === 'error' ? 'error' : (source.lastAttemptStatus === 'success' ? 'success' : 'idle')),
+    lastAttemptError: typeof source.lastAttemptError === 'string' ? source.lastAttemptError : '',
+    lastAttemptAt: clampNumber(source.lastAttemptAt, 0, 0, 9999999999999),
+    lastAttemptSchemaValidation: normalizeSchemaValidation(source.lastAttemptSchemaValidation),
     dismissedBlockKeys,
-    generationMeta: normalizeLayoutGenerationMeta(raw.generationMeta, layoutJson),
+    generationMeta: normalizeLayoutGenerationMeta(source.generationMeta, layoutJson),
     layoutJson,
   };
 }
 
+/**
+ * @param {AiLayoutStateLike | null | undefined} [state={}]
+ * @param {string} [fallback=AI_LAYOUT_DEFAULT_FAMILY]
+ * @returns {string}
+ */
 function getArticleLayoutFamilyCacheKey(state = {}, fallback = AI_LAYOUT_DEFAULT_FAMILY) {
+  const layoutJson = toRecord(state?.layoutJson);
+  const resolved = toRecord(state?.resolved);
   return normalizeResolvedLayoutFamily(
-    state?.resolved?.layoutFamily
+    resolved.layoutFamily
     || state?.layoutFamily
-    || state?.layoutJson?.resolved?.layoutFamily
-    || state?.layoutJson?.layoutFamily
+    || toRecord(layoutJson.resolved).layoutFamily
+    || layoutJson.layoutFamily
     || fallback,
     AI_LAYOUT_DEFAULT_FAMILY
   );
 }
 
+/**
+ * @param {AiLayoutStateLike | null} [currentState=null]
+ * @param {AiLayoutStateLike | null} [nextState=null]
+ * @returns {boolean}
+ */
 function shouldReplaceArticleLayoutFamilyState(currentState = null, nextState = null) {
   if (!currentState) return true;
   if (!nextState) return false;
+  /** @param {AiLayoutStateLike} state */
   const scoreState = (state) => {
     const hasBlocks = Array.isArray(state?.layoutJson?.blocks) && state.layoutJson.blocks.length > 0;
     return [
@@ -649,12 +940,22 @@ function shouldReplaceArticleLayoutFamilyState(currentState = null, nextState = 
   return Number(nextState.updatedAt || 0) > Number(currentState.updatedAt || 0);
 }
 
+/**
+ * @param {AiLayoutCacheEntryLike | AiLayoutStateLike | null | undefined} [raw={}]
+ * @returns {AiLayoutCacheEntryLike | null}
+ */
 function normalizeArticleLayoutCacheEntry(raw = {}) {
-  if (!raw || typeof raw !== 'object') return null;
+  if (!isRecord(raw)) return null;
 
+  /** @type {Record<string, AiLayoutStateLike>} */
   const familyStates = {};
   let lastFamilyFromInput = '';
 
+  /**
+   * @param {unknown} value
+   * @param {AiLayoutSelectionLike} [fallbackSelection={}]
+   * @param {{ markLast?: boolean, overwrite?: boolean }} [options={}]
+   */
   const ingestState = (value, fallbackSelection = {}, options = {}) => {
     const normalizedState = normalizeArticleLayoutState(value);
     if (!normalizedState) return;
@@ -666,13 +967,13 @@ function normalizeArticleLayoutCacheEntry(raw = {}) {
     });
     const stylePack = normalizeResolvedColorPalette(normalizedState.stylePack || resolved.colorPalette);
     const layoutJson = {
-      ...(normalizedState.layoutJson || {}),
+      ...toRecord(normalizedState.layoutJson),
       selection: {
-        ...(normalizedState.layoutJson?.selection || {}),
+        ...toRecord(toRecord(normalizedState.layoutJson).selection),
         ...effectiveSelection,
       },
       resolved: {
-        ...(normalizedState.layoutJson?.resolved || {}),
+        ...toRecord(toRecord(normalizedState.layoutJson).resolved),
         layoutFamily: resolvedLayoutFamily,
         colorPalette: stylePack,
       },
@@ -703,17 +1004,18 @@ function normalizeArticleLayoutCacheEntry(raw = {}) {
     ingestState(legacyState, legacyState.selection, { markLast: true });
   }
 
-  if (raw.familyStates && typeof raw.familyStates === 'object') {
-    for (const [layoutFamilyId, value] of Object.entries(raw.familyStates)) {
+  if (isRecord(raw.familyStates)) {
+    for (const [layoutFamilyId, value] of Object.entries(toRecord(raw.familyStates))) {
+      const valueState = normalizeArticleLayoutState(value);
       ingestState(value, {
         layoutFamily: layoutFamilyId || AI_LAYOUT_DEFAULT_FAMILY,
-        colorPalette: value?.selection?.colorPalette || value?.stylePack || AI_LAYOUT_DEFAULT_COLOR_PALETTE,
+        colorPalette: valueState?.selection?.colorPalette || valueState?.stylePack || AI_LAYOUT_DEFAULT_COLOR_PALETTE,
       }, { markLast: layoutFamilyId === raw.lastLayoutFamily });
     }
   }
 
-  if (raw.selectionStates && typeof raw.selectionStates === 'object') {
-    for (const [selectionKey, value] of Object.entries(raw.selectionStates)) {
+  if (isRecord(raw.selectionStates)) {
+    for (const [selectionKey, value] of Object.entries(toRecord(raw.selectionStates))) {
       const [layoutFamilyFromKey, colorPaletteFromKey] = String(selectionKey || '').split('::');
       ingestState(value, {
         layoutFamily: layoutFamilyFromKey || 'tutorial-cards',
@@ -722,8 +1024,8 @@ function normalizeArticleLayoutCacheEntry(raw = {}) {
     }
   }
 
-  if (raw.stylePackStates && typeof raw.stylePackStates === 'object') {
-    for (const [stylePackId, value] of Object.entries(raw.stylePackStates)) {
+  if (isRecord(raw.stylePackStates)) {
+    for (const [stylePackId, value] of Object.entries(toRecord(raw.stylePackStates))) {
       ingestState(value, {
         layoutFamily: 'tutorial-cards',
         colorPalette: stylePackId || AI_LAYOUT_DEFAULT_COLOR_PALETTE,
@@ -747,7 +1049,9 @@ function normalizeArticleLayoutCacheEntry(raw = {}) {
   const lastAutoResolvedFamily = familyStates[rawLastAutoResolvedFamily]
     ? rawLastAutoResolvedFamily
     : (familyStates[lastFamilyFromInput]?.selection?.layoutFamily === AI_LAYOUT_SELECTION_AUTO ? lastFamilyFromInput : '');
+  /** @type {Record<string, AiLayoutStateLike>} */
   const selectionStates = {};
+  /** @type {Record<string, AiLayoutStateLike>} */
   const stylePackStates = {};
   Object.entries(familyStates).forEach(([layoutFamilyId, state]) => {
     const selectionKey = getArticleLayoutSelectionKey({
@@ -790,12 +1094,21 @@ function truncateMarkdownForPrompt(markdown = '', maxChars = 12000) {
   ].join('\n');
 }
 
+/**
+ * @param {{ enabled?: boolean, defaultProviderId?: string, defaultLayoutFamily?: string, defaultColorPalette?: string, defaultStylePack?: string, customColor?: string, includeImagesInLayout?: boolean, requestTimeoutMs?: number, providers?: AiProviderLike[], articleLayoutsByPath?: Record<string, AiLayoutCacheEntryLike | AiLayoutStateLike> }} [raw={}]
+ */
+/**
+ * @param {{ enabled?: boolean, defaultProviderId?: string, defaultLayoutFamily?: string, defaultColorPalette?: string, defaultStylePack?: string, customColor?: string, includeImagesInLayout?: boolean, requestTimeoutMs?: number, providers?: AiProviderLike[], articleLayoutsByPath?: Record<string, AiLayoutCacheEntryLike | AiLayoutStateLike> }} [raw={}]
+ * @returns {AiSettingsLike}
+ */
 function normalizeAiSettings(raw = {}) {
+  const source = toRecord(raw);
   const defaults = createDefaultAiSettings();
-  const providers = Array.isArray(raw.providers) ? raw.providers.map(normalizeAiProvider) : defaults.providers;
+  const providers = Array.isArray(source.providers) ? source.providers.map(normalizeAiProvider) : defaults.providers;
+  /** @type {Record<string, AiLayoutCacheEntryLike>} */
   const articleLayoutsByPath = {};
-  if (raw.articleLayoutsByPath && typeof raw.articleLayoutsByPath === 'object') {
-    for (const [path, value] of Object.entries(raw.articleLayoutsByPath)) {
+  if (isRecord(source.articleLayoutsByPath)) {
+    for (const [path, value] of Object.entries(source.articleLayoutsByPath)) {
       if (!path || typeof path !== 'string') continue;
       const normalized = normalizeArticleLayoutCacheEntry(value);
       if (normalized) {
@@ -804,25 +1117,25 @@ function normalizeAiSettings(raw = {}) {
     }
   }
 
-  let defaultProviderId = typeof raw.defaultProviderId === 'string' ? raw.defaultProviderId : defaults.defaultProviderId;
+  let defaultProviderId = typeof source.defaultProviderId === 'string' ? source.defaultProviderId : defaults.defaultProviderId;
   if (defaultProviderId && !providers.some((provider) => provider.id === defaultProviderId && provider.enabled !== false)) {
     defaultProviderId = '';
   }
 
   return {
-    enabled: Object.prototype.hasOwnProperty.call(raw, 'enabled')
-      ? raw.enabled === true
+    enabled: Object.prototype.hasOwnProperty.call(source, 'enabled')
+      ? source.enabled === true
       : defaults.enabled,
     defaultProviderId,
-    defaultLayoutFamily: normalizeLayoutFamily(raw.defaultLayoutFamily, AI_LAYOUT_SELECTION_AUTO),
+    defaultLayoutFamily: normalizeLayoutFamily(source.defaultLayoutFamily, AI_LAYOUT_SELECTION_AUTO),
     defaultColorPalette: normalizeColorPalette(
-      raw.defaultColorPalette ?? raw.defaultStylePack,
+      source.defaultColorPalette ?? source.defaultStylePack,
       AI_LAYOUT_SELECTION_AUTO
     ),
-    defaultStylePack: normalizeResolvedColorPalette(raw.defaultStylePack, AI_LAYOUT_DEFAULT_COLOR_PALETTE),
-    customColor: normalizeHexColor(raw.customColor, defaults.customColor),
-    includeImagesInLayout: raw.includeImagesInLayout !== false,
-    requestTimeoutMs: clampNumber(raw.requestTimeoutMs, defaults.requestTimeoutMs, 5000, 180000),
+    defaultStylePack: normalizeResolvedColorPalette(source.defaultStylePack, AI_LAYOUT_DEFAULT_COLOR_PALETTE),
+    customColor: normalizeHexColor(source.customColor, defaults.customColor),
+    includeImagesInLayout: source.includeImagesInLayout !== false,
+    requestTimeoutMs: clampNumber(source.requestTimeoutMs, defaults.requestTimeoutMs, 5000, 180000),
     providers,
     articleLayoutsByPath,
   };
@@ -832,10 +1145,17 @@ function getStylePackList() {
   return getColorPaletteList({ includeAuto: false });
 }
 
+/** @param {unknown} id */
 function getStylePackById(id) {
   return getColorPaletteById(id);
 }
 
+/**
+ * @param {AiLayoutCacheEntryLike | AiLayoutStateLike | null | undefined} entry
+ * @param {AiLayoutSelectionLike | string | null | undefined} [selection={}]
+ * @param {AiLayoutSelectionLike | string | null | undefined} [defaults={}]
+ * @returns {AiLayoutStateLike | null}
+ */
 function getArticleLayoutSelectionState(entry, selection = {}, defaults = {}) {
   const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
   if (!normalizedEntry) return null;
@@ -859,18 +1179,24 @@ function getArticleLayoutSelectionState(entry, selection = {}, defaults = {}) {
   return familyStates[familyKeys[0]] || null;
 }
 
+/**
+ * @param {AiLayoutStateLike | null | undefined} state
+ * @param {AiLayoutSelectionLike | string | null | undefined} [selection={}]
+ * @param {AiLayoutSelectionLike | string | null | undefined} [defaults={}]
+ * @returns {AiLayoutStateLike | null}
+ */
 function deriveArticleLayoutStateForSelection(state, selection = {}, defaults = {}) {
   const normalizedState = normalizeArticleLayoutState(state);
   if (!normalizedState?.layoutJson?.blocks?.length) return null;
   if (normalizedState.status !== 'ready') return null;
 
   const requestedSelection = normalizeLayoutSelection(selection, {
-    layoutFamily: normalizedState.selection?.layoutFamily || defaults?.layoutFamily || AI_LAYOUT_SELECTION_AUTO,
-    colorPalette: normalizedState.selection?.colorPalette || defaults?.colorPalette || AI_LAYOUT_SELECTION_AUTO,
+    layoutFamily: normalizedState.selection?.layoutFamily || toSelectionRecord(defaults).layoutFamily || AI_LAYOUT_SELECTION_AUTO,
+    colorPalette: normalizedState.selection?.colorPalette || toSelectionRecord(defaults).colorPalette || AI_LAYOUT_SELECTION_AUTO,
   });
   const requestedColorPalette = normalizeColorPalette(
     requestedSelection.colorPalette,
-    normalizedState.selection?.colorPalette || defaults?.colorPalette || AI_LAYOUT_SELECTION_AUTO
+    normalizedState.selection?.colorPalette || toSelectionRecord(defaults).colorPalette || AI_LAYOUT_SELECTION_AUTO
   );
   if (!requestedColorPalette || requestedColorPalette === AI_LAYOUT_SELECTION_AUTO) return null;
 
@@ -884,7 +1210,7 @@ function deriveArticleLayoutStateForSelection(state, selection = {}, defaults = 
   );
   const requestedLayoutFamily = normalizeLayoutFamily(
     requestedSelection.layoutFamily,
-    normalizedState.selection?.layoutFamily || defaults?.layoutFamily || AI_LAYOUT_SELECTION_AUTO
+    normalizedState.selection?.layoutFamily || toSelectionRecord(defaults).layoutFamily || AI_LAYOUT_SELECTION_AUTO
   );
   const isCompatibleLayout = (
     requestedLayoutFamily === AI_LAYOUT_SELECTION_AUTO
@@ -903,13 +1229,13 @@ function deriveArticleLayoutStateForSelection(state, selection = {}, defaults = 
     colorPalette: requestedColorPalette,
   };
   const nextLayoutJson = {
-    ...normalizedState.layoutJson,
+    ...toRecord(normalizedState.layoutJson),
     selection: {
-      ...(normalizedState.layoutJson.selection || {}),
+      ...toRecord(toRecord(normalizedState.layoutJson).selection),
       ...nextSelection,
     },
     resolved: {
-      ...(normalizedState.layoutJson.resolved || {}),
+      ...toRecord(toRecord(normalizedState.layoutJson).resolved),
       layoutFamily: baseResolvedLayoutFamily,
       colorPalette: nextResolvedColorPalette,
     },
@@ -940,6 +1266,12 @@ function deriveArticleLayoutStateForSelection(state, selection = {}, defaults = 
   });
 }
 
+/**
+ * @param {AiLayoutCacheEntryLike | AiLayoutStateLike | null | undefined} entry
+ * @param {AiLayoutSelectionLike | string | null | undefined} [selection={}]
+ * @param {AiLayoutSelectionLike | string | null | undefined} [defaults={}]
+ * @returns {string}
+ */
 function getArticleLayoutSelectionStateKey(entry, selection = {}, defaults = {}) {
   const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
   if (!normalizedEntry) return '';
@@ -952,12 +1284,21 @@ function getArticleLayoutSelectionStateKey(entry, selection = {}, defaults = {})
   return normalizedEntry.lastAutoResolvedFamily || normalizedEntry.lastLayoutFamily || '';
 }
 
+/**
+ * @param {AiSettingsLike | { providers?: AiProviderLike[] }} [aiSettings={}]
+ * @returns {ReturnType<typeof normalizeAiProvider>[]}
+ */
 function listEnabledAiProviders(aiSettings = {}) {
   return Array.isArray(aiSettings.providers)
-    ? aiSettings.providers.filter((provider) => provider.enabled !== false && isAiProviderRunnable(provider))
+    ? aiSettings.providers.map(normalizeAiProvider).filter((provider) => provider.enabled !== false && isAiProviderRunnable(provider))
     : [];
 }
 
+/**
+ * @param {AiSettingsLike | { providers?: AiProviderLike[], defaultProviderId?: string }} [aiSettings={}]
+ * @param {string} [providerId='']
+ * @returns {ReturnType<typeof normalizeAiProvider> | null}
+ */
 function resolveAiProvider(aiSettings = {}, providerId = '') {
   const providers = listEnabledAiProviders(aiSettings);
   if (providerId) {
@@ -1034,68 +1375,76 @@ function sanitizeJsonStringLiteralControls(payload = '') {
   return sanitized;
 }
 
+/**
+ * @param {unknown} rawBlock
+ * @returns {string}
+ */
 function inferBlockType(rawBlock = {}) {
-  if (!rawBlock || typeof rawBlock !== 'object' || Array.isArray(rawBlock)) return '';
+  if (!isRecord(rawBlock)) return '';
+  const blockRecord = rawBlock;
   const explicitType = coerceString(
-    rawBlock.type
-    || rawBlock.blockType
-    || rawBlock.block_type
-    || rawBlock.kind
-    || rawBlock.component
+    blockRecord.type
+    || blockRecord.blockType
+    || blockRecord.block_type
+    || blockRecord.kind
+    || blockRecord.component
   );
   const allowedTypes = new Set(AI_LAYOUT_ALLOWED_BLOCKS.map((item) => item.type));
   if (allowedTypes.has(explicitType)) return explicitType;
 
-  if ('sectionIndex' in rawBlock || 'paragraphs' in rawBlock || 'bulletGroups' in rawBlock) return 'section-block';
-  if (Array.isArray(rawBlock.items)) return 'part-nav';
-  if (typeof rawBlock.imageId === 'string') return 'phone-frame';
-  if ('coverImageId' in rawBlock || 'eyebrow' in rawBlock || 'subtitle' in rawBlock || explicitType === 'cover') return 'hero';
-  if ('buttonText' in rawBlock || 'body' in rawBlock) return 'cta-card';
-  if ('text' in rawBlock || 'quote' in rawBlock) return 'lead-quote';
-  if ('summary' in rawBlock || 'caseLabel' in rawBlock || 'bullets' in rawBlock || 'highlight' in rawBlock || 'imageIds' in rawBlock) return 'case-block';
-  if (typeof rawBlock.title === 'string') return 'section-block';
+  if ('sectionIndex' in blockRecord || 'paragraphs' in blockRecord || 'bulletGroups' in blockRecord) return 'section-block';
+  if (Array.isArray(blockRecord.items)) return 'part-nav';
+  if (typeof blockRecord.imageId === 'string') return 'phone-frame';
+  if ('coverImageId' in blockRecord || 'eyebrow' in blockRecord || 'subtitle' in blockRecord || explicitType === 'cover') return 'hero';
+  if ('buttonText' in blockRecord || 'body' in blockRecord) return 'cta-card';
+  if ('text' in blockRecord || 'quote' in blockRecord) return 'lead-quote';
+  if ('summary' in blockRecord || 'caseLabel' in blockRecord || 'bullets' in blockRecord || 'highlight' in blockRecord || 'imageIds' in blockRecord) return 'case-block';
+  if (typeof blockRecord.title === 'string') return 'section-block';
   return '';
 }
 
 function repairRawLayoutPayload(rawLayout = {}) {
-  if (!rawLayout || typeof rawLayout !== 'object' || Array.isArray(rawLayout)) return rawLayout;
-  if (!Array.isArray(rawLayout.blocks)) return rawLayout;
+  if (!isRecord(rawLayout)) return rawLayout;
+  const layoutRecord = rawLayout;
+  const blocks = Array.isArray(layoutRecord.blocks) ? layoutRecord.blocks : null;
+  if (!blocks) return rawLayout;
+  const resolvedRecord = toRecord(layoutRecord.resolved);
   const legacyColorPalette = normalizeResolvedColorPalette(
-    rawLayout?.stylePack || rawLayout?.colorPalette || rawLayout?.resolved?.colorPalette,
+    layoutRecord.stylePack || layoutRecord.colorPalette || resolvedRecord.colorPalette,
     AI_LAYOUT_DEFAULT_COLOR_PALETTE
   );
   const legacyLayoutFamily = normalizeResolvedLayoutFamily(
-    rawLayout?.layoutFamily || rawLayout?.resolved?.layoutFamily,
+    layoutRecord.layoutFamily || resolvedRecord.layoutFamily,
     'tutorial-cards'
   );
-  const selection = normalizeLayoutSelection(rawLayout.selection, {
+  const selection = normalizeLayoutSelection(layoutRecord.selection, {
     layoutFamily: legacyLayoutFamily,
     colorPalette: legacyColorPalette,
   });
-  const resolved = normalizeResolvedSelection(rawLayout.resolved, {
+  const resolved = normalizeResolvedSelection(resolvedRecord, {
     layoutFamily: selection.layoutFamily === AI_LAYOUT_SELECTION_AUTO ? legacyLayoutFamily : selection.layoutFamily,
     colorPalette: selection.colorPalette === AI_LAYOUT_SELECTION_AUTO ? legacyColorPalette : selection.colorPalette,
   });
   return {
-    ...rawLayout,
+    ...layoutRecord,
     selection,
     resolved,
     recommendedLayoutFamily: normalizeResolvedLayoutFamily(
-      rawLayout.recommendedLayoutFamily || rawLayout.resolved?.layoutFamily || legacyLayoutFamily,
+      layoutRecord.recommendedLayoutFamily || resolvedRecord.layoutFamily || legacyLayoutFamily,
       resolved.layoutFamily
     ),
     recommendedColorPalette: normalizeResolvedColorPalette(
-      rawLayout.recommendedColorPalette || rawLayout.resolved?.colorPalette || legacyColorPalette,
+      layoutRecord.recommendedColorPalette || resolvedRecord.colorPalette || legacyColorPalette,
       resolved.colorPalette
     ),
     stylePack: resolved.colorPalette,
     layoutFamily: resolved.layoutFamily,
-    blocks: rawLayout.blocks.map((block) => {
-      if (!block || typeof block !== 'object' || Array.isArray(block)) return block;
-      const inferredType = inferBlockType(block);
-      if (!inferredType) return block;
+    blocks: toAiLayoutBlocks(blocks).map((block) => {
+      const blockRecord = block;
+      const inferredType = inferBlockType(blockRecord);
+      if (!inferredType) return blockRecord;
       const repaired = {
-        ...block,
+        ...blockRecord,
         type: inferredType,
       };
       delete repaired.blockType;
@@ -1107,14 +1456,28 @@ function repairRawLayoutPayload(rawLayout = {}) {
   };
 }
 
+/**
+ * @param {unknown} value
+ * @param {string} [fallback='']
+ * @returns {string}
+ */
 function coerceString(value, fallback = '') {
   return typeof value === 'string' ? value.trim() : fallback;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function normalizeTitleKey(value) {
   return coerceString(value).toLowerCase().replace(/\s+/g, '');
 }
 
+/**
+ * @param {unknown} value
+ * @param {number} [fallback=-1]
+ * @returns {number}
+ */
 function toSectionIndex(value, fallback = -1) {
   if (Number.isInteger(value) && value >= 0) return value;
   if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
@@ -1124,6 +1487,11 @@ function toSectionIndex(value, fallback = -1) {
   return fallback;
 }
 
+/**
+ * @param {unknown} value
+ * @param {number} [limit=6]
+ * @returns {string[]}
+ */
 function toTextArray(value, limit = 6) {
   if (!Array.isArray(value)) return [];
   return value
@@ -1132,6 +1500,12 @@ function toTextArray(value, limit = 6) {
     .slice(0, limit);
 }
 
+/**
+ * @param {unknown} value
+ * @param {Set<string>} imageIds
+ * @param {number} [limit=4]
+ * @returns {string[]}
+ */
 function toImageIdArray(value, imageIds, limit = 4) {
   if (!Array.isArray(value)) return [];
   return value
@@ -1140,12 +1514,18 @@ function toImageIdArray(value, imageIds, limit = 4) {
     .slice(0, limit);
 }
 
+/**
+ * @param {AiLayoutSourceSectionLike | null | undefined} section
+ * @param {{ imageIds?: string[], fallbackIndex?: number }} [options={}]
+ * @returns {AiLayoutBlockLike | null}
+ */
 function buildSectionBlockFromSource(section, {
   imageIds = [],
   fallbackIndex = 0,
 } = {}) {
   if (!section || typeof section !== 'object') return null;
-  const title = coerceString(section.title || section.heading || '');
+  const sectionRecord = /** @type {AiLayoutSourceSectionLike} */ (section);
+  const title = coerceString(sectionRecord.title || sectionRecord.heading || '');
   const paragraphs = Array.isArray(section.paragraphs)
     ? section.paragraphs.map((item) => coerceString(item)).filter(Boolean)
     : [];
@@ -1192,9 +1572,9 @@ function buildSectionBlockFromSource(section, {
   if (!title && !paragraphs.length && !bulletGroups.length && !callouts.length) return null;
   return {
     type: 'section-block',
-    sectionIndex: toSectionIndex(section.index, fallbackIndex),
-    sectionLabel: (section.level || 2) >= 3 ? `SUB ${String(fallbackIndex + 1).padStart(2, '0')}` : `PART ${String(fallbackIndex + 1).padStart(2, '0')}`,
-    headingLevel: Number.isInteger(section.level) ? section.level : 2,
+    sectionIndex: toSectionIndex(sectionRecord.index, fallbackIndex),
+    sectionLabel: (sectionRecord.level || 2) >= 3 ? `SUB ${String(fallbackIndex + 1).padStart(2, '0')}` : `PART ${String(fallbackIndex + 1).padStart(2, '0')}`,
+    headingLevel: Number.isInteger(sectionRecord.level) ? sectionRecord.level : 2,
     title,
     paragraphs,
     bulletGroups,
@@ -1204,11 +1584,18 @@ function buildSectionBlockFromSource(section, {
   };
 }
 
+/**
+ * @param {AiLayoutBlockLike[]} [blocks=[]]
+ * @param {number} [maxSectionBlocks=0]
+ * @returns {AiLayoutBlockLike[]}
+ */
 function mergeSectionBlocksByBudget(blocks = [], maxSectionBlocks = 0) {
   if (!Number.isInteger(maxSectionBlocks) || maxSectionBlocks <= 0) return blocks.slice();
   let sectionCount = 0;
+  /** @type {AiLayoutBlockLike[]} */
   const merged = [];
 
+  /** @returns {AiLayoutBlockLike | null} */
   const getLastSectionBlock = () => {
     for (let index = merged.length - 1; index >= 0; index -= 1) {
       if (merged[index]?.type === 'section-block') return merged[index];
@@ -1246,6 +1633,7 @@ function mergeSectionBlocksByBudget(blocks = [], maxSectionBlocks = 0) {
       return;
     }
 
+    /** @type {AiLayoutSubsectionLike} */
     const promotedSubsection = {
       title: coerceString(block.title || block.sectionLabel || `Section ${sectionCount + 1}`),
       level: Math.max(3, Number.isInteger(block.headingLevel) ? block.headingLevel : 2),
@@ -1255,6 +1643,7 @@ function mergeSectionBlocksByBudget(blocks = [], maxSectionBlocks = 0) {
         : [],
       callouts: Array.isArray(block.callouts) ? block.callouts.map((callout) => ({ ...callout })) : [],
     };
+    /** @type {AiLayoutSubsectionLike[]} */
     const nestedSubsections = Array.isArray(block.subsections)
       ? block.subsections.map((subsection) => ({
         title: coerceString(subsection?.title || ''),
@@ -1277,12 +1666,24 @@ function mergeSectionBlocksByBudget(blocks = [], maxSectionBlocks = 0) {
   return merged;
 }
 
+/**
+ * @param {AiLayoutSourceSectionLike[]} [sourceSections=[]]
+ * @param {unknown} [title='']
+ * @returns {AiLayoutSourceSectionLike | null}
+ */
 function findSourceSectionByTitle(sourceSections = [], title = '') {
   const expectedKey = normalizeTitleKey(title);
   if (!expectedKey) return null;
   return sourceSections.find((section) => normalizeTitleKey(section?.title) === expectedKey) || null;
 }
 
+/**
+ * @param {AiLayoutBlockLike | Record<string, unknown> | null | undefined} block
+ * @param {Set<string>} imageIds
+ * @param {AiLayoutSourceSectionLike[]} sourceSections
+ * @param {number} index
+ * @returns {AiLayoutBlockLike | null}
+ */
 function normalizeLayoutBlock(block, imageIds, sourceSections, index) {
   if (!block || typeof block !== 'object') return null;
   const type = coerceString(block.type);
@@ -1301,10 +1702,13 @@ function normalizeLayoutBlock(block, imageIds, sourceSections, index) {
 
   if (type === 'part-nav') {
     const items = Array.isArray(block.items)
-      ? block.items.map((item, itemIndex) => ({
-        label: coerceString(item?.label || `PART ${String(itemIndex + 1).padStart(2, '0')}`),
-        text: coerceString(item?.text || item?.title),
-      })).filter((item) => item.text).slice(0, MAX_PART_NAV_ITEMS)
+      ? block.items.map((item, itemIndex) => {
+        const itemRecord = toRecord(item);
+        return {
+          label: coerceString(itemRecord.label || `PART ${String(itemIndex + 1).padStart(2, '0')}`),
+          text: coerceString(itemRecord.text || itemRecord.title),
+        };
+      }).filter((item) => item.text).slice(0, MAX_PART_NAV_ITEMS)
       : [];
     return items.length ? { type, items } : null;
   }
@@ -1425,6 +1829,7 @@ function parseMarkdownCalloutStart(line = '') {
 
 function formatCalloutLabel(type = '') {
   const normalized = coerceString(type).toLowerCase();
+  /** @type {Record<string, string>} */
   const labels = {
     note: 'Note',
     info: 'Info',
@@ -1445,8 +1850,9 @@ function formatCalloutLabel(type = '') {
 }
 
 function serializeClonedNodes(nodes = []) {
-  if (typeof document === 'undefined') return '';
-  const container = document.createElement('div');
+  const activeDocument = getActiveDocument();
+  if (!activeDocument) return '';
+  const container = activeDocument.createElement('div');
   trimTrailingDecorativeNodes(nodes).forEach((node) => {
     if (!node) return;
     container.appendChild(node.cloneNode(true));
@@ -1454,12 +1860,17 @@ function serializeClonedNodes(nodes = []) {
   return container.innerHTML.trim();
 }
 
+/**
+ * @param {unknown} node
+ * @returns {boolean}
+ */
 function hasMeaningfulNodeContent(node) {
-  if (!node) return false;
-  if (node.nodeType === 3) return /\S/.test(node.textContent || '');
-  if (node.nodeType !== 1) return false;
+  const currentNode = /** @type {Node | null} */ (node || null);
+  if (!currentNode) return false;
+  if (currentNode.nodeType === Node.TEXT_NODE) return /\S/.test(currentNode.textContent || '');
+  if (currentNode.nodeType !== Node.ELEMENT_NODE) return false;
 
-  const element = node;
+  const element = /** @type {HTMLElement} */ (currentNode);
   const tagName = String(element.tagName || '').toUpperCase();
   if (['IMG', 'TABLE', 'PRE', 'UL', 'OL', 'BLOCKQUOTE', 'FIGURE', 'SVG', 'VIDEO', 'AUDIO', 'CANVAS'].includes(tagName)) {
     return true;
@@ -1470,12 +1881,17 @@ function hasMeaningfulNodeContent(node) {
   return /\S/.test((element.textContent || '').replace(/\u00a0/g, ''));
 }
 
+/**
+ * @param {unknown} node
+ * @returns {boolean}
+ */
 function isTrailingDecorativeNode(node) {
-  if (!node) return true;
-  if (node.nodeType === 3) return !/\S/.test(node.textContent || '');
-  if (node.nodeType !== 1) return true;
+  const currentNode = /** @type {Node | null} */ (node || null);
+  if (!currentNode) return true;
+  if (currentNode.nodeType === Node.TEXT_NODE) return !/\S/.test(currentNode.textContent || '');
+  if (currentNode.nodeType !== Node.ELEMENT_NODE) return true;
 
-  const tagName = String(node.tagName || '').toUpperCase();
+  const tagName = String(/** @type {HTMLElement} */ (currentNode).tagName || '').toUpperCase();
   if (tagName === 'HR') return true;
   if (['P', 'DIV', 'SECTION'].includes(tagName) && !hasMeaningfulNodeContent(node)) {
     return true;
@@ -1483,20 +1899,37 @@ function isTrailingDecorativeNode(node) {
   return false;
 }
 
+/**
+ * @param {unknown[]} nodes
+ * @returns {Node[]}
+ */
 function trimTrailingDecorativeNodes(nodes = []) {
-  const trimmed = Array.isArray(nodes) ? nodes.slice() : [];
+  /** @type {Node[]} */
+  const trimmed = [];
+  if (Array.isArray(nodes)) {
+    nodes.forEach((node) => {
+      if (node instanceof Node) trimmed.push(node);
+    });
+  }
   while (trimmed.length && isTrailingDecorativeNode(trimmed[trimmed.length - 1])) {
     trimmed.pop();
   }
   return trimmed;
 }
 
+/**
+ * @param {string} html
+ * @param {AiColorTokens} tokens
+ * @returns {string}
+ */
 function remapPreservedFragmentColors(html = '', tokens = {}) {
   const source = coerceString(html);
-  if (!source || typeof document === 'undefined') return source;
+  if (!source) return source;
 
   const container = createHtmlContainer('div', source);
+  if (!container) return source;
 
+  /** @param {Element | null | undefined} element */
   const isInsideCodeChrome = (element) => {
     if (!element || typeof element.closest !== 'function') return false;
     return !!element.closest('.code-snippet__fix, pre, code, svg, mjx-container');
@@ -1504,9 +1937,10 @@ function remapPreservedFragmentColors(html = '', tokens = {}) {
 
   container.querySelectorAll('strong, b').forEach((element) => {
     if (isInsideCodeChrome(element)) return;
-    element.setCssStyles?.({
+    const htmlElement = /** @type {HTMLElement} */ (element);
+    applyElementCssStyles(htmlElement, {
       color: tokens.accentDeep || tokens.accent || '',
-      fontWeight: element.style.fontWeight || '700',
+      fontWeight: htmlElement.style.fontWeight || '700',
     });
   });
 
@@ -1514,12 +1948,12 @@ function remapPreservedFragmentColors(html = '', tokens = {}) {
     if (isInsideCodeChrome(element)) return;
     const inlineStyle = (element.getAttribute('style') || '').toLowerCase();
     if (!/font-weight\s*:\s*(bold|[6-9]00)/.test(inlineStyle)) return;
-    element.setCssStyles?.({ color: tokens.accentDeep || tokens.accent || '' });
+    applyElementCssStyles(element, { color: tokens.accentDeep || tokens.accent || '' });
   });
 
   container.querySelectorAll('a').forEach((element) => {
     if (isInsideCodeChrome(element)) return;
-    element.setCssStyles?.({
+    applyElementCssStyles(element, {
       color: tokens.accentDeep || tokens.accent || '',
       textDecoration: 'none',
       borderBottom: `1px dashed ${tokens.accent || tokens.accentDeep || '#000000'}`,
@@ -1534,42 +1968,51 @@ function remapPreservedFragmentColors(html = '', tokens = {}) {
       && /background\s*:/.test(inlineStyle);
     if (!looksLikeLegacyCallout) return;
 
-    element.setCssStyles?.({
+    const htmlElement = /** @type {HTMLElement} */ (element);
+    applyElementCssStyles(htmlElement, {
       borderLeftColor: tokens.accent || '',
-      borderLeftStyle: element.style.borderLeftStyle || 'solid',
-      borderLeftWidth: element.style.borderLeftWidth || '3px',
+      borderLeftStyle: htmlElement.style.borderLeftStyle || 'solid',
+      borderLeftWidth: htmlElement.style.borderLeftWidth || '3px',
       background: tokens.accentSoft || '',
       backgroundColor: tokens.accentSoft || '',
     });
 
     const [header, body] = Array.from(element.children || []);
     if (header && !isInsideCodeChrome(header)) {
-      header.setCssStyles?.({
+      applyElementCssStyles(header, {
         background: tokens.quoteBg || tokens.accentSoft || '',
         backgroundColor: tokens.quoteBg || tokens.accentSoft || '',
         color: tokens.text || '',
       });
     }
     if (body && !isInsideCodeChrome(body)) {
-      body.setCssStyles?.({ color: tokens.text || '' });
+      applyElementCssStyles(body, { color: tokens.text || '' });
     }
   });
 
   return container.innerHTML.trim();
 }
 
+/**
+ * @param {string} html
+ * @returns {{ sections: AiLayoutSourceSectionLike[] }}
+ */
 function extractRenderedSectionFragments(html = '') {
-  if (!html || typeof document === 'undefined') {
+  if (!html) {
     return { sections: [] };
   }
 
   const container = createHtmlContainer('div', String(html || ''));
+  if (!container) return { sections: [] };
   const root = container.children.length === 1 ? container.firstElementChild : container;
   const childNodes = Array.from(root?.childNodes || []).filter((node) => (
     node.nodeType !== 3 || /\S/.test(node.textContent || '')
   ));
+  /** @type {AiLayoutSourceSectionLike[]} */
   const sections = [];
+  /** @type {{ title: string, titleKey: string, leadNodes: Node[], subsections: Array<{ title: string, titleKey: string, nodes: Node[] }> } | null} */
   let currentSection = null;
+  /** @type {{ title: string, titleKey: string, nodes: Node[] } | null} */
   let currentSubsection = null;
 
   const finalizeSection = () => {
@@ -1632,17 +2075,31 @@ function extractRenderedSectionFragments(html = '') {
   return { sections };
 }
 
+/**
+ * @param {unknown} markdown
+ * @returns {MarkdownStructure}
+ */
 function extractMarkdownSections(markdown = '') {
   const lines = stripFrontmatterBlock(markdown).split(/\r?\n/);
+  /** @type {MarkdownSection[]} */
   const sections = [];
+  /** @type {string[]} */
   const introParagraphs = [];
+  /** @type {string[][]} */
   const introBulletGroups = [];
+  /** @type {MarkdownCallout[]} */
   const introCallouts = [];
+  /** @type {MarkdownHeading[]} */
   const headings = [];
+  /** @type {MarkdownSection | null} */
   let currentSection = null;
+  /** @type {MarkdownSubsection | null} */
   let currentSubsection = null;
+  /** @type {string[]} */
   let currentParagraph = [];
+  /** @type {string[]} */
   let currentBullets = [];
+  /** @type {{ type: string, title: string, lines: string[] } | null} */
   let currentCallout = null;
 
   const getCurrentTarget = () => currentSubsection || currentSection || null;
@@ -1650,7 +2107,6 @@ function extractMarkdownSections(markdown = '') {
   const getCurrentCalloutTarget = () => {
     const target = getCurrentTarget();
     if (target) {
-      if (!Array.isArray(target.callouts)) target.callouts = [];
       return target.callouts;
     }
     return introCallouts;
@@ -1808,6 +2264,10 @@ function extractMarkdownSections(markdown = '') {
   };
 }
 
+/**
+ * @param {unknown} markdown
+ * @returns {MarkdownSignals}
+ */
 function extractMarkdownSignals(markdown = '') {
   const structure = extractMarkdownSections(markdown);
   const headings = Array.isArray(structure.headings)
@@ -1843,9 +2303,15 @@ function extractMarkdownSignals(markdown = '') {
   };
 }
 
+/**
+ * @param {{ rawLayout?: unknown, signals?: MarkdownSignals | null, imageRefs?: unknown[] }} [options={}]
+ * @returns {string}
+ */
 function recommendLayoutFamily({ rawLayout = {}, signals = null, imageRefs = [] } = {}) {
+  const rawLayoutRecord = toRecord(rawLayout);
+  const resolvedRecord = toRecord(rawLayoutRecord.resolved);
   const rawRecommended = coerceString(
-    rawLayout?.recommendedLayoutFamily || rawLayout?.resolved?.layoutFamily || rawLayout?.layoutFamily
+    rawLayoutRecord.recommendedLayoutFamily || resolvedRecord.layoutFamily || rawLayoutRecord.layoutFamily
   );
   if (rawRecommended && AI_LAYOUT_FAMILY_DEFS[rawRecommended]) return normalizeResolvedLayoutFamily(rawRecommended);
   const safeSignals = signals || extractMarkdownSignals('');
@@ -1853,7 +2319,7 @@ function recommendLayoutFamily({ rawLayout = {}, signals = null, imageRefs = [] 
   const sectionCount = safeSignals.sectionTitles?.length || 0;
   const bulletGroupCount = safeSignals.bulletGroups?.length || 0;
   const imageCount = Array.isArray(imageRefs) ? imageRefs.length : 0;
-  const hintText = `${coerceString(rawLayout?.title)} ${Array.isArray(safeSignals.sectionTitles) ? safeSignals.sectionTitles.join(' ') : ''}`.toLowerCase();
+  const hintText = `${coerceString(rawLayoutRecord.title)} ${Array.isArray(safeSignals.sectionTitles) ? safeSignals.sectionTitles.join(' ') : ''}`.toLowerCase();
   if (/(观点|经验|复盘|写作|表达|品牌|故事|思考|方法论|内容创作|心得|感受|editorial|essay|brand)/i.test(hintText)) {
     return 'editorial-lite';
   }
@@ -1863,17 +2329,24 @@ function recommendLayoutFamily({ rawLayout = {}, signals = null, imageRefs = [] 
   return 'source-first';
 }
 
+/**
+ * @param {{ rawLayout?: unknown, signals?: MarkdownSignals | null }} [options={}]
+ * @returns {string}
+ */
 function recommendColorPalette({ rawLayout = {}, signals = null } = {}) {
+  const rawLayoutRecord = toRecord(rawLayout);
+  const resolvedRecord = toRecord(rawLayoutRecord.resolved);
   const rawRecommended = coerceString(
-    rawLayout?.recommendedColorPalette || rawLayout?.resolved?.colorPalette || rawLayout?.stylePack
+    rawLayoutRecord.recommendedColorPalette || resolvedRecord.colorPalette || rawLayoutRecord.stylePack
   );
   if (rawRecommended && rawRecommended !== 'custom' && AI_COLOR_PALETTES[rawRecommended]) {
     return normalizeResolvedColorPalette(rawRecommended);
   }
-  const headingTitles = Array.isArray(signals?.sectionTitles)
-    ? signals.sectionTitles.join(' ')
+  const safeSignals = signals || extractMarkdownSignals('');
+  const headingTitles = Array.isArray(safeSignals.sectionTitles)
+    ? safeSignals.sectionTitles.join(' ')
     : '';
-  const titleHints = `${coerceString(rawLayout?.title)} ${headingTitles}`.toLowerCase();
+  const titleHints = `${coerceString(rawLayoutRecord.title)} ${headingTitles}`.toLowerCase();
   if (/(教程|指南|入门|步骤|实践|实操|配置|接入|使用|标签|双链|知识库|workflow|guide|tutorial|how to)/i.test(titleHints)) {
     return 'ocean-blue';
   }
@@ -1886,21 +2359,29 @@ function recommendColorPalette({ rawLayout = {}, signals = null } = {}) {
   return 'tech-green';
 }
 
+/**
+ * @param {{ title?: string, selection?: AiLayoutSelectionLike, stylePack?: string, layoutFamily?: string, colorPalette?: string, sourcePath?: string, markdown?: string, imageRefs?: AiImageRefLike[], provider?: AiProviderLike, signals?: MarkdownSignals }} [context={}]
+ * @returns {AiLayoutBlockLike[]}
+ */
 function buildFallbackLayout(context = {}) {
-  const title = coerceString(context.title || '未命名文章');
+  const source = toRecord(context);
+  const title = coerceString(source.title || '未命名文章');
   const selectionResolution = resolveLayoutSelection({
-    requestedSelection: context.selection || { colorPalette: context.stylePack },
-    rawLayout: context.rawLayout,
-    signals: context.signals || extractMarkdownSignals(context.markdown || ''),
-    imageRefs: context.imageRefs,
+    requestedSelection: source.selection || { colorPalette: source.stylePack },
+    rawLayout: source.rawLayout,
+    signals: /** @type {MarkdownSignals | null} */ (source.signals || extractMarkdownSignals(source.markdown || '')),
+    imageRefs: Array.isArray(source.imageRefs) ? source.imageRefs : [],
   });
   const resolved = selectionResolution.resolved;
   const skill = getLayoutSkillById(resolved.layoutFamily);
-  const fallbackConfig = skill?.fallback || {};
-  const imageRefs = Array.isArray(context.imageRefs) ? context.imageRefs : [];
-  const signals = context.signals || extractMarkdownSignals(context.markdown || '');
-  const sourceSections = Array.isArray(context.sourceSections) ? context.sourceSections : extractMarkdownSections(context.markdown || '').sections;
-  const firstImageId = imageRefs[0]?.id || '';
+  const fallbackConfig = toRecord(skill?.fallback);
+  /** @type {AiImageRefLike[]} */
+  const imageRefs = Array.isArray(source.imageRefs) ? source.imageRefs.map((item) => /** @type {AiImageRefLike} */ (toRecord(item))) : [];
+  const signals = /** @type {MarkdownSignals} */ (source.signals || extractMarkdownSignals(source.markdown || ''));
+  const sourceSections = Array.isArray(source.sourceSections)
+    ? /** @type {AiLayoutSourceSectionLike[]} */ (source.sourceSections.map((item) => toRecord(item)))
+    : extractMarkdownSections(source.markdown || '').sections;
+  const firstImageId = coerceString(imageRefs[0]?.id);
   const leadText = summarizeText(signals.leadParagraphs[0] || signals.paragraphs[0] || '');
   const leadNote = summarizeText(signals.leadParagraphs[1] || '');
   const partItems = signals.sectionTitles.slice(0, MAX_PART_NAV_ITEMS).map((text, index) => ({
@@ -1908,7 +2389,9 @@ function buildFallbackLayout(context = {}) {
     text,
   }));
 
+  /** @type {AiLayoutBlockLike[]} */
   const headBlocks = [];
+  /** @type {AiLayoutBlockLike[]} */
   const bodyBlocks = [];
   if (fallbackConfig.includeHero) {
     headBlocks.push({
@@ -1934,7 +2417,10 @@ function buildFallbackLayout(context = {}) {
   }
 
   const heroCoverImageId = coerceString(headBlocks.find((block) => block?.type === 'hero')?.coverImageId);
-  sourceSections.forEach((section, index) => {
+  const safeSourceSections = Array.isArray(sourceSections)
+    ? sourceSections.map((section) => /** @type {AiLayoutSourceSectionLike} */ (toRecord(section)))
+    : [];
+  safeSourceSections.forEach((section, index) => {
     const block = buildSectionBlockFromSource(section, {
       imageIds: index === 0 && firstImageId && heroCoverImageId !== firstImageId ? [firstImageId] : [],
       fallbackIndex: index,
@@ -1953,26 +2439,40 @@ function buildFallbackLayout(context = {}) {
     });
   }
 
+  /**
+   * @param {AiLayoutBlockLike[]} blocks
+   * @returns {Set<string>}
+   */
   const collectUsedImageIds = (blocks = []) => {
+    /** @type {Set<string>} */
     const used = new Set();
     blocks.forEach((block) => {
-      const coverImageId = coerceString(block?.coverImageId);
+      const blockRecord = toRecord(block);
+      const coverImageId = coerceString(blockRecord.coverImageId);
       if (coverImageId) used.add(coverImageId);
-      const singleImageId = coerceString(block?.imageId);
+      const singleImageId = coerceString(blockRecord.imageId);
       if (singleImageId) used.add(singleImageId);
-      if (Array.isArray(block?.imageIds)) {
-        block.imageIds.map((item) => coerceString(item)).filter(Boolean).forEach((item) => used.add(item));
+      if (Array.isArray(blockRecord.imageIds)) {
+        blockRecord.imageIds.map((item) => coerceString(item)).filter(Boolean).forEach((item) => used.add(item));
       }
     });
     return used;
   };
+  /**
+   * @param {AiLayoutBlockLike[]} blocks
+   * @param {string[]} remainingImageIds
+   * @param {string} familyId
+   * @returns {AiLayoutBlockLike[]}
+   */
   const appendRemainingImages = (blocks = [], remainingImageIds = [], familyId = '') => {
     const queue = remainingImageIds.slice();
     if (!queue.length) return blocks;
 
+    /** @type {number[]} */
     const attachableIndexes = [];
     blocks.forEach((block, index) => {
-      if (block?.type === 'section-block' || block?.type === 'case-block') {
+      const blockType = coerceString(toRecord(block).type);
+      if (blockType === 'section-block' || blockType === 'case-block') {
         attachableIndexes.push(index);
       }
     });
@@ -1980,9 +2480,10 @@ function buildFallbackLayout(context = {}) {
     attachableIndexes.forEach((blockIndex) => {
       if (!queue.length) return;
       const block = blocks[blockIndex];
-      const limit = block.type === 'case-block' ? MAX_CASE_BLOCK_IMAGE_IDS : 3;
-      const currentImageIds = Array.isArray(block.imageIds)
-        ? block.imageIds.map((item) => coerceString(item)).filter(Boolean)
+      const blockRecord = toRecord(block);
+      const limit = blockRecord.type === 'case-block' ? MAX_CASE_BLOCK_IMAGE_IDS : 3;
+      const currentImageIds = Array.isArray(blockRecord.imageIds)
+        ? blockRecord.imageIds.map((item) => coerceString(item)).filter(Boolean)
         : [];
       const availableSlots = Math.max(0, limit - currentImageIds.length);
       if (!availableSlots) return;
@@ -2028,41 +2529,67 @@ function buildFallbackLayout(context = {}) {
   };
 }
 
+/**
+ * @param {AiLayoutBlockLike[]} aiBlocks
+ * @param {AiLayoutBlockLike[]} fallbackBlocks
+ * @returns {AiLayoutBlockLike[]}
+ */
 function mergeBlocksWithFallback(aiBlocks = [], fallbackBlocks = []) {
   return mergeBlocksWithFallbackDetailed(aiBlocks, fallbackBlocks).map((entry) => entry.block);
 }
 
+/**
+ * @param {AiLayoutBlockLike[]} aiBlocks
+ * @param {AiLayoutBlockLike[]} fallbackBlocks
+ * @returns {Array<{ block: AiLayoutBlockLike, source: 'ai' | 'fallback' }>}
+ */
 function mergeBlocksWithFallbackDetailed(aiBlocks = [], fallbackBlocks = []) {
   const introOrder = ['hero', 'part-nav', 'lead-quote'];
+  /** @type {Map<string, AiLayoutBlockLike>} */
   const introAiByType = new Map();
+  /** @type {Map<string, AiLayoutBlockLike>} */
   const introFallbackByType = new Map();
+  /** @type {Map<number, AiLayoutBlockLike>} */
   const fallbackSectionsByIndex = new Map();
+  /** @type {Array<{ block: AiLayoutBlockLike, source: 'ai' }>} */
   const deferredAi = [];
+  /** @type {Array<{ block: AiLayoutBlockLike, source: 'ai' | 'fallback' }>} */
   const deferredFallback = [];
+  /** @type {Set<string>} */
   const seenKeys = new Set();
+  /** @type {Array<{ block: AiLayoutBlockLike, source: 'ai' | 'fallback' }>} */
   const merged = [];
 
+  /**
+   * @param {AiLayoutBlockLike | null | undefined} block
+   * @param {'ai' | 'fallback'} source
+   */
   const addBlock = (block, source) => {
-    if (!block || !block.type) return;
+    const blockRecord = toRecord(block);
+    if (!block || !coerceString(blockRecord.type)) return;
     const dedupeKey = getLayoutBlockKey(block);
     if (seenKeys.has(dedupeKey)) return;
     seenKeys.add(dedupeKey);
     merged.push({ block, source });
   };
 
+  /** @type {number[]} */
   const fallbackSectionIndices = [];
   fallbackBlocks.forEach((block) => {
-    if (!block || !block.type) return;
-    if (introOrder.includes(block.type)) {
-      if (!introFallbackByType.has(block.type)) {
-        introFallbackByType.set(block.type, block);
+    const blockRecord = toRecord(block);
+    const blockType = coerceString(blockRecord.type);
+    if (!block || !blockType) return;
+    if (introOrder.includes(blockType)) {
+      if (!introFallbackByType.has(blockType)) {
+        introFallbackByType.set(blockType, block);
       }
       return;
     }
-    if (block.type === 'section-block' && Number.isInteger(block.sectionIndex) && block.sectionIndex >= 0) {
-      if (!fallbackSectionsByIndex.has(block.sectionIndex)) {
-        fallbackSectionsByIndex.set(block.sectionIndex, block);
-        fallbackSectionIndices.push(block.sectionIndex);
+    if (blockType === 'section-block' && Number.isInteger(blockRecord.sectionIndex) && blockRecord.sectionIndex >= 0) {
+      const sectionIndex = Number(blockRecord.sectionIndex);
+      if (!fallbackSectionsByIndex.has(sectionIndex)) {
+        fallbackSectionsByIndex.set(sectionIndex, block);
+        fallbackSectionIndices.push(sectionIndex);
       }
       return;
     }
@@ -2070,10 +2597,11 @@ function mergeBlocksWithFallbackDetailed(aiBlocks = [], fallbackBlocks = []) {
   });
 
   aiBlocks.forEach((block) => {
-    if (!block || !block.type) return;
-    if (introOrder.includes(block.type)) {
-      if (!introAiByType.has(block.type)) {
-        introAiByType.set(block.type, block);
+    const blockType = coerceString(toRecord(block).type);
+    if (!block || !blockType) return;
+    if (introOrder.includes(blockType)) {
+      if (!introAiByType.has(blockType)) {
+        introAiByType.set(blockType, block);
       }
       return;
     }
@@ -2092,6 +2620,7 @@ function mergeBlocksWithFallbackDetailed(aiBlocks = [], fallbackBlocks = []) {
 
   const sortedFallbackIndices = Array.from(new Set(fallbackSectionIndices)).sort((a, b) => a - b);
   let fallbackPointer = 0;
+  /** @param {number} targetIndex */
   const flushFallbackSectionsBefore = (targetIndex) => {
     while (fallbackPointer < sortedFallbackIndices.length && sortedFallbackIndices[fallbackPointer] < targetIndex) {
       const sectionIndex = sortedFallbackIndices[fallbackPointer];
@@ -2099,6 +2628,7 @@ function mergeBlocksWithFallbackDetailed(aiBlocks = [], fallbackBlocks = []) {
       fallbackPointer += 1;
     }
   };
+  /** @param {number} sectionIndex */
   const consumeFallbackSection = (sectionIndex) => {
     while (fallbackPointer < sortedFallbackIndices.length && sortedFallbackIndices[fallbackPointer] <= sectionIndex) {
       fallbackPointer += 1;
@@ -2107,13 +2637,15 @@ function mergeBlocksWithFallbackDetailed(aiBlocks = [], fallbackBlocks = []) {
 
   deferredAi.forEach((entry) => {
     const block = entry.block;
-    if (block?.type === 'section-block' && Number.isInteger(block.sectionIndex) && block.sectionIndex >= 0) {
-      flushFallbackSectionsBefore(block.sectionIndex);
+    const blockRecord = toRecord(block);
+    if (blockRecord.type === 'section-block' && Number.isInteger(blockRecord.sectionIndex) && blockRecord.sectionIndex >= 0) {
+      const sectionIndex = Number(blockRecord.sectionIndex);
+      flushFallbackSectionsBefore(sectionIndex);
       addBlock(block, 'ai');
-      consumeFallbackSection(block.sectionIndex);
+      consumeFallbackSection(sectionIndex);
       return;
     }
-    if (block?.type === 'hero' || block?.type === 'part-nav' || block?.type === 'lead-quote') {
+    if (blockRecord.type === 'hero' || blockRecord.type === 'part-nav' || blockRecord.type === 'lead-quote') {
       return;
     }
     deferredFallback.push(entry);
@@ -2126,45 +2658,58 @@ function mergeBlocksWithFallbackDetailed(aiBlocks = [], fallbackBlocks = []) {
 }
 
 function normalizeArticleLayout(rawLayout = {}, context = {}) {
-  const imageIds = new Set((context.imageRefs || []).map((image) => image.id));
+  const rawLayoutRecord = toRecord(rawLayout);
+  const contextRecord = toRecord(context);
+  const imageRefs = toAiImageRefs(contextRecord.imageRefs);
+  const imageIds = new Set(imageRefs.map((image) => coerceString(image.id)).filter(Boolean));
   const selectionResolution = resolveLayoutSelection({
-    requestedSelection: context.selection || { colorPalette: context.stylePack },
-    rawLayout,
-    signals: context.signals || extractMarkdownSignals(context.markdown || ''),
-    imageRefs: context.imageRefs,
+    requestedSelection: contextRecord.selection || { colorPalette: contextRecord.stylePack },
+    rawLayout: rawLayoutRecord,
+    signals: /** @type {MarkdownSignals | null} */ (contextRecord.signals || extractMarkdownSignals(contextRecord.markdown || '')),
+    imageRefs,
   });
-  const sourceSections = Array.isArray(context.sourceSections) ? context.sourceSections : extractMarkdownSections(context.markdown || '').sections;
-  const normalizedAiBlocks = Array.isArray(rawLayout.blocks)
-    ? rawLayout.blocks
+  const sourceSections = Array.isArray(contextRecord.sourceSections)
+    ? /** @type {AiLayoutSourceSectionLike[]} */ (contextRecord.sourceSections.map((section) => toRecord(section)))
+    : extractMarkdownSections(contextRecord.markdown || '').sections;
+  const rawBlocks = toAiLayoutBlocks(rawLayoutRecord.blocks);
+  const normalizedAiBlocks = rawBlocks.length
+    ? rawBlocks
       .map((block, index) => normalizeLayoutBlock(block, imageIds, sourceSections, index))
       .filter(Boolean)
     : [];
   const fallbackLayout = buildFallbackLayout({
-    title: rawLayout.title || context.title,
-    markdown: context.markdown,
+    title: rawLayoutRecord.title || contextRecord.title,
+    markdown: contextRecord.markdown,
     selection: selectionResolution.selection,
-    rawLayout,
-    imageRefs: context.imageRefs,
-    signals: context.signals,
+    rawLayout: rawLayoutRecord,
+    imageRefs,
+    signals: contextRecord.signals,
     sourceSections,
   });
-  const blocks = mergeBlocksWithFallback(normalizedAiBlocks, fallbackLayout.blocks);
+  const blocks = mergeBlocksWithFallback(
+    /** @type {AiLayoutBlockLike[]} */ (normalizedAiBlocks.filter(Boolean)),
+    toAiLayoutBlocks(fallbackLayout.blocks)
+  );
 
   return {
     version: AI_LAYOUT_SCHEMA_VERSION,
-    articleType: coerceString(rawLayout.articleType || fallbackLayout.articleType || 'article'),
+    articleType: coerceString(rawLayoutRecord.articleType || fallbackLayout.articleType || 'article'),
     selection: selectionResolution.selection,
     resolved: selectionResolution.resolved,
     recommendedLayoutFamily: selectionResolution.recommendedLayoutFamily,
     recommendedColorPalette: selectionResolution.recommendedColorPalette,
     stylePack: selectionResolution.resolved.colorPalette,
     layoutFamily: selectionResolution.resolved.layoutFamily,
-    title: coerceString(rawLayout.title || context.title || fallbackLayout.title),
-    summary: coerceString(rawLayout.summary || fallbackLayout.summary),
+    title: coerceString(rawLayoutRecord.title || contextRecord.title || fallbackLayout.title),
+    summary: coerceString(rawLayoutRecord.summary || fallbackLayout.summary),
     blocks,
   };
 }
 
+/**
+ * @param {{ provider?: AiProviderLike, layoutFamily?: string, colorPalette?: string, recommendedLayoutFamily?: string, recommendedColorPalette?: string, mergedEntries?: Array<{ source?: 'ai' | 'fallback', block?: AiLayoutBlockLike }>, signals?: MarkdownSignals, imageRefs?: AiImageRefLike[], schemaValidation?: AiLayoutSchemaValidationLike }} [options={}]
+ * @returns {AiLayoutGenerationMetaLike}
+ */
 function createLayoutGenerationMeta({
   provider,
   layoutFamily,
@@ -2177,10 +2722,23 @@ function createLayoutGenerationMeta({
   mergedEntries = [],
   schemaValidation = null,
 }) {
+  const safeSignals = signals || extractMarkdownSignals('');
+  const safeImageRefs = toAiImageRefs(imageRefs);
+  const safeNormalizedAiBlocks = toAiLayoutBlocks(normalizedAiBlocks);
+  /** @type {Array<{ source?: 'ai' | 'fallback', block?: AiLayoutBlockLike }>} */
+  const safeMergedEntries = Array.isArray(mergedEntries)
+    ? mergedEntries.map((entry) => {
+      const entryRecord = toRecord(entry);
+      return {
+        source: entryRecord.source === 'fallback' ? 'fallback' : 'ai',
+        block: /** @type {AiLayoutBlockLike} */ (toRecord(entryRecord.block)),
+      };
+    })
+    : [];
   const layoutFamilyInfo = getLayoutFamilyById(layoutFamily);
   const colorPaletteInfo = getColorPaletteById(colorPalette);
-  const fallbackEntries = mergedEntries.filter((entry) => entry.source === 'fallback');
-  const executionMode = fallbackEntries.length > 0 && normalizedAiBlocks.length === 0
+  const fallbackEntries = safeMergedEntries.filter((entry) => entry.source === 'fallback');
+  const executionMode = fallbackEntries.length > 0 && safeNormalizedAiBlocks.length === 0
     ? 'local-fallback'
     : 'ai-enhanced';
   return {
@@ -2195,18 +2753,18 @@ function createLayoutGenerationMeta({
     stylePackLabel: colorPaletteInfo?.label || '',
     recommendedLayoutFamilyLabel: getLayoutFamilyById(recommendedLayoutFamily)?.label || '',
     recommendedColorPaletteLabel: getColorPaletteById(recommendedColorPalette)?.label || '',
-    headingCount: signals.headings.length,
-    sectionCount: signals.sectionTitles.length,
-    leadParagraphCount: signals.leadParagraphs.length,
-    bulletGroupCount: signals.bulletGroups.length,
-    imageCount: Array.isArray(imageRefs) ? imageRefs.length : 0,
-    aiBlockCount: normalizedAiBlocks.length,
-    finalBlockCount: mergedEntries.length,
+    headingCount: safeSignals.headings.length,
+    sectionCount: safeSignals.sectionTitles.length,
+    leadParagraphCount: safeSignals.leadParagraphs.length,
+    bulletGroupCount: safeSignals.bulletGroups.length,
+    imageCount: safeImageRefs.length,
+    aiBlockCount: safeNormalizedAiBlocks.length,
+    finalBlockCount: safeMergedEntries.length,
     fallbackUsed: fallbackEntries.length > 0,
     fallbackBlockCount: fallbackEntries.length,
     fallbackBlockTypes: Array.from(new Set(fallbackEntries.map((entry) => entry.block?.type).filter(Boolean))).slice(0, 6),
     schemaValidation: normalizeSchemaValidation(schemaValidation),
-    blockOrigins: mergedEntries.map((entry, index) => ({
+    blockOrigins: safeMergedEntries.map((entry, index) => ({
       index,
       type: coerceString(entry.block?.type),
       source: entry.source === 'fallback' ? 'fallback' : 'ai',
@@ -2215,24 +2773,32 @@ function createLayoutGenerationMeta({
   };
 }
 
+/**
+ * @param {AiLayoutJsonLike | Record<string, unknown>} [rawLayout={}]
+ * @param {{ markdown?: string, selection?: AiLayoutSelectionLike, stylePack?: string, imageRefs?: AiImageRefLike[], signals?: MarkdownSignals, provider?: AiProviderLike }} [context={}]
+ * @returns {AiLayoutStateLike}
+ */
 function buildLayoutResult(rawLayout = {}, context = {}) {
+  const rawLayoutRecord = toRecord(rawLayout);
+  const contextRecord = toRecord(context);
   const validation = validateAiLayoutPayload(rawLayout);
-  const signals = context.signals || extractMarkdownSignals(context.markdown || '');
+  const signals = /** @type {MarkdownSignals} */ (contextRecord.signals || extractMarkdownSignals(contextRecord.markdown || ''));
+  const imageRefs = toAiImageRefs(contextRecord.imageRefs);
   const selectionResolution = resolveLayoutSelection({
-    requestedSelection: context.selection || { colorPalette: context.stylePack },
-    rawLayout,
+    requestedSelection: contextRecord.selection || { colorPalette: contextRecord.stylePack },
+    rawLayout: rawLayoutRecord,
     signals,
-    imageRefs: context.imageRefs,
+    imageRefs,
   });
   if (validation.fatal) {
     const generationMeta = createLayoutGenerationMeta({
-      provider: context.provider,
+      provider: /** @type {AiProviderLike} */ (toRecord(contextRecord.provider)),
       layoutFamily: selectionResolution.resolved.layoutFamily,
       colorPalette: selectionResolution.resolved.colorPalette,
       recommendedLayoutFamily: selectionResolution.recommendedLayoutFamily,
       recommendedColorPalette: selectionResolution.recommendedColorPalette,
       signals,
-      imageRefs: context.imageRefs,
+      imageRefs,
       normalizedAiBlocks: [],
       mergedEntries: [],
       schemaValidation: validation,
@@ -2240,47 +2806,53 @@ function buildLayoutResult(rawLayout = {}, context = {}) {
     throw new AiLayoutSchemaError(`AI 返回的布局结果未通过 schema 校验（${validation.issueCount} 项）`, validation, generationMeta);
   }
 
-  const imageIds = new Set((context.imageRefs || []).map((image) => image.id));
-  const sourceSections = Array.isArray(context.sourceSections) ? context.sourceSections : extractMarkdownSections(context.markdown || '').sections;
-  const normalizedAiBlocks = Array.isArray(rawLayout.blocks)
-    ? rawLayout.blocks
+  const imageIds = new Set(imageRefs.map((image) => coerceString(image.id)).filter(Boolean));
+  const sourceSections = Array.isArray(contextRecord.sourceSections)
+    ? /** @type {AiLayoutSourceSectionLike[]} */ (contextRecord.sourceSections.map((section) => toRecord(section)))
+    : extractMarkdownSections(contextRecord.markdown || '').sections;
+  const rawBlocks = toAiLayoutBlocks(rawLayoutRecord.blocks);
+  const normalizedAiBlocks = rawBlocks.length
+    ? rawBlocks
       .map((block, index) => normalizeLayoutBlock(block, imageIds, sourceSections, index))
       .filter(Boolean)
     : [];
   const fallbackLayout = buildFallbackLayout({
-    title: rawLayout.title || context.title,
-    markdown: context.markdown,
+    title: rawLayoutRecord.title || contextRecord.title,
+    markdown: contextRecord.markdown,
     selection: selectionResolution.selection,
-    rawLayout,
-    imageRefs: context.imageRefs,
+    rawLayout: rawLayoutRecord,
+    imageRefs,
     signals,
     sourceSections,
   });
-  const mergedEntries = mergeBlocksWithFallbackDetailed(normalizedAiBlocks, fallbackLayout.blocks);
+  const mergedEntries = mergeBlocksWithFallbackDetailed(
+    /** @type {AiLayoutBlockLike[]} */ (normalizedAiBlocks.filter(Boolean)),
+    toAiLayoutBlocks(fallbackLayout.blocks)
+  );
   const layoutJson = {
     version: AI_LAYOUT_SCHEMA_VERSION,
-    articleType: coerceString(rawLayout.articleType || fallbackLayout.articleType || 'article'),
+    articleType: coerceString(rawLayoutRecord.articleType || fallbackLayout.articleType || 'article'),
     selection: selectionResolution.selection,
     resolved: selectionResolution.resolved,
     recommendedLayoutFamily: selectionResolution.recommendedLayoutFamily,
     recommendedColorPalette: selectionResolution.recommendedColorPalette,
     stylePack: selectionResolution.resolved.colorPalette,
     layoutFamily: selectionResolution.resolved.layoutFamily,
-    title: coerceString(rawLayout.title || context.title || fallbackLayout.title),
-    summary: coerceString(rawLayout.summary || fallbackLayout.summary),
+    title: coerceString(rawLayoutRecord.title || contextRecord.title || fallbackLayout.title),
+    summary: coerceString(rawLayoutRecord.summary || fallbackLayout.summary),
     blocks: mergedEntries.map((entry) => entry.block),
   };
 
   return {
     layoutJson,
     generationMeta: createLayoutGenerationMeta({
-      provider: context.provider,
+      provider: /** @type {AiProviderLike} */ (toRecord(contextRecord.provider)),
       layoutFamily: layoutJson.resolved.layoutFamily,
       colorPalette: layoutJson.resolved.colorPalette,
       recommendedLayoutFamily: layoutJson.recommendedLayoutFamily,
       recommendedColorPalette: layoutJson.recommendedColorPalette,
       signals,
-      imageRefs: context.imageRefs,
+      imageRefs,
       normalizedAiBlocks,
       mergedEntries,
       schemaValidation: validation,
@@ -2288,10 +2860,17 @@ function buildLayoutResult(rawLayout = {}, context = {}) {
   };
 }
 
+/**
+ * @param {unknown} html
+ * @returns {AiImageRefLike[]}
+ */
 function extractImageRefsFromHtml(html) {
-  if (typeof document === 'undefined' || !html) return [];
-  const container = createHtmlContainer('div', html);
+  const source = coerceString(html);
+  if (!source) return [];
+  const container = createHtmlContainer('div', source);
+  if (!container) return [];
   const figures = Array.from(container.querySelectorAll('figure'));
+  /** @type {AiImageRefLike[]} */
   const refs = [];
 
   figures.forEach((figure, index) => {
@@ -2309,12 +2888,17 @@ function extractImageRefsFromHtml(html) {
   return refs;
 }
 
+/**
+ * @param {{ title?: unknown, markdown?: unknown, selection?: AiLayoutSelectionLike, stylePack?: string, imageRefs?: AiImageRefLike[] }} params
+ * @returns {Array<{ role: string, content: string }>}
+ */
 function buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs = [] }) {
+  const safeImageRefs = toAiImageRefs(imageRefs);
   const resolvedSelection = resolveLayoutSelection({
     requestedSelection: selection || { colorPalette: stylePack },
     rawLayout: { title },
     signals: extractMarkdownSignals(markdown),
-    imageRefs,
+    imageRefs: safeImageRefs,
   });
   const selectedLayoutFamily = selection?.layoutFamily || AI_LAYOUT_SELECTION_AUTO;
   const selectedColorPalette = selection?.colorPalette || AI_LAYOUT_SELECTION_AUTO;
@@ -2330,8 +2914,11 @@ function buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs 
   const recommendedSkill = getLayoutSkillById(resolvedSelection.recommendedLayoutFamily);
   const signals = extractMarkdownSignals(markdown);
   const promptMarkdown = truncateMarkdownForPrompt(markdown);
-  const imageSummary = imageRefs.length
-    ? imageRefs.map((image) => `- ${image.id}: ${image.caption}`).join('\n')
+  const imageSummary = safeImageRefs.length
+    ? safeImageRefs.map((image) => {
+      const imageRecord = toRecord(image);
+      return `- ${coerceString(imageRecord.id)}: ${coerceString(imageRecord.caption || imageRecord.alt)}`;
+    }).join('\n')
     : '- 无可用图片';
   const sectionSummary = signals.sectionTitles.length
     ? signals.sectionTitles.map((item, index) => `- ${index}: ${item}`).join('\n')
@@ -2346,11 +2933,11 @@ function buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs 
     ? signals.bulletGroups.slice(0, 2).map((group, groupIndex) => `组 ${groupIndex + 1}: ${group.slice(0, 4).join(' / ')}`).join('\n')
     : '- 无明显列表信息';
   const skillSummary = AI_LAYOUT_SKILL_LIST.map((skill) => {
-    const manifest = skill.manifest || {};
+    const manifest = /** @type {AiLayoutSkillManifest} */ (skill.manifest || {});
     return `- ${manifest.id}: ${manifest.label}（${manifest.description || '无描述'}）`;
   }).join('\n');
   const safeStyleNotes = Array.isArray(AI_WECHAT_SAFE_STYLE_PRIMITIVES.allowedCssNotes)
-    ? AI_WECHAT_SAFE_STYLE_PRIMITIVES.allowedCssNotes.map((item) => `- ${item}`).join('\n')
+    ? AI_WECHAT_SAFE_STYLE_PRIMITIVES.allowedCssNotes.map((item) => `- ${coerceString(item)}`).join('\n')
     : '- 仅允许 inline style';
   const selectedSkillPrompt = selectedSkill?.prompt
     ? selectedSkill.prompt
@@ -2427,59 +3014,115 @@ function buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs 
   ];
 }
 
+/**
+ * @param {unknown} data
+ * @returns {string}
+ */
 function readChatCompletionContent(data) {
-  const message = data?.choices?.[0]?.message;
+  const source = toRecord(data);
+  const choices = Array.isArray(source.choices) ? source.choices : [];
+  const firstChoice = toRecord(choices[0]);
+  const message = toRecord(firstChoice.message);
   if (!message) throw new Error('AI 响应缺少 message');
   const content = message.content;
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return content
-      .map((item) => (typeof item?.text === 'string' ? item.text : ''))
+      .map((item) => {
+        const part = toRecord(item);
+        return typeof part.text === 'string' ? part.text : '';
+      })
       .join('')
       .trim();
   }
   throw new Error('AI 响应格式无法识别');
 }
 
+/**
+ * @param {unknown} data
+ * @returns {string}
+ */
 function readGeminiContent(data) {
-  const candidate = Array.isArray(data?.candidates) ? data.candidates[0] : null;
-  const parts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
+  const source = toRecord(data);
+  const candidates = Array.isArray(source.candidates) ? source.candidates : [];
+  const candidate = toRecord(candidates[0]);
+  const content = toRecord(candidate.content);
+  const parts = Array.isArray(content.parts) ? content.parts : [];
   const text = parts
-    .map((item) => (typeof item?.text === 'string' ? item.text : ''))
+    .map((item) => {
+      const part = toRecord(item);
+      return typeof part.text === 'string' ? part.text : '';
+    })
     .join('')
     .trim();
   if (text) return text;
   throw new Error('Gemini 响应缺少可解析文本');
 }
 
+/**
+ * @param {unknown} data
+ * @returns {string}
+ */
 function readAnthropicContent(data) {
-  if (data?.stop_reason === 'max_tokens') {
+  const source = toRecord(data);
+  if (source.stop_reason === 'max_tokens') {
     throw new Error('Anthropic 响应达到 max_tokens 输出上限，排版 JSON 可能被截断。请缩短文章或减少图片后重试。');
   }
-  const content = Array.isArray(data?.content) ? data.content : [];
+  const content = Array.isArray(source.content) ? source.content : [];
   const text = content
-    .map((item) => (item?.type === 'text' && typeof item?.text === 'string' ? item.text : ''))
+    .map((item) => {
+      const part = toRecord(item);
+      return part.type === 'text' && typeof part.text === 'string' ? part.text : '';
+    })
     .join('')
     .trim();
   if (text) return text;
   throw new Error('Anthropic 响应缺少可解析文本');
 }
 
+/**
+ * @param {Array<{ role?: string, content?: string }>} messages
+ * @returns {string}
+ */
 function toPlainPromptFromMessages(messages = []) {
-  return messages
+  return (Array.isArray(messages) ? messages : [])
     .map((message) => {
-      const roleLabel = message?.role === 'system' ? '系统要求' : '用户请求';
-      return `${roleLabel}：\n${String(message?.content || '').trim()}`;
+      const record = toRecord(message);
+      const roleLabel = record.role === 'system' ? '系统要求' : '用户请求';
+      return `${roleLabel}：\n${String(record.content || '').trim()}`;
     })
     .filter(Boolean)
     .join('\n\n');
 }
 
+/**
+ * @param {unknown} error
+ * @param {unknown} selection
+ */
 function shouldUseLocalFallbackLayout(error, selection = {}) {
-  const requestedLayoutFamily = normalizeLayoutFamily(selection?.layoutFamily, AI_LAYOUT_SELECTION_AUTO);
+  const selectionRecord = toSelectionRecord(selection);
+  const requestedLayoutFamily = normalizeLayoutFamily(selectionRecord.layoutFamily, AI_LAYOUT_SELECTION_AUTO);
   return requestedLayoutFamily === 'source-first' && !!error;
 }
 
+/** @param {unknown} error */
+function isAbortError(error) {
+  return toRecord(error).name === 'AbortError';
+}
+
+/**
+ * @param {string} jsonPayload
+ * @returns {Record<string, unknown>}
+ */
+function parseAndRepairLayoutPayload(jsonPayload) {
+  const parsedPayload = /** @type {unknown} */ (JSON.parse(jsonPayload));
+  return /** @type {Record<string, unknown>} */ (repairRawLayoutPayload(parsedPayload));
+}
+
+/**
+ * @param {AiLayoutRequestOptions} options
+ * @returns {Promise<Record<string, unknown>>}
+ */
 async function requestOpenAICompatibleLayout({
   provider,
   title,
@@ -2488,10 +3131,11 @@ async function requestOpenAICompatibleLayout({
   stylePack,
   imageRefs,
   timeoutMs,
+  abortTimeoutMs,
   fetchImpl,
 }) {
   const controller = new AbortController();
-  const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
+  const timer = setAiLayoutTimeout(() => controller.abort(), abortTimeoutMs || timeoutMs);
 
   try {
     const response = await fetchImpl(`${provider.baseUrl}/chat/completions`, {
@@ -2517,16 +3161,16 @@ async function requestOpenAICompatibleLayout({
     const content = readChatCompletionContent(data);
     const jsonPayload = extractJsonPayload(content);
     try {
-      return repairRawLayoutPayload(JSON.parse(jsonPayload));
+      return parseAndRepairLayoutPayload(jsonPayload);
     } catch (error) {
       const sanitizedPayload = sanitizeJsonStringLiteralControls(jsonPayload);
       if (sanitizedPayload !== jsonPayload) {
-        return repairRawLayoutPayload(JSON.parse(sanitizedPayload));
+        return parseAndRepairLayoutPayload(sanitizedPayload);
       }
       throw error;
     }
   } catch (error) {
-    if (controller.signal.aborted || error?.name === 'AbortError') {
+    if (controller.signal.aborted || isAbortError(error)) {
       throw new AiLayoutTimeoutError(timeoutMs);
     }
     throw error;
@@ -2535,6 +3179,10 @@ async function requestOpenAICompatibleLayout({
   }
 }
 
+/**
+ * @param {AiLayoutRequestOptions} options
+ * @returns {Promise<Record<string, unknown>>}
+ */
 async function requestGeminiLayout({
   provider,
   title,
@@ -2543,10 +3191,11 @@ async function requestGeminiLayout({
   stylePack,
   imageRefs,
   timeoutMs,
+  abortTimeoutMs,
   fetchImpl,
 }) {
   const controller = new AbortController();
-  const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
+  const timer = setAiLayoutTimeout(() => controller.abort(), abortTimeoutMs || timeoutMs);
 
   try {
     const messages = buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs });
@@ -2588,16 +3237,16 @@ async function requestGeminiLayout({
     const content = readGeminiContent(data);
     const jsonPayload = extractJsonPayload(content);
     try {
-      return repairRawLayoutPayload(JSON.parse(jsonPayload));
+      return parseAndRepairLayoutPayload(jsonPayload);
     } catch (error) {
       const sanitizedPayload = sanitizeJsonStringLiteralControls(jsonPayload);
       if (sanitizedPayload !== jsonPayload) {
-        return repairRawLayoutPayload(JSON.parse(sanitizedPayload));
+        return parseAndRepairLayoutPayload(sanitizedPayload);
       }
       throw error;
     }
   } catch (error) {
-    if (controller.signal.aborted || error?.name === 'AbortError') {
+    if (controller.signal.aborted || isAbortError(error)) {
       throw new AiLayoutTimeoutError(timeoutMs);
     }
     throw error;
@@ -2606,6 +3255,10 @@ async function requestGeminiLayout({
   }
 }
 
+/**
+ * @param {AiLayoutRequestOptions} options
+ * @returns {Promise<Record<string, unknown>>}
+ */
 async function requestAnthropicLayout({
   provider,
   title,
@@ -2614,10 +3267,11 @@ async function requestAnthropicLayout({
   stylePack,
   imageRefs,
   timeoutMs,
+  abortTimeoutMs,
   fetchImpl,
 }) {
   const controller = new AbortController();
-  const timer = setAiLayoutTimeout(() => controller.abort(), timeoutMs);
+  const timer = setAiLayoutTimeout(() => controller.abort(), abortTimeoutMs || timeoutMs);
 
   try {
     const messages = buildLayoutMessages({ title, markdown, selection, stylePack, imageRefs });
@@ -2654,16 +3308,16 @@ async function requestAnthropicLayout({
     const content = readAnthropicContent(data);
     const jsonPayload = extractJsonPayload(content);
     try {
-      return repairRawLayoutPayload(JSON.parse(jsonPayload));
+      return parseAndRepairLayoutPayload(jsonPayload);
     } catch (error) {
       const sanitizedPayload = sanitizeJsonStringLiteralControls(jsonPayload);
       if (sanitizedPayload !== jsonPayload) {
-        return repairRawLayoutPayload(JSON.parse(sanitizedPayload));
+        return parseAndRepairLayoutPayload(sanitizedPayload);
       }
       throw error;
     }
   } catch (error) {
-    if (controller.signal.aborted || error?.name === 'AbortError') {
+    if (controller.signal.aborted || isAbortError(error)) {
       throw new AiLayoutTimeoutError(timeoutMs);
     }
     throw error;
@@ -2672,6 +3326,9 @@ async function requestAnthropicLayout({
   }
 }
 
+/**
+ * @param {{ provider?: AiProviderLike | null, title?: unknown, markdown?: unknown, stylePack?: string, selection?: AiLayoutSelectionLike, imageRefs?: AiImageRefLike[], timeoutMs?: number, fetchImpl?: FetchLike | GlobalFetchLike }} options
+ */
 async function generateArticleLayout({
   provider,
   title,
@@ -2683,21 +3340,33 @@ async function generateArticleLayout({
   },
   imageRefs = [],
   timeoutMs = DEFAULT_AI_REQUEST_TIMEOUT_MS,
-  fetchImpl = globalThis.fetch,
+  fetchImpl = getDefaultFetch(),
 }) {
-  if (!markdown || !String(markdown).trim()) throw new Error('文章内容为空，无法进行 AI 编排');
-  const signals = extractMarkdownSignals(markdown);
-  const sourceSections = extractMarkdownSections(markdown).sections;
-  const requestedLayoutFamily = normalizeLayoutFamily(selection?.layoutFamily, AI_LAYOUT_SELECTION_AUTO);
+  const safeProvider = provider ? normalizeAiProvider(provider) : null;
+  const safeTitle = coerceString(title);
+  const safeMarkdown = coerceString(markdown);
+  const safeSelection = normalizeLayoutSelection(selection, {
+    layoutFamily: AI_LAYOUT_SELECTION_AUTO,
+    colorPalette: AI_LAYOUT_SELECTION_AUTO,
+  });
+  const safeStylePack = normalizeColorPalette(stylePack, AI_LAYOUT_SELECTION_AUTO);
+  const safeImageRefs = toAiImageRefs(imageRefs);
+  const requestedTimeoutMs = Number.isFinite(Number(timeoutMs)) ? Number(timeoutMs) : DEFAULT_AI_REQUEST_TIMEOUT_MS;
+  const safeTimeoutMs = clampNumber(requestedTimeoutMs, DEFAULT_AI_REQUEST_TIMEOUT_MS, 1000, 180000);
+  if (!safeMarkdown) throw new Error('文章内容为空，无法进行 AI 编排');
+  const signals = extractMarkdownSignals(safeMarkdown);
+  const sourceSections = extractMarkdownSections(safeMarkdown).sections;
+  const requestedLayoutFamily = normalizeLayoutFamily(safeSelection.layoutFamily, AI_LAYOUT_SELECTION_AUTO);
 
+  /** @type {Record<string, unknown>} */
   let rawLayout;
-  if (!provider) {
+  if (!safeProvider) {
     if (requestedLayoutFamily !== 'source-first') {
       throw new Error('未找到可用的 AI Provider');
     }
     rawLayout = {
       articleType: 'article',
-      title,
+      title: safeTitle,
       summary: '',
       fallbackUsed: true,
       blocks: [],
@@ -2705,53 +3374,56 @@ async function generateArticleLayout({
   } else {
     if (typeof fetchImpl !== 'function') throw new Error('当前环境不支持 AI 网络请求');
     try {
-      switch (provider.kind) {
+      switch (safeProvider.kind) {
         case AI_PROVIDER_KINDS.OPENAI_COMPATIBLE:
           rawLayout = await requestOpenAICompatibleLayout({
-            provider,
-            title,
-            markdown,
-            selection,
-            stylePack,
-            imageRefs,
-            timeoutMs,
-            fetchImpl,
+            provider: safeProvider,
+            title: safeTitle,
+            markdown: safeMarkdown,
+            selection: safeSelection,
+            stylePack: safeStylePack,
+            imageRefs: safeImageRefs,
+            timeoutMs: requestedTimeoutMs,
+            abortTimeoutMs: safeTimeoutMs,
+            fetchImpl: /** @type {FetchLike} */ (fetchImpl),
           });
           break;
         case AI_PROVIDER_KINDS.GEMINI:
           rawLayout = await requestGeminiLayout({
-            provider,
-            title,
-            markdown,
-            selection,
-            stylePack,
-            imageRefs,
-            timeoutMs,
-            fetchImpl,
+            provider: safeProvider,
+            title: safeTitle,
+            markdown: safeMarkdown,
+            selection: safeSelection,
+            stylePack: safeStylePack,
+            imageRefs: safeImageRefs,
+            timeoutMs: requestedTimeoutMs,
+            abortTimeoutMs: safeTimeoutMs,
+            fetchImpl: /** @type {FetchLike} */ (fetchImpl),
           });
           break;
         case AI_PROVIDER_KINDS.ANTHROPIC:
           rawLayout = await requestAnthropicLayout({
-            provider,
-            title,
-            markdown,
-            selection,
-            stylePack,
-            imageRefs,
-            timeoutMs,
-            fetchImpl,
+            provider: safeProvider,
+            title: safeTitle,
+            markdown: safeMarkdown,
+            selection: safeSelection,
+            stylePack: safeStylePack,
+            imageRefs: safeImageRefs,
+            timeoutMs: requestedTimeoutMs,
+            abortTimeoutMs: safeTimeoutMs,
+            fetchImpl: /** @type {FetchLike} */ (fetchImpl),
           });
           break;
         default:
-          throw new Error(`暂不支持的 AI Provider 类型: ${provider.kind}`);
+          throw new Error(`暂不支持的 AI Provider 类型: ${safeProvider.kind}`);
       }
     } catch (error) {
-      if (!shouldUseLocalFallbackLayout(error, selection)) {
+      if (!shouldUseLocalFallbackLayout(error, safeSelection)) {
         throw error;
       }
       rawLayout = {
         articleType: 'article',
-        title,
+        title: safeTitle,
         summary: '',
         fallbackUsed: true,
         blocks: [],
@@ -2761,31 +3433,31 @@ async function generateArticleLayout({
 
   try {
     return buildLayoutResult(rawLayout, {
-      title,
-      selection,
-      stylePack,
-      imageRefs,
-      markdown,
-      provider,
+      title: safeTitle,
+      selection: safeSelection,
+      stylePack: safeStylePack,
+      imageRefs: safeImageRefs,
+      markdown: safeMarkdown,
+      provider: safeProvider,
       signals,
       sourceSections,
     });
   } catch (error) {
-    if (!shouldUseLocalFallbackLayout(error, selection)) {
+    if (!shouldUseLocalFallbackLayout(error, safeSelection)) {
       throw error;
     }
     return buildLayoutResult({
       articleType: 'article',
-      title,
+      title: safeTitle,
       summary: '',
       fallbackUsed: true,
       blocks: [],
     }, {
-      title,
-      selection,
-      stylePack,
-      imageRefs,
-      markdown,
+      title: safeTitle,
+      selection: safeSelection,
+      stylePack: safeStylePack,
+      imageRefs: safeImageRefs,
+      markdown: safeMarkdown,
       provider: null,
       signals,
       sourceSections,
@@ -2793,7 +3465,12 @@ async function generateArticleLayout({
   }
 }
 
-async function testAiProviderConnection(provider, fetchImpl = globalThis.fetch) {
+/**
+ * @param {AiProviderLike} provider
+ * @param {FetchLike | GlobalFetchLike | undefined} [fetchImpl=getDefaultFetch()]
+ * @returns {Promise<boolean>}
+ */
+async function testAiProviderConnection(provider, fetchImpl = getDefaultFetch()) {
   const result = await generateArticleLayout({
     provider,
     title: '连接测试',
@@ -2809,6 +3486,10 @@ async function testAiProviderConnection(provider, fetchImpl = globalThis.fetch) 
   return !!result?.layoutJson?.blocks?.length;
 }
 
+/**
+ * @param {unknown} text
+ * @returns {string}
+ */
 function normalizeWechatTaskMarkerText(text) {
   return String(text || '').replace(
     /(^|\n)(\s*)\[([ xX])\]\s+/g,
@@ -2817,26 +3498,70 @@ function normalizeWechatTaskMarkerText(text) {
   );
 }
 
+/**
+ * @param {unknown} text
+ * @returns {string}
+ */
 function escapeHtml(text) {
-  return normalizeWechatTaskMarkerText(text).replace(/[&<>"']/g, (char) => ({
+  /** @type {Record<string, string>} */
+  const replacements = {
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
     '"': '&quot;',
     "'": '&#39;',
-  }[char]));
+  };
+  return normalizeWechatTaskMarkerText(text).replace(/[&<>"']/g, (char) => replacements[char] || char);
 }
 
+/**
+ * AI layout blocks are text-first. If the model echoes a markdown image token
+ * from the source, keep the real rendered image path separate and hide the raw
+ * local path from the text card.
+ * @param {unknown} text
+ * @returns {string}
+ */
+function normalizeAiLayoutDisplayText(text) {
+  return String(text || '')
+    .replace(/!\[\[[^[\]\r\n]+]]/g, '')
+    .replace(/!\[[^\]\r\n]*]\([^) \r\n]+(?:\s+"[^"]*")?\)/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+/**
+ * @param {unknown} text
+ * @returns {string}
+ */
+function escapeAiLayoutText(text) {
+  return escapeHtml(normalizeAiLayoutDisplayText(text));
+}
+
+/**
+ * @param {unknown} fontFamily
+ * @returns {string}
+ */
 function normalizeInlineFontFamily(fontFamily = '') {
   return String(fontFamily || '').replace(/"/g, '\'');
 }
 
+/**
+ * @param {string} tagName
+ * @param {unknown} text
+ * @param {string} style
+ * @param {{ mode?: 'preview' | 'draft' | 'export' }} [options={}]
+ * @returns {string}
+ */
 function renderStyledText(tagName, text, style, { mode = 'preview' } = {}) {
   if (text === undefined || text === null || text === '') return '';
   const actualTagName = mode === 'draft' && /^h[1-6]$/i.test(tagName) ? 'p' : tagName;
   return `<${actualTagName} style="${style}">${escapeHtml(text)}</${actualTagName}>`;
 }
 
+/**
+ * @param {AiColorTokens} tokens
+ * @returns {string}
+ */
 function renderEditorialDraftDivider(tokens) {
   return `<section style="margin:24px 0 0;padding:0;font-size:0;line-height:0;overflow:hidden;">
     <section style="width:100%;height:1px;background:${tokens.border};font-size:0;line-height:0;overflow:hidden;">
@@ -2845,6 +3570,10 @@ function renderEditorialDraftDivider(tokens) {
   </section>`;
 }
 
+/**
+ * @param {AiColorTokens} tokens
+ * @returns {string}
+ */
 function renderEditorialPreviewDivider(tokens) {
   return `<div style="margin-top:24px;font-size:0;line-height:0;overflow:hidden;">
     <div style="width:100%;height:1px;background:${tokens.border};font-size:0;line-height:0;overflow:hidden;">
@@ -2853,15 +3582,22 @@ function renderEditorialPreviewDivider(tokens) {
   </div>`;
 }
 
+/**
+ * @param {AiLayoutStateLike | AiLayoutJsonLike | null | undefined} layout
+ * @param {{ imageRefs?: AiImageRefLike[], mode?: 'preview' | 'draft' | 'export', renderedSectionFragments?: Map<string, unknown> | null, colorPaletteOverride?: AiColorPaletteOverride | null }} [options={}]
+ * @returns {string}
+ */
 function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', renderedSectionFragments = null, colorPaletteOverride = null } = {}) {
-  const layoutFamily = getLayoutFamilyById(layout?.resolved?.layoutFamily || layout?.layoutFamily);
+  const layoutRecord = toRecord(layout);
+  const layoutJson = /** @type {AiLayoutJsonLike} */ (toRecord(layoutRecord.layoutJson || layoutRecord));
+  const layoutFamily = getLayoutFamilyById(layoutJson.resolved?.layoutFamily || layoutJson.layoutFamily);
   const colorPalette = resolveColorPaletteForRender(
-    layout?.resolved?.colorPalette || layout?.stylePack,
+    layoutJson.resolved?.colorPalette || layoutJson.stylePack,
     colorPaletteOverride
   );
-  const tokens = colorPalette.tokens;
+  const tokens = /** @type {AiColorTokens} */ (colorPalette.tokens || {});
   const renderProfile = getWechatSafeRenderProfile(layoutFamily.id);
-  const typography = AI_WECHAT_SAFE_STYLE_PRIMITIVES.typography || {};
+  const typography = toRecord(AI_WECHAT_SAFE_STYLE_PRIMITIVES.typography);
   const sectionLabelPrefix = AI_WECHAT_SAFE_STYLE_PRIMITIVES.sectionLabels?.[layoutFamily.id] || 'SECTION';
   const isSourceFirst = layoutFamily.id === 'source-first';
   const isTutorialCards = layoutFamily.id === 'tutorial-cards';
@@ -2873,10 +3609,16 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
   const bodyFontFamily = normalizeInlineFontFamily(
     typography.bodyFontFamily || '-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif'
   );
-  const imageMap = new Map(imageRefs.map((image) => [image.id, image]));
-  const renderedSections = Array.isArray(renderedSectionFragments?.sections)
-    ? renderedSectionFragments.sections
+  const safeImageRefs = toAiImageRefs(imageRefs);
+  const imageMap = new Map(safeImageRefs.map((image) => [coerceString(image.id), image]));
+  const renderedSectionContainer = isRecord(renderedSectionFragments)
+    ? /** @type {{ sections?: RenderedSectionFragmentLike[] }} */ (toRecord(renderedSectionFragments))
+    : {};
+  /** @type {RenderedSectionFragmentLike[]} */
+  const renderedSections = Array.isArray(renderedSectionContainer.sections)
+    ? renderedSectionContainer.sections
     : [];
+  /** @type {Map<string, RenderedSectionFragmentLike>} */
   const renderedSectionByTitle = new Map(renderedSections.map((section) => [normalizeTitleKey(section?.title || ''), section]));
   const tutorialSpacing = isTutorialCards
     ? (isDraft
@@ -2924,11 +3666,11 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
   const cardShadow = isDraft
     ? 'none'
     : (renderProfile.cardShadow ?? (isTutorialCards ? '0 10px 30px -24px rgba(0,0,0,0.18)' : 'none'));
-  const heroProfile = renderProfile.hero || {};
-  const partNavProfile = renderProfile.partNav || {};
-  const leadQuoteProfile = renderProfile.leadQuote || {};
-  const caseBlockProfile = renderProfile.caseBlock || {};
-  const subsectionProfile = renderProfile.subsection || {};
+  const heroProfile = toRecord(renderProfile.hero);
+  const partNavProfile = toRecord(renderProfile.partNav);
+  const leadQuoteProfile = toRecord(renderProfile.leadQuote);
+  const caseBlockProfile = toRecord(renderProfile.caseBlock);
+  const subsectionProfile = toRecord(renderProfile.subsection);
   const wrapperStyle = [
     `font-family:${bodyFontFamily}`,
     `color:${tokens.text}`,
@@ -2953,6 +3695,11 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
       ? (isDraft ? '16px 18px 14px' : '18px 20px 16px')
       : (isSourceFirst ? '14px 14px 12px' : '16px 16px 14px'));
 
+  /**
+   * @param {unknown} imageId
+   * @param {string} [extraStyle='']
+   * @returns {string}
+   */
   const renderImage = (imageId, extraStyle = '') => {
     const image = imageMap.get(imageId);
     if (!image) return '';
@@ -2966,18 +3713,28 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
     return `<img src="${escapeHtml(image.src)}" alt="${escapeHtml(image.alt || image.caption)}" style="${style}">`;
   };
 
+  /**
+   * @param {unknown} html
+   * @returns {Set<string>}
+   */
   const collectImageSrcsFromHtml = (html = '') => {
     const normalizedHtml = coerceString(html);
-    if (!normalizedHtml || typeof document === 'undefined') return new Set();
+    if (!normalizedHtml) return new Set();
     const container = createHtmlContainer('div', normalizedHtml);
+    if (!container) return new Set();
     return new Set(
       Array.from(container.querySelectorAll('img'))
-        .map((img) => coerceString(img.getAttribute('src') || img.src))
+        .map((img) => {
+          const imageElement = /** @type {HTMLImageElement} */ (img);
+          return coerceString(imageElement.getAttribute('src') || imageElement.src);
+        })
         .filter(Boolean)
     );
   };
 
+  /** @param {RenderedSectionFragmentLike | null | undefined} [sectionFragment=null] */
   const collectImageSrcsFromRenderedSection = (sectionFragment = null) => {
+    /** @type {Set<string>} */
     const allSrcs = new Set();
     collectImageSrcsFromHtml(sectionFragment?.leadHtml).forEach((src) => allSrcs.add(src));
     const subsectionFragments = Array.isArray(sectionFragment?.subsections) ? sectionFragment.subsections : [];
@@ -2987,13 +3744,23 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
     return allSrcs;
   };
 
+  /**
+   * @param {AiLayoutBlockLike} [block={}]
+   * @returns {RenderedSectionFragmentLike | null}
+   */
   const findRenderedSection = (block = {}) => {
     if (Number.isInteger(block.sectionIndex) && block.sectionIndex >= 0 && renderedSections[block.sectionIndex]) {
-      return renderedSections[block.sectionIndex];
+      const renderedSection = /** @type {RenderedSectionFragmentLike | undefined} */ (renderedSections.at(block.sectionIndex));
+      return renderedSection || null;
     }
     return renderedSectionByTitle.get(normalizeTitleKey(block.title || '')) || null;
   };
 
+  /**
+   * @param {RenderedSectionFragmentLike | null | undefined} sectionFragment
+   * @param {AiLayoutSubsectionLike} [subsection={}]
+   * @param {number} [subsectionIndex=0]
+   */
   const findRenderedSubsection = (sectionFragment, subsection = {}, subsectionIndex = 0) => {
     const candidates = Array.isArray(sectionFragment?.subsections) ? sectionFragment.subsections : [];
     const titleKey = normalizeTitleKey(subsection?.title || '');
@@ -3004,6 +3771,11 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
     return candidates[subsectionIndex] || null;
   };
 
+  /**
+   * @param {AiLayoutCalloutLike} [callout={}]
+   * @param {{ compact?: boolean }} [options={}]
+   * @returns {string}
+   */
   const renderCalloutCard = (callout = {}, { compact = false } = {}) => {
     const label = coerceString(callout?.title || formatCalloutLabel(callout?.type));
     const body = coerceString(callout?.body);
@@ -3015,13 +3787,14 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
       : '';
     return `<section style="margin:${compact ? '10px 0 16px' : '14px 0 20px'};padding:${compact ? '12px 12px 10px' : '14px 14px 12px'};border:1px solid ${tokens.border};border-left:${compact ? 3 : 4}px solid ${tokens.accent};border-radius:${compact ? 12 : 14}px;background:${isDraft && isTutorialCards ? tokens.surface : tokens.accentSoft};">
       ${chipHtml}
-      ${body ? `<p style="margin:0;color:${tokens.text};font-size:${compact ? bodyFontSize : Math.max(bodyFontSize, 15)}px;line-height:${bodyLineHeight};font-weight:${compact ? 500 : 600};letter-spacing:0;">${escapeHtml(body)}</p>` : ''}
+      ${body ? `<p style="margin:0;color:${tokens.text};font-size:${compact ? bodyFontSize : Math.max(bodyFontSize, 15)}px;line-height:${bodyLineHeight};font-weight:${compact ? 500 : 600};letter-spacing:0;">${escapeAiLayoutText(body)}</p>` : ''}
     </section>`;
   };
 
-  const blocksHtml = (layout.blocks || []).map((block, index) => {
-    const previousBlock = layout.blocks?.[index - 1] || null;
-    const nextBlock = layout.blocks?.[index + 1] || null;
+  const layoutBlocks = toAiLayoutBlocks(layoutJson.blocks);
+  const blocksHtml = layoutBlocks.map((block, index) => {
+    const previousBlock = layoutBlocks[index - 1] || null;
+    const nextBlock = layoutBlocks[index + 1] || null;
     if (block.type === 'hero') {
       const heroImageStyle = isDraft
         ? (isTutorialCards
@@ -3162,15 +3935,17 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
         ? `1px solid ${tokens.border}`
         : 'none';
       return `<section style="margin:${isSourceFirst ? 14 : (isEditorialLite ? 26 : (isTutorialCards ? tutorialSpacing?.leadQuoteMarginY || 14 : 18))}px 0;padding:${isSourceFirst ? '0 0 0 14px' : (isEditorialLite ? '24px 0' : (isTutorialCards ? tutorialSpacing?.leadQuotePadding || '14px' : '18px'))};border-radius:${isTutorialCards ? 16 : 0}px;background:${leadQuoteProfile.background === 'quoteBg' ? tokens.quoteBg : 'transparent'};border:${isTutorialCards ? `1px solid ${tokens.border}` : 'none'};border-left:${leadQuoteProfile.borderLeft ? `3px solid ${tokens.accent}` : 'none'};border-top:${editorialLeadQuoteBorderTop};border-bottom:${isEditorialLite ? `1px solid ${tokens.border}` : 'none'};">
-        <p style="margin:0;font-size:${leadQuoteFontSize}px;font-weight:${leadQuoteProfile.fontWeight || (isSourceFirst ? 600 : (isEditorialLite ? 600 : 700))};line-height:${isEditorialLite ? 1.7 : 1.75};color:${tokens.text};font-family:${isEditorialLite ? editorialDisplayFont : 'inherit'};letter-spacing:0;">${escapeHtml(block.text)}</p>
-        ${block.note ? `<p style="margin:${isTutorialCards ? 8 : 10}px 0 0;font-size:${isTutorialCards ? 13 : 12}px;line-height:1.8;color:${tokens.muted};letter-spacing:0;">${escapeHtml(block.note)}</p>` : ''}
+        <p style="margin:0;font-size:${leadQuoteFontSize}px;font-weight:${leadQuoteProfile.fontWeight || (isSourceFirst ? 600 : (isEditorialLite ? 600 : 700))};line-height:${isEditorialLite ? 1.7 : 1.75};color:${tokens.text};font-family:${isEditorialLite ? editorialDisplayFont : 'inherit'};letter-spacing:0;">${escapeAiLayoutText(block.text)}</p>
+        ${block.note ? `<p style="margin:${isTutorialCards ? 8 : 10}px 0 0;font-size:${isTutorialCards ? 13 : 12}px;line-height:1.8;color:${tokens.muted};letter-spacing:0;">${escapeAiLayoutText(block.note)}</p>` : ''}
       </section>`;
     }
 
     if (block.type === 'case-block') {
-      const imagesHtml = block.imageIds.map((imageId) => `<div style="margin-top:14px;">${renderImage(imageId)}</div>`).join('');
-      const bulletsHtml = block.bullets.length
-        ? `<ul style="margin:12px 0 0 18px;padding:0;color:${tokens.text};">${block.bullets.map((bullet) => `<li style="margin:6px 0;">${escapeHtml(bullet)}</li>`).join('')}</ul>`
+      const caseImageIds = Array.isArray(block.imageIds) ? block.imageIds : [];
+      const caseBullets = Array.isArray(block.bullets) ? block.bullets : [];
+      const imagesHtml = caseImageIds.map((imageId) => `<div style="margin-top:14px;">${renderImage(imageId)}</div>`).join('');
+      const bulletsHtml = caseBullets.length
+        ? `<ul style="margin:12px 0 0 18px;padding:0;color:${tokens.text};">${caseBullets.map((bullet) => `<li style="margin:6px 0;">${escapeAiLayoutText(bullet)}</li>`).join('')}</ul>`
         : '';
       const caseHeaderHtml = isDraft
         ? `<div style="margin-bottom:8px;">
@@ -3189,8 +3964,8 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
           `margin:0 0 ${isEditorialLite ? 10 : 8}px;font-size:${caseBlockProfile.titleSize || (isSourceFirst ? 20 : (isEditorialLite ? 26 : 22))}px;line-height:${isEditorialLite ? 1.28 : 1.4};color:${tokens.text};font-family:${isEditorialLite ? editorialDisplayFont : 'inherit'};`,
           { mode }
         )}
-        ${block.summary ? `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.muted};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(block.summary)}</p>` : ''}
-        ${block.highlight ? `<div style="margin-top:12px;padding:10px 12px;border-left:4px solid ${tokens.accent};background:${tokens.accentSoft};border-radius:10px;color:${tokens.accentDeep};font-weight:600;font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(block.highlight)}</div>` : ''}
+        ${block.summary ? `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.muted};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(block.summary)}</p>` : ''}
+        ${block.highlight ? `<div style="margin-top:12px;padding:10px 12px;border-left:4px solid ${tokens.accent};background:${tokens.accentSoft};border-radius:10px;color:${tokens.accentDeep};font-weight:600;font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(block.highlight)}</div>` : ''}
         ${bulletsHtml}
         ${imagesHtml}
       </section>`;
@@ -3198,20 +3973,21 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
 
     if (block.type === 'section-block') {
       const renderedSection = findRenderedSection(block);
-      const sectionDisplayIndex = Number.isInteger(block.sectionIndex) && block.sectionIndex >= 0
-        ? block.sectionIndex + 1
+      const numericSectionIndex = Number.isInteger(block.sectionIndex) ? Number(block.sectionIndex) : -1;
+      const sectionDisplayIndex = numericSectionIndex >= 0
+        ? numericSectionIndex + 1
         : index + 1;
       const headingLevel = Number.isInteger(block.headingLevel) ? block.headingLevel : 2;
       const titleFontSize = headingLevel >= 3 ? (isSourceFirst ? 17 : (isEditorialLite ? 18 : 18)) : (isSourceFirst ? 20 : (isEditorialLite ? 26 : 22));
       const titleMarginBottom = headingLevel >= 3 ? 10 : (isEditorialLite ? 14 : 12);
       const titleColor = headingLevel >= 3 ? tokens.accentDeep : tokens.text;
       const paragraphsHtml = Array.isArray(block.paragraphs)
-        ? block.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(paragraph)}</p>`).join('')
+        ? block.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(paragraph)}</p>`).join('')
         : '';
       const bulletGroupsHtml = Array.isArray(block.bulletGroups)
         ? block.bulletGroups.map((group) => {
           if (!Array.isArray(group) || !group.length) return '';
-          return `<ul style="margin:12px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeHtml(bullet)}</li>`).join('')}</ul>`;
+          return `<ul style="margin:12px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeAiLayoutText(bullet)}</li>`).join('')}</ul>`;
         }).join('')
         : '';
       const calloutsHtml = Array.isArray(block.callouts)
@@ -3228,15 +4004,15 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
       const imagesHtml = uniqueImageIds.map((imageId) => `<div style="margin-top:14px;">${renderImage(imageId)}</div>`).join('');
       const subsectionsHtml = Array.isArray(block.subsections)
         ? block.subsections.map((subsection, subsectionIndex) => {
-          const renderedSubsection = findRenderedSubsection(renderedSection, subsection, subsectionIndex);
+          const renderedSubsection = /** @type {RenderedSubsectionFragmentLike | null} */ (findRenderedSubsection(renderedSection, subsection, subsectionIndex));
           const subsectionLevel = Number.isInteger(subsection?.level) ? subsection.level : 3;
           const subsectionParagraphs = Array.isArray(subsection?.paragraphs)
-            ? subsection.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(paragraph)}</p>`).join('')
+            ? subsection.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(paragraph)}</p>`).join('')
             : '';
           const subsectionBullets = Array.isArray(subsection?.bulletGroups)
             ? subsection.bulletGroups.map((group) => {
               if (!Array.isArray(group) || !group.length) return '';
-              return `<ul style="margin:10px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeHtml(bullet)}</li>`).join('')}</ul>`;
+              return `<ul style="margin:10px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeAiLayoutText(bullet)}</li>`).join('')}</ul>`;
             }).join('')
             : '';
           const subsectionCallouts = Array.isArray(subsection?.callouts)
@@ -3363,7 +4139,7 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
         )}
         ${block.body ? `<p style="margin:0;color:${tokens.muted};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(block.body)}</p>` : ''}
         ${ctaButtonHtml}
-        ${block.note ? `<p style="margin:12px 0 0;font-size:12px;line-height:1.75;color:${tokens.muted};letter-spacing:0;">${escapeHtml(block.note)}</p>` : ''}
+        ${block.note ? `<p style="margin:12px 0 0;font-size:12px;line-height:1.75;color:${tokens.muted};letter-spacing:0;">${escapeAiLayoutText(block.note)}</p>` : ''}
       </section>`;
     }
 
@@ -3373,7 +4149,7 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
   return `<section style="${wrapperStyle}">${blocksHtml}</section>`;
 }
 
-module.exports = {
+export {
   AI_LAYOUT_SCHEMA_VERSION,
   AI_LAYOUT_SKILL_VERSION,
   AI_LAYOUT_SELECTION_AUTO,

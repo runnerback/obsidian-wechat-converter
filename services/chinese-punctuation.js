@@ -1,5 +1,13 @@
 const CJK_CONTEXT_PATTERN = /[\p{sc=Han}“”‘’（）《》「」『』【】]/u;
 
+/**
+ * @typedef {{
+ *   protect: (value: string) => string,
+ *   restore: (text: string) => string,
+ * }} ProtectedSegmentStore
+ */
+
+/** @type {Record<string, string>} */
 const INLINE_PUNCTUATION_MAP = {
   ',': '，',
   ':': '：',
@@ -18,6 +26,7 @@ const SKIP_TAGS = new Set([
 ]);
 
 function createProtectedSegmentStore() {
+  /** @type {string[]} */
   const values = [];
 
   return {
@@ -43,15 +52,29 @@ function createProtectedSegmentStore() {
   };
 }
 
+/**
+ * @param {string} text
+ * @param {RegExp} pattern
+ * @param {((match: string, ...args: unknown[]) => boolean) | null | undefined} shouldProtect
+ * @param {ProtectedSegmentStore} store
+ * @returns {string}
+ */
 function protectByPattern(text, pattern, shouldProtect, store) {
   return String(text || '').replace(pattern, (match, ...args) => {
-    if (typeof shouldProtect === 'function' && !shouldProtect(match, ...args)) {
+    const shouldKeepUnprotected = typeof shouldProtect === 'function'
+      && !shouldProtect(String(match || ''), args);
+    if (shouldKeepUnprotected) {
       return match;
     }
     return store.protect(match);
   });
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ * @returns {string}
+ */
 function protectUrlSegments(text, store) {
   return String(text || '').replace(/\b(?:https?:\/\/|mailto:|www\.)[^\s<>"'）】」』]+/giu, (match) => {
     const trimmed = match.match(/^(.*?)([,:;!?]+)?$/u);
@@ -61,6 +84,12 @@ function protectUrlSegments(text, store) {
   });
 }
 
+/**
+ * @param {string} text
+ * @param {RegExp} pattern
+ * @param {ProtectedSegmentStore} store
+ * @returns {string}
+ */
 function protectTokenWithTrailingPunctuation(text, pattern, store) {
   return String(text || '').replace(pattern, (match) => {
     const trimmed = match.match(/^(.*?)([,:;!?]+)?$/u);
@@ -70,6 +99,7 @@ function protectTokenWithTrailingPunctuation(text, pattern, store) {
   });
 }
 
+/** @param {string} segment */
 function looksLikeFunctionSyntax(segment) {
   const value = String(segment || '').trim();
   if (!value) return false;
@@ -78,6 +108,10 @@ function looksLikeFunctionSyntax(segment) {
   return true;
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ */
 function protectFunctionSegments(text, store) {
   return protectByPattern(
     text,
@@ -87,6 +121,10 @@ function protectFunctionSegments(text, store) {
   );
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ */
 function protectEmailSegments(text, store) {
   return protectTokenWithTrailingPunctuation(
     text,
@@ -95,6 +133,10 @@ function protectEmailSegments(text, store) {
   );
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ */
 function protectVersionSegments(text, store) {
   return protectTokenWithTrailingPunctuation(
     text,
@@ -103,6 +145,10 @@ function protectVersionSegments(text, store) {
   );
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ */
 function protectPathSegments(text, store) {
   let output = protectTokenWithTrailingPunctuation(
     text,
@@ -111,17 +157,24 @@ function protectPathSegments(text, store) {
   );
 
   output = output.replace(/(^|[\s(（[【])((?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+(?:\.[A-Za-z0-9_-]+)?)([,:;!?]?)/gu, (match, prefix, token, trailing) => {
-    return `${prefix}${store.protect(token)}${trailing || ''}`;
+    return `${String(prefix || '')}${store.protect(String(token || ''))}${String(trailing || '')}`;
   });
 
   output = output.replace(/(^|[\s(（[【])([A-Za-z0-9_.-]+\.(?:md|txt|pdf|docx?|xlsx?|pptx?|csv|json|ya?ml|xml|html?|css|scss|js|jsx|ts|tsx|py|sh|bash|zsh|java|c|cc|cpp|go|rs|swift|kt|sql))(?:[,:;!?]?)/giu, (match, prefix, token) => {
-    const trailing = match.slice(prefix.length + token.length);
-    return `${prefix}${store.protect(token)}${trailing}`;
+    const rawMatch = String(match || '');
+    const rawPrefix = String(prefix || '');
+    const rawToken = String(token || '');
+    const trailing = rawMatch.slice(rawPrefix.length + rawToken.length);
+    return `${rawPrefix}${store.protect(rawToken)}${trailing}`;
   });
 
   return output;
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ */
 function protectWindowsPathSegments(text, store) {
   return protectTokenWithTrailingPunctuation(
     text,
@@ -130,6 +183,10 @@ function protectWindowsPathSegments(text, store) {
   );
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ */
 function protectDateTimeSegments(text, store) {
   let output = protectTokenWithTrailingPunctuation(
     text,
@@ -146,18 +203,26 @@ function protectDateTimeSegments(text, store) {
   return output;
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ */
 function protectCliSegments(text, store) {
   let output = text.replace(/(^|[\s(（[【])(-{1,2}[A-Za-z0-9][\w-]*)(?=$|[\s,.:;!?，。！？；：)）\]】])/gu, (match, prefix, token) => {
-    return `${prefix}${store.protect(token)}`;
+    return `${String(prefix || '')}${store.protect(String(token || ''))}`;
   });
 
   output = output.replace(/(^|[\s(（[【])([A-Za-z][\w-]*:[A-Za-z0-9][\w:.-]*)(?=$|[\s,.;!?，。！？；：)）\]】])/gu, (match, prefix, token) => {
-    return `${prefix}${store.protect(token)}`;
+    return `${String(prefix || '')}${store.protect(String(token || ''))}`;
   });
 
   return output;
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ */
 function protectEnvAssignmentSegments(text, store) {
   return protectTokenWithTrailingPunctuation(
     text,
@@ -166,10 +231,15 @@ function protectEnvAssignmentSegments(text, store) {
   );
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ */
 function protectEllipsisSegments(text, store) {
   return String(text || '').replace(/\.{3,}/gu, (match) => store.protect(match));
 }
 
+/** @param {string} content */
 function isTechnicalParentheticalContent(content) {
   const value = String(content || '').trim();
   if (!value) return false;
@@ -185,16 +255,26 @@ function isTechnicalParentheticalContent(content) {
   return false;
 }
 
+/**
+ * @param {string} text
+ * @param {ProtectedSegmentStore} store
+ */
 function protectTechnicalParentheticalSegments(text, store) {
   return String(text || '').replace(/\(([^()\n]+)\)/gu, (match, content) => {
-    return isTechnicalParentheticalContent(content) ? store.protect(match) : match;
+    const rawMatch = String(match || '');
+    return isTechnicalParentheticalContent(String(content || '')) ? store.protect(rawMatch) : rawMatch;
   });
 }
 
+/** @param {string} char */
 function isCjkContextChar(char) {
   return !!char && CJK_CONTEXT_PATTERN.test(char);
 }
 
+/**
+ * @param {string} text
+ * @param {number} index
+ */
 function findPrevNonSpace(text, index) {
   for (let i = index; i >= 0; i -= 1) {
     if (text.charAt(i) === '\uE001') {
@@ -210,6 +290,10 @@ function findPrevNonSpace(text, index) {
   return '';
 }
 
+/**
+ * @param {string} text
+ * @param {number} index
+ */
 function findNextNonSpace(text, index) {
   for (let i = index; i < text.length; i += 1) {
     if (text.charAt(i) === '\uE000') {
@@ -225,36 +309,54 @@ function findNextNonSpace(text, index) {
   return '';
 }
 
+/**
+ * @param {string} text
+ * @param {number} index
+ */
 function hasCjkContext(text, index) {
   const prev = findPrevNonSpace(text, index - 1);
   const next = findNextNonSpace(text, index + 1);
   return isCjkContextChar(prev) || isCjkContextChar(next);
 }
 
+/**
+ * @param {string} text
+ * @param {string} quoteChar
+ * @param {string} openQuote
+ * @param {string} closeQuote
+ */
 function normalizeQuotedText(text, quoteChar, openQuote, closeQuote) {
   const pattern = quoteChar === '"'
     ? /"([^"\n]*?)"/gu
     : /'([^'\n]*?)'/gu;
 
   return text.replace(pattern, (match, inner, offset, fullText) => {
-    const prev = findPrevNonSpace(fullText, offset - 1);
-    const next = findNextNonSpace(fullText, offset + match.length);
-    if (!(isCjkContextChar(prev) || isCjkContextChar(next) || /[\p{sc=Han}]/u.test(inner))) {
-      return match;
+    const rawMatch = String(match || '');
+    const rawInner = String(inner || '');
+    const source = String(fullText || '');
+    const safeOffset = Number(offset) || 0;
+    const prev = findPrevNonSpace(source, safeOffset - 1);
+    const next = findNextNonSpace(source, safeOffset + rawMatch.length);
+    if (!(isCjkContextChar(prev) || isCjkContextChar(next) || /[\p{sc=Han}]/u.test(rawInner))) {
+      return rawMatch;
     }
-    return `${openQuote}${inner}${closeQuote}`;
+    return `${openQuote}${rawInner}${closeQuote}`;
   });
 }
 
+/** @param {string} text */
 function normalizePeriods(text) {
   return text.replace(/\./gu, (match, offset, fullText) => {
-    const prev = findPrevNonSpace(fullText, offset - 1);
-    const next = findNextNonSpace(fullText, offset + 1);
+    const source = String(fullText || '');
+    const safeOffset = Number(offset) || 0;
+    const prev = findPrevNonSpace(source, safeOffset - 1);
+    const next = findNextNonSpace(source, safeOffset + 1);
     if (/\d/u.test(prev) && /\d/u.test(next)) return match;
     return isCjkContextChar(prev) ? '。' : match;
   });
 }
 
+/** @param {string} text */
 function normalizeParentheses(text) {
   let output = text.replace(/([\p{sc=Han}])\(([^()\n]+?)\)/gu, '$1（$2）');
   output = output.replace(/([\p{sc=Han}“”‘’])\(([^()\n]+?)\)/gu, '$1（$2）');
@@ -262,6 +364,7 @@ function normalizeParentheses(text) {
   return output;
 }
 
+/** @param {string} text */
 function normalizeTextForChinesePunctuation(text) {
   let output = String(text || '');
   if (!output || !/[\p{sc=Han}]/u.test(output)) return output;
@@ -285,13 +388,15 @@ function normalizeTextForChinesePunctuation(text) {
   output = normalizePeriods(output);
 
   output = output.replace(/[,:;!?]/gu, (match, offset, fullText) => {
-    if (!hasCjkContext(fullText, offset)) return match;
-    return INLINE_PUNCTUATION_MAP[match] || match;
+    const rawMatch = String(match || '');
+    if (!hasCjkContext(String(fullText || ''), Number(offset) || 0)) return rawMatch;
+    return INLINE_PUNCTUATION_MAP[rawMatch] || rawMatch;
   });
 
   return protectedSegments.restore(output);
 }
 
+/** @param {Text | null | undefined} node */
 function shouldSkipTextNode(node) {
   if (!node || !node.parentElement) return true;
   let current = node.parentElement;
@@ -302,6 +407,10 @@ function shouldSkipTextNode(node) {
   return false;
 }
 
+/**
+ * @param {Node | null | undefined} root
+ * @param {{ enabled?: boolean }} [options]
+ */
 function normalizeRenderedDomPunctuation(root, options = {}) {
   if (!root || options.enabled !== true) return;
   const documentRef = root.ownerDocument;
@@ -323,10 +432,13 @@ function normalizeRenderedDomPunctuation(root, options = {}) {
     },
   );
 
+  /** @type {Text[]} */
   const textNodes = [];
   let current = walker.nextNode();
   while (current) {
-    textNodes.push(current);
+    if (current.nodeType === Node.TEXT_NODE) {
+      textNodes.push(/** @type {Text} */ (current));
+    }
     current = walker.nextNode();
   }
 
@@ -335,7 +447,7 @@ function normalizeRenderedDomPunctuation(root, options = {}) {
   }
 }
 
-module.exports = {
+export {
   normalizeTextForChinesePunctuation,
   normalizeRenderedDomPunctuation,
 };

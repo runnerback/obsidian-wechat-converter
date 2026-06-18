@@ -1,11 +1,67 @@
-const { createHtmlContainer } = require('./dom-utils');
+import { createHtmlContainer, getActiveDocument } from './dom-utils.js';
 
-function replaceUnuploadedDraftImagesWithPlaceholders(html) {
-  if (typeof document === 'undefined') {
+/**
+ * @typedef {{ mediaId: string, fingerprint?: string, uploadedAt?: number }} CoverCacheEntry
+ * @typedef {{ src: string, message?: string }} ImageUploadFailure
+ * @typedef {{
+ *   id?: string,
+ *   appId: string,
+ *   appSecret: string,
+ *   author?: string,
+ *   contentSourceUrl?: string,
+ *   openComment?: boolean,
+ *   onlyFansCanComment?: boolean,
+ * }} WechatAccountLike
+ * @typedef {{ title?: string, coverSrc?: string }} PublishMetaLike
+ * @typedef {{ basename?: string }} ActiveFileLike
+ * @typedef {{ title: string, content: string, thumb_media_id: string, author: string, digest: string, content_source_url?: string, need_open_comment?: number, only_fans_can_comment?: number }} DraftArticleLike
+ * @typedef {{
+ *   uploadCover: (blob: Blob) => Promise<{ media_id?: string }>,
+ *   updateDraft: (mediaId: string, draftIndex: number, article: DraftArticleLike) => Promise<unknown>,
+ *   createDraft: (article: DraftArticleLike) => Promise<{ media_id?: string }>,
+ * }} WechatDraftApiLike
+ * @typedef {{
+ *   createApi: (appId: string, appSecret: string, proxyUrl?: string) => WechatDraftApiLike,
+ *   srcToBlob: (src: string) => Promise<Blob>,
+ *   coverUploadCache?: Map<string, string | CoverCacheEntry> | null,
+ *   processAllImages: (html: string, api: WechatDraftApiLike, progressCallback: (current: number, total: number) => void, options: { accountId: string, onImageFailure: (failures: ImageUploadFailure[]) => void }) => Promise<string>,
+ *   processMathFormulas: (html: string, api: WechatDraftApiLike, progressCallback: (current: number, total: number) => void) => Promise<string>,
+ *   prepareHtmlForDraft?: (html: string) => Promise<string>,
+ *   cleanHtmlForDraft: (html: string) => string,
+ *   cleanupConfiguredDirectory: (activeFile?: ActiveFileLike | null) => Promise<unknown>,
+ *   getFirstImageFromArticle: () => string,
+ * }} WechatSyncDeps
+ * @typedef {{
+ *   account: WechatAccountLike,
+ *   proxyUrl?: string,
+ *   currentHtml: string,
+ *   activeFile?: ActiveFileLike | null,
+ *   publishMeta?: PublishMetaLike | null,
+ *   sessionTitle?: string,
+ *   sessionCoverBase64?: string,
+ *   sessionThumbMediaId?: string,
+ *   sessionDigest?: string,
+ *   draftMediaId?: string,
+ *   draftIndex?: number,
+ *   onStatus?: (stage: string) => void,
+ *   onImageProgress?: (current: number, total: number) => void,
+ *   onMathProgress?: (current: number, total: number) => void,
+ * }} SyncToDraftOptions
+ */
+
+/**
+ * @param {string} html
+ * @returns {{ html: string, imageSources: string[] }}
+ */
+export function replaceUnuploadedDraftImagesWithPlaceholders(html) {
+  const activeDocument = getActiveDocument();
+  if (!activeDocument) {
     return { html, imageSources: [] };
   }
 
   const div = createHtmlContainer('div', html || '');
+  if (!div) return { html, imageSources: [] };
+  /** @type {string[]} */
   const imageSources = [];
 
   Array.from(div.querySelectorAll('img')).forEach((img) => {
@@ -15,7 +71,7 @@ function replaceUnuploadedDraftImagesWithPlaceholders(html) {
     if (src && isWechatImage) return;
 
     imageSources.push(src);
-    const placeholder = document.createElement('p');
+    const placeholder = activeDocument.createElement('p');
     const missingImagePlaceholderStyle = 'margin:12px 0;padding:10px 12px;border:1px dashed #d0d7de;border-radius:6px;color:#8c6d1f;background:#fff8e5;font-size:13px;line-height:1.7;';
     placeholder.setAttribute('style', missingImagePlaceholderStyle);
     placeholder.textContent = src
@@ -30,6 +86,10 @@ function replaceUnuploadedDraftImagesWithPlaceholders(html) {
   };
 }
 
+/**
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
 function hashBytesFNV1a(bytes) {
   let hash = 0x811c9dc5;
   for (let i = 0; i < bytes.length; i++) {
@@ -39,6 +99,10 @@ function hashBytesFNV1a(bytes) {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
+/**
+ * @param {Blob | null | undefined} blob
+ * @returns {Promise<string>}
+ */
 async function computeBlobFingerprint(blob) {
   if (!blob || typeof blob.arrayBuffer !== 'function') return 'unknown';
   const buffer = await blob.arrayBuffer();
@@ -48,6 +112,11 @@ async function computeBlobFingerprint(blob) {
   return `${type}:${bytes.length}:${contentHash}`;
 }
 
+/**
+ * @param {Map<string, string | CoverCacheEntry> | null | undefined} cache
+ * @param {string} key
+ * @returns {CoverCacheEntry | null}
+ */
 function getCachedCoverEntry(cache, key) {
   if (!cache || !cache.has(key)) return null;
   const value = cache.get(key);
@@ -55,17 +124,29 @@ function getCachedCoverEntry(cache, key) {
     return { mediaId: value, fingerprint: '' };
   }
   if (value && typeof value === 'object' && typeof value.mediaId === 'string') {
-    return value;
+    return {
+      mediaId: value.mediaId,
+      fingerprint: typeof value.fingerprint === 'string' ? value.fingerprint : '',
+      uploadedAt: typeof value.uploadedAt === 'number' ? value.uploadedAt : undefined,
+    };
   }
   return null;
 }
 
+/**
+ * @param {WechatAccountLike} account
+ * @param {string} coverSrc
+ * @returns {string}
+ */
 function buildCoverUploadCacheKey(account, coverSrc) {
   const namespace = String(account?.id || account?.appId || '').trim();
   return `${namespace}::cover::${String(coverSrc || '')}`;
 }
 
-function createWechatSyncService(deps) {
+/**
+ * @param {WechatSyncDeps} deps
+ */
+export function createWechatSyncService(deps) {
   const {
     createApi,
     srcToBlob,
@@ -79,6 +160,9 @@ function createWechatSyncService(deps) {
   } = deps;
 
   return {
+    /**
+     * @param {SyncToDraftOptions} options
+     */
     async syncToDraft({
       account,
       proxyUrl,
@@ -96,6 +180,7 @@ function createWechatSyncService(deps) {
       onMathProgress,
     }) {
       const api = createApi(account.appId, account.appSecret, proxyUrl);
+      /** @type {ImageUploadFailure[]} */
       const imageUploadFailures = [];
 
       let thumbMediaId = typeof sessionThumbMediaId === 'string'
@@ -103,7 +188,7 @@ function createWechatSyncService(deps) {
         : '';
       if (!thumbMediaId) {
         if (onStatus) onStatus('cover');
-        const coverSrc = sessionCoverBase64 || publishMeta.coverSrc || getFirstImageFromArticle();
+        const coverSrc = sessionCoverBase64 || publishMeta?.coverSrc || getFirstImageFromArticle();
         if (!coverSrc) {
           throw new Error('未设置封面图，同步失败。请在弹窗中上传封面。');
         }
@@ -155,7 +240,7 @@ function createWechatSyncService(deps) {
       const cleanedResult = replaceUnuploadedDraftImagesWithPlaceholders(cleanHtmlForDraft(processedHtml));
       const cleanedHtml = cleanedResult.html;
 
-      const title = sessionTitle || publishMeta?.title || activeFile?.basename || '无标题文章';
+      const title = String(sessionTitle || publishMeta?.title || activeFile?.basename || '无标题文章');
       const article = {
         title: title.substring(0, 64),
         content: cleanedHtml,
@@ -201,8 +286,3 @@ function createWechatSyncService(deps) {
     },
   };
 }
-
-module.exports = {
-  replaceUnuploadedDraftImagesWithPlaceholders,
-  createWechatSyncService,
-};

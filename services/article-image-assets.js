@@ -1,6 +1,39 @@
 const DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
 
+/**
+ * @typedef {Record<string, unknown>} UnknownRecord
+ * @typedef {{ path?: string, name?: string, extension?: string }} VaultFileLike
+ * @typedef {{
+ *   metadataCache?: { getFirstLinkpathDest?: (linkpath: string, sourcePath: string) => unknown },
+ *   vault?: {
+ *     adapter?: { basePath?: string },
+ *     getAbstractFileByPath?: (path: string) => unknown,
+ *     readBinary?: (file: VaultFileLike) => Promise<unknown>,
+ *     getResourcePath?: (file: VaultFileLike) => string,
+ *   },
+ * }} ObsidianAppLike
+ * @typedef {{ start: number, end: number }} TextRange
+ * @typedef {{ type: string, start: number, end: number, raw: string, src: string, alt: string }} ImageReference
+ * @typedef {{ code: string, message: string, severity: string, src: string, filename: string, size: number }} ImageWarning
+ * @typedef {{
+ *   kind: string,
+ *   originalSrc: string,
+ *   notePath: string,
+ *   vaultRelativePath: string,
+ *   resourceSrc?: string,
+ * }} ImageAssetSource
+ * @typedef {{
+ *   id: string,
+ *   filename: string,
+ *   mimeType: string,
+ *   size: number,
+ *   base64: string,
+ *   source: ImageAssetSource,
+ * }} ImageAsset
+ * @typedef {{ start: number, end: number, value: string }} ReplacementRange
+ */
+
 const SUPPORTED_IMAGE_MIME_BY_EXT = {
   png: 'image/png',
   jpg: 'image/jpeg',
@@ -9,6 +42,9 @@ const SUPPORTED_IMAGE_MIME_BY_EXT = {
   gif: 'image/gif',
 };
 
+/** @type {Record<string, string>} */
+const SUPPORTED_IMAGE_MIME_LOOKUP = SUPPORTED_IMAGE_MIME_BY_EXT;
+
 const RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT = {
   svg: 'image/svg+xml',
   heic: 'image/heic',
@@ -16,6 +52,45 @@ const RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT = {
   avif: 'image/avif',
 };
 
+/** @type {Record<string, string>} */
+const RECOGNIZED_UNSUPPORTED_IMAGE_MIME_LOOKUP = RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT;
+
+/**
+ * @param {unknown} value
+ * @returns {value is UnknownRecord}
+ */
+function isRecord(value) {
+  return !!value && typeof value === 'object';
+}
+
+/**
+ * @param {unknown} value
+ * @returns {UnknownRecord}
+ */
+function asRecord(value) {
+  return isRecord(value) ? /** @type {UnknownRecord} */ (value) : {};
+}
+
+/**
+ * @param {unknown} value
+ * @returns {VaultFileLike | null}
+ */
+function asVaultFile(value) {
+  if (!isRecord(value)) return null;
+  const source = asRecord(value);
+  if (typeof source.path !== 'string' && typeof source.name !== 'string' && typeof source.extension !== 'string') return null;
+  return /** @type {VaultFileLike} */ (value);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {ObsidianAppLike}
+ */
+function asApp(value) {
+  return /** @type {ObsidianAppLike} */ (isRecord(value) ? value : {});
+}
+
+/** @param {unknown} value */
 function normalizePath(value) {
   return String(value || '')
     .trim()
@@ -24,6 +99,7 @@ function normalizePath(value) {
     .replace(/\/{2,}/g, '/');
 }
 
+/** @param {unknown} value */
 function normalizeAbsoluteLocalPath(value) {
   let pathValue = String(value || '').trim().replace(/\\/g, '/').replace(/\/{2,}/g, '/');
   const hasDrivePrefix = /^[a-zA-Z]:\//.test(pathValue);
@@ -36,37 +112,45 @@ function normalizeAbsoluteLocalPath(value) {
   return pathValue;
 }
 
+/** @param {unknown} filePath */
 function getDirname(filePath) {
   const normalized = normalizePath(filePath);
   const index = normalized.lastIndexOf('/');
   return index > 0 ? normalized.slice(0, index) : '';
 }
 
+/** @param {...unknown} parts */
 function joinVaultPath(...parts) {
   return normalizePath(parts.filter(Boolean).join('/'));
 }
 
+/** @param {unknown} filename */
 function getExtension(filename) {
   const ext = String(filename || '').split('?')[0].split('#')[0].split('.').pop();
   return ext && ext !== filename ? ext.toLowerCase() : '';
 }
 
+/** @param {unknown} src */
 function isRemoteImageSrc(src) {
   return /^https?:\/\//i.test(String(src || '').trim());
 }
 
+/** @param {unknown} src */
 function isDataImageSrc(src) {
   return /^data:image\//i.test(String(src || '').trim());
 }
 
+/** @param {unknown} src */
 function isAssetImageSrc(src) {
   return /^asset:\/\//i.test(String(src || '').trim());
 }
 
+/** @param {unknown} src */
 function isFileUrl(src) {
   return /^file:\/\//i.test(String(src || '').trim());
 }
 
+/** @param {unknown} value */
 function decodeLocalPath(value) {
   try {
     return decodeURI(String(value || '').trim());
@@ -75,6 +159,7 @@ function decodeLocalPath(value) {
   }
 }
 
+/** @param {unknown} src */
 function getFileUrlPath(src) {
   try {
     const url = new URL(String(src || '').trim());
@@ -90,8 +175,14 @@ function getFileUrlPath(src) {
   }
 }
 
+/**
+ * @param {unknown} app
+ * @param {unknown} localPath
+ * @returns {string}
+ */
 function getVaultRelativePathFromLocalPath(app, localPath) {
-  const basePath = app?.vault?.adapter?.basePath;
+  const appRef = asApp(app);
+  const basePath = appRef.vault?.adapter?.basePath;
   if (!basePath || !localPath) return '';
   const normalizedBase = normalizeAbsoluteLocalPath(basePath);
   const normalizedLocal = normalizeAbsoluteLocalPath(localPath);
@@ -101,12 +192,14 @@ function getVaultRelativePathFromLocalPath(app, localPath) {
   return normalizePath(normalizedLocal.slice(normalizedBase.length + 1));
 }
 
+/** @param {unknown} src */
 function getFilenameFromPath(src) {
   const value = String(src || '').split('?')[0].split('#')[0].replace(/\\/g, '/');
   const filename = value.split('/').filter(Boolean).pop();
   return filename || 'image';
 }
 
+/** @param {unknown} rawDestination */
 function stripMarkdownDestination(rawDestination) {
   const raw = String(rawDestination || '').trim();
   if (raw.startsWith('<')) {
@@ -116,6 +209,7 @@ function stripMarkdownDestination(rawDestination) {
   return raw.replace(/\\([()])/g, '$1').trim();
 }
 
+/** @param {unknown} rawTarget */
 function splitWikiEmbedTarget(rawTarget) {
   const parts = String(rawTarget || '').split('|');
   const src = (parts.shift() || '').trim();
@@ -123,16 +217,26 @@ function splitWikiEmbedTarget(rawTarget) {
   return { src, alias };
 }
 
+/**
+ * @param {unknown} src
+ * @param {string} fallback
+ */
 function createAltFromSrc(src, fallback = '图片') {
   const filename = getFilenameFromPath(src);
   return filename.replace(/\.(png|jpe?g|gif|webp|svg|heic|heif|avif)$/i, '') || fallback;
 }
 
+/**
+ * @param {unknown} markdown
+ * @returns {ImageReference[]}
+ */
 function collectWikiImageEmbeds(markdown) {
+  const sourceMarkdown = String(markdown || '');
+  /** @type {ImageReference[]} */
   const results = [];
   const pattern = /!\[\[([^\]\n]+?)\]\]/g;
   let match;
-  while ((match = pattern.exec(markdown)) !== null) {
+  while ((match = pattern.exec(sourceMarkdown)) !== null) {
     const { src, alias } = splitWikiEmbedTarget(match[1]);
     if (!src) continue;
     results.push({
@@ -147,17 +251,24 @@ function collectWikiImageEmbeds(markdown) {
   return results;
 }
 
+/** @param {unknown} src */
 function isImageWikiTarget(src) {
   const ext = getExtension(String(src || '').split('#')[0]);
   return !!(SUPPORTED_IMAGE_MIME_BY_EXT[ext] || RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext]);
 }
 
+/**
+ * @param {unknown} markdown
+ * @returns {ImageReference[]}
+ */
 function collectPlainWikiImageLinks(markdown) {
+  const sourceMarkdown = String(markdown || '');
+  /** @type {ImageReference[]} */
   const results = [];
   const pattern = /\[\[([^\]\n]+?)\]\]/g;
   let match;
-  while ((match = pattern.exec(markdown)) !== null) {
-    if (markdown[match.index - 1] === '!') continue;
+  while ((match = pattern.exec(sourceMarkdown)) !== null) {
+    if (sourceMarkdown[match.index - 1] === '!') continue;
     const { src, alias } = splitWikiEmbedTarget(match[1]);
     if (!src || !isImageWikiTarget(src)) continue;
     results.push({
@@ -172,18 +283,24 @@ function collectPlainWikiImageLinks(markdown) {
   return results;
 }
 
+/**
+ * @param {unknown} markdown
+ * @returns {ImageReference[]}
+ */
 function collectMarkdownImages(markdown) {
+  const sourceMarkdown = String(markdown || '');
+  /** @type {ImageReference[]} */
   const results = [];
   let index = 0;
-  while (index < markdown.length) {
-    const start = markdown.indexOf('![', index);
+  while (index < sourceMarkdown.length) {
+    const start = sourceMarkdown.indexOf('![', index);
     if (start < 0) break;
 
     let cursor = start + 2;
     let escaped = false;
     let altEnd = -1;
-    while (cursor < markdown.length) {
-      const char = markdown[cursor];
+    while (cursor < sourceMarkdown.length) {
+      const char = sourceMarkdown[cursor];
       if (escaped) {
         escaped = false;
       } else if (char === '\\') {
@@ -194,7 +311,7 @@ function collectMarkdownImages(markdown) {
       }
       cursor += 1;
     }
-    if (altEnd < 0 || markdown[altEnd + 1] !== '(') {
+    if (altEnd < 0 || sourceMarkdown[altEnd + 1] !== '(') {
       index = start + 2;
       continue;
     }
@@ -204,8 +321,8 @@ function collectMarkdownImages(markdown) {
     let depth = 0;
     escaped = false;
     let destinationEnd = -1;
-    while (cursor < markdown.length) {
-      const char = markdown[cursor];
+    while (cursor < sourceMarkdown.length) {
+      const char = sourceMarkdown[cursor];
       if (escaped) {
         escaped = false;
       } else if (char === '\\') {
@@ -226,14 +343,14 @@ function collectMarkdownImages(markdown) {
       continue;
     }
 
-    const alt = markdown.slice(start + 2, altEnd);
-    const destination = stripMarkdownDestination(markdown.slice(destinationStart, destinationEnd));
+    const alt = sourceMarkdown.slice(start + 2, altEnd);
+    const destination = stripMarkdownDestination(sourceMarkdown.slice(destinationStart, destinationEnd));
     if (destination) {
       results.push({
         type: 'markdown',
         start,
         end: destinationEnd + 1,
-        raw: markdown.slice(start, destinationEnd + 1),
+        raw: sourceMarkdown.slice(start, destinationEnd + 1),
         src: destination,
         alt,
       });
@@ -243,12 +360,19 @@ function collectMarkdownImages(markdown) {
   return results;
 }
 
+/**
+ * @param {unknown} markdown
+ * @returns {TextRange[]}
+ */
 function collectFencedCodeRanges(markdown) {
+  const sourceMarkdown = String(markdown || '');
+  /** @type {TextRange[]} */
   const ranges = [];
   const fencePattern = /^( {0,3})(`{3,}|~{3,})[^\n]*(?:\n|$)/gm;
   let match;
+  /** @type {{ start: number, marker: string, length: number } | null} */
   let open = null;
-  while ((match = fencePattern.exec(markdown)) !== null) {
+  while ((match = fencePattern.exec(sourceMarkdown)) !== null) {
     const marker = match[2][0];
     const length = match[2].length;
     if (!open) {
@@ -260,29 +384,36 @@ function collectFencedCodeRanges(markdown) {
       open = null;
     }
   }
-  if (open) ranges.push({ start: open.start, end: markdown.length });
+  if (open) ranges.push({ start: open.start, end: sourceMarkdown.length });
   return ranges;
 }
 
+/**
+ * @param {unknown} markdown
+ * @param {TextRange[]} blockedRanges
+ * @returns {TextRange[]}
+ */
 function collectInlineCodeRanges(markdown, blockedRanges = []) {
+  const sourceMarkdown = String(markdown || '');
+  /** @type {TextRange[]} */
   const ranges = [];
   let index = 0;
-  while (index < markdown.length) {
+  while (index < sourceMarkdown.length) {
     const blocked = blockedRanges.find((range) => index >= range.start && index < range.end);
     if (blocked) {
       index = blocked.end;
       continue;
     }
 
-    if (markdown[index] !== '`') {
+    if (sourceMarkdown[index] !== '`') {
       index += 1;
       continue;
     }
 
     let runEnd = index + 1;
-    while (runEnd < markdown.length && markdown[runEnd] === '`') runEnd += 1;
-    const tickRun = markdown.slice(index, runEnd);
-    const closing = markdown.indexOf(tickRun, runEnd);
+    while (runEnd < sourceMarkdown.length && sourceMarkdown[runEnd] === '`') runEnd += 1;
+    const tickRun = sourceMarkdown.slice(index, runEnd);
+    const closing = sourceMarkdown.indexOf(tickRun, runEnd);
     if (closing < 0) {
       index = runEnd;
       continue;
@@ -294,25 +425,35 @@ function collectInlineCodeRanges(markdown, blockedRanges = []) {
   return ranges;
 }
 
+/**
+ * @param {number} index
+ * @param {TextRange[]} ranges
+ */
 function isInsideRanges(index, ranges) {
   return ranges.some((range) => index >= range.start && index < range.end);
 }
 
+/**
+ * @param {unknown} markdown
+ * @returns {ImageReference[]}
+ */
 function collectArticleImageReferences(markdown) {
-  const fencedCodeRanges = collectFencedCodeRanges(markdown);
+  const sourceMarkdown = String(markdown || '');
+  const fencedCodeRanges = collectFencedCodeRanges(sourceMarkdown);
   const codeRanges = [
     ...fencedCodeRanges,
-    ...collectInlineCodeRanges(markdown, fencedCodeRanges),
+    ...collectInlineCodeRanges(sourceMarkdown, fencedCodeRanges),
   ];
   return [
-    ...collectWikiImageEmbeds(markdown),
-    ...collectPlainWikiImageLinks(markdown),
-    ...collectMarkdownImages(markdown),
+    ...collectWikiImageEmbeds(sourceMarkdown),
+    ...collectPlainWikiImageLinks(sourceMarkdown),
+    ...collectMarkdownImages(sourceMarkdown),
   ]
     .filter((ref) => !isInsideRanges(ref.start, codeRanges))
     .sort((a, b) => a.start - b.start);
 }
 
+/** @param {unknown} binary */
 function bufferFromBinary(binary) {
   if (Buffer.isBuffer(binary)) return binary;
   if (binary instanceof ArrayBuffer) return Buffer.from(binary);
@@ -322,65 +463,89 @@ function bufferFromBinary(binary) {
   return Buffer.from(binary || []);
 }
 
+/**
+ * @param {unknown} filename
+ * @param {Buffer} buffer
+ * @returns {string}
+ */
 function inferMimeType(filename, buffer) {
   const ext = getExtension(filename);
-  if (SUPPORTED_IMAGE_MIME_BY_EXT[ext]) return SUPPORTED_IMAGE_MIME_BY_EXT[ext];
-  if (RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext]) {
-    return RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[ext];
+  if (SUPPORTED_IMAGE_MIME_LOOKUP[ext]) return SUPPORTED_IMAGE_MIME_LOOKUP[ext];
+  if (RECOGNIZED_UNSUPPORTED_IMAGE_MIME_LOOKUP[ext]) {
+    return RECOGNIZED_UNSUPPORTED_IMAGE_MIME_LOOKUP[ext];
   }
   if (buffer?.length >= 12) {
-    if (buffer[0] === 0x89 && buffer.slice(1, 4).toString('ascii') === 'PNG') return 'image/png';
+    if (buffer[0] === 0x89 && buffer.subarray(1, 4).toString('ascii') === 'PNG') return 'image/png';
     if (buffer[0] === 0xff && buffer[1] === 0xd8) return 'image/jpeg';
-    if (buffer.slice(0, 4).toString('ascii') === 'GIF8') return 'image/gif';
-    if (buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+    if (buffer.subarray(0, 4).toString('ascii') === 'GIF8') return 'image/gif';
+    if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
   }
   return ext ? `image/${ext}` : 'application/octet-stream';
 }
 
+/**
+ * @param {string} code
+ * @param {string} message
+ * @param {Partial<ImageWarning>} details
+ * @returns {ImageWarning}
+ */
 function createWarning(code, message, details = {}) {
+  const severity = typeof details.severity === 'string' ? details.severity : 'error';
   return {
     code,
     message,
-    severity: details.severity || 'error',
+    severity,
     src: details.src || '',
     filename: details.filename || '',
     size: details.size || 0,
   };
 }
 
+/** @param {unknown} filename */
 function isSupportedImageFile(filename) {
-  return !!SUPPORTED_IMAGE_MIME_BY_EXT[getExtension(filename)];
+  return !!SUPPORTED_IMAGE_MIME_LOOKUP[getExtension(filename)];
 }
 
+/** @param {unknown} filename */
 function isRecognizedUnsupportedImageFile(filename) {
-  return !!RECOGNIZED_UNSUPPORTED_IMAGE_MIME_BY_EXT[getExtension(filename)];
+  return !!RECOGNIZED_UNSUPPORTED_IMAGE_MIME_LOOKUP[getExtension(filename)];
 }
 
+/** @param {unknown} noteFile */
 function getNoteSourcePath(noteFile) {
-  return typeof noteFile?.path === 'string' ? noteFile.path : '';
+  const file = asVaultFile(noteFile);
+  return file?.path || '';
 }
 
+/**
+ * @param {unknown} app
+ * @param {unknown} src
+ * @param {unknown} noteFile
+ * @returns {VaultFileLike | null}
+ */
 function resolveVaultFile(app, src, noteFile) {
-  if (!app || !src) return null;
-  const decoded = (() => {
+  const appRef = asApp(app);
+  if (!appRef || !src) return null;
+  const decoded = String((() => {
     try {
       return decodeURI(src);
     } catch {
       return src;
     }
-  })();
+  })() || '');
   const sourcePath = getNoteSourcePath(noteFile);
-  const metadataCache = app.metadataCache;
-  const vault = app.vault;
-  const lookupSrc = getVaultRelativePathFromLocalPath(app, decoded) || decoded;
+  const metadataCache = appRef.metadataCache;
+  const vault = appRef.vault;
+  const lookupSrc = getVaultRelativePathFromLocalPath(appRef, decoded) || decoded;
 
   try {
-    const linked = metadataCache?.getFirstLinkpathDest?.(lookupSrc, sourcePath);
+    const linked = asVaultFile(metadataCache?.getFirstLinkpathDest?.(lookupSrc, sourcePath));
     if (linked?.extension) return linked;
   } catch {
     // Fall through to path-based candidates.
   }
 
+  /** @type {string[]} */
   const candidates = [];
   const normalized = normalizePath(lookupSrc);
   if (normalized) candidates.push(normalized);
@@ -391,7 +556,7 @@ function resolveVaultFile(app, src, noteFile) {
 
   for (const candidate of candidates) {
     try {
-      const file = vault?.getAbstractFileByPath?.(candidate);
+      const file = asVaultFile(vault?.getAbstractFileByPath?.(candidate));
       if (file?.extension) return file;
     } catch {
       // Try the next candidate.
@@ -400,12 +565,18 @@ function resolveVaultFile(app, src, noteFile) {
   return null;
 }
 
+/**
+ * @param {unknown} app
+ * @param {VaultFileLike} file
+ * @returns {Promise<{ buffer: Buffer, filename: string, vaultRelativePath: string, resourceSrc: string }>}
+ */
 async function readVaultAsset(app, file) {
-  const binary = await app.vault.readBinary(file);
+  const appRef = asApp(app);
+  const binary = await appRef.vault?.readBinary?.(file);
   const buffer = bufferFromBinary(binary);
   let resourceSrc = '';
   try {
-    resourceSrc = app.vault.getResourcePath?.(file) || '';
+    resourceSrc = appRef.vault?.getResourcePath?.(file) || '';
   } catch {
     resourceSrc = '';
   }
@@ -426,21 +597,40 @@ function createMarkdownImage(alt, src) {
   return `![${safeAlt}](${src})`;
 }
 
+/**
+ * @param {unknown} markdown
+ * @param {ReplacementRange[]} replacements
+ * @returns {string}
+ */
 function replaceRanges(markdown, replacements) {
+  const sourceMarkdown = String(markdown || '');
   return replacements
     .slice()
     .sort((a, b) => b.start - a.start)
     .reduce((output, item) => (
       output.slice(0, item.start) + item.value + output.slice(item.end)
-    ), markdown);
+    ), sourceMarkdown);
 }
 
+/** @param {unknown} src */
 function isLocalLikeSrc(src) {
   if (!src) return false;
   if (isRemoteImageSrc(src) || isDataImageSrc(src) || isAssetImageSrc(src)) return false;
   return true;
 }
 
+/**
+ * @param {{
+ *   app: unknown,
+ *   src: string,
+ *   noteFile: unknown,
+ *   assetIndex: number,
+ *   originalSrc?: string,
+ *   existingByKey: Map<string, ImageAsset>,
+ *   limits: { maxImageSizeBytes: number, maxTotalImageSizeBytes: number },
+ * }} params
+ * @returns {Promise<{ asset?: ImageAsset, warning?: ImageWarning, reused?: boolean }>}
+ */
 async function resolveLocalImageAsset({
   app,
   src,
@@ -450,7 +640,9 @@ async function resolveLocalImageAsset({
   existingByKey,
   limits,
 }) {
+  /** @type {VaultFileLike | null} */
   let file = null;
+  /** @type {{ buffer: Buffer, filename: string, vaultRelativePath: string, resourceSrc: string } | null} */
   let readResult = null;
   let cacheKey = '';
 
@@ -480,14 +672,16 @@ async function resolveLocalImageAsset({
   }
 
   if (existingByKey.has(cacheKey)) {
-    return { asset: existingByKey.get(cacheKey), reused: true };
+    const cached = existingByKey.get(cacheKey);
+    return cached ? { asset: cached, reused: true } : {};
   }
 
   try {
     readResult = await readVaultAsset(app, file);
   } catch (error) {
+    const errorMessage = isRecord(error) && typeof error.message === 'string' ? error.message : String(error);
     return {
-      warning: createWarning('image_local_read_failed', `读取本地图片失败：${error.message || String(error)}`, {
+      warning: createWarning('image_local_read_failed', `读取本地图片失败：${errorMessage}`, {
         src: originalSrc,
         filename: file?.name || getFilenameFromPath(src),
       }),
@@ -519,7 +713,7 @@ async function resolveLocalImageAsset({
     };
   }
 
-  const asset = {
+  const asset = /** @type {ImageAsset} */ ({
     id: makeAssetId(assetIndex),
     filename,
     mimeType,
@@ -531,27 +725,33 @@ async function resolveLocalImageAsset({
       notePath: getNoteSourcePath(noteFile),
       vaultRelativePath,
     },
-  };
+  });
   if (resourceSrc) asset.source.resourceSrc = resourceSrc;
 
   existingByKey.set(cacheKey, asset);
   return { asset };
 }
 
+/** @param {unknown} markdown */
 function getFirstMarkdownImageSrc(markdown) {
   const first = collectArticleImageReferences(markdown)[0];
   return first?.src || '';
 }
 
+/**
+ * @param {unknown} html
+ * @param {ImageAsset[]} assets
+ * @returns {string}
+ */
 function replaceArticleContentImageSources(html, assets = []) {
   let output = String(html || '');
   for (const asset of assets) {
     const assetSrc = `asset://${asset.id}`;
-    const candidates = [
+    const candidates = /** @type {string[]} */ ([
       asset?.source?.resourceSrc,
       asset?.source?.originalSrc,
       asset?.source?.vaultRelativePath,
-    ].filter(Boolean);
+    ].filter(Boolean));
     for (const candidate of candidates) {
       output = output.replace(
         new RegExp(`(<img\\b[^>]*\\bsrc=["'])${escapeRegExp(candidate)}(["'][^>]*>)`, 'gi'),
@@ -562,6 +762,7 @@ function replaceArticleContentImageSources(html, assets = []) {
   return output;
 }
 
+/** @param {unknown} value */
 function stripUrlQueryHash(value) {
   const raw = String(value || '');
   if (!raw) return '';
@@ -575,6 +776,7 @@ function stripUrlQueryHash(value) {
   }
 }
 
+/** @param {unknown} renderedSrc */
 function getRenderedSrcVaultPath(renderedSrc) {
   // Obsidian renders local images as `app://<vault-id>/<vault-relative-path>?<hash>`.
   // The pathname (after URL-decode + leading-slash strip) recovers the vault path.
@@ -586,6 +788,11 @@ function getRenderedSrcVaultPath(renderedSrc) {
   }
 }
 
+/**
+ * @param {unknown} renderedSrc
+ * @param {ImageAsset[]} assets
+ * @returns {ImageAsset | null}
+ */
 function findAssetForRenderedSrc(renderedSrc, assets = []) {
   const src = String(renderedSrc || '');
   if (!src || !Array.isArray(assets) || !assets.length) return null;
@@ -606,10 +813,10 @@ function findAssetForRenderedSrc(renderedSrc, assets = []) {
   if (!pathInRenderedSrc) return null;
 
   for (const asset of assets) {
-    const candidates = [
+    const candidates = /** @type {string[]} */ ([
       asset?.source?.vaultRelativePath,
       asset?.source?.originalSrc,
-    ].filter(Boolean);
+    ].filter(Boolean));
     for (const candidate of candidates) {
       if (pathInRenderedSrc === candidate) return asset;
       if (pathInRenderedSrc.endsWith(`/${candidate}`)) return asset;
@@ -623,6 +830,11 @@ function findAssetForRenderedSrc(renderedSrc, assets = []) {
 // 'https://...', 'data:...', or empty), return the matching asset entry
 // when the cover refers to a local asset, else null. Used to pull the
 // asset bytes for inline thumbnail generation.
+/**
+ * @param {unknown} coverString
+ * @param {ImageAsset[]} assets
+ * @returns {ImageAsset | null}
+ */
 function findAssetForCover(coverString, assets = []) {
   const cover = String(coverString || '').trim();
   if (!cover.startsWith('asset://')) return null;
@@ -640,23 +852,35 @@ function findAssetForCover(coverString, assets = []) {
 // resolveArticleImages produced. Remote https://, data:, and unmatched
 // app:// urls are left untouched (the latter become a downstream warning,
 // which is preferable to silently inlining base64).
+/**
+ * @param {unknown} html
+ * @param {ImageAsset[]} assets
+ * @returns {string}
+ */
 function mapAppUrlImagesToAssetUrls(html, assets = []) {
   if (!html) return '';
   return String(html).replace(
     /(<img\b[^>]*\bsrc=["'])([^"']+)(["'][^>]*>)/gi,
     (match, prefix, src, suffix) => {
-      if (!/^(app|capacitor):\/\//i.test(src)) return match;
-      const asset = findAssetForRenderedSrc(src, assets);
-      if (!asset) return match;
-      return `${prefix}asset://${asset.id}${suffix}`;
+      const source = /** @type {unknown} */ (src);
+      const srcValue = String(source || '');
+      if (!/^(app|capacitor):\/\//i.test(srcValue)) return String(match || '');
+      const asset = findAssetForRenderedSrc(srcValue, assets);
+      if (!asset) return String(match || '');
+      return `${String(prefix || '')}asset://${asset.id}${String(suffix || '')}`;
     }
   );
 }
 
+/** @param {unknown} value */
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * @param {ImageWarning[]} warnings
+ * @returns {string}
+ */
 function formatArticleImageWarnings(warnings = []) {
   const items = warnings.filter((warning) => warning?.severity !== 'info');
   if (!items.length) return '';
@@ -668,6 +892,12 @@ function formatArticleImageWarnings(warnings = []) {
   return `${preview}${suffix}`;
 }
 
+/**
+ * @param {unknown} markdown
+ * @param {unknown} noteFile
+ * @param {{ app?: unknown, maxImageSizeBytes?: number, maxTotalImageSizeBytes?: number, cover?: string }} options
+ * @returns {Promise<{ markdown: string, assets: ImageAsset[], warnings: ImageWarning[], cover: string, firstImageSrc: string }>}
+ */
 async function resolveArticleImages(markdown, noteFile, options = {}) {
   const app = options.app;
   const limits = {
@@ -676,19 +906,29 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
   };
   const sourceMarkdown = String(markdown || '');
   const references = collectArticleImageReferences(sourceMarkdown);
+  /** @type {ImageWarning[]} */
   const warnings = [];
+  /** @type {ReplacementRange[]} */
   const replacements = [];
+  /** @type {ImageAsset[]} */
   const assets = [];
+  /** @type {Map<string, ImageAsset>} */
   const existingByKey = new Map();
 
+  /**
+   * @param {unknown} src
+   * @param {unknown} originalSrc
+   * @returns {Promise<{ src: string, asset?: ImageAsset, warning?: ImageWarning }>}
+   */
   const resolveSrc = async (src, originalSrc = src) => {
     const trimmed = String(src || '').trim();
+    const original = String(originalSrc || '');
     if (!trimmed) return { src: trimmed };
     if (!isLocalLikeSrc(trimmed)) return { src: trimmed };
     if (!isFileUrl(trimmed) && /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
       return {
         src: trimmed,
-        warning: createWarning('image_unsupported_protocol', '不支持的图片地址', { src: originalSrc }),
+        warning: createWarning('image_unsupported_protocol', '不支持的图片地址', { src: original }),
       };
     }
 
@@ -697,12 +937,13 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
       src: trimmed,
       noteFile,
       assetIndex: assets.length + 1,
-      originalSrc,
+      originalSrc: original,
       existingByKey,
       limits,
     });
     if (result.warning) return { src: trimmed, warning: result.warning };
     if (result.asset && !result.reused) assets.push(result.asset);
+    if (!result.asset) return { src: trimmed };
     return { src: `asset://${result.asset.id}`, asset: result.asset };
   };
 
@@ -748,7 +989,7 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
   };
 }
 
-module.exports = {
+export {
   DEFAULT_MAX_IMAGE_SIZE_BYTES,
   DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES,
   collectArticleImageReferences,

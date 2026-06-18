@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+const { loadInputModule } = require('./helpers/input-module.cjs');
 function createObsidianLikeElement(tag = 'div') {
   const el = document.createElement(tag);
   el.empty = function empty() {
@@ -69,7 +70,7 @@ describe('AppleStyleView - sync modal mobile UI', () => {
     const obsidianMock = require('obsidian');
     ({ getLastModal } = installModalMock(obsidianMock));
 
-    const inputModule = require('../input.js');
+    const inputModule = loadInputModule();
     AppleStyleView = inputModule.AppleStyleView;
 
     view = new AppleStyleView(null, {

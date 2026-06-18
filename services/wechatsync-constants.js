@@ -1,0 +1,15 @@
+export const DEFAULT_WECHATSYNC_PORT = 9527;
+export const DEFAULT_REQUEST_TIMEOUT_MS = 360000;
+export const DEFAULT_CONNECT_TIMEOUT_MS = 60000;
+export const DEFAULT_PLATFORM_REQUEST_TIMEOUT_MS = 60000;
+export const DEFAULT_SYNC_REQUEST_TIMEOUT_MS = 180000;
+export const DEFAULT_HELLO_TIMEOUT_MS = 30000;
+export const LOCAL_BIND_HOST = '127.0.0.1';
+export const REMOTE_BIND_HOST = '0.0.0.0';
+export const HELLO_ERROR_TOKEN_MISMATCH = 'token_mismatch';
+export const HELLO_ERROR_INVALID_PAYLOAD = 'invalid_payload';
+export const HELLO_ERROR_TIMEOUT = 'hello_timeout';
+export const HELLO_ERROR_VERSION_UNSUPPORTED = 'version_unsupported';
+export const HELLO_ERROR_DUPLICATE_SESSION = 'duplicate_session';
+export const HELLO_ERROR_TOO_MANY_CLIENTS = 'too_many_clients';
+export const DEFAULT_MAX_CLIENTS = 4;

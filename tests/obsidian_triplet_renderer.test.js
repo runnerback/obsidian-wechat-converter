@@ -117,6 +117,17 @@ describe('Obsidian Triplet Renderer', () => {
     expect(output).toContain('![code](attachments/code.png)');
   });
 
+  it('should keep headings after local markdown images renderable on the triplet path', () => {
+    const input = [
+      '![[attachments/音乐卡点调整.png]]',
+      '#### 图片后的标题',
+    ].join('\n');
+
+    const { markdown: output } = preprocessMarkdownForTriplet(input, {});
+
+    expect(output).toContain('<img src="attachments/%E9%9F%B3%E4%B9%90%E5%8D%A1%E7%82%B9%E8%B0%83%E6%95%B4.png" alt="音乐卡点调整">\n\n#### 图片后的标题');
+  });
+
   it('should not materialize local markdown images inside non-image syntax contexts', () => {
     const input = [
       '示例 `![alt](attachments/a.png)` 不应变图片',

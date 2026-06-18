@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Alias configured in vitest.config.mjs handles the mock
 const obsidian = require('obsidian');
-const { AppleStyleView } = require('../input.js');
+const { loadInputModule } = require('./helpers/input-module.cjs');
+const { AppleStyleView } = loadInputModule();
 const { createLegacyConverter } = require('./helpers/render-runtime');
 
 describe('AppleStyleView - copyHTML clipboard behavior', () => {
@@ -10,7 +11,6 @@ describe('AppleStyleView - copyHTML clipboard behavior', () => {
   let writeMock;
   let readTextMock;
   let realBlob;
-  let realExecCommand;
   const blobToText = async (blob) => {
     if (blob && typeof blob.text === 'function') return blob.text();
     return new Response(blob).text();
@@ -51,26 +51,17 @@ describe('AppleStyleView - copyHTML clipboard behavior', () => {
 
     window.__OWC_LAST_CLIPBOARD_HTML = undefined;
     window.__OWC_LAST_CLIPBOARD_TEXT = undefined;
-
-    realExecCommand = document.execCommand;
-    document.execCommand = vi.fn().mockReturnValue(true);
   });
 
   afterEach(() => {
     vi.useRealTimers();
     delete global.ClipboardItem;
     global.Blob = realBlob;
-    if (realExecCommand) {
-      document.execCommand = realExecCommand;
-    } else {
-      delete document.execCommand;
-    }
   });
 
   it('should use clipboard html on desktop and expose debug snapshots', async () => {
     await view.copyHTML();
 
-    expect(document.execCommand).not.toHaveBeenCalled();
     expect(writeMock).toHaveBeenCalledTimes(1);
     const item = writeMock.mock.calls[0][0][0];
     expect(Object.keys(item.items)).toEqual(['text/html']);
@@ -128,6 +119,48 @@ describe('AppleStyleView - copyHTML clipboard behavior', () => {
     expect(html).toContain('background:#ff5f57');
     expect(html).not.toContain('<table');
     expect(html).not.toContain('<svg');
+  });
+
+  it('should render preview code blocks with fixed line numbers outside the scroll container', async () => {
+    const converter = await createLegacyConverter();
+    const html = await converter.convert([
+      '```js',
+      'const veryLongIdentifierName = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";',
+      'console.log(veryLongIdentifierName);',
+      '```',
+    ].join('\n'));
+
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    const codeBlock = container.querySelector('.code-snippet__fix');
+    const lineNumbers = codeBlock?.querySelector('.code-line-numbers');
+    const codeScroll = codeBlock?.querySelector('.code-scroll');
+    const codeLines = codeBlock?.querySelector('.code-lines');
+
+    expect(lineNumbers).not.toBeNull();
+    expect(codeScroll).not.toBeNull();
+    expect(codeLines).not.toBeNull();
+    expect(codeScroll.contains(lineNumbers)).toBe(false);
+    expect(codeScroll.contains(codeLines)).toBe(true);
+    expect(codeScroll.getAttribute('style')).toContain('overflow-x:auto');
+    expect(codeScroll.getAttribute('style')).toContain('width:0');
+    expect(codeLines.getAttribute('style')).toContain('width:max-content');
+  });
+
+  it('should render visible URL links as their own mobile-friendly line', async () => {
+    const converter = await createLegacyConverter();
+    const html = await converter.convert('参考 https://example.com/a/very/long/path?with=query&and=more 后续文字');
+
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    const link = container.querySelector('a');
+
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('href')).toBe('https://example.com/a/very/long/path?with=query&and=more');
+    expect(link.textContent).toBe('https://example.com/a/very/long/path?with=query&and=more');
+    expect(link.getAttribute('style')).toContain('display:block');
+    expect(link.getAttribute('style')).toContain('word-break:break-all');
+    expect(link.getAttribute('style')).toContain('overflow-wrap:anywhere');
   });
 
   it('should prepare Wechatsync article code blocks as light plain pre/code without line numbers', async () => {
@@ -215,7 +248,7 @@ describe('AppleStyleView - copyHTML clipboard behavior', () => {
     expect(view.enhanceHtmlForWechatPublishing).toHaveBeenCalled();
   });
 
-  it('should fall back to rich selection copy on desktop when clipboard html write is unavailable', async () => {
+  it('should fail clearly when rich clipboard html write is unavailable', async () => {
     Object.defineProperty(global.navigator, 'clipboard', {
       value: {},
       configurable: true,
@@ -223,13 +256,15 @@ describe('AppleStyleView - copyHTML clipboard behavior', () => {
 
     await view.copyHTML();
 
-    expect(document.execCommand).toHaveBeenCalledWith('copy');
     expect(writeMock).not.toHaveBeenCalled();
   });
 
-  it('should fail fast on mobile when rich selection copy fails', async () => {
+  it('should fail fast on mobile when rich clipboard write is unavailable', async () => {
     view.app = { isMobile: true };
-    document.execCommand = vi.fn().mockReturnValue(false);
+    Object.defineProperty(global.navigator, 'clipboard', {
+      value: {},
+      configurable: true,
+    });
 
     await view.copyHTML();
 
@@ -239,16 +274,15 @@ describe('AppleStyleView - copyHTML clipboard behavior', () => {
 
   it('should fail on mobile when copy cannot be verified by clipboard readback', async () => {
     view.app = { isMobile: true };
-    document.execCommand = vi.fn().mockReturnValue(true);
     readTextMock.mockResolvedValue('旧剪贴板内容');
 
     await view.copyHTML();
 
-    expect(writeMock).not.toHaveBeenCalled();
+    expect(writeMock).toHaveBeenCalledTimes(1);
     expect(readTextMock).toHaveBeenCalledTimes(1);
   });
 
-  it('should restore user selection after rich selection copy', async () => {
+  it('should preserve user selection when using Clipboard API on mobile', async () => {
     view.app = { isMobile: true };
     const textEl = document.createElement('div');
     textEl.textContent = 'abcdef';

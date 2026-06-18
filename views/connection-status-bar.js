@@ -10,10 +10,32 @@
 //
 // Contract is locked by tests/connection_status_bar.test.js.
 
-function formatWechatsyncCheckedAt(timestamp) {
-  if (!timestamp) return '';
+/**
+ * @typedef {{ status?: string, checkedAt?: number | string | null, message?: string }} WechatsyncConnectionLike
+ * @typedef {{ variant?: 'modal' | 'settings' }} WechatsyncStatusContext
+ * @typedef {{ label?: string, disabled?: boolean, onClick?: (event: MouseEvent, button: HTMLButtonElement) => void }} WechatsyncActionLike
+ * @typedef {HTMLElement & { createDiv: (options?: { cls?: string }) => HTMLElement & { createEl: WechatsyncCreateEl }, createEl: WechatsyncCreateEl }} WechatsyncParentElement
+ * @typedef {(tagName: string, options?: { text?: string, cls?: string }) => HTMLElement} WechatsyncCreateEl
+ */
+
+/**
+ * @param {unknown} timestamp
+ * @returns {string | number | Date | null}
+ */
+function normalizeDateInput(timestamp) {
+  if (typeof timestamp === 'string' || typeof timestamp === 'number' || timestamp instanceof Date) return timestamp;
+  return null;
+}
+
+/**
+ * @param {unknown} timestamp
+ * @returns {string}
+ */
+export function formatWechatsyncCheckedAt(timestamp) {
+  const normalizedTimestamp = normalizeDateInput(timestamp);
+  if (!normalizedTimestamp) return '';
   try {
-    return new Date(timestamp).toLocaleString('zh-CN', {
+    return new Date(normalizedTimestamp).toLocaleString('zh-CN', {
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
@@ -28,7 +50,11 @@ function formatWechatsyncCheckedAt(timestamp) {
 // state. Centralized so both surfaces render identical wording for
 // identical states. The two variants only differ in user-facing wording —
 // they should never diverge on the dot color or class.
-function describeWechatsyncConnectionState(connection = {}, context = {}) {
+/**
+ * @param {WechatsyncConnectionLike} [connection={}]
+ * @param {WechatsyncStatusContext} [context={}]
+ */
+export function describeWechatsyncConnectionState(connection = {}, context = {}) {
   const { variant = 'modal' } = context;
   const checkedAtText = formatWechatsyncCheckedAt(connection.checkedAt);
   if (connection.status === 'connected') {
@@ -71,7 +97,11 @@ function describeWechatsyncConnectionState(connection = {}, context = {}) {
 // Pure renderer for the bridge connection status bar. Returns the bar
 // element and (optional) action button so the caller can flip disabled
 // state during async work.
-function renderWechatsyncConnectionStatusBar(parentEl, options = {}) {
+/**
+ * @param {WechatsyncParentElement} parentEl
+ * @param {{ dotLabel?: string, dotClass?: string, text?: string, action?: WechatsyncActionLike | null }} [options={}]
+ */
+export function renderWechatsyncConnectionStatusBar(parentEl, options = {}) {
   const {
     dotLabel = '',
     dotClass = '',
@@ -90,22 +120,19 @@ function renderWechatsyncConnectionStatusBar(parentEl, options = {}) {
   }
   let actionButton = null;
   if (action && typeof action === 'object') {
-    actionButton = bar.createEl('button', {
-      text: action.label || '重试',
+    const clickTarget = action.onClick;
+    /** @type {HTMLButtonElement} */
+    const buttonEl = /** @type {HTMLButtonElement} */ (bar.createEl('button', {
+      text: typeof action.label === 'string' && action.label ? action.label : '重试',
       cls: 'wechat-multiplatform-status-action',
-    });
+    }));
+    actionButton = buttonEl;
     if (action.disabled) actionButton.disabled = true;
-    if (typeof action.onClick === 'function') {
+    if (typeof clickTarget === 'function') {
       actionButton.addEventListener('click', (event) => {
-        action.onClick(event, actionButton);
+        clickTarget(event, buttonEl);
       });
     }
   }
   return { bar, actionButton };
 }
-
-module.exports = {
-  formatWechatsyncCheckedAt,
-  describeWechatsyncConnectionState,
-  renderWechatsyncConnectionStatusBar,
-};

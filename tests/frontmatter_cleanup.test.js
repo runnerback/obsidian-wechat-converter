@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+const { loadInputModule } = require('./helpers/input-module.cjs');
 describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () => {
   let AppleStyleView;
   let WechatAPI;
@@ -21,7 +22,7 @@ describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () 
       }
     }
 
-    const inputModule = require('../input.js');
+    const inputModule = loadInputModule();
     AppleStyleView = inputModule.AppleStyleView;
     WechatAPI = inputModule.WechatAPI;
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+const { loadInputModule } = require('./helpers/input-module.cjs');
 function createObsidianLikeElement(tag = 'div') {
   const el = document.createElement(tag);
   el.empty = function empty() {
@@ -89,7 +90,7 @@ describe('AppleStyleView - sync action modal flows', () => {
       }
     };
 
-    AppleStyleView = require('../input.js').AppleStyleView;
+    AppleStyleView = loadInputModule().AppleStyleView;
     view = new AppleStyleView(null, {
       manifest: { id: 'wechat-converter' },
       settings: {},

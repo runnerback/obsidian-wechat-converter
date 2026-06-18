@@ -4,13 +4,69 @@
  * 设计理念：克制、优雅、注重细节
  */
 
+/**
+ * @typedef {'github' | 'wechat' | 'serif' | 'paper' | 'grid' | 'typo' | 'media' | 'colorful'} AppleThemeName
+ * @typedef {'blue' | 'green' | 'purple' | 'orange' | 'teal' | 'rose' | 'ruby' | 'slate'} AppleThemeColorName
+ * @typedef {'sans-serif' | 'serif' | 'monospace'} AppleFontFamilyName
+ * @typedef {1 | 2 | 3 | 4 | 5} AppleFontSizeName
+ * @typedef {{ base: number, h1: number, h2: number, h3: number, h4: number, h5: number, h6: number, code: number, caption: number }} AppleFontSizeConfig
+ * @typedef {{
+ *   name: string,
+ *   lineHeight: number,
+ *   paragraphGap: number,
+ *   h1Decoration?: string,
+ *   h2Decoration?: string,
+ *   h3Decoration?: string,
+ *   h4Decoration?: string,
+ *   h5Decoration?: string,
+ *   h6Decoration?: string,
+ *   headingWeight?: number,
+ *   headingLetterSpacing?: number,
+ *   textColor: string,
+ *   headingColor?: string,
+ *   mutedTextColor?: string,
+ *   sectionBg?: string,
+ *   sectionBgStyle?: string,
+ *   sectionBgSize?: string,
+ *   sectionSidePaddingOffset?: number,
+ *   gridLineAlpha?: string,
+ *   shiftHeadingDecorationsDown?: boolean,
+ *   linkDecoration?: string,
+ *   blockquoteBorderWidth?: number,
+ *   blockquoteBorderColor?: string,
+ *   blockquoteBg?: string,
+ *   blockquoteStyle?: string,
+ *   blockquoteTextColor?: string,
+ *   tableHeaderBg?: string,
+ *   tableBorderColor?: string,
+ *   tableCellPadding?: number,
+ *   figurePadding?: number,
+ *   figureBorderColor?: string,
+ *   paragraphTextIndent?: string,
+ *   strongBg?: boolean,
+ * }} AppleThemeConfig
+ * @typedef {{
+ *   theme?: AppleThemeName | string,
+ *   themeColor?: AppleThemeColorName | 'custom' | string,
+ *   customColor?: string | null,
+ *   quoteCalloutStyleMode?: 'theme' | 'neutral' | string,
+ *   fontFamily?: AppleFontFamilyName | string,
+ *   fontSize?: AppleFontSizeName | number,
+ *   macCodeBlock?: boolean,
+ *   codeLineNumber?: boolean,
+ *   sidePadding?: number,
+ *   coloredHeader?: boolean,
+ * }} AppleThemeOptions
+ */
+
 // Use assignment expression to avoid "Identifier has already been declared" errors if re-eval'd
-const APPLE_THEME_GLOBAL = typeof global !== 'undefined' ? global : (typeof window !== 'undefined' ? window : {});
+const APPLE_THEME_GLOBAL = /** @type {Record<string, unknown>} */ (typeof window !== 'undefined' ? window : {});
 
 class AppleTheme {
   /**
    * 🎨 主题色板 - 8种预设颜色
    */
+  /** @type {Record<AppleThemeColorName, string>} */
   static THEME_COLORS = {
     blue: '#0366d6',
     green: '#28a745',
@@ -26,6 +82,7 @@ class AppleTheme {
    * 🎨 标题专用深色板 (Tone-on-Tone)
    * 相比主题色加深 15-20%，用于标题以增加视觉稳重感，避免与正文高亮色冲突
    */
+  /** @type {Record<AppleThemeColorName, string>} */
   static THEME_COLORS_DEEP = {
     blue: '#004795',    // Deep Blue
     green: '#1e7e34',   // Deep Green
@@ -40,6 +97,7 @@ class AppleTheme {
   /**
    * 📐 字体大小系统 - 5档
    */
+  /** @type {Record<AppleFontSizeName, AppleFontSizeConfig>} */
   static FONT_SIZES = {
     1: { base: 14, h1: 26, h2: 20, h3: 16, h4: 14, h5: 14, h6: 14, code: 12, caption: 12 },
     2: { base: 15, h1: 28, h2: 21, h3: 17, h4: 15, h5: 15, h6: 15, code: 13, caption: 12 },
@@ -51,6 +109,7 @@ class AppleTheme {
   /**
    * 🔤 字体栈
    */
+  /** @type {Record<AppleFontFamilyName, string>} */
   static FONTS = {
     'sans-serif': `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif`,
     'serif': `'Times New Roman', Georgia, 'SimSun', serif`,
@@ -60,6 +119,7 @@ class AppleTheme {
   /**
    * 🎨 主题配置 - 每种主题的独特配色和规则
    */
+  /** @type {Record<AppleThemeName, AppleThemeConfig>} */
   static THEME_CONFIGS = {
 
     github: {
@@ -249,6 +309,7 @@ class AppleTheme {
   /**
    * 📐 间距系统 - 8px 基准
    */
+  /** @type {Record<'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl', number>} */
   static SPACING = {
     xs: 4,
     sm: 8,
@@ -261,6 +322,7 @@ class AppleTheme {
   /**
    * 🎯 圆角系统
    */
+  /** @type {Record<'sm' | 'md' | 'lg', number>} */
   static RADIUS = {
     sm: 4,
     md: 8,
@@ -272,34 +334,47 @@ class AppleTheme {
 
   /**
    * 当前配置
+   * @param {AppleThemeOptions} [options]
    */
   constructor(options = {}) {
-    this.themeName = options.theme || 'github';
-    this.themeColor = options.themeColor || 'blue';
-    this.customColor = options.customColor || null;
-    this.quoteCalloutStyleMode = options.quoteCalloutStyleMode || 'theme';
-    this.fontFamily = options.fontFamily || 'sans-serif';
-    this.fontSize = options.fontSize || 3;
+    /** @type {AppleThemeName | string} */
+    this.themeName = typeof options.theme === 'string' && options.theme ? options.theme : 'github';
+    /** @type {AppleThemeColorName | 'custom' | string} */
+    this.themeColor = typeof options.themeColor === 'string' && options.themeColor ? options.themeColor : 'blue';
+    /** @type {string | null} */
+    this.customColor = typeof options.customColor === 'string' && options.customColor ? options.customColor : null;
+    /** @type {'theme' | 'neutral' | string} */
+    this.quoteCalloutStyleMode = typeof options.quoteCalloutStyleMode === 'string' ? options.quoteCalloutStyleMode : 'theme';
+    /** @type {AppleFontFamilyName | string} */
+    this.fontFamily = typeof options.fontFamily === 'string' && options.fontFamily ? options.fontFamily : 'sans-serif';
+    /** @type {AppleFontSizeName | number} */
+    this.fontSize = typeof options.fontSize === 'number' ? options.fontSize : 3;
+    /** @type {boolean} */
     this.macCodeBlock = options.macCodeBlock !== false;
-    this.codeLineNumber = options.codeLineNumber || false;
+    /** @type {boolean} */
+    this.codeLineNumber = Boolean(options.codeLineNumber);
     // 侧边距设置 (默认 16px)
-    this.sidePadding = options.sidePadding !== undefined ? options.sidePadding : 16;
+    /** @type {number} */
+    this.sidePadding = options.sidePadding !== undefined ? Number(options.sidePadding) : 16;
     // 标题染色设置
-    this.coloredHeader = options.coloredHeader || false;
+    /** @type {boolean} */
+    this.coloredHeader = Boolean(options.coloredHeader);
   }
 
   /**
    * 获取当前主题色值
+   * @returns {string}
    */
   getThemeColorValue() {
     if (this.themeColor === 'custom' && this.customColor) {
       return this.customColor;
     }
-    return AppleTheme.THEME_COLORS[this.themeColor] || AppleTheme.THEME_COLORS.blue;
+    return AppleTheme.THEME_COLORS[/** @type {AppleThemeColorName} */ (this.themeColor)] || AppleTheme.THEME_COLORS.blue;
   }
 
   /**
    * 获取标题专用深色值
+   * @returns {string}
    */
   getHeadingColorValue() {
     // 1. 如果未开启标题染色，返回默认深灰
@@ -313,13 +388,14 @@ class AppleTheme {
     }
 
     // 3. 预设颜色：返回深色板对应值
-    return AppleTheme.THEME_COLORS_DEEP[this.themeColor] || AppleTheme.THEME_COLORS_DEEP.blue;
+    return AppleTheme.THEME_COLORS_DEEP[/** @type {AppleThemeColorName} */ (this.themeColor)] || AppleTheme.THEME_COLORS_DEEP.blue;
   }
 
   /**
    * 辅助：调整 Hex 颜色亮度
    * @param {string} hex - #RRGGBB
    * @param {number} percent - -100 to 100
+   * @returns {string}
    */
   adjustColorBrightness(hex, percent) {
     hex = hex.replace(/^#/, '');
@@ -345,25 +421,31 @@ class AppleTheme {
 
   /**
    * 获取当前主题配置
+   * @returns {AppleThemeConfig}
    */
   getThemeConfig() {
-    return AppleTheme.THEME_CONFIGS[this.themeName] || AppleTheme.THEME_CONFIGS.github;
+    return AppleTheme.THEME_CONFIGS[/** @type {AppleThemeName} */ (this.themeName)] || AppleTheme.THEME_CONFIGS.github;
   }
 
   /**
    * 获取字体尺寸配置
+   * @returns {AppleFontSizeConfig}
    */
   getSizes() {
-    return AppleTheme.FONT_SIZES[this.fontSize] || AppleTheme.FONT_SIZES[3];
+    return AppleTheme.FONT_SIZES[/** @type {AppleFontSizeName} */ (this.fontSize)] || AppleTheme.FONT_SIZES[3];
   }
 
   /**
    * 获取字体栈
+   * @returns {string}
    */
   getFontFamily() {
-    return AppleTheme.FONTS[this.fontFamily] || AppleTheme.FONTS['sans-serif'];
+    return AppleTheme.FONTS[/** @type {AppleFontFamilyName} */ (this.fontFamily)] || AppleTheme.FONTS['sans-serif'];
   }
 
+  /**
+   * @returns {'theme' | 'neutral'}
+   */
   getQuoteCalloutStyleMode() {
     return this.quoteCalloutStyleMode === 'neutral' ? 'neutral' : 'theme';
   }
@@ -519,7 +601,7 @@ class AppleTheme {
         return `display: block; margin: 0 auto; max-width: 100%; border-radius: 4px;`;
 
       case 'a':
-        return `color: ${color}; text-decoration: ${config.linkDecoration}; border-bottom: ${config.linkDecoration === 'none' ? `1px dashed ${color}` : 'none'};`;
+        return `color: ${color}; text-decoration: ${config.linkDecoration}; border-bottom: ${config.linkDecoration === 'none' ? `1px dashed ${color}` : 'none'}; word-break: break-word; overflow-wrap: anywhere;`;
 
       case 'table-wrapper':
         return `display: block; box-sizing: border-box; width: 100%; max-width: 100%; overflow-x: scroll; overflow-y: hidden; -webkit-overflow-scrolling: touch; margin: ${s.md}px 0; padding-bottom: 10px;`;
@@ -558,16 +640,20 @@ class AppleTheme {
 
   // === Helper Methods ===
 
-  getH1Style(type, color, fontSize, font, headingColor, config = {}) {
+  /**
+   * @param {string | undefined} type
+   * @param {string} color
+   * @param {number} fontSize
+   * @param {string} font
+   * @param {string} headingColor
+   * @param {AppleThemeConfig} [config]
+   * @returns {string}
+   */
+  getH1Style(type, color, fontSize, font, headingColor, config = AppleTheme.THEME_CONFIGS.github) {
     const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 30px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.2;`;
     switch (type) {
       case 'editorial-h1': // Magazine Style: Forced Serif + Golden Line
-        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 30px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.2;
-          background-image: linear-gradient(to right, transparent, ${color}, transparent);
-          background-size: 100px 1px;
-          background-repeat: no-repeat;
-          background-position: bottom center;
-          padding-bottom: 20px; letter-spacing: 1px;`;
+        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 22px; padding: 0 0 14px; color: ${headingColor}; text-align: center; line-height: 1.2; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 120px 2px; background-repeat: no-repeat; background-position: bottom center; letter-spacing: 1px;`;
       case 'bottom-line':
         // Pure CSS centered short line using linear-gradient (simulating image)
         return `${base}
@@ -595,16 +681,20 @@ class AppleTheme {
     }
   }
 
-  getH2Style(type, color, fontSize, font, headingColor, config = {}) {
+  /**
+   * @param {string | undefined} type
+   * @param {string} color
+   * @param {number} fontSize
+   * @param {string} font
+   * @param {string} headingColor
+   * @param {AppleThemeConfig} [config]
+   * @returns {string}
+   */
+  getH2Style(type, color, fontSize, font, headingColor, config = AppleTheme.THEME_CONFIGS.github) {
     const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 32px auto 16px; text-align: center; color: ${headingColor}; line-height: 1.25;`;
     switch (type) {
       case 'editorial-h1': // Golden Line (Shifted from H1)
-        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 32px auto 16px; color: ${headingColor}; text-align: center; line-height: 1.2;
-          background-image: linear-gradient(to right, transparent, ${color}, transparent);
-          background-size: 100px 1px;
-          background-repeat: no-repeat;
-          background-position: bottom center;
-          padding-bottom: 20px; letter-spacing: 1px;`;
+        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 20px; padding: 0 0 14px; color: ${headingColor}; text-align: center; line-height: 1.2; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 120px 2px; background-repeat: no-repeat; background-position: bottom center; letter-spacing: 1px;`;
       case 'editorial-h2': // Magazine Subtitle
         return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: normal; margin: 32px auto 16px; text-align: center; color: ${headingColor}; line-height: 1.4; font-style: italic; letter-spacing: 1px;`;
       case 'bottom-line':
@@ -654,7 +744,16 @@ class AppleTheme {
     }
   }
 
-  getH3Style(type, color, fontSize, font, headingColor, config = {}) {
+  /**
+   * @param {string | undefined} type
+   * @param {string} color
+   * @param {number} fontSize
+   * @param {string} font
+   * @param {string} headingColor
+   * @param {AppleThemeConfig} [config]
+   * @returns {string}
+   */
+  getH3Style(type, color, fontSize, font, headingColor, config = AppleTheme.THEME_CONFIGS.github) {
     const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 20px 0 12px; text-align: left; color: ${headingColor}; line-height: 1.3;`;
     switch (type) {
       case 'editorial-h2': // Italic Serif (Left Aligned for H3)
@@ -687,6 +786,14 @@ class AppleTheme {
     }
   }
 
+  /**
+   * @param {string | undefined} type
+   * @param {string} color
+   * @param {number} fontSize
+   * @param {string} font
+   * @param {string} headingColor
+   * @returns {string}
+   */
   getH4Style(type, color, fontSize, font, headingColor) {
     const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 15px 0 10px; text-align: left; color: ${headingColor}; line-height: 1.35;`;
     switch (type) {
@@ -720,6 +827,14 @@ class AppleTheme {
     }
   }
 
+  /**
+   * @param {string | undefined} type
+   * @param {string} color
+   * @param {number} fontSize
+   * @param {string} font
+   * @param {string} headingColor
+   * @returns {string}
+   */
   getH5Style(type, color, fontSize, font, headingColor) {
     if (!type) {
       return `font-family: ${font}; font-size: ${fontSize}px; font-weight: bold; color: ${headingColor}; margin: 10px 0; text-align: left; line-height: 1.4;`;
@@ -736,6 +851,15 @@ class AppleTheme {
     }
   }
 
+  /**
+   * @param {string | undefined} type
+   * @param {string} color
+   * @param {number} fontSize
+   * @param {string} font
+   * @param {string} headingColor
+   * @param {string} [mutedColor]
+   * @returns {string}
+   */
   getH6Style(type, color, fontSize, font, headingColor, mutedColor = '#6b7280') {
     if (!type) {
       return `font-family: ${font}; font-size: ${fontSize}px; font-weight: bold; color: ${headingColor}; margin: 10px 0; text-align: left; line-height: 1.4;`;
@@ -749,6 +873,11 @@ class AppleTheme {
     }
   }
 
+  /**
+   * @param {string} hexColor
+   * @param {string} [alphaHex]
+   * @returns {string}
+   */
   hexToRgba(hexColor, alphaHex = 'ff') {
     const normalized = String(hexColor || '').trim().replace(/^#/, '');
     if (!/^[0-9a-f]{6}$/i.test(normalized)) {
@@ -762,6 +891,10 @@ class AppleTheme {
     return `rgba(${r}, ${g}, ${b}, ${(clampedAlpha / 255).toFixed(3)})`;
   }
 
+  /**
+   * @param {...string} styles
+   * @returns {string}
+   */
   joinStyleStrings(...styles) {
     return styles
       .map((style) => (style || '').trim())
@@ -770,7 +903,11 @@ class AppleTheme {
       .join(' ');
   }
 
-  getSectionSidePadding(config = {}) {
+  /**
+   * @param {AppleThemeConfig} [config]
+   * @returns {number}
+   */
+  getSectionSidePadding(config = AppleTheme.THEME_CONFIGS.github) {
     const configuredPadding = Number(this.sidePadding);
     const themeOffset = Number(config.sectionSidePaddingOffset || 0);
     const safeConfiguredPadding = Number.isFinite(configuredPadding) ? configuredPadding : 16;
@@ -778,28 +915,34 @@ class AppleTheme {
     return safeConfiguredPadding + safeThemeOffset;
   }
 
-  getSectionBoxSizingStyle(config = {}) {
+  /**
+   * @param {AppleThemeConfig} [config]
+   * @returns {string}
+   */
+  getSectionBoxSizingStyle(config = AppleTheme.THEME_CONFIGS.github) {
     return config.sectionSidePaddingOffset ? 'box-sizing: border-box; ' : '';
   }
 
-  /**
+   /**
    * 更新配置
+   * @param {AppleThemeOptions} options
    */
   update(options) {
-    if (options.theme !== undefined) this.themeName = options.theme;
-    if (options.themeColor !== undefined) this.themeColor = options.themeColor;
-    if (options.customColor !== undefined) this.customColor = options.customColor;
-    if (options.quoteCalloutStyleMode !== undefined) this.quoteCalloutStyleMode = options.quoteCalloutStyleMode;
-    if (options.fontFamily !== undefined) this.fontFamily = options.fontFamily;
-    if (options.fontSize !== undefined) this.fontSize = options.fontSize;
-    if (options.macCodeBlock !== undefined) this.macCodeBlock = options.macCodeBlock;
-    if (options.codeLineNumber !== undefined) this.codeLineNumber = options.codeLineNumber;
-    if (options.sidePadding !== undefined) this.sidePadding = options.sidePadding;
-    if (options.coloredHeader !== undefined) this.coloredHeader = options.coloredHeader;
+    if (typeof options.theme === 'string') this.themeName = options.theme;
+    if (typeof options.themeColor === 'string') this.themeColor = options.themeColor;
+    if (typeof options.customColor === 'string' || options.customColor === null) this.customColor = options.customColor;
+    if (typeof options.quoteCalloutStyleMode === 'string') this.quoteCalloutStyleMode = options.quoteCalloutStyleMode;
+    if (typeof options.fontFamily === 'string') this.fontFamily = options.fontFamily;
+    if (typeof options.fontSize === 'number') this.fontSize = options.fontSize;
+    if (options.macCodeBlock !== undefined) this.macCodeBlock = options.macCodeBlock !== false;
+    if (options.codeLineNumber !== undefined) this.codeLineNumber = Boolean(options.codeLineNumber);
+    if (options.sidePadding !== undefined) this.sidePadding = Number(options.sidePadding);
+    if (options.coloredHeader !== undefined) this.coloredHeader = Boolean(options.coloredHeader);
   }
 
   /**
    * 获取主题列表
+   * @returns {{ value: string, label: string }[]}
    */
   static getThemeList() {
     return Object.entries(AppleTheme.THEME_CONFIGS).map(([key, config]) => ({
@@ -810,6 +953,7 @@ class AppleTheme {
 
   /**
    * 获取主题色列表
+   * @returns {{ value: string, color: string }[]}
    */
   static getColorList() {
     return Object.entries(AppleTheme.THEME_COLORS).map(([key, value]) => ({

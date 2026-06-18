@@ -235,6 +235,30 @@ title: 示例
     expect(html).not.toContain('[x] 产品陈列台');
   });
 
+  it('should hide raw local image markdown from rendered ai text cards', () => {
+    const html = renderArticleLayoutHtml({
+      stylePack: 'tech-green',
+      title: '测试文章',
+      blocks: [
+        {
+          type: 'lead-quote',
+          text: '本地图片 ![[attachments/音乐卡点调整.png]] 需要隐藏路径',
+          note: '附注 ![alt](attachments/x.png)',
+        },
+        {
+          type: 'section-block',
+          title: '第一部分',
+          paragraphs: ['正文里有 ![[attachments/图.png]] 文本'],
+        },
+      ],
+    }, { imageRefs: [] });
+
+    expect(html).not.toContain('attachments/音乐卡点调整.png');
+    expect(html).not.toContain('attachments/x.png');
+    expect(html).toContain('本地图片 需要隐藏路径');
+    expect(html).toContain('正文里有 文本');
+  });
+
   it('should render custom ai colors from independent ai color settings', () => {
     const palette = resolveColorPaletteForRender('custom', { customColor: '#ff3366' });
     const html = renderArticleLayoutHtml({

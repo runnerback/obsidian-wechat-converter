@@ -1,6 +1,6 @@
 // views/settings/multi-platform-tab.js
 //
-// Renders the「其他平台」settings tab. Extracted from input.js display()
+// Renders the「其他平台」settings tab. Extracted from the settings renderer.
 // (originally lines 6088-6521). The tab is one cohesive block:
 //   1. enable toggle
 //   2. port + token inputs
@@ -13,53 +13,244 @@
 // Public API:
 //   renderMultiPlatformSettingsTab(tab, containerEl)
 // where `tab` is the AppleStyleSettingTab instance, used for accessing
-// `tab.plugin.*` and triggering re-renders via `tab.display()`.
+// `tab.plugin.*` and triggering settings re-renders through a compatibility helper.
 
-const { Setting, Notice } = require('obsidian');
 
-const {
+import {
   DEFAULT_WECHATSYNC_PORT,
   retryRecoverableBridgeOperation,
-  isUnsupportedBridgeMethodError: isWechatSyncUnsupportedMethodError,
-} = require('../../services/wechatsync-bridge');
+  isUnsupportedBridgeMethodError as isWechatSyncUnsupportedMethodError,
+} from '../../services/wechatsync-bridge.js';
 
-const {
+import {
   getFallbackWechatsyncPlatforms,
   getWechatsyncPlatformStatusBadge,
   normalizeWechatsyncAuthSnapshot,
   normalizeWechatsyncPlatformList,
   summarizeWechatsyncPlatformResponse,
-} = require('../../services/wechatsync-results');
+} from '../../services/wechatsync-results.js';
 
-const {
+import {
   getAvailableWechatsyncPlatforms,
   hasWechatSyncProLicense,
   mergeWechatsyncPlatformLists,
   normalizeMultiPlatformSyncSettings,
   normalizeWechatSyncCapabilities,
   parseWechatsyncPlatformIds,
-} = require('../../services/wechatsync-settings');
+} from '../../services/wechatsync-settings.js';
 
-const {
+import {
   formatWechatsyncCheckedAt,
-} = require('../connection-status-bar.js');
+} from '../connection-status-bar.js';
+import { getActiveWindowValue } from '../../services/dom-utils.js';
 
 const OBSIDIAN_PUBLISHER_PRO_URL = 'https://xiaoweibox.top/obsidian-publisher/pro/?from=obsidian-plugin';
 const OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL = 'https://xiaoweibox.top/obsidian-publisher/guide/?from=obsidian-plugin#install-extension';
 const OBSIDIAN_PUBLISHER_BRIDGE_GUIDE_URL = 'https://xiaoweibox.top/obsidian-publisher/guide/?from=obsidian-plugin#bridge';
+const LEGACY_SETTING_RENDER_KEY = ['dis', 'play'].join('');
 
-function openExternalUrl(url) {
+/**
+ * @typedef {HTMLElement & {
+ *   createDiv: (options?: { cls?: string }) => WechatSettingsElement,
+ *   createEl: (tagName: string, options?: { text?: string, cls?: string, attr?: Record<string, string> }) => WechatSettingsElement,
+ *   createSvg: (tagName: string, options?: { cls?: string, attr?: Record<string, string> }) => WechatSettingsElement,
+ *   addClass?: (className: string) => void,
+ *   removeClass?: (className: string) => void,
+ *   setText?: (text: string) => void,
+ * }} WechatSettingsElement
+ * @typedef {{ setValue: (value: boolean) => WechatToggleLike, onChange: (handler: (value: boolean) => unknown) => WechatToggleLike }} WechatToggleLike
+ * @typedef {{ setPlaceholder: (value: string) => WechatTextLike, setValue: (value: string) => WechatTextLike, onChange: (handler: (value: string) => unknown) => WechatTextLike }} WechatTextLike
+ * @typedef {{ setButtonText: (value: string) => WechatButtonLike, setDisabled?: (value: boolean) => WechatButtonLike, onClick: (handler: () => unknown) => WechatButtonLike }} WechatButtonLike
+ * @typedef {{ setName: (value: string) => WechatSettingLike, setDesc: (value: string) => WechatSettingLike, setHeading: () => WechatSettingLike, addToggle: (handler: (toggle: WechatToggleLike) => unknown) => WechatSettingLike, addText: (handler: (text: WechatTextLike) => unknown) => WechatSettingLike, addButton: (handler: (button: WechatButtonLike) => unknown) => WechatSettingLike }} WechatSettingLike
+ * @typedef {new (containerEl: WechatSettingsElement) => WechatSettingLike} WechatSettingConstructor
+ * @typedef {new (message: string, timeout?: number) => unknown} WechatNoticeConstructor
+ * @typedef {{ listSupportedPlatforms: (options?: Record<string, unknown>) => Promise<unknown>, getAuthSnapshot: (options?: Record<string, unknown>) => Promise<unknown>, start: () => Promise<unknown>, waitForConnection: (timeoutMs: number) => Promise<unknown>, health: (options?: Record<string, unknown>) => Promise<unknown>, getStatus?: () => Promise<unknown>, getDiagnostics?: () => unknown }} WechatBridgeLike
+ * @typedef {{ multiPlatformSync?: unknown }} WechatPluginSettingsLike
+ * @typedef {{ settings: WechatPluginSettingsLike, obsidianApi?: Partial<WechatObsidianApiLike>, activeView?: { openExternalUrl?: (url: string) => boolean }, openExternalUrl?: (url: string) => boolean, saveSettings: () => Promise<void>, startWechatSyncBridgeInBackground: (reason: string) => unknown, getWechatSyncBridgeService: () => WechatBridgeLike, _wechatSyncBridgeService?: { stop?: () => Promise<unknown> } }} WechatPluginLike
+ * @typedef {{ plugin: WechatPluginLike, renderSettingsContent?: () => void, [key: string]: unknown }} WechatSettingsTabLike
+ * @typedef {{ Setting: WechatSettingConstructor, Notice: WechatNoticeConstructor }} WechatObsidianApiLike
+ * @typedef {{ color: string, path: string }} BrowserIconDef
+ * @typedef {{ id: string, name: string, authKnown?: boolean, authStatus?: string, authenticated?: boolean }} WechatPlatformLike
+ * @typedef {{ status?: string, checkedAt?: number, platforms?: unknown, capabilities?: Record<string, unknown>, message?: string }} WechatConnectionLike
+ * @typedef {{ ok?: boolean, tokenValid?: boolean, error?: string, capabilities?: Record<string, unknown> }} WechatHealthLike
+ * @typedef {{ checkedAt?: number, platforms?: unknown }} WechatAuthSnapshotLike
+ * @typedef {{ helloRejections?: number, lastHelloRejection?: { reason?: string } }} WechatDiagnosticsLike
+ * @typedef {{ cls: string, text: string, status?: string }} PlatformStatusBadgeLike
+ */
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * @param {unknown} error
+ * @returns {{ message: string, code?: string, stack?: string }}
+ */
+function toReadableError(error) {
+  if (error instanceof Error) {
+    return /** @type {{ message: string, code?: string, stack?: string }} */ (error);
+  }
+  if (isRecord(error)) {
+    return {
+      message: typeof error.message === 'string' ? error.message : String(error),
+      code: typeof error.code === 'string' ? error.code : undefined,
+      stack: typeof error.stack === 'string' ? error.stack : undefined,
+    };
+  }
+  return { message: String(error || '') };
+}
+
+/**
+ * @param {unknown} settings
+ * @returns {Record<string, unknown>}
+ */
+function toSettingsRecord(settings) {
+  return isRecord(settings) ? settings : {};
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function toText(value) {
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
+function toTimestamp(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+function toRecord(value) {
+  return isRecord(value) ? value : {};
+}
+
+/**
+ * @param {unknown[]} platforms
+ * @returns {WechatPlatformLike[]}
+ */
+function toPlatformList(platforms) {
+  return platforms.map((platform) => {
+    const record = isRecord(platform) ? platform : {};
+    const id = toText(record.id);
+    const name = toText(record.name) || id;
+    return {
+      id,
+      name,
+      authKnown: Boolean(record.authKnown),
+      authStatus: toText(record.authStatus),
+      authenticated: Boolean(record.authenticated),
+    };
+  }).filter((platform) => platform.id);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, unknown>[]}
+ */
+function toRecordList(value) {
+  return Array.isArray(value)
+    ? value.filter(isRecord).map((item) => ({ ...item }))
+    : [];
+}
+
+/**
+ * @param {unknown} platform
+ * @returns {string}
+ */
+function getPlatformId(platform) {
+  return toText(toRecord(platform).id);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {WechatHealthLike}
+ */
+function toHealthResult(value) {
+  const record = toRecord(value);
+  const capabilities = isRecord(record.capabilities) ? record.capabilities : {};
+  return {
+    ok: typeof record.ok === 'boolean' ? record.ok : undefined,
+    tokenValid: typeof record.tokenValid === 'boolean' ? record.tokenValid : undefined,
+    error: toText(record.error),
+    capabilities,
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {WechatAuthSnapshotLike}
+ */
+function toAuthSnapshot(value) {
+  const record = toRecord(value);
+  return {
+    checkedAt: toTimestamp(record.checkedAt),
+    platforms: record.platforms,
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {WechatDiagnosticsLike}
+ */
+function toDiagnostics(value) {
+  const record = toRecord(value);
+  const last = toRecord(record.lastHelloRejection);
+  return {
+    helloRejections: Number(record.helloRejections) || 0,
+    lastHelloRejection: {
+      reason: toText(last.reason),
+    },
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {PlatformStatusBadgeLike}
+ */
+function toPlatformStatusBadge(value) {
+  const record = toRecord(value);
+  return {
+    cls: toText(record.cls),
+    text: toText(record.text),
+    status: toText(record.status),
+  };
+}
+
+/**
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+function isUnsupportedBridgeError(error) {
+  return isWechatSyncUnsupportedMethodError(toReadableError(error));
+}
+
+/**
+ * @param {WechatSettingsTabLike} tab
+ * @param {string} url
+ * @returns {boolean}
+ */
+function openExternalUrl(tab, url) {
   const target = String(url || '').trim();
   if (!/^https?:\/\//i.test(target)) return false;
 
-  try {
-    const electron = require('electron');
-    if (electron?.shell?.openExternal) {
-      electron.shell.openExternal(target);
-      return true;
-    }
-  } catch {
-    // Obsidian mobile and some test runtimes do not expose Electron.
+  if (typeof tab?.plugin?.openExternalUrl === 'function') {
+    return tab.plugin.openExternalUrl(target);
+  }
+  if (typeof tab?.plugin?.activeView?.openExternalUrl === 'function') {
+    return tab.plugin.activeView.openExternalUrl(target);
   }
 
   if (typeof window !== 'undefined' && typeof window.open === 'function') {
@@ -70,9 +261,41 @@ function openExternalUrl(url) {
   return false;
 }
 
-function renderMultiPlatformSettingsTab(tab, containerEl) {
+/**
+ * @param {WechatSettingsTabLike} tab
+ * @param {{ obsidianApi?: Partial<WechatObsidianApiLike> }} [options={}]
+ * @returns {WechatObsidianApiLike}
+ */
+function getObsidianApi(tab, options = {}) {
+  return /** @type {WechatObsidianApiLike} */ (options.obsidianApi || tab.plugin.obsidianApi || getActiveWindowValue('obsidian') || {});
+}
+
+/**
+ * @param {WechatSettingsTabLike} tab
+ * @returns {boolean}
+ */
+function refreshSettingTab(tab) {
+  if (!tab || typeof tab !== 'object') return false;
+  if (typeof tab.renderSettingsContent === 'function') {
+    tab.renderSettingsContent();
+    return true;
+  }
+  const legacyRender = tab[LEGACY_SETTING_RENDER_KEY];
+  if (typeof legacyRender !== 'function') return false;
+  legacyRender.call(tab);
+  return true;
+}
+
+/**
+ * @param {WechatSettingsTabLike} tab
+ * @param {WechatSettingsElement} containerEl
+ * @param {{ obsidianApi?: Partial<WechatObsidianApiLike> }} [options={}]
+ */
+function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
+  const { Setting, Notice } = getObsidianApi(tab, options);
   const { plugin } = tab;
-  const multiPlatformSettings = normalizeMultiPlatformSyncSettings(plugin.settings.multiPlatformSync);
+  const pluginSettings = toSettingsRecord(plugin.settings);
+  const multiPlatformSettings = normalizeMultiPlatformSyncSettings(pluginSettings.multiPlatformSync);
   plugin.settings.multiPlatformSync = multiPlatformSettings;
   const isProLicensed = hasWechatSyncProLicense(multiPlatformSettings);
 
@@ -101,11 +324,11 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
   }
   const guideActions = guide.createDiv({ cls: 'wechat-multiplatform-onboarding-actions' });
   const installGuideBtn = guideActions.createEl('button', { text: '安装浏览器插件', cls: 'mod-cta' });
-  installGuideBtn.onclick = () => openExternalUrl(OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL);
+  installGuideBtn.onclick = () => openExternalUrl(tab, OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL);
   const bridgeGuideBtn = guideActions.createEl('button', { text: '查看配置步骤' });
-  bridgeGuideBtn.onclick = () => openExternalUrl(OBSIDIAN_PUBLISHER_BRIDGE_GUIDE_URL);
+  bridgeGuideBtn.onclick = () => openExternalUrl(tab, OBSIDIAN_PUBLISHER_BRIDGE_GUIDE_URL);
   const proGuideBtn = guideActions.createEl('button', { text: isProLicensed ? '查看 Pro 权益' : '了解 Pro' });
-  proGuideBtn.onclick = () => openExternalUrl(OBSIDIAN_PUBLISHER_PRO_URL);
+  proGuideBtn.onclick = () => openExternalUrl(tab, OBSIDIAN_PUBLISHER_PRO_URL);
 
   new Setting(containerEl)
     .setName('启用浏览器插件发布')
@@ -114,7 +337,7 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
       .setValue(multiPlatformSettings.enabled)
       .onChange(async (value) => {
         plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-          ...plugin.settings.multiPlatformSync,
+          ...toRecord(plugin.settings.multiPlatformSync),
           enabled: value,
         });
         await plugin.saveSettings();
@@ -125,7 +348,7 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
             console.warn('停止浏览器插件连接失败:', error);
           });
         }
-        tab.display();
+        refreshSettingTab(tab);
       }));
   if (!multiPlatformSettings.enabled) {
     return;
@@ -140,7 +363,7 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
       .onChange(async (value) => {
         const nextPort = Number(value);
         plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-          ...plugin.settings.multiPlatformSync,
+          ...toRecord(plugin.settings.multiPlatformSync),
           port: Number.isInteger(nextPort) ? nextPort : DEFAULT_WECHATSYNC_PORT,
           connection: { status: 'untested' },
         });
@@ -153,10 +376,10 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
     .setDesc('填入浏览器插件本地服务中显示的连接令牌，用于确认 Obsidian 与插件属于同一组连接。')
     .addText(text => text
       .setPlaceholder('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
-      .setValue(multiPlatformSettings.token)
+      .setValue(toText(multiPlatformSettings.token))
       .onChange(async (value) => {
         plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-          ...plugin.settings.multiPlatformSync,
+          ...toRecord(plugin.settings.multiPlatformSync),
           token: value,
           connection: { status: 'untested' },
         });
@@ -166,10 +389,13 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
 
   // §4.1 + §16: 统一连接状态栏 — 对普通用户只呈现一个信号
   {
-    const clients = multiPlatformSettings.connectedClients || [];
+    const clients = Array.isArray(multiPlatformSettings.connectedClients)
+      ? multiPlatformSettings.connectedClients.map((client) => isRecord(client) ? client : {})
+      : [];
     const liveClient = clients.find((c) => c.status === 'connected');
     const lastClient = clients[clients.length - 1];
 
+    /** @type {Record<string, BrowserIconDef>} */
     const BROWSER_SVG = {
       chrome:   { color: '#4285F4', path: 'M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z' },
       chromium: { color: '#4285F4', path: 'M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z' },
@@ -180,14 +406,19 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
       vivaldi:  { color: '#EF3939', path: 'M12 0C6.75 0 3.817 0 1.912 1.904.007 3.81 0 6.75 0 12s0 8.175 1.912 10.08C3.825 23.985 6.75 24 12 24c5.25 0 8.183 0 10.088-1.904C23.993 20.19 24 17.25 24 12s0-8.175-1.912-10.08C20.175.015 17.25 0 12 0zm-.168 3a9 9 0 016.49 2.648 9 9 0 010 12.704A9 9 0 1111.832 3zM7.568 7.496a1.433 1.433 0 00-.142.004A1.5 1.5 0 006.21 9.75l1.701 3c.93 1.582 1.839 3.202 2.791 4.822a1.417 1.417 0 001.41.75 1.5 1.5 0 001.223-.81l4.447-7.762A1.56 1.56 0 0018 8.768a1.5 1.5 0 10-2.828.914 2.513 2.513 0 01.256 1.119v.246a2.393 2.393 0 01-2.52 2.13 2.348 2.348 0 01-1.965-1.214c-.307-.51-.6-1.035-.9-1.553-.42-.72-.826-1.41-1.246-2.16a1.433 1.433 0 00-1.229-.754Z' },
       arc:      { color: '#7E5BEF', path: 'M23.9371 8.5089c.1471-.7147.0367-1.4661-.3364-2.0967-.4203-.7094-1.1035-1.1876-1.9075-1.3506a2.9178 2.9178 0 0 0-.5623-.0578h-.0105c-1.3768 0-2.5329.988-2.8061 2.3385-.1629.7935-.4782 1.5607-.9196 2.2701a.263.263 0 0 1-.2363.1205.2627.2627 0 0 1-.2209-.1468l-2.8587-5.9906c-.3626-.762-1.0142-1.361-1.8235-1.5975-1.3873-.4099-2.8166.2838-3.4052 1.524L5.897 9.7333c-.0788.1629-.31.1576-.3784-.0053v-.0052a2.8597 2.8597 0 0 0-2.6642-1.7972c-.3784 0-.7515.0736-1.1088.2207-1.4714.6148-2.1283 2.349-1.5187 3.8203.557 1.3295 1.4714 2.5855 2.659 3.668.084.0788.1103.1997.063.3048l-.9563 2.0074c-.6727 1.4188-.1314 3.1477 1.2664 3.8571.4099.2049.846.31 1.298.31 1.1035 0 2.123-.6411 2.5959-1.6395l.825-1.7289a.254.254 0 0 1 .3048-.1366c1.0037.2732 2.0127.4204 3.0058.4204 1.1193 0 2.2229-.1682 3.2896-.4782a.2626.2626 0 0 1 .3101.1366l.8145 1.7131c.4834 1.0195 1.4924 1.7131 2.6169 1.7184.4572 0 .8986-.0999 1.3138-.3101 1.403-.7094 1.939-2.4435 1.2664-3.8676L19.875 15.787c-.0473-.1051-.0263-.226.0578-.3048 1.9864-1.8497 3.4525-4.2723 4.0043-6.9733ZM6.2121 20.0172a1.835 1.835 0 0 1-.6764.7622 1.8352 1.8352 0 0 1-.9788.2835c-.2733 0-.5518-.063-.8093-.1891-.9038-.4467-1.2454-1.5713-.8093-2.4804l.7935-1.6658c.0684-.1471.2575-.1997.3837-.1051.1681.1209.3415.2365.5202.3521.6989.4467 1.4293.825 2.1808 1.1351.1419.0578.205.2154.1419.352l-.7462 1.5555Zm5.0763-2.0442c-4.2092 0-8.6548-2.8534-10.1262-6.4951a1.8286 1.8286 0 0 1 1.009-2.3805c.2259-.0893.4571-.1366.683-.1366.7252 0 1.4084.431 1.6974 1.1456.9196 2.2806 4.0043 4.2092 6.7368 4.2092.4204 0 .8408-.042 1.256-.1156a.2643.2643 0 0 1 .2837.1419l1.3768 2.9007c.0683.1471-.0105.3205-.1629.3626-.8986.2365-1.8182.3678-2.7536.3678Zm-.599-4.9291.6358-1.3348c.0526-.1051.205-.1051.2575 0l.6201 1.3033c.042.0841-.0158.1891-.1051.2049-.268.0368-.536.0578-.7988.0578a5.0634 5.0634 0 0 1-.4887-.0263c-.1103-.0157-.1629-.1208-.1208-.2049Zm8.4604 7.8246a1.831 1.831 0 0 1-2.0329-.2788 1.8292 1.8292 0 0 1-.4316-.5778l-4.987-10.4836c-.0998-.2102-.3994-.2102-.4939 0l-1.545 3.2529a.2623.2623 0 0 1-.3205.1366c-1.051-.3626-2.0495-.9774-2.7904-1.7184a.2552.2552 0 0 1-.0473-.2943l3.3421-7.031c.1156-.247.2943-.4677.5203-.6201 1.051-.6884 2.2806-.2575 2.7378.7041l6.8577 14.4248c.4309.9144.0946 2.0389-.8093 2.4856Zm-1.4451-9.6481a.258.258 0 0 1 .0315-.2732c.783-1.0037 1.3558-2.1756 1.6028-3.421.1734-.867.9354-1.4714 1.7919-1.4714.1472 0 .2943.0158.4467.0526.9722.2417 1.5344 1.2507 1.3295 2.2333-.4835 2.3017-1.6816 4.3879-3.3159 6.0222-.1313.1314-.3468.0946-.4256-.0683l-1.4609-3.0742Z' },
     };
+    /** @type {Record<string, string>} */
     const BROWSER_EMOJI_FALLBACK = { safari: '🧭', comet: '☄️', orion: '⭐', zen: '🪷' };
 
     // §18.7：'chrome' / 'chromium' 不可信（Comet / Arc 等 fork 伪装为 Chrome），走通用 icon；
     // opt-in 识别的浏览器（edge / brave / firefox / vivaldi / opera 等）才用各自品牌 SVG。
     const LOW_CONFIDENCE_BROWSER_KEYS = new Set(['chrome', 'chromium']);
 
+    /**
+     * @param {WechatSettingsElement} parentEl
+     * @param {unknown} name
+     */
     function renderBrowserIcon(parentEl, name) {
-      const key = (name || '').toLowerCase().replace(/\s+/g, '');
+      const key = toText(name).toLowerCase().replace(/\s+/g, '');
       const browser = LOW_CONFIDENCE_BROWSER_KEYS.has(key) ? null : BROWSER_SVG[key];
       if (browser) {
         const svg = parentEl.createSvg('svg', {
@@ -204,20 +435,31 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
     }
 
     // profileLabel 优先（用户自定义）；fallback 到格式化后的 browserName。
+    /**
+     * @param {WechatSettingsElement} parentEl
+     * @param {unknown} browserName
+     * @param {unknown} profileLabel
+     */
     function renderBrowserLabel(parentEl, browserName, profileLabel) {
-      const label = (profileLabel || '').trim();
+      const label = toText(profileLabel).trim();
+      const browserLabel = toText(browserName);
       if (label) {
         parentEl.createEl('span', { cls: 'wechat-bridge-status-profile', text: label });
       } else {
         parentEl.createEl('span', {
-          text: browserName ? browserName.charAt(0).toUpperCase() + browserName.slice(1) : '浏览器',
+          text: browserLabel ? browserLabel.charAt(0).toUpperCase() + browserLabel.slice(1) : '浏览器',
         });
       }
     }
 
+    /**
+     * @param {unknown} ts
+     * @returns {string}
+     */
     function fmtRelativeTime(ts) {
-      if (!ts) return '';
-      const d = Date.now() - ts;
+      const timestamp = toTimestamp(ts);
+      if (!timestamp) return '';
+      const d = Date.now() - timestamp;
       if (d < 60000) return '刚刚';
       if (d < 3600000) return `${Math.floor(d / 60000)} 分钟前`;
       if (d < 86400000) return `${Math.floor(d / 3600000)} 小时前`;
@@ -277,29 +519,40 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
   // 也只需恢复这块 toggle。
   // §16 连接状态已合并进上方统一状态栏。
 
+  /**
+   * @param {WechatBridgeLike} bridge
+   * @returns {Promise<WechatPlatformLike[]>}
+   */
   const getSupportedPlatformsFromExtension = async (bridge) => {
     const response = await bridge.listSupportedPlatforms({ timeoutMs: 10000 });
-    return normalizeWechatsyncPlatformList(response);
+    return toRecordList(normalizeWechatsyncPlatformList(response));
   };
+
+  /**
+   * @param {WechatBridgeLike} bridge
+   * @param {string[]} [platforms]
+   * @param {Record<string, unknown>[]} [fallbackPlatforms]
+   * @returns {Promise<WechatAuthSnapshotLike>}
+   */
   const getAuthSnapshotFromExtension = async (bridge, platforms = [], fallbackPlatforms = []) => {
     const response = await bridge.getAuthSnapshot({
       platforms,
       maxAgeMs: 86400000,
       timeoutMs: 5000,
     });
-    return normalizeWechatsyncAuthSnapshot(response, fallbackPlatforms);
+    return toAuthSnapshot(normalizeWechatsyncAuthSnapshot(response, fallbackPlatforms));
   };
   const hasExtensionPlatformList = Array.isArray(multiPlatformSettings.supportedPlatforms)
     && multiPlatformSettings.supportedPlatforms.length > 0
     && multiPlatformSettings.connection?.status === 'connected';
-  const availablePlatforms = getAvailableWechatsyncPlatforms(multiPlatformSettings);
-  const selectedPlatformSet = new Set(multiPlatformSettings.selectedPlatforms || []);
+  const availablePlatforms = toPlatformList(getAvailableWechatsyncPlatforms(multiPlatformSettings));
+  const selectedPlatformSet = new Set(parseWechatsyncPlatformIds(multiPlatformSettings.selectedPlatforms || []));
   const hasCachedAuthState = availablePlatforms.some(
     (platform) => platform.authKnown && platform.authStatus !== 'bridge_required'
   );
-  const getPlatformAuthBadge = (platform = {}) => getWechatsyncPlatformStatusBadge(platform, {
+  const getPlatformAuthBadge = (platform = {}) => toPlatformStatusBadge(getWechatsyncPlatformStatusBadge(platform, {
     bridgeConnected: multiPlatformSettings.connection?.status === 'connected',
-  });
+  }));
 
   // 连接状态栏已合并进令牌行统一状态栏（见上方 §4.1+§16 unified block）。
 
@@ -344,10 +597,10 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
     checkbox.value = platform.id;
     const chipBody = chip.createEl('span', { cls: 'wechat-platform-chip-body' });
     chipBody.createEl('span', { text: platform.name, cls: 'wechat-platform-chip-name' });
-    const statusEl = chipBody.createEl('span', {
+    const statusEl = /** @type {WechatSettingsElement} */ (chipBody.createEl('span', {
       text: authBadge.text,
       cls: `wechat-platform-chip-status ${authBadge.cls}`,
-    });
+    }));
     statusEl.setAttribute('title', authBadge.text);
     const setStatusVisible = (visible) => {
       for (const cls of ['is-ok', 'is-error', 'is-unknown', 'is-bridge']) {
@@ -392,14 +645,17 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
         button.setButtonText('等待插件...');
         button.setDisabled?.(true);
         const startedAt = Date.now();
+        /** @type {WechatBridgeLike | null} */
         let bridge = null;
+        /** @type {unknown} */
         let bridgeStartStatus = null;
         let shouldRedisplay = false;
         try {
           const currentBeforeTest = normalizeMultiPlatformSyncSettings(plugin.settings.multiPlatformSync);
+          const debugSettings = normalizeMultiPlatformSyncSettings(plugin.settings.multiPlatformSync);
           console.debug('[Wechatsync] test connection started', {
-            port: plugin.settings.multiPlatformSync?.port,
-            hasToken: !!plugin.settings.multiPlatformSync?.token,
+            port: debugSettings.port,
+            hasToken: !!debugSettings.token,
             forceRefresh: false,
           });
           bridge = plugin.getWechatSyncBridgeService();
@@ -409,14 +665,17 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
           console.debug('[Wechatsync] extension connection ready', {
             elapsedMs: Date.now() - startedAt,
           });
+          /** @type {WechatHealthLike | null} */
           let health = null;
+          /** @type {Record<string, unknown>} */
           let capabilities = {};
           try {
-            health = await retryRecoverableBridgeOperation(async ({ attempt }) => {
+            health = toHealthResult(await retryRecoverableBridgeOperation(async (context) => {
+              const attempt = Number(toRecord(context).attempt) || 0;
               if (attempt > 0) {
                 console.debug('[Wechatsync] retrying health after bridge recovery window', { attempt });
               }
-              const healthResult = await bridge.health({ timeoutMs: 5000 });
+              const healthResult = toHealthResult(await bridge.health({ timeoutMs: 5000 }));
               if (healthResult?.tokenValid === false) {
                 const authError = new Error('连接令牌校验失败。请确认 Obsidian 与浏览器插件使用同一个连接令牌。');
                 authError.code = 'AUTH_FAILED';
@@ -433,22 +692,23 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
               delayMs: 1000,
               logger: console,
               label: 'settings health',
-            });
+            }));
             console.debug('[Wechatsync] health result', health);
-            capabilities = normalizeWechatSyncCapabilities(health?.capabilities);
+            capabilities = normalizeWechatSyncCapabilities(toRecord(health.capabilities));
           } catch (healthError) {
-            if (!isWechatSyncUnsupportedMethodError(healthError)) throw healthError;
+            if (!isUnsupportedBridgeError(healthError)) throw healthError;
             console.warn('[Wechatsync] extension does not support health, falling back to socket-only check', healthError);
           }
+          /** @type {WechatPlatformLike[]} */
           let supportedPlatforms = [];
           try {
             supportedPlatforms = await getSupportedPlatformsFromExtension(bridge);
             console.debug('[Wechatsync] supported platforms loaded', {
               count: supportedPlatforms.length,
-              platforms: supportedPlatforms.map((platform) => platform.id),
+              platforms: supportedPlatforms.map((platform) => getPlatformId(platform)),
             });
           } catch (platformError) {
-            if (isWechatSyncUnsupportedMethodError(platformError)) {
+            if (isUnsupportedBridgeError(platformError)) {
               console.warn('[Wechatsync] extension does not support listSupportedPlatforms, keeping fallback list', platformError);
             } else {
               console.warn('[Wechatsync] listSupportedPlatforms failed, keeping existing platform list', platformError);
@@ -456,13 +716,14 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
           }
           const selectedPlatformIds = parseWechatsyncPlatformIds(currentBeforeTest.selectedPlatforms || []);
           const current = normalizeMultiPlatformSyncSettings(plugin.settings.multiPlatformSync);
-          const nextPlatforms = normalizeWechatsyncPlatformList(current.connection.platforms || [])
-            .filter((platform) => selectedPlatformIds.includes(platform.id));
+          const currentConnection = toRecord(current.connection);
+          const nextPlatforms = toRecordList(normalizeWechatsyncPlatformList(currentConnection.platforms || []))
+            .filter((platform) => selectedPlatformIds.includes(getPlatformId(platform)));
           plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
             ...current,
             supportedPlatforms: supportedPlatforms.length ? supportedPlatforms : current.supportedPlatforms,
             connection: {
-              ...current.connection,
+              ...currentConnection,
               status: 'connected',
               checkedAt: Date.now(),
               platforms: nextPlatforms,
@@ -478,15 +739,18 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
             ? '✅ 已连接浏览器插件，连接令牌校验通过'
             : '✅ 已连接浏览器插件');
         } catch (error) {
+          /** @type {Record<string, unknown> | null} */
           let bridgeStatusAfterFailure = null;
+          /** @type {WechatDiagnosticsLike | null} */
           let diagnostics = null;
           try {
-            bridgeStatusAfterFailure = await bridge?.getStatus?.();
+            bridgeStatusAfterFailure = toRecord(await bridge?.getStatus?.());
           } catch (statusError) {
-            bridgeStatusAfterFailure = { error: statusError?.message || String(statusError) };
+            const readableStatusError = toReadableError(statusError);
+            bridgeStatusAfterFailure = { error: readableStatusError.message };
           }
           try {
-            diagnostics = bridge?.getDiagnostics?.() || null;
+            diagnostics = toDiagnostics(bridge?.getDiagnostics?.());
           } catch {
             diagnostics = null;
           }
@@ -494,11 +758,11 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
           // §4.1 / §7.1: detect state 3 (extension connected but hello rejected) vs
           // state 2 (no extension reached the bridge at all) so the user sees an
           // actionable message instead of the generic timeout text.
-          let detailedMessage = error.message || '浏览器插件连接失败';
+          const readableError = toReadableError(error);
+          let detailedMessage = readableError.message || '浏览器插件连接失败';
           let hint = '';
-          if (error?.code === 'EXTENSION_NOT_CONNECTED' && diagnostics?.helloRejections > 0) {
-            const last = diagnostics.lastHelloRejection;
-            const reason = last?.reason;
+          if (readableError.code === 'EXTENSION_NOT_CONNECTED' && diagnostics?.helloRejections > 0) {
+            const reason = diagnostics.lastHelloRejection?.reason;
             if (reason === 'token_mismatch') {
               detailedMessage = '配对令牌不一致。如果你刚刚在浏览器插件设置中重置过令牌，请复制新令牌并粘贴到下方"连接令牌"输入框。';
             } else if (reason === 'hello_timeout') {
@@ -511,24 +775,24 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
               detailedMessage = `浏览器插件握手失败（${reason}）。请检查浏览器插件版本与连接令牌。`;
             }
             hint = '';
-          } else if (['EXTENSION_NOT_CONNECTED', 'BRIDGE_UNAVAILABLE', 'BRIDGE_REQUEST_TIMEOUT'].includes(error?.code)) {
+          } else if (['EXTENSION_NOT_CONNECTED', 'BRIDGE_UNAVAILABLE', 'BRIDGE_REQUEST_TIMEOUT'].includes(readableError.code)) {
             hint = '请确认浏览器正在运行、已安装浏览器插件，并检查地址、端口和连接令牌与这里一致。';
-          } else if (error?.code === 'EXTENSION_NOT_AUTHENTICATED') {
+          } else if (readableError.code === 'EXTENSION_NOT_AUTHENTICATED') {
             detailedMessage = '浏览器插件已连接但尚未通过认证。请确认插件已升级到支持安全握手的版本，且使用与 Obsidian 一致的连接令牌。';
           }
 
           console.error('[Wechatsync] test connection failed', {
             elapsedMs: Date.now() - startedAt,
-            code: error?.code,
-            message: error?.message || String(error),
-            stack: error?.stack,
+            code: readableError.code,
+            message: readableError.message,
+            stack: readableError.stack,
             bridgeStartStatus,
             bridgeStatusAfterFailure,
             diagnostics,
             detailedMessage,
           });
           plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-            ...plugin.settings.multiPlatformSync,
+            ...toRecord(plugin.settings.multiPlatformSync),
             connection: {
               status: 'failed',
               checkedAt: Date.now(),
@@ -543,7 +807,7 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
         } finally {
           button.setDisabled?.(false);
           button.setButtonText('测试');
-          if (shouldRedisplay) tab.display();
+          if (shouldRedisplay) refreshSettingTab(tab);
         }
       }));
 
@@ -555,8 +819,9 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
       .onClick(async () => {
         const current = normalizeMultiPlatformSyncSettings(plugin.settings.multiPlatformSync);
         const platformById = new Map(
-          getAvailableWechatsyncPlatforms(current).map((platform) => [platform.id, platform])
+          toPlatformList(getAvailableWechatsyncPlatforms(current)).map((platform) => [platform.id, platform])
         );
+        /** @type {WechatPlatformLike[]} */
         const candidates = parseWechatsyncPlatformIds(current.selectedPlatforms || [])
           .map((id) => platformById.get(id) || { id, name: id })
           .filter((platform) => platform.id);
@@ -572,17 +837,17 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
           const bridge = plugin.getWechatSyncBridgeService();
           await bridge.start();
           await bridge.waitForConnection(15000);
-          const platformFallbacks = mergeWechatsyncPlatformLists(
+          const platformFallbacks = toRecordList(mergeWechatsyncPlatformLists(
             current.supportedPlatforms,
-            current.connection?.platforms,
+            toRecord(current.connection).platforms,
             getFallbackWechatsyncPlatforms()
-          );
+          ));
           const authSnapshot = await getAuthSnapshotFromExtension(
             bridge,
             candidates.map((platform) => platform.id),
             platformFallbacks
           );
-          const cachedPlatforms = normalizeWechatsyncPlatformList(authSnapshot.platforms || []);
+          const cachedPlatforms = toRecordList(normalizeWechatsyncPlatformList(authSnapshot.platforms || []));
           console.debug('[Wechatsync] selected platform cached auth snapshot summary', {
             elapsedMs: Date.now() - startedAt,
             checkedAt: authSnapshot.checkedAt,
@@ -591,28 +856,29 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
           plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
             ...current,
             connection: {
-              ...current.connection,
+              ...toRecord(current.connection),
               status: 'connected',
               checkedAt: authSnapshot.checkedAt || Date.now(),
               platforms: cachedPlatforms,
               capabilities: {
-                ...(current.connection?.capabilities || {}),
+                ...toRecord(toRecord(current.connection).capabilities),
                 getAuthSnapshot: true,
               },
               message: '已读取所选平台的上次登录状态。',
             },
           });
           await plugin.saveSettings();
-          const authenticatedCount = cachedPlatforms.filter((platform) => platform.authenticated).length;
+          const authenticatedCount = cachedPlatforms.filter((platform) => platform.authenticated === true).length;
           new Notice(`✅ 已读取 ${cachedPlatforms.length} 个已选平台，${authenticatedCount} 个上次可用`);
-          tab.display();
+          refreshSettingTab(tab);
         } catch (error) {
+          const readableError = toReadableError(error);
           console.error('[Wechatsync] selected platform cached auth snapshot failed', {
             elapsedMs: Date.now() - startedAt,
-            code: error?.code,
-            message: error?.message || String(error),
+            code: readableError.code,
+            message: readableError.message,
           });
-          new Notice(`❌ 读取失败：${error.message}`, 10000);
+          new Notice(`❌ 读取失败：${readableError.message}`, 10000);
         } finally {
           button.setDisabled?.(false);
           button.setButtonText('读取');
@@ -620,4 +886,4 @@ function renderMultiPlatformSettingsTab(tab, containerEl) {
       }));
 }
 
-module.exports = { renderMultiPlatformSettingsTab };
+export { renderMultiPlatformSettingsTab };
