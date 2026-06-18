@@ -4739,7 +4739,6 @@ class AppleStyleView extends ItemView {
       return;
     }
     if (!allowStale && context.sourceHash && state.sourceHash && context.sourceHash !== state.sourceHash) {
-      new Notice('当前文章内容已变化，请先重新生成 AI 编排');
       this.refreshAiLayoutPanel();
       return;
     }
@@ -5482,7 +5481,7 @@ class AppleStyleView extends ItemView {
     modal.modalEl?.addClass('wechat-material-picker-modal');
     modal.contentEl.addClass('wechat-material-picker');
 
-    const pageSize = 18;
+    const pageSize = 12;
     let currentPage = 1;
     let totalCount = 0;
     /** @type {WechatMaterialSelectionLike | null} */
@@ -7844,7 +7843,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
     officialText.createEl('a', {
       text: '获取官方中转 Token ➔',
       href: 'https://xiaoweibox.top/chats/wechat-proxy-service',
-      attr: { style: 'margin-left: 6px; color: var(--interactive-accent); font-weight: 600; text-decoration: underline;' }
+      attr: { style: 'margin-left: 6px; color: var(--text-muted); text-decoration: underline;' }
     });
 
     // 2. 自建指南行

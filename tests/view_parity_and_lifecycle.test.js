@@ -46,7 +46,15 @@ describe('AppleStyleView native render + lifecycle', () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    if (Array.isArray(globalThis.__obsidianNoticeRegistry)) {
+      globalThis.__obsidianNoticeRegistry.length = 0;
+    }
   });
+
+  function installNoticeCapture() {
+    globalThis.__obsidianNoticeRegistry = [];
+    return globalThis.__obsidianNoticeRegistry;
+  }
 
   it('getDisplayText should keep the unified plugin title', () => {
     const view = new AppleStyleView(null, { settings: {} });
@@ -1695,6 +1703,86 @@ describe('AppleStyleView native render + lifecycle', () => {
     expect(actionButtons.some((button) => button.textContent === '重新生成并应用' && button.disabled === false)).toBe(true);
     expect(actionButtons.some((button) => button.textContent === '应用旧缓存' && button.disabled === false)).toBe(true);
     expect(view.aiPrimaryActionMode).toBe('apply-stale');
+  });
+
+  it('applyAiLayoutToPreview should not show a notice when cached content is stale', () => {
+    const notices = installNoticeCapture();
+    const cachedState = {
+      version: 1,
+      updatedAt: Date.now(),
+      sourceHash: 'old-hash',
+      providerId: 'provider-1',
+      model: 'deepseek-chat',
+      stylePack: 'tech-green',
+      status: 'ready',
+      lastError: '',
+      lastAttemptStatus: 'success',
+      generationMeta: {
+        providerName: 'DeepSeek',
+        providerModel: 'deepseek-chat',
+        stylePackLabel: '科技绿',
+        finalBlockCount: 1,
+        blockOrigins: [{ index: 0, type: 'hero', source: 'ai', label: '缓存标题' }],
+      },
+      layoutJson: {
+        articleType: 'tutorial',
+        stylePack: 'tech-green',
+        blocks: [{ type: 'hero', title: '缓存标题' }],
+      },
+    };
+
+    const view = new AppleStyleView(null, {
+      settings: {
+        ai: {
+          enabled: true,
+          defaultStylePack: 'tech-green',
+          includeImagesInLayout: true,
+          requestTimeoutMs: 45000,
+          defaultProviderId: 'provider-1',
+          providers: [{
+            id: 'provider-1',
+            name: 'DeepSeek',
+            kind: 'openai-compatible',
+            baseUrl: 'https://api.example.com/v1',
+            apiKey: 'secret',
+            model: 'deepseek-chat',
+            enabled: true,
+          }],
+          articleLayoutsByPath: {
+            'notes/demo.md': cachedState,
+          },
+        },
+      },
+      saveSettings: vi.fn(),
+      getArticleLayoutState: vi.fn(() => cachedState),
+    });
+    view.app = {
+      isMobile: false,
+      workspace: {
+        getActiveFile: vi.fn(() => ({ path: 'notes/demo.md', basename: 'demo' })),
+      },
+    };
+    view.theme = { update: vi.fn() };
+    view.converter = { updateConfig: vi.fn() };
+    view.previewContainer = createObsidianLikeElement();
+    view.lastResolvedSourcePath = 'notes/demo.md';
+    view.lastResolvedMarkdown = '# changed demo';
+    view.lastResolvedSourceHash = String(view.simpleHash('# changed demo'));
+
+    global.AppleTheme = {
+      getThemeList: () => [{ value: 'github', label: '简约' }],
+      getColorList: () => [{ value: 'blue', color: '#0366d6' }],
+    };
+
+    const container = createObsidianLikeElement();
+    view.createSettingsPanel(container);
+    view.refreshAiLayoutPanel();
+
+    view.applyAiLayoutToPreview();
+
+    expect(notices.some((item) => item.message === '当前文章内容已变化，请先重新生成 AI 编排')).toBe(false);
+    expect(container.querySelector('.apple-ai-layout-badge')?.textContent).toContain('需更新');
+    expect(container.querySelector('.apple-ai-layout-status-text')?.textContent).toContain('基于旧内容');
   });
 
   it('refreshAiLayoutPanel should reuse the same cached blocks when switching color palettes', () => {

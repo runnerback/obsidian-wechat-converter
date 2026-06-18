@@ -844,7 +844,7 @@ class AppleStyleConverter {
       const lineNumberColumnStyles = `text-align:right !important;padding:12px 0 12px 0 !important;border-right:1px solid rgba(255,255,255,0.1) !important;user-select:none !important;background:transparent !important;flex:0 0 auto !important;min-width:3.5em !important;margin:0 !important;`;
 
       // 注意 flex 容器的 padding 0，内部 padding 分别在 lineNumberColumn 和 code section
-      codeHtml = `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;padding:0 !important;margin:0 !important;">
+      codeHtml = `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;margin:0 !important;">
         <section style="${lineNumberColumnStyles}">${lineNumbersHtml}</section>
         <section style="flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;padding:12px 12px 12px 16px !important;margin:0 !important;min-width:0 !important;">${codeLinesHtml}</section>
       </section>`;
@@ -865,8 +865,8 @@ class AppleStyleConverter {
     // 外层容器
     return `<section class="code-snippet__fix" style="width:100% !important;margin:12px 0 !important;background:${background} !important;border:1px solid ${borderColor} !important;border-radius:8px !important;overflow:hidden !important;box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;display:block !important;">
 ${macHeader}
-<section style="padding:0 !important;border:none !important;background:${background} !important;color:${color} !important;font-family:'SF Mono',Consolas,Monaco,monospace !important;font-size:13px !important;line-height:${lineHeight} !important;white-space:nowrap !important;overflow-x:auto !important;display:block !important;">
-<pre style="margin:0 !important;padding:0 !important;background:${background} !important;font-family:inherit !important;font-size:13px !important;line-height:inherit !important;color:${color} !important;white-space:nowrap !important;overflow-x:visible !important;display:inline-block !important;min-width:100% !important;">${codeHtml}</pre>
+<section style="padding:0 !important;border:none !important;background:${background} !important;color:${color} !important;font-family:'SF Mono',Consolas,Monaco,monospace !important;font-size:13px !important;line-height:${lineHeight} !important;white-space:normal !important;overflow-x:hidden !important;display:block !important;">
+<pre style="margin:0 !important;padding:0 !important;background:${background} !important;font-family:inherit !important;font-size:13px !important;line-height:inherit !important;color:${color} !important;white-space:normal !important;overflow-x:visible !important;display:block !important;width:100% !important;max-width:100% !important;">${codeHtml}</pre>
 </section>
 </section>`;
   }

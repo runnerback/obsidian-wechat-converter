@@ -1,6 +1,7 @@
 import { serializeObsidianRenderedHtml } from './obsidian-triplet-serializer.js';
 import { normalizeRenderedDomPunctuation } from './chinese-punctuation.js';
 import { findAllElements, getActiveDocument, getActiveWindowValue } from './dom-utils.js';
+import { normalizeAdjacentMarkdownBlockHeadings } from './native-renderer.js';
 import {
   hasMermaidMarker,
   renderMermaidCodeBlocks,
@@ -1357,6 +1358,7 @@ function preprocessImageSwipeCallouts(markdown) {
  */
 function preprocessMarkdownForTriplet(markdown, converter) {
   let output = preprocessImageSwipeCallouts(markdown);
+  output = normalizeAdjacentMarkdownBlockHeadings(output);
 
   // Align with converter.convert preprocessing to reduce non-semantic parity noise.
   output = output.replace(/^[\t ]+(\$\$)/gm, '$1');

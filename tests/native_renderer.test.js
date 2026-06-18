@@ -176,6 +176,15 @@ describe('Native Renderer', () => {
     ).rejects.toThrow('Native converter is not ready');
   });
 
+  it('should separate block html and following headings in native preprocessing', () => {
+    const output = preprocessMarkdownForNative([
+      '<figure><img src="https://example.com/a.png"></figure>',
+      '## 紧随其后的标题',
+    ].join('\n'));
+
+    expect(output).toContain('</figure>\n\n## 紧随其后的标题');
+  });
+
   it('should keep native preprocessing even when legacy parity option is passed', async () => {
     const md = readFixture('control-micro.md');
     const html = await renderNativeMarkdown({

@@ -601,7 +601,7 @@ class AppleTheme {
         return `display: block; margin: 0 auto; max-width: 100%; border-radius: 4px;`;
 
       case 'a':
-        return `color: ${color}; text-decoration: ${config.linkDecoration}; border-bottom: ${config.linkDecoration === 'none' ? `1px dashed ${color}` : 'none'};`;
+        return `color: ${color}; text-decoration: ${config.linkDecoration}; border-bottom: ${config.linkDecoration === 'none' ? `1px dashed ${color}` : 'none'}; word-break: break-word; overflow-wrap: anywhere;`;
 
       case 'table-wrapper':
         return `display: block; box-sizing: border-box; width: 100%; max-width: 100%; overflow-x: scroll; overflow-y: hidden; -webkit-overflow-scrolling: touch; margin: ${s.md}px 0; padding-bottom: 10px;`;
@@ -653,12 +653,7 @@ class AppleTheme {
     const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 30px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.2;`;
     switch (type) {
       case 'editorial-h1': // Magazine Style: Forced Serif + Golden Line
-        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 30px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.2;
-          background-image: linear-gradient(to right, transparent, ${color}, transparent);
-          background-size: 100px 1px;
-          background-repeat: no-repeat;
-          background-position: bottom center;
-          padding-bottom: 20px; letter-spacing: 1px;`;
+        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 22px; padding: 0 0 14px; color: ${headingColor}; text-align: center; line-height: 1.2; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 120px 2px; background-repeat: no-repeat; background-position: bottom center; letter-spacing: 1px;`;
       case 'bottom-line':
         // Pure CSS centered short line using linear-gradient (simulating image)
         return `${base}
@@ -699,12 +694,7 @@ class AppleTheme {
     const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 32px auto 16px; text-align: center; color: ${headingColor}; line-height: 1.25;`;
     switch (type) {
       case 'editorial-h1': // Golden Line (Shifted from H1)
-        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 32px auto 16px; color: ${headingColor}; text-align: center; line-height: 1.2;
-          background-image: linear-gradient(to right, transparent, ${color}, transparent);
-          background-size: 100px 1px;
-          background-repeat: no-repeat;
-          background-position: bottom center;
-          padding-bottom: 20px; letter-spacing: 1px;`;
+        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 20px; padding: 0 0 14px; color: ${headingColor}; text-align: center; line-height: 1.2; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 120px 2px; background-repeat: no-repeat; background-position: bottom center; letter-spacing: 1px;`;
       case 'editorial-h2': // Magazine Subtitle
         return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: normal; margin: 32px auto 16px; text-align: center; color: ${headingColor}; line-height: 1.4; font-style: italic; letter-spacing: 1px;`;
       case 'bottom-line':

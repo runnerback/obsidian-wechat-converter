@@ -71,6 +71,21 @@ export function normalizeWechatUnsafeTaskListMarkersForNative(markdown) {
 }
 
 /**
+ * Some Obsidian-rendered embed/callout HTML blocks are generated before a
+ * following markdown heading. If the heading touches the previous block, the
+ * markdown parser treats it as paragraph text. Add a block boundary only for
+ * known block-level endings.
+ * @param {unknown} markdown
+ * @returns {string}
+ */
+export function normalizeAdjacentMarkdownBlockHeadings(markdown) {
+  return String(markdown || '').replace(
+    /(<\/(?:figure|blockquote|section|div)>)\s*(#{1,6}\s+)/g,
+    '$1\n\n$2',
+  );
+}
+
+/**
  * @param {unknown} markdown
  * @returns {string}
  */
@@ -79,6 +94,7 @@ export function preprocessMarkdownForNative(markdown) {
 
   let output = markdown;
   output = normalizeWechatUnsafeTaskListMarkersForNative(output);
+  output = normalizeAdjacentMarkdownBlockHeadings(output);
 
   // Remove dangerous raw HTML blocks before markdown-it parsing so they do not
   // poison following markdown lines as raw HTML context.

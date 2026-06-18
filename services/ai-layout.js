@@ -3515,6 +3515,29 @@ function escapeHtml(text) {
 }
 
 /**
+ * AI layout blocks are text-first. If the model echoes a markdown image token
+ * from the source, keep the real rendered image path separate and hide the raw
+ * local path from the text card.
+ * @param {unknown} text
+ * @returns {string}
+ */
+function normalizeAiLayoutDisplayText(text) {
+  return String(text || '')
+    .replace(/!\[\[[^[\]\r\n]+]]/g, '')
+    .replace(/!\[[^\]\r\n]*]\([^) \r\n]+(?:\s+"[^"]*")?\)/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+/**
+ * @param {unknown} text
+ * @returns {string}
+ */
+function escapeAiLayoutText(text) {
+  return escapeHtml(normalizeAiLayoutDisplayText(text));
+}
+
+/**
  * @param {unknown} fontFamily
  * @returns {string}
  */
@@ -3764,7 +3787,7 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
       : '';
     return `<section style="margin:${compact ? '10px 0 16px' : '14px 0 20px'};padding:${compact ? '12px 12px 10px' : '14px 14px 12px'};border:1px solid ${tokens.border};border-left:${compact ? 3 : 4}px solid ${tokens.accent};border-radius:${compact ? 12 : 14}px;background:${isDraft && isTutorialCards ? tokens.surface : tokens.accentSoft};">
       ${chipHtml}
-      ${body ? `<p style="margin:0;color:${tokens.text};font-size:${compact ? bodyFontSize : Math.max(bodyFontSize, 15)}px;line-height:${bodyLineHeight};font-weight:${compact ? 500 : 600};letter-spacing:0;">${escapeHtml(body)}</p>` : ''}
+      ${body ? `<p style="margin:0;color:${tokens.text};font-size:${compact ? bodyFontSize : Math.max(bodyFontSize, 15)}px;line-height:${bodyLineHeight};font-weight:${compact ? 500 : 600};letter-spacing:0;">${escapeAiLayoutText(body)}</p>` : ''}
     </section>`;
   };
 
@@ -3912,8 +3935,8 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
         ? `1px solid ${tokens.border}`
         : 'none';
       return `<section style="margin:${isSourceFirst ? 14 : (isEditorialLite ? 26 : (isTutorialCards ? tutorialSpacing?.leadQuoteMarginY || 14 : 18))}px 0;padding:${isSourceFirst ? '0 0 0 14px' : (isEditorialLite ? '24px 0' : (isTutorialCards ? tutorialSpacing?.leadQuotePadding || '14px' : '18px'))};border-radius:${isTutorialCards ? 16 : 0}px;background:${leadQuoteProfile.background === 'quoteBg' ? tokens.quoteBg : 'transparent'};border:${isTutorialCards ? `1px solid ${tokens.border}` : 'none'};border-left:${leadQuoteProfile.borderLeft ? `3px solid ${tokens.accent}` : 'none'};border-top:${editorialLeadQuoteBorderTop};border-bottom:${isEditorialLite ? `1px solid ${tokens.border}` : 'none'};">
-        <p style="margin:0;font-size:${leadQuoteFontSize}px;font-weight:${leadQuoteProfile.fontWeight || (isSourceFirst ? 600 : (isEditorialLite ? 600 : 700))};line-height:${isEditorialLite ? 1.7 : 1.75};color:${tokens.text};font-family:${isEditorialLite ? editorialDisplayFont : 'inherit'};letter-spacing:0;">${escapeHtml(block.text)}</p>
-        ${block.note ? `<p style="margin:${isTutorialCards ? 8 : 10}px 0 0;font-size:${isTutorialCards ? 13 : 12}px;line-height:1.8;color:${tokens.muted};letter-spacing:0;">${escapeHtml(block.note)}</p>` : ''}
+        <p style="margin:0;font-size:${leadQuoteFontSize}px;font-weight:${leadQuoteProfile.fontWeight || (isSourceFirst ? 600 : (isEditorialLite ? 600 : 700))};line-height:${isEditorialLite ? 1.7 : 1.75};color:${tokens.text};font-family:${isEditorialLite ? editorialDisplayFont : 'inherit'};letter-spacing:0;">${escapeAiLayoutText(block.text)}</p>
+        ${block.note ? `<p style="margin:${isTutorialCards ? 8 : 10}px 0 0;font-size:${isTutorialCards ? 13 : 12}px;line-height:1.8;color:${tokens.muted};letter-spacing:0;">${escapeAiLayoutText(block.note)}</p>` : ''}
       </section>`;
     }
 
@@ -3922,7 +3945,7 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
       const caseBullets = Array.isArray(block.bullets) ? block.bullets : [];
       const imagesHtml = caseImageIds.map((imageId) => `<div style="margin-top:14px;">${renderImage(imageId)}</div>`).join('');
       const bulletsHtml = caseBullets.length
-        ? `<ul style="margin:12px 0 0 18px;padding:0;color:${tokens.text};">${caseBullets.map((bullet) => `<li style="margin:6px 0;">${escapeHtml(bullet)}</li>`).join('')}</ul>`
+        ? `<ul style="margin:12px 0 0 18px;padding:0;color:${tokens.text};">${caseBullets.map((bullet) => `<li style="margin:6px 0;">${escapeAiLayoutText(bullet)}</li>`).join('')}</ul>`
         : '';
       const caseHeaderHtml = isDraft
         ? `<div style="margin-bottom:8px;">
@@ -3941,8 +3964,8 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
           `margin:0 0 ${isEditorialLite ? 10 : 8}px;font-size:${caseBlockProfile.titleSize || (isSourceFirst ? 20 : (isEditorialLite ? 26 : 22))}px;line-height:${isEditorialLite ? 1.28 : 1.4};color:${tokens.text};font-family:${isEditorialLite ? editorialDisplayFont : 'inherit'};`,
           { mode }
         )}
-        ${block.summary ? `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.muted};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(block.summary)}</p>` : ''}
-        ${block.highlight ? `<div style="margin-top:12px;padding:10px 12px;border-left:4px solid ${tokens.accent};background:${tokens.accentSoft};border-radius:10px;color:${tokens.accentDeep};font-weight:600;font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(block.highlight)}</div>` : ''}
+        ${block.summary ? `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.muted};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(block.summary)}</p>` : ''}
+        ${block.highlight ? `<div style="margin-top:12px;padding:10px 12px;border-left:4px solid ${tokens.accent};background:${tokens.accentSoft};border-radius:10px;color:${tokens.accentDeep};font-weight:600;font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(block.highlight)}</div>` : ''}
         ${bulletsHtml}
         ${imagesHtml}
       </section>`;
@@ -3959,12 +3982,12 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
       const titleMarginBottom = headingLevel >= 3 ? 10 : (isEditorialLite ? 14 : 12);
       const titleColor = headingLevel >= 3 ? tokens.accentDeep : tokens.text;
       const paragraphsHtml = Array.isArray(block.paragraphs)
-        ? block.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(paragraph)}</p>`).join('')
+        ? block.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(paragraph)}</p>`).join('')
         : '';
       const bulletGroupsHtml = Array.isArray(block.bulletGroups)
         ? block.bulletGroups.map((group) => {
           if (!Array.isArray(group) || !group.length) return '';
-          return `<ul style="margin:12px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeHtml(bullet)}</li>`).join('')}</ul>`;
+          return `<ul style="margin:12px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeAiLayoutText(bullet)}</li>`).join('')}</ul>`;
         }).join('')
         : '';
       const calloutsHtml = Array.isArray(block.callouts)
@@ -3984,12 +4007,12 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
           const renderedSubsection = /** @type {RenderedSubsectionFragmentLike | null} */ (findRenderedSubsection(renderedSection, subsection, subsectionIndex));
           const subsectionLevel = Number.isInteger(subsection?.level) ? subsection.level : 3;
           const subsectionParagraphs = Array.isArray(subsection?.paragraphs)
-            ? subsection.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(paragraph)}</p>`).join('')
+            ? subsection.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(paragraph)}</p>`).join('')
             : '';
           const subsectionBullets = Array.isArray(subsection?.bulletGroups)
             ? subsection.bulletGroups.map((group) => {
               if (!Array.isArray(group) || !group.length) return '';
-              return `<ul style="margin:10px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeHtml(bullet)}</li>`).join('')}</ul>`;
+              return `<ul style="margin:10px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeAiLayoutText(bullet)}</li>`).join('')}</ul>`;
             }).join('')
             : '';
           const subsectionCallouts = Array.isArray(subsection?.callouts)
@@ -4116,7 +4139,7 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = 'preview', ren
         )}
         ${block.body ? `<p style="margin:0;color:${tokens.muted};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(block.body)}</p>` : ''}
         ${ctaButtonHtml}
-        ${block.note ? `<p style="margin:12px 0 0;font-size:12px;line-height:1.75;color:${tokens.muted};letter-spacing:0;">${escapeHtml(block.note)}</p>` : ''}
+        ${block.note ? `<p style="margin:12px 0 0;font-size:12px;line-height:1.75;color:${tokens.muted};letter-spacing:0;">${escapeAiLayoutText(block.note)}</p>` : ''}
       </section>`;
     }
 

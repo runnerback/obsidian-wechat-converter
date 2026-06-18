@@ -213,7 +213,7 @@
 .apple-icon-btn.is-copying {
   color: var(--apple-accent);
   background: transparent;
-  cursor: progress;
+  cursor: pointer;
 }
 
 .apple-icon-btn.is-copying:hover {
@@ -3200,7 +3200,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   margin: auto 0 0;
   padding: 14px 0 0;
   border-top: 1px solid color-mix(in srgb, var(--apple-border) 80%, transparent);
-  background: var(--background-primary);
+  background: transparent;
 }
 
 .wechat-modal-buttons button {
@@ -3251,7 +3251,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   position: sticky;
   bottom: 0;
   z-index: 2;
-  background: var(--background-primary);
+  background: transparent;
   padding-bottom: max(12px, env(safe-area-inset-bottom));
   gap: 10px;
   flex-direction: column-reverse;

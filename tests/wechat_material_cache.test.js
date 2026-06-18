@@ -142,6 +142,7 @@ describe('AppleStyleView - WeChat material cache', () => {
     await view.showMaterialPickerModal(api, vi.fn());
 
     const modal = modalCapture.getLastModal();
+    expect(api.batchGetMaterials).toHaveBeenCalledWith('image', 0, 12);
     expect(modal.contentEl.querySelector('.wechat-material-count').textContent).toBe('共 444 张图片素材');
     expect(modal.contentEl.querySelector('.wechat-material-cache-note').textContent).toBe('当前页列表来自缓存');
     expect(modal.contentEl.textContent).not.toContain('共 444 张图片素材，来自缓存');

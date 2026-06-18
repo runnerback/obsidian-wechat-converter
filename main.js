@@ -3773,7 +3773,7 @@ var require_apple_theme = __commonJS({
           case "img":
             return `display: block; margin: 0 auto; max-width: 100%; border-radius: 4px;`;
           case "a":
-            return `color: ${color}; text-decoration: ${config.linkDecoration}; border-bottom: ${config.linkDecoration === "none" ? `1px dashed ${color}` : "none"};`;
+            return `color: ${color}; text-decoration: ${config.linkDecoration}; border-bottom: ${config.linkDecoration === "none" ? `1px dashed ${color}` : "none"}; word-break: break-word; overflow-wrap: anywhere;`;
           case "table-wrapper":
             return `display: block; box-sizing: border-box; width: 100%; max-width: 100%; overflow-x: scroll; overflow-y: hidden; -webkit-overflow-scrolling: touch; margin: ${s.md}px 0; padding-bottom: 10px;`;
           case "table":
@@ -3816,12 +3816,7 @@ var require_apple_theme = __commonJS({
         const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 30px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.2;`;
         switch (type) {
           case "editorial-h1":
-            return `font-family: ${_AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 30px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.2;
-          background-image: linear-gradient(to right, transparent, ${color}, transparent);
-          background-size: 100px 1px;
-          background-repeat: no-repeat;
-          background-position: bottom center;
-          padding-bottom: 20px; letter-spacing: 1px;`;
+            return `font-family: ${_AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 22px; padding: 0 0 14px; color: ${headingColor}; text-align: center; line-height: 1.2; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 120px 2px; background-repeat: no-repeat; background-position: bottom center; letter-spacing: 1px;`;
           case "bottom-line":
             return `${base}
           background-image: linear-gradient(to right, ${color}, ${color});
@@ -3860,12 +3855,7 @@ var require_apple_theme = __commonJS({
         const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 32px auto 16px; text-align: center; color: ${headingColor}; line-height: 1.25;`;
         switch (type) {
           case "editorial-h1":
-            return `font-family: ${_AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 32px auto 16px; color: ${headingColor}; text-align: center; line-height: 1.2;
-          background-image: linear-gradient(to right, transparent, ${color}, transparent);
-          background-size: 100px 1px;
-          background-repeat: no-repeat;
-          background-position: bottom center;
-          padding-bottom: 20px; letter-spacing: 1px;`;
+            return `font-family: ${_AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 20px; padding: 0 0 14px; color: ${headingColor}; text-align: center; line-height: 1.2; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 120px 2px; background-repeat: no-repeat; background-position: bottom center; letter-spacing: 1px;`;
           case "editorial-h2":
             return `font-family: ${_AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: normal; margin: 32px auto 16px; text-align: center; color: ${headingColor}; line-height: 1.4; font-style: italic; letter-spacing: 1px;`;
           case "bottom-line":
@@ -5117,7 +5107,7 @@ var require_converter = __commonJS({
           const codeInnerHtml = highlightedLines.join("<br/>");
           const codeLinesHtml = `<section style="white-space:nowrap !important;display:inline-block !important;min-width:100% !important;line-height:${lineHeight} !important;font-size:13px !important;">${codeInnerHtml}</section>`;
           const lineNumberColumnStyles = `text-align:right !important;padding:12px 0 12px 0 !important;border-right:1px solid rgba(255,255,255,0.1) !important;user-select:none !important;background:transparent !important;flex:0 0 auto !important;min-width:3.5em !important;margin:0 !important;`;
-          codeHtml = `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;padding:0 !important;margin:0 !important;">
+          codeHtml = `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;margin:0 !important;">
         <section style="${lineNumberColumnStyles}">${lineNumbersHtml}</section>
         <section style="flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;padding:12px 12px 12px 16px !important;margin:0 !important;min-width:0 !important;">${codeLinesHtml}</section>
       </section>`;
@@ -5132,8 +5122,8 @@ var require_converter = __commonJS({
         }
         return `<section class="code-snippet__fix" style="width:100% !important;margin:12px 0 !important;background:${background} !important;border:1px solid ${borderColor} !important;border-radius:8px !important;overflow:hidden !important;box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;display:block !important;">
 ${macHeader}
-<section style="padding:0 !important;border:none !important;background:${background} !important;color:${color} !important;font-family:'SF Mono',Consolas,Monaco,monospace !important;font-size:13px !important;line-height:${lineHeight} !important;white-space:nowrap !important;overflow-x:auto !important;display:block !important;">
-<pre style="margin:0 !important;padding:0 !important;background:${background} !important;font-family:inherit !important;font-size:13px !important;line-height:inherit !important;color:${color} !important;white-space:nowrap !important;overflow-x:visible !important;display:inline-block !important;min-width:100% !important;">${codeHtml}</pre>
+<section style="padding:0 !important;border:none !important;background:${background} !important;color:${color} !important;font-family:'SF Mono',Consolas,Monaco,monospace !important;font-size:13px !important;line-height:${lineHeight} !important;white-space:normal !important;overflow-x:hidden !important;display:block !important;">
+<pre style="margin:0 !important;padding:0 !important;background:${background} !important;font-family:inherit !important;font-size:13px !important;line-height:inherit !important;color:${color} !important;white-space:normal !important;overflow-x:visible !important;display:block !important;width:100% !important;max-width:100% !important;">${codeHtml}</pre>
 </section>
 </section>`;
       }
@@ -37337,6 +37327,148 @@ function normalizeRenderedDomPunctuation(root, options = {}) {
   }
 }
 
+// services/native-renderer.js
+function isSafeRawImageSrc(src) {
+  if (!src || typeof src !== "string")
+    return false;
+  const trimmed = src.trim();
+  if (!trimmed || trimmed.startsWith("#"))
+    return false;
+  const safeProtocols = ["http:", "https:", "data:", "app:", "capacitor:", "obsidian:"];
+  try {
+    const parsed = new URL(trimmed);
+    return safeProtocols.includes(parsed.protocol);
+  } catch (e) {
+    return false;
+  }
+}
+function normalizeWechatUnsafeTaskListMarkersForNative(markdown) {
+  const source = String(markdown || "");
+  if (!source)
+    return source;
+  const lines = source.split("\n");
+  let fence = null;
+  let inMathFence = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const trimmed = String(line || "").trim();
+    const fenceMatch = trimmed.match(/^(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      const length = fenceMatch[1].length;
+      if (!fence) {
+        fence = { marker, length };
+      } else if (marker === fence.marker && length >= fence.length) {
+        fence = null;
+      }
+      continue;
+    }
+    if (!fence && /^\$\$\s*$/.test(trimmed)) {
+      inMathFence = !inMathFence;
+      continue;
+    }
+    if (fence || inMathFence)
+      continue;
+    lines[i] = line.replace(
+      /^(\s*)([-*+])\s+\[([ xX])\]\s+/,
+      (_match, indent, marker, state) => `${indent}${marker} ${String(state || "").trim().toLowerCase() === "x" ? "\u2611" : "\u2610"} `
+    );
+  }
+  return lines.join("\n");
+}
+function normalizeAdjacentMarkdownBlockHeadings(markdown) {
+  return String(markdown || "").replace(
+    /(<\/(?:figure|blockquote|section|div)>)\s*(#{1,6}\s+)/g,
+    "$1\n\n$2"
+  );
+}
+function preprocessMarkdownForNative(markdown) {
+  if (typeof markdown !== "string" || markdown.length === 0)
+    return "";
+  let output = markdown;
+  output = normalizeWechatUnsafeTaskListMarkersForNative(output);
+  output = normalizeAdjacentMarkdownBlockHeadings(output);
+  output = output.replace(/<(script|iframe|object|embed|form|input|button|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "\n");
+  output = output.replace(/<(script|iframe|object|embed|form|input|button|style)\b[^>]*\/?>/gi, "\n");
+  output = output.replace(/<img\b[^>]*>/gi, (tag) => {
+    const hasEventHandler = /\son\w+\s*=/.test(tag);
+    const srcMatch = tag.match(/\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const src = srcMatch ? srcMatch[1] || srcMatch[2] || srcMatch[3] || "" : "";
+    if (hasEventHandler || !isSafeRawImageSrc(src)) {
+      return "\n";
+    }
+    return tag;
+  });
+  return output;
+}
+function cleanupNativeRenderedHtml(html) {
+  if (typeof html !== "string" || html.length === 0) {
+    return typeof html === "string" ? html : "";
+  }
+  const container = createHtmlContainer("div", html);
+  if (!container)
+    return html;
+  Array.from(container.querySelectorAll("img")).forEach((img) => {
+    const inFigure = !!img.closest("figure");
+    const isMathImage = img.classList.contains("math-formula-image");
+    if (!inFigure && !isMathImage) {
+      img.remove();
+    }
+  });
+  return container.innerHTML;
+}
+function extractInlineImageTargets(markdown) {
+  const source = String(markdown || "");
+  const targets = [];
+  if (!source || !source.includes("!["))
+    return targets;
+  const inlineImagePattern = /!\[[^\]]*]\(([^)\r\n]+)\)/g;
+  let match = inlineImagePattern.exec(source);
+  while (match) {
+    const rawTarget = String(match[1] || "").trim();
+    const target = rawTarget.startsWith("<") ? rawTarget.slice(1, rawTarget.indexOf(">") > 0 ? rawTarget.indexOf(">") : void 0).trim() : rawTarget.split(/\s+/)[0].trim();
+    targets.push(target);
+    match = inlineImagePattern.exec(source);
+  }
+  return targets;
+}
+function canUseNativePreviewFastPath(markdown) {
+  const source = String(markdown || "");
+  if (!source.trim())
+    return false;
+  if (/^\s{0,3}>\s?\[!\s*(?:image-swipe|image-sensitive)\s*](?:[+-])?/im.test(source))
+    return false;
+  if (source.includes("![["))
+    return false;
+  if (/^\s{0,3}(?:`{3,}|~{3,})\s*mermaid\b/im.test(source))
+    return false;
+  if (/^\s*\$\$\s*$/m.test(source) || /(^|[^\\])\$[^$\n]+\$/m.test(source))
+    return false;
+  const targets = extractInlineImageTargets(source);
+  if (source.includes("![") && targets.length === 0)
+    return false;
+  return targets.every((target) => /^(https?:\/\/|data:image\/)/i.test(target));
+}
+async function renderNativeMarkdown({
+  converter,
+  markdown,
+  sourcePath = ""
+}) {
+  if (!converter || typeof converter.convert !== "function") {
+    throw new Error("Native converter is not ready");
+  }
+  const nativeConverter = (
+    /** @type {NativeConverterLike} */
+    converter
+  );
+  if (typeof nativeConverter.updateSourcePath === "function") {
+    nativeConverter.updateSourcePath(sourcePath);
+  }
+  const preprocessed = preprocessMarkdownForNative(markdown);
+  const html = await nativeConverter.convert(preprocessed);
+  return cleanupNativeRenderedHtml(html);
+}
+
 // services/svg-rasterizer.js
 function isMathJaxSvg(svgElement) {
   var _a5, _b;
@@ -39126,6 +39258,7 @@ function preprocessImageSwipeCallouts(markdown) {
 }
 function preprocessMarkdownForTriplet(markdown, converter) {
   let output = preprocessImageSwipeCallouts(markdown);
+  output = normalizeAdjacentMarkdownBlockHeadings(output);
   output = output.replace(/^[\t ]+(\$\$)/gm, "$1");
   output = output.replace(/!\[\[([^[\]|]+)(?:\|([^[\]]+))?]]/g, (match, imagePath, alt) => {
     const normalizedPath = String(imagePath || "").trim();
@@ -39412,141 +39545,6 @@ async function renderObsidianTripletMarkdown({
     preserveSvgStyleTags
   });
   return serializedHtml;
-}
-
-// services/native-renderer.js
-function isSafeRawImageSrc(src) {
-  if (!src || typeof src !== "string")
-    return false;
-  const trimmed = src.trim();
-  if (!trimmed || trimmed.startsWith("#"))
-    return false;
-  const safeProtocols = ["http:", "https:", "data:", "app:", "capacitor:", "obsidian:"];
-  try {
-    const parsed = new URL(trimmed);
-    return safeProtocols.includes(parsed.protocol);
-  } catch (e) {
-    return false;
-  }
-}
-function normalizeWechatUnsafeTaskListMarkersForNative(markdown) {
-  const source = String(markdown || "");
-  if (!source)
-    return source;
-  const lines = source.split("\n");
-  let fence = null;
-  let inMathFence = false;
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    const trimmed = String(line || "").trim();
-    const fenceMatch = trimmed.match(/^(`{3,}|~{3,})/);
-    if (fenceMatch) {
-      const marker = fenceMatch[1][0];
-      const length = fenceMatch[1].length;
-      if (!fence) {
-        fence = { marker, length };
-      } else if (marker === fence.marker && length >= fence.length) {
-        fence = null;
-      }
-      continue;
-    }
-    if (!fence && /^\$\$\s*$/.test(trimmed)) {
-      inMathFence = !inMathFence;
-      continue;
-    }
-    if (fence || inMathFence)
-      continue;
-    lines[i] = line.replace(
-      /^(\s*)([-*+])\s+\[([ xX])\]\s+/,
-      (_match, indent, marker, state) => `${indent}${marker} ${String(state || "").trim().toLowerCase() === "x" ? "\u2611" : "\u2610"} `
-    );
-  }
-  return lines.join("\n");
-}
-function preprocessMarkdownForNative(markdown) {
-  if (typeof markdown !== "string" || markdown.length === 0)
-    return "";
-  let output = markdown;
-  output = normalizeWechatUnsafeTaskListMarkersForNative(output);
-  output = output.replace(/<(script|iframe|object|embed|form|input|button|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "\n");
-  output = output.replace(/<(script|iframe|object|embed|form|input|button|style)\b[^>]*\/?>/gi, "\n");
-  output = output.replace(/<img\b[^>]*>/gi, (tag) => {
-    const hasEventHandler = /\son\w+\s*=/.test(tag);
-    const srcMatch = tag.match(/\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
-    const src = srcMatch ? srcMatch[1] || srcMatch[2] || srcMatch[3] || "" : "";
-    if (hasEventHandler || !isSafeRawImageSrc(src)) {
-      return "\n";
-    }
-    return tag;
-  });
-  return output;
-}
-function cleanupNativeRenderedHtml(html) {
-  if (typeof html !== "string" || html.length === 0) {
-    return typeof html === "string" ? html : "";
-  }
-  const container = createHtmlContainer("div", html);
-  if (!container)
-    return html;
-  Array.from(container.querySelectorAll("img")).forEach((img) => {
-    const inFigure = !!img.closest("figure");
-    const isMathImage = img.classList.contains("math-formula-image");
-    if (!inFigure && !isMathImage) {
-      img.remove();
-    }
-  });
-  return container.innerHTML;
-}
-function extractInlineImageTargets(markdown) {
-  const source = String(markdown || "");
-  const targets = [];
-  if (!source || !source.includes("!["))
-    return targets;
-  const inlineImagePattern = /!\[[^\]]*]\(([^)\r\n]+)\)/g;
-  let match = inlineImagePattern.exec(source);
-  while (match) {
-    const rawTarget = String(match[1] || "").trim();
-    const target = rawTarget.startsWith("<") ? rawTarget.slice(1, rawTarget.indexOf(">") > 0 ? rawTarget.indexOf(">") : void 0).trim() : rawTarget.split(/\s+/)[0].trim();
-    targets.push(target);
-    match = inlineImagePattern.exec(source);
-  }
-  return targets;
-}
-function canUseNativePreviewFastPath(markdown) {
-  const source = String(markdown || "");
-  if (!source.trim())
-    return false;
-  if (/^\s{0,3}>\s?\[!\s*(?:image-swipe|image-sensitive)\s*](?:[+-])?/im.test(source))
-    return false;
-  if (source.includes("![["))
-    return false;
-  if (/^\s{0,3}(?:`{3,}|~{3,})\s*mermaid\b/im.test(source))
-    return false;
-  if (/^\s*\$\$\s*$/m.test(source) || /(^|[^\\])\$[^$\n]+\$/m.test(source))
-    return false;
-  const targets = extractInlineImageTargets(source);
-  if (source.includes("![") && targets.length === 0)
-    return false;
-  return targets.every((target) => /^(https?:\/\/|data:image\/)/i.test(target));
-}
-async function renderNativeMarkdown({
-  converter,
-  markdown,
-  sourcePath = ""
-}) {
-  if (!converter || typeof converter.convert !== "function") {
-    throw new Error("Native converter is not ready");
-  }
-  const nativeConverter = (
-    /** @type {NativeConverterLike} */
-    converter
-  );
-  if (typeof nativeConverter.updateSourcePath === "function") {
-    nativeConverter.updateSourcePath(sourcePath);
-  }
-  const preprocessed = preprocessMarkdownForNative(markdown);
-  const html = await nativeConverter.convert(preprocessed);
-  return cleanupNativeRenderedHtml(html);
 }
 
 // services/ai-layout-runtime/generated-skills.js
@@ -44025,6 +44023,12 @@ function escapeHtml(text) {
   };
   return normalizeWechatTaskMarkerText(text).replace(/[&<>"']/g, (char) => replacements[char] || char);
 }
+function normalizeAiLayoutDisplayText(text) {
+  return String(text || "").replace(/!\[\[[^[\]\r\n]+]]/g, "").replace(/!\[[^\]\r\n]*]\([^) \r\n]+(?:\s+"[^"]*")?\)/g, "").replace(/[ \t]{2,}/g, " ").trim();
+}
+function escapeAiLayoutText(text) {
+  return escapeHtml(normalizeAiLayoutDisplayText(text));
+}
 function normalizeInlineFontFamily(fontFamily = "") {
   return String(fontFamily || "").replace(/"/g, "'");
 }
@@ -44211,7 +44215,7 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = "preview", ren
         </div>` : "";
     return `<section style="margin:${compact ? "10px 0 16px" : "14px 0 20px"};padding:${compact ? "12px 12px 10px" : "14px 14px 12px"};border:1px solid ${tokens.border};border-left:${compact ? 3 : 4}px solid ${tokens.accent};border-radius:${compact ? 12 : 14}px;background:${isDraft && isTutorialCards ? tokens.surface : tokens.accentSoft};">
       ${chipHtml}
-      ${body ? `<p style="margin:0;color:${tokens.text};font-size:${compact ? bodyFontSize : Math.max(bodyFontSize, 15)}px;line-height:${bodyLineHeight};font-weight:${compact ? 500 : 600};letter-spacing:0;">${escapeHtml(body)}</p>` : ""}
+      ${body ? `<p style="margin:0;color:${tokens.text};font-size:${compact ? bodyFontSize : Math.max(bodyFontSize, 15)}px;line-height:${bodyLineHeight};font-weight:${compact ? 500 : 600};letter-spacing:0;">${escapeAiLayoutText(body)}</p>` : ""}
     </section>`;
   };
   const layoutBlocks = toAiLayoutBlocks(layoutJson.blocks);
@@ -44330,15 +44334,15 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = "preview", ren
       const leadQuoteFontSize = leadQuoteProfile.fontSize || (isSourceFirst ? 16 : isEditorialLite ? 26 : isDraft && isTutorialCards ? 20 : 18);
       const editorialLeadQuoteBorderTop = isEditorialLite && (previousBlock == null ? void 0 : previousBlock.type) !== "part-nav" ? `1px solid ${tokens.border}` : "none";
       return `<section style="margin:${isSourceFirst ? 14 : isEditorialLite ? 26 : isTutorialCards ? (tutorialSpacing == null ? void 0 : tutorialSpacing.leadQuoteMarginY) || 14 : 18}px 0;padding:${isSourceFirst ? "0 0 0 14px" : isEditorialLite ? "24px 0" : isTutorialCards ? (tutorialSpacing == null ? void 0 : tutorialSpacing.leadQuotePadding) || "14px" : "18px"};border-radius:${isTutorialCards ? 16 : 0}px;background:${leadQuoteProfile.background === "quoteBg" ? tokens.quoteBg : "transparent"};border:${isTutorialCards ? `1px solid ${tokens.border}` : "none"};border-left:${leadQuoteProfile.borderLeft ? `3px solid ${tokens.accent}` : "none"};border-top:${editorialLeadQuoteBorderTop};border-bottom:${isEditorialLite ? `1px solid ${tokens.border}` : "none"};">
-        <p style="margin:0;font-size:${leadQuoteFontSize}px;font-weight:${leadQuoteProfile.fontWeight || (isSourceFirst ? 600 : isEditorialLite ? 600 : 700)};line-height:${isEditorialLite ? 1.7 : 1.75};color:${tokens.text};font-family:${isEditorialLite ? editorialDisplayFont : "inherit"};letter-spacing:0;">${escapeHtml(block.text)}</p>
-        ${block.note ? `<p style="margin:${isTutorialCards ? 8 : 10}px 0 0;font-size:${isTutorialCards ? 13 : 12}px;line-height:1.8;color:${tokens.muted};letter-spacing:0;">${escapeHtml(block.note)}</p>` : ""}
+        <p style="margin:0;font-size:${leadQuoteFontSize}px;font-weight:${leadQuoteProfile.fontWeight || (isSourceFirst ? 600 : isEditorialLite ? 600 : 700)};line-height:${isEditorialLite ? 1.7 : 1.75};color:${tokens.text};font-family:${isEditorialLite ? editorialDisplayFont : "inherit"};letter-spacing:0;">${escapeAiLayoutText(block.text)}</p>
+        ${block.note ? `<p style="margin:${isTutorialCards ? 8 : 10}px 0 0;font-size:${isTutorialCards ? 13 : 12}px;line-height:1.8;color:${tokens.muted};letter-spacing:0;">${escapeAiLayoutText(block.note)}</p>` : ""}
       </section>`;
     }
     if (block.type === "case-block") {
       const caseImageIds = Array.isArray(block.imageIds) ? block.imageIds : [];
       const caseBullets = Array.isArray(block.bullets) ? block.bullets : [];
       const imagesHtml = caseImageIds.map((imageId) => `<div style="margin-top:14px;">${renderImage(imageId)}</div>`).join("");
-      const bulletsHtml = caseBullets.length ? `<ul style="margin:12px 0 0 18px;padding:0;color:${tokens.text};">${caseBullets.map((bullet) => `<li style="margin:6px 0;">${escapeHtml(bullet)}</li>`).join("")}</ul>` : "";
+      const bulletsHtml = caseBullets.length ? `<ul style="margin:12px 0 0 18px;padding:0;color:${tokens.text};">${caseBullets.map((bullet) => `<li style="margin:6px 0;">${escapeAiLayoutText(bullet)}</li>`).join("")}</ul>` : "";
       const caseHeaderHtml = isDraft ? `<div style="margin-bottom:8px;">
             <span style="display:inline-block;font-size:${caseBlockProfile.indexSize || (isSourceFirst ? 22 : isEditorialLite ? 14 : 28)}px;font-weight:${isEditorialLite ? 700 : 800};color:${tokens.accent};line-height:1;letter-spacing:${isEditorialLite ? 1.2 : 0};text-transform:${isEditorialLite ? "uppercase" : "none"};">${String(index + 1).padStart(2, "0")}</span>
             <span style="display:inline-block;margin-left:8px;font-size:11px;font-weight:700;letter-spacing:1px;color:${tokens.muted};text-transform:uppercase;">${escapeHtml(block.caseLabel)}</span>
@@ -44354,8 +44358,8 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = "preview", ren
         `margin:0 0 ${isEditorialLite ? 10 : 8}px;font-size:${caseBlockProfile.titleSize || (isSourceFirst ? 20 : isEditorialLite ? 26 : 22)}px;line-height:${isEditorialLite ? 1.28 : 1.4};color:${tokens.text};font-family:${isEditorialLite ? editorialDisplayFont : "inherit"};`,
         { mode }
       )}
-        ${block.summary ? `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.muted};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(block.summary)}</p>` : ""}
-        ${block.highlight ? `<div style="margin-top:12px;padding:10px 12px;border-left:4px solid ${tokens.accent};background:${tokens.accentSoft};border-radius:10px;color:${tokens.accentDeep};font-weight:600;font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(block.highlight)}</div>` : ""}
+        ${block.summary ? `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.muted};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(block.summary)}</p>` : ""}
+        ${block.highlight ? `<div style="margin-top:12px;padding:10px 12px;border-left:4px solid ${tokens.accent};background:${tokens.accentSoft};border-radius:10px;color:${tokens.accentDeep};font-weight:600;font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(block.highlight)}</div>` : ""}
         ${bulletsHtml}
         ${imagesHtml}
       </section>`;
@@ -44368,11 +44372,11 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = "preview", ren
       const titleFontSize = headingLevel >= 3 ? isSourceFirst ? 17 : isEditorialLite ? 18 : 18 : isSourceFirst ? 20 : isEditorialLite ? 26 : 22;
       const titleMarginBottom = headingLevel >= 3 ? 10 : isEditorialLite ? 14 : 12;
       const titleColor = headingLevel >= 3 ? tokens.accentDeep : tokens.text;
-      const paragraphsHtml = Array.isArray(block.paragraphs) ? block.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(paragraph)}</p>`).join("") : "";
+      const paragraphsHtml = Array.isArray(block.paragraphs) ? block.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(paragraph)}</p>`).join("") : "";
       const bulletGroupsHtml = Array.isArray(block.bulletGroups) ? block.bulletGroups.map((group) => {
         if (!Array.isArray(group) || !group.length)
           return "";
-        return `<ul style="margin:12px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeHtml(bullet)}</li>`).join("")}</ul>`;
+        return `<ul style="margin:12px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeAiLayoutText(bullet)}</li>`).join("")}</ul>`;
       }).join("") : "";
       const calloutsHtml = Array.isArray(block.callouts) ? block.callouts.map((callout) => renderCalloutCard(callout)).join("") : "";
       const preservedLeadHtml = remapPreservedFragmentColors(renderedSection == null ? void 0 : renderedSection.leadHtml, tokens);
@@ -44389,11 +44393,11 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = "preview", ren
           findRenderedSubsection(renderedSection, subsection, subsectionIndex)
         );
         const subsectionLevel = Number.isInteger(subsection == null ? void 0 : subsection.level) ? subsection.level : 3;
-        const subsectionParagraphs = Array.isArray(subsection == null ? void 0 : subsection.paragraphs) ? subsection.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(paragraph)}</p>`).join("") : "";
+        const subsectionParagraphs = Array.isArray(subsection == null ? void 0 : subsection.paragraphs) ? subsection.paragraphs.map((paragraph) => `<p style="margin:0 0 ${bodyParagraphGap}px;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeAiLayoutText(paragraph)}</p>`).join("") : "";
         const subsectionBullets = Array.isArray(subsection == null ? void 0 : subsection.bulletGroups) ? subsection.bulletGroups.map((group) => {
           if (!Array.isArray(group) || !group.length)
             return "";
-          return `<ul style="margin:10px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeHtml(bullet)}</li>`).join("")}</ul>`;
+          return `<ul style="margin:10px 0 ${bodyParagraphGap}px 20px;padding:0;color:${tokens.text};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${group.map((bullet) => `<li style="margin:4px 0;">${escapeAiLayoutText(bullet)}</li>`).join("")}</ul>`;
         }).join("") : "";
         const subsectionCallouts = Array.isArray(subsection == null ? void 0 : subsection.callouts) ? subsection.callouts.map((callout) => renderCalloutCard(callout, { compact: true })).join("") : "";
         const preservedSubsectionHtml = remapPreservedFragmentColors(renderedSubsection == null ? void 0 : renderedSubsection.contentHtml, tokens);
@@ -44482,7 +44486,7 @@ function renderArticleLayoutHtml(layout, { imageRefs = [], mode = "preview", ren
       )}
         ${block.body ? `<p style="margin:0;color:${tokens.muted};font-size:${bodyFontSize}px;line-height:${bodyLineHeight};letter-spacing:0;">${escapeHtml(block.body)}</p>` : ""}
         ${ctaButtonHtml}
-        ${block.note ? `<p style="margin:12px 0 0;font-size:12px;line-height:1.75;color:${tokens.muted};letter-spacing:0;">${escapeHtml(block.note)}</p>` : ""}
+        ${block.note ? `<p style="margin:12px 0 0;font-size:12px;line-height:1.75;color:${tokens.muted};letter-spacing:0;">${escapeAiLayoutText(block.note)}</p>` : ""}
       </section>`;
     }
     return "";
@@ -54108,7 +54112,6 @@ var AppleStyleView = class extends ItemView {
       return;
     }
     if (!allowStale && context.sourceHash && state.sourceHash && context.sourceHash !== state.sourceHash) {
-      new Notice("\u5F53\u524D\u6587\u7AE0\u5185\u5BB9\u5DF2\u53D8\u5316\uFF0C\u8BF7\u5148\u91CD\u65B0\u751F\u6210 AI \u7F16\u6392");
       this.refreshAiLayoutPanel();
       return;
     }
@@ -54784,7 +54787,7 @@ var AppleStyleView = class extends ItemView {
     modal.titleEl.setText("\u4ECE\u7D20\u6750\u5E93\u9009\u62E9\u5C01\u9762");
     (_a5 = modal.modalEl) == null ? void 0 : _a5.addClass("wechat-material-picker-modal");
     modal.contentEl.addClass("wechat-material-picker");
-    const pageSize = 18;
+    const pageSize = 12;
     let currentPage = 1;
     let totalCount = 0;
     let selectedItem = null;
@@ -56886,7 +56889,7 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
       officialText.createEl("a", {
         text: "\u83B7\u53D6\u5B98\u65B9\u4E2D\u8F6C Token \u2794",
         href: "https://xiaoweibox.top/chats/wechat-proxy-service",
-        attr: { style: "margin-left: 6px; color: var(--interactive-accent); font-weight: 600; text-decoration: underline;" }
+        attr: { style: "margin-left: 6px; color: var(--text-muted); text-decoration: underline;" }
       });
       const selfHostedRow = card.createDiv({ attr: { style: "display: flex; gap: 6px; align-items: flex-start;" } });
       selfHostedRow.createSpan({ text: "\u{1F6E0}\uFE0F", attr: { style: "flex-shrink: 0; line-height: 1.6;" } });
