@@ -185,6 +185,31 @@ describe('Native Renderer', () => {
     expect(output).toContain('</figure>\n\n## 紧随其后的标题');
   });
 
+  it('should separate markdown images and following headings in native preprocessing', () => {
+    const output = preprocessMarkdownForNative([
+      '![[attachments/音乐卡点调整.png]]',
+      '#### 图片后的四级标题',
+      '',
+      '![远程图](https://example.com/a.png)',
+      '### 远程图后的标题',
+    ].join('\n'));
+
+    expect(output).toContain('![[attachments/音乐卡点调整.png]]\n\n#### 图片后的四级标题');
+    expect(output).toContain('![远程图](https://example.com/a.png)\n\n### 远程图后的标题');
+  });
+
+  it('should not separate image-like lines and headings inside fenced code', () => {
+    const output = preprocessMarkdownForNative([
+      '```md',
+      '![[attachments/code.png]]',
+      '#### 代码里的标题',
+      '```',
+    ].join('\n'));
+
+    expect(output).toContain('![[attachments/code.png]]\n#### 代码里的标题');
+    expect(output).not.toContain('![[attachments/code.png]]\n\n#### 代码里的标题');
+  });
+
   it('should keep native preprocessing even when legacy parity option is passed', async () => {
     const md = readFixture('control-micro.md');
     const html = await renderNativeMarkdown({

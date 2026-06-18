@@ -4735,7 +4735,12 @@ var require_converter = __commonJS({
           var _a5, _b;
           const href = ((_b = (_a5 = getToken(tokens, idx)).attrGet) == null ? void 0 : _b.call(_a5, "href")) || "";
           const safeHref = this.validateLink(href);
-          return `<a href="${safeHref}" style="${this.getInlineStyle("a")}">`;
+          const nextToken = getToken(tokens, idx + 1);
+          const closeToken = getToken(tokens, idx + 2);
+          const visibleText = nextToken && nextToken.type === "text" ? toText3(nextToken.content).trim() : "";
+          const isUrlTextLink = (closeToken == null ? void 0 : closeToken.type) === "link_close" && /^https?:\/\//i.test(visibleText || href);
+          const urlTextStyle = isUrlTextLink ? "; display:block; max-width:100%; margin:4px 0; line-height:1.55; word-break:break-all; overflow-wrap:anywhere;" : "";
+          return `<a href="${safeHref}" style="${this.getInlineStyle("a")}${urlTextStyle}">`;
         };
         rules.strong_open = () => `<strong style="${this.getInlineStyle("strong")}">`;
         rules.em_open = () => `<em style="${this.getInlineStyle("em")}">`;
@@ -5105,11 +5110,11 @@ var require_converter = __commonJS({
             (_, idx) => `<section style="height:1.75em !important;line-height:${lineHeight} !important;padding:0 12px 0 12px !important;font-size:13px !important;color:#95989C !important;text-align:right !important;white-space:nowrap !important;vertical-align:top !important;margin:0 !important;">${idx + 1}</section>`
           ).join("");
           const codeInnerHtml = highlightedLines.join("<br/>");
-          const codeLinesHtml = `<section style="white-space:nowrap !important;display:inline-block !important;min-width:100% !important;line-height:${lineHeight} !important;font-size:13px !important;">${codeInnerHtml}</section>`;
+          const codeLinesHtml = `<section class="code-lines" style="white-space:nowrap !important;display:inline-block !important;width:max-content !important;min-width:100% !important;max-width:none !important;line-height:${lineHeight} !important;font-size:13px !important;">${codeInnerHtml}</section>`;
           const lineNumberColumnStyles = `text-align:right !important;padding:12px 0 12px 0 !important;border-right:1px solid rgba(255,255,255,0.1) !important;user-select:none !important;background:transparent !important;flex:0 0 auto !important;min-width:3.5em !important;margin:0 !important;`;
-          codeHtml = `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;margin:0 !important;">
-        <section style="${lineNumberColumnStyles}">${lineNumbersHtml}</section>
-        <section style="flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;padding:12px 12px 12px 16px !important;margin:0 !important;min-width:0 !important;">${codeLinesHtml}</section>
+          codeHtml = `<section class="code-with-line-numbers" style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;margin:0 !important;box-sizing:border-box !important;">
+        <section class="code-line-numbers" style="${lineNumberColumnStyles}">${lineNumbersHtml}</section>
+        <section class="code-scroll" style="flex:1 1 0% !important;width:0 !important;max-width:calc(100% - 3.5em) !important;overflow-x:auto !important;overflow-y:visible !important;-webkit-overflow-scrolling:touch !important;padding:12px 12px 12px 16px !important;margin:0 !important;min-width:0 !important;box-sizing:border-box !important;">${codeLinesHtml}</section>
       </section>`;
         } else {
           const highlighted = this.highlightCode(lines.join("\n"), lang);
@@ -37377,10 +37382,55 @@ function normalizeWechatUnsafeTaskListMarkersForNative(markdown) {
   return lines.join("\n");
 }
 function normalizeAdjacentMarkdownBlockHeadings(markdown) {
-  return String(markdown || "").replace(
-    /(<\/(?:figure|blockquote|section|div)>)\s*(#{1,6}\s+)/g,
-    "$1\n\n$2"
-  );
+  const source = String(markdown || "");
+  if (!source)
+    return source;
+  const lines = source.split("\n");
+  const output = [];
+  let fence = null;
+  let inMathFence = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const trimmed = String(line || "").trim();
+    const fenceMatch = trimmed.match(/^(`{3,}|~{3,})/);
+    const inSkippedBlock = !!fence || inMathFence;
+    if (!inSkippedBlock && shouldSeparateFollowingHeading(line, lines[i + 1])) {
+      output.push(line, "");
+    } else {
+      output.push(line);
+    }
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      const length = fenceMatch[1].length;
+      if (!fence) {
+        fence = { marker, length };
+      } else if (marker === fence.marker && length >= fence.length) {
+        fence = null;
+      }
+      continue;
+    }
+    if (!fence && /^\$\$\s*$/.test(trimmed)) {
+      inMathFence = !inMathFence;
+    }
+  }
+  return output.join("\n");
+}
+function shouldSeparateFollowingHeading(line, nextLine) {
+  const current = String(line || "").trim();
+  const next = String(nextLine || "");
+  if (!current || !/^#{1,6}\s+\S/.test(next))
+    return false;
+  if (/<\/(?:figure|blockquote|section|div)>\s*$/i.test(current))
+    return true;
+  if (/^!\[\[[^[\]\r\n]+]]\s*$/.test(current))
+    return true;
+  if (/^!\[[^\]\r\n]*]\([^) \r\n]+(?:\s+"[^"]*")?\)\s*$/.test(current))
+    return true;
+  if (/^>\s*$/.test(current))
+    return true;
+  if (/^>\s?.+/.test(current))
+    return true;
+  return false;
 }
 function preprocessMarkdownForNative(markdown) {
   if (typeof markdown !== "string" || markdown.length === 0)

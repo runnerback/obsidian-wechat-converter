@@ -410,7 +410,17 @@ class AppleStyleConverter {
     rules.link_open = (tokens, idx) => {
       const href = getToken(tokens, idx).attrGet?.('href') || '';
       const safeHref = this.validateLink(href);
-      return `<a href="${safeHref}" style="${this.getInlineStyle('a')}">`;
+      const nextToken = getToken(tokens, idx + 1);
+      const closeToken = getToken(tokens, idx + 2);
+      const visibleText = nextToken && nextToken.type === 'text'
+        ? toText(nextToken.content).trim()
+        : '';
+      const isUrlTextLink = closeToken?.type === 'link_close'
+        && /^https?:\/\//i.test(visibleText || href);
+      const urlTextStyle = isUrlTextLink
+        ? '; display:block; max-width:100%; margin:4px 0; line-height:1.55; word-break:break-all; overflow-wrap:anywhere;'
+        : '';
+      return `<a href="${safeHref}" style="${this.getInlineStyle('a')}${urlTextStyle}">`;
     };
     rules.strong_open = () => `<strong style="${this.getInlineStyle('strong')}">`;
     rules.em_open = () => `<em style="${this.getInlineStyle('em')}">`;
@@ -838,15 +848,15 @@ class AppleStyleConverter {
       // 这样右侧就是一个单一的文本流，高度严格由 line-height 控制
       const codeInnerHtml = highlightedLines.join('<br/>');
 
-      const codeLinesHtml = `<section style="white-space:nowrap !important;display:inline-block !important;min-width:100% !important;line-height:${lineHeight} !important;font-size:13px !important;">${codeInnerHtml}</section>`;
+      const codeLinesHtml = `<section class="code-lines" style="white-space:nowrap !important;display:inline-block !important;width:max-content !important;min-width:100% !important;max-width:none !important;line-height:${lineHeight} !important;font-size:13px !important;">${codeInnerHtml}</section>`;
 
       // 行号列容器样式
       const lineNumberColumnStyles = `text-align:right !important;padding:12px 0 12px 0 !important;border-right:1px solid rgba(255,255,255,0.1) !important;user-select:none !important;background:transparent !important;flex:0 0 auto !important;min-width:3.5em !important;margin:0 !important;`;
 
       // 注意 flex 容器的 padding 0，内部 padding 分别在 lineNumberColumn 和 code section
-      codeHtml = `<section style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;margin:0 !important;">
-        <section style="${lineNumberColumnStyles}">${lineNumbersHtml}</section>
-        <section style="flex:1 1 auto !important;overflow-x:auto !important;overflow-y:visible !important;padding:12px 12px 12px 16px !important;margin:0 !important;min-width:0 !important;">${codeLinesHtml}</section>
+      codeHtml = `<section class="code-with-line-numbers" style="display:flex !important;align-items:flex-start !important;overflow-x:hidden !important;overflow-y:visible !important;width:100% !important;max-width:100% !important;padding:0 !important;margin:0 !important;box-sizing:border-box !important;">
+        <section class="code-line-numbers" style="${lineNumberColumnStyles}">${lineNumbersHtml}</section>
+        <section class="code-scroll" style="flex:1 1 0% !important;width:0 !important;max-width:calc(100% - 3.5em) !important;overflow-x:auto !important;overflow-y:visible !important;-webkit-overflow-scrolling:touch !important;padding:12px 12px 12px 16px !important;margin:0 !important;min-width:0 !important;box-sizing:border-box !important;">${codeLinesHtml}</section>
       </section>`;
     } else {
       // 无行号

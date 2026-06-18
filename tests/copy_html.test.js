@@ -121,6 +121,48 @@ describe('AppleStyleView - copyHTML clipboard behavior', () => {
     expect(html).not.toContain('<svg');
   });
 
+  it('should render preview code blocks with fixed line numbers outside the scroll container', async () => {
+    const converter = await createLegacyConverter();
+    const html = await converter.convert([
+      '```js',
+      'const veryLongIdentifierName = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";',
+      'console.log(veryLongIdentifierName);',
+      '```',
+    ].join('\n'));
+
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    const codeBlock = container.querySelector('.code-snippet__fix');
+    const lineNumbers = codeBlock?.querySelector('.code-line-numbers');
+    const codeScroll = codeBlock?.querySelector('.code-scroll');
+    const codeLines = codeBlock?.querySelector('.code-lines');
+
+    expect(lineNumbers).not.toBeNull();
+    expect(codeScroll).not.toBeNull();
+    expect(codeLines).not.toBeNull();
+    expect(codeScroll.contains(lineNumbers)).toBe(false);
+    expect(codeScroll.contains(codeLines)).toBe(true);
+    expect(codeScroll.getAttribute('style')).toContain('overflow-x:auto');
+    expect(codeScroll.getAttribute('style')).toContain('width:0');
+    expect(codeLines.getAttribute('style')).toContain('width:max-content');
+  });
+
+  it('should render visible URL links as their own mobile-friendly line', async () => {
+    const converter = await createLegacyConverter();
+    const html = await converter.convert('参考 https://example.com/a/very/long/path?with=query&and=more 后续文字');
+
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    const link = container.querySelector('a');
+
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('href')).toBe('https://example.com/a/very/long/path?with=query&and=more');
+    expect(link.textContent).toBe('https://example.com/a/very/long/path?with=query&and=more');
+    expect(link.getAttribute('style')).toContain('display:block');
+    expect(link.getAttribute('style')).toContain('word-break:break-all');
+    expect(link.getAttribute('style')).toContain('overflow-wrap:anywhere');
+  });
+
   it('should prepare Wechatsync article code blocks as light plain pre/code without line numbers', async () => {
     const sourceHtml = [
       '<section>',

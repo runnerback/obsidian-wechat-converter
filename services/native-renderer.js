@@ -79,10 +79,63 @@ export function normalizeWechatUnsafeTaskListMarkersForNative(markdown) {
  * @returns {string}
  */
 export function normalizeAdjacentMarkdownBlockHeadings(markdown) {
-  return String(markdown || '').replace(
-    /(<\/(?:figure|blockquote|section|div)>)\s*(#{1,6}\s+)/g,
-    '$1\n\n$2',
-  );
+  const source = String(markdown || '');
+  if (!source) return source;
+
+  const lines = source.split('\n');
+  /** @type {string[]} */
+  const output = [];
+  let fence = null;
+  let inMathFence = false;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const trimmed = String(line || '').trim();
+    const fenceMatch = trimmed.match(/^(`{3,}|~{3,})/);
+    const inSkippedBlock = !!fence || inMathFence;
+
+    if (!inSkippedBlock && shouldSeparateFollowingHeading(line, lines[i + 1])) {
+      output.push(line, '');
+    } else {
+      output.push(line);
+    }
+
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      const length = fenceMatch[1].length;
+      if (!fence) {
+        fence = { marker, length };
+      } else if (marker === fence.marker && length >= fence.length) {
+        fence = null;
+      }
+      continue;
+    }
+
+    if (!fence && /^\$\$\s*$/.test(trimmed)) {
+      inMathFence = !inMathFence;
+    }
+  }
+
+  return output.join('\n');
+}
+
+/**
+ * @param {unknown} line
+ * @param {unknown} nextLine
+ * @returns {boolean}
+ */
+function shouldSeparateFollowingHeading(line, nextLine) {
+  const current = String(line || '').trim();
+  const next = String(nextLine || '');
+  if (!current || !/^#{1,6}\s+\S/.test(next)) return false;
+
+  if (/<\/(?:figure|blockquote|section|div)>\s*$/i.test(current)) return true;
+  if (/^!\[\[[^[\]\r\n]+]]\s*$/.test(current)) return true;
+  if (/^!\[[^\]\r\n]*]\([^) \r\n]+(?:\s+"[^"]*")?\)\s*$/.test(current)) return true;
+  if (/^>\s*$/.test(current)) return true;
+  if (/^>\s?.+/.test(current)) return true;
+
+  return false;
 }
 
 /**

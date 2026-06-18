@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 
 const { loadInputModule } = require('./helpers/input-module.cjs');
 function installModalCapture(obsidianMock) {
@@ -147,5 +149,17 @@ describe('AppleStyleView - WeChat material cache', () => {
     expect(modal.contentEl.querySelector('.wechat-material-cache-note').textContent).toBe('当前页列表来自缓存');
     expect(modal.contentEl.textContent).not.toContain('共 444 张图片素材，来自缓存');
     Date.now.mockRestore();
+  });
+
+  it('should size the material picker for a compact 12-item grid', () => {
+    const css = fs.readFileSync(path.resolve(__dirname, '../styles.css'), 'utf8');
+
+    expect(css).toContain('.wechat-material-picker-modal {\n  width: min(720px, 92vw);');
+    expect(css).toContain('height: min(64vh, 560px);');
+    expect(css).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+    expect(css).toContain('@media (max-width: 720px)');
+    expect(css).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
+    expect(css).toContain('@media (max-width: 520px)');
+    expect(css).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
   });
 });
