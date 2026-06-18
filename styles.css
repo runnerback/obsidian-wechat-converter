@@ -1979,32 +1979,32 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 .apple-converter-preview .code-snippet__fix pre,
 .apple-converter-preview .code-snippet__fix .code-with-line-numbers {
   box-sizing: border-box;
-  max-width: 100% !important;
+  max-width: 100%;
 }
 
 .apple-converter-preview .code-snippet__fix .code-with-line-numbers {
-  min-width: 0 !important;
+  min-width: 0;
 }
 
 .apple-converter-preview .code-snippet__fix .code-line-numbers {
-  flex: 0 0 3.5em !important;
-  width: 3.5em !important;
-  max-width: 3.5em !important;
+  flex: 0 0 3.5em;
+  width: 3.5em;
+  max-width: 3.5em;
 }
 
 .apple-converter-preview .code-snippet__fix .code-scroll {
-  flex: 1 1 0% !important;
-  width: 0 !important;
-  min-width: 0 !important;
-  max-width: calc(100% - 3.5em) !important;
-  overflow-x: auto !important;
-  overflow-y: visible !important;
+  flex: 1 1 0%;
+  width: 0;
+  min-width: 0;
+  max-width: calc(100% - 3.5em);
+  overflow-x: auto;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
 }
 
 .apple-converter-preview .code-snippet__fix .code-lines {
-  width: max-content !important;
-  max-width: none !important;
+  width: max-content;
+  max-width: none;
 }
 
 .apple-converter-preview.apple-preview-loading {

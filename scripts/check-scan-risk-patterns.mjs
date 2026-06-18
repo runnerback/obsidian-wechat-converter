@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const SCANNED_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
+const SCANNED_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.css']);
 const IGNORED_DIRS = new Set([
   '.git',
   '.github',
@@ -46,6 +46,13 @@ const RULES = [
     id: 'require-eslint-disable-reason',
     message: 'eslint-disable comments must include a "-- reason" explanation for Obsidian scan exceptions.',
     pattern: /eslint-disable(?:-next-line|-line)?(?![^\n]*--)/,
+    extensions: new Set(['.js', '.mjs', '.cjs']),
+  },
+  {
+    id: 'no-css-important',
+    message: 'Avoid stylesheet !important. Increase selector specificity, use CSS variables, or keep compatibility-critical inline styles narrowly scoped.',
+    pattern: /!important\b/,
+    extensions: new Set(['.css']),
   },
 ];
 
@@ -58,6 +65,15 @@ function shouldScanFile(relativePath) {
   const parts = relativePath.split(path.sep);
   if (parts.some((part) => IGNORED_DIRS.has(part))) return false;
   return SCANNED_EXTENSIONS.has(path.extname(relativePath));
+}
+
+/**
+ * @param {{ extensions?: Set<string> }} rule
+ * @param {string} relativePath
+ * @returns {boolean}
+ */
+function ruleAppliesToFile(rule, relativePath) {
+  return !rule.extensions || rule.extensions.has(path.extname(relativePath));
 }
 
 /**
@@ -126,6 +142,7 @@ for (const relativePath of files) {
   const lines = source.split('\n');
 
   for (const rule of RULES) {
+    if (!ruleAppliesToFile(rule, relativePath)) continue;
     for (const match of findMatches(source, rule.pattern)) {
       const lineNumber = getLineNumber(source, match.index);
       const line = lines[lineNumber - 1] || '';

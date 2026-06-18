@@ -112,6 +112,7 @@ This file provides guidance to Codex when working with code in this repository.
 - Before merging feature work that could affect Obsidian review results, run `npm run review:guard`.
 - CI/CD must use the same `npm run review:guard` gatekeeper so local, PR, and release checks stay aligned.
 - Avoid introducing new scan-triggering APIs: prefer DOM helpers over `innerHTML`, `setCssStyles(...)` over static `element.style.*`, Obsidian `Modal` over `confirm()`, and local parsing over `fetch(data:)`.
+- Avoid adding stylesheet `!important`; prefer stronger selectors, CSS variables, or narrow rendered-output compatibility styles covered by tests.
 - If a scan-sensitive API is intentionally required for compatibility, keep the usage narrow, document the reason inline, and add regression tests around the behavior.
 - During feature development, use `npm run scan:guard` for quick feedback before running the full `npm run review:guard`.
 
