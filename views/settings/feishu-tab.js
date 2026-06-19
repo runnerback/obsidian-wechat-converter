@@ -1,19 +1,28 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- reason: JS file handles dynamic API responses without strict typescript type annotations */
 // views/settings/feishu-tab.js
 //
 // Renders the「飞书」settings tab in the AppleStyleSettingTab.
 // Extracted to keep input.js clean and maintain separation of concerns.
 // Uses Obsidian APIs (Setting, Notice, etc.).
 
-const { Setting, Notice } = require('obsidian');
-const { FeishuApiClient } = require('../../services/feishu-api');
-const { normalizeFeishuSyncSettings } = require('../../services/feishu-settings');
+import { getActiveWindowValue } from '../../services/dom-utils.js';
+import { FeishuApiClient } from '../../services/feishu-api.js';
+import { normalizeFeishuSyncSettings } from '../../services/feishu-settings.js';
 
 /**
  * Renders the Feishu Sync settings inside the settings tab.
  * @param {any} tab AppleStyleSettingTab instance
  * @param {HTMLDivElement} containerEl settings tab sub-container
+ * @param {object} [options={}] Injected options
  */
-function renderFeishuSettingsTab(tab, containerEl) {
+function renderFeishuSettingsTab(tab, containerEl, options = {}) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic obsidian api resolution
+  const obsidian = options.obsidianApi || tab.plugin.obsidianApi || getActiveWindowValue('obsidian') || {};
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic Setting component
+  const Setting = obsidian.Setting;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic Notice component
+  const Notice = obsidian.Notice;
+
   const { plugin } = tab;
   const settings = normalizeFeishuSyncSettings(plugin.settings.feishuSync);
   plugin.settings.feishuSync = settings;
@@ -113,7 +122,7 @@ function renderFeishuSettingsTab(tab, containerEl) {
 
         const notice = new Notice('⏳ 正在进行飞书连接测试...', 0);
         try {
-          const client = new FeishuApiClient(settings.appId, settings.appSecret);
+          const client = new FeishuApiClient(settings.appId, settings.appSecret, obsidian.requestUrl);
           
           // Verify authentication token
           await client.getAccessToken();
@@ -172,16 +181,11 @@ function renderFeishuSettingsTab(tab, containerEl) {
   });
   detailedLink.onclick = (e) => {
     e.preventDefault();
-    try {
-      const electron = require('electron');
-      if (electron?.shell?.openExternal) {
-        electron.shell.openExternal('https://xiaoweibox.top/chats/feishu-sync');
-        return;
-      }
-    } catch {
-      // fallback
+    if (plugin && typeof plugin.openExternalUrl === 'function') {
+      plugin.openExternalUrl('https://xiaoweibox.top/chats/feishu-sync');
+    } else {
+      window.open('https://xiaoweibox.top/chats/feishu-sync', '_blank', 'noopener');
     }
-    window.open('https://xiaoweibox.top/chats/feishu-sync', '_blank', 'noopener');
   };
   detailedLink.setCssStyles({
     color: 'var(--text-accent)',
@@ -248,16 +252,11 @@ function renderFeishuSettingsTab(tab, containerEl) {
     const link = body.createEl('a', { text: '飞书开放平台', href: 'https://open.feishu.cn/' });
     link.onclick = (e) => {
       e.preventDefault();
-      try {
-        const electron = require('electron');
-        if (electron?.shell?.openExternal) {
-          electron.shell.openExternal('https://open.feishu.cn/');
-          return;
-        }
-      } catch {
-        console.warn('Failed to open Feishu developer console in Electron shell.');
+      if (plugin && typeof plugin.openExternalUrl === 'function') {
+        plugin.openExternalUrl('https://open.feishu.cn/');
+      } else {
+        window.open('https://open.feishu.cn/', '_blank', 'noopener');
       }
-      window.open('https://open.feishu.cn/', '_blank', 'noopener');
     };
     link.setCssStyles({ color: 'var(--text-accent)', textDecoration: 'underline' });
     body.createSpan({ text: ' 创建自建应用，并在「应用功能」中启用「机器人」能力。' });
@@ -308,6 +307,6 @@ function renderFeishuSettingsTab(tab, containerEl) {
   });
 }
 
-module.exports = {
+export {
   renderFeishuSettingsTab,
 };

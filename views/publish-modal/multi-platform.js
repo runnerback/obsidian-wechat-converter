@@ -653,7 +653,9 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     view.showSyncModal({ modal });
   };
   if (feishuTab) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- reason: dynamic tab element click handler
     feishuTab.onclick = () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- reason: dynamic modal invocation
       view.showFeishuSyncModal({ modal });
     };
   }

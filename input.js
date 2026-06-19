@@ -5025,6 +5025,7 @@ class AppleStyleView extends ItemView {
     });
 
     let feishuTab = null;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- reason: dynamic plugin settings access
     const feishuEnabled = this.plugin.settings.feishuSync?.enabled;
     if (feishuEnabled) {
       feishuTab = publishModeTabs.createEl('button', {
@@ -5057,6 +5058,7 @@ class AppleStyleView extends ItemView {
         this.preparePublishModalShell(modal, { mode: 'wechat', mobileSync });
         const { feishuTab, multiPlatformTab } = this.createPublishModeTabs(modal, 'wechat');
         if (feishuTab) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- reason: dynamic tab element click handler
           feishuTab.onclick = () => this.showFeishuSyncModal({ modal });
         }
         multiPlatformTab.onclick = () => this.showMultiPlatformSyncModal({ modal });
@@ -5088,6 +5090,7 @@ class AppleStyleView extends ItemView {
 
     const { feishuTab, multiPlatformTab } = this.createPublishModeTabs(modal, 'wechat');
     if (feishuTab) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- reason: dynamic tab element click handler
       feishuTab.onclick = () => {
         this.showFeishuSyncModal({ modal });
       };
@@ -6151,13 +6154,17 @@ class AppleStyleView extends ItemView {
   }
 
   showFeishuSyncModal(options = {}) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic modal parameter assignment
     const modal = options.modal || createObsidianModal(this.app);
     const mobileSync = isMobileClient(this.app);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- reason: dynamic modal parameter
     this.preparePublishModalShell(modal, { mode: 'feishu', mobileSync });
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- reason: dynamic modal parameter
     const { wechatTab, multiPlatformTab } = this.createPublishModeTabs(modal, 'feishu');
     if (wechatTab) {
       wechatTab.onclick = () => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- reason: dynamic modal method call
         this.showSyncModal({ modal });
       };
     }
@@ -6167,9 +6174,11 @@ class AppleStyleView extends ItemView {
       };
     }
 
-    renderFeishuPublishTab(this, modal, modal.contentEl);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- reason: dynamic modal element
+    renderFeishuPublishTab(this, modal, modal.contentEl, { obsidianApi });
 
     if (!options.modal) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- reason: dynamic modal API call
       modal.open();
     }
   }
@@ -7602,7 +7611,7 @@ class AppleStyleSettingTab extends PluginSettingTab {
       wechatContent.setCssStyles({ display: 'none' });
       feishuContent.setCssStyles({ display: '' });
       multiContent.setCssStyles({ display: 'none' });
-      renderFeishuSettingsTab(this, feishuContent);
+      renderFeishuSettingsTab(this, feishuContent, { obsidianApi });
     };
     multiTab.onclick = () => {
       this._activeSettingsTab = 'multi';
@@ -8597,9 +8606,12 @@ class AppleStylePlugin extends Plugin {
     });
 
     if (typeof this.app.vault.on === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- reason: register dynamic event listener
       this.registerEvent(
         this.app.vault.on('rename', (file, oldPath) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- reason: dynamic plugin settings
           if (this.settings.feishuSync) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- reason: dynamic file rename variables
             const changed = updateFeishuHistoryPath(this.settings.feishuSync, oldPath, file.path);
             if (changed) {
               this.saveSettings().catch((err) => {

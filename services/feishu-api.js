@@ -1,22 +1,29 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- reason: JS file handles dynamic API responses without strict typescript type annotations */
 // services/feishu-api.js
 //
 // Stateless / low-level API client for Feishu OpenAPI using Obsidian's requestUrl.
 // Has zero knowledge of the Obsidian vault structure or settings UI.
 // Only returns promises with parsed responses.
 
-const { requestUrl } = require('obsidian');
+import { getActiveWindowValue } from './dom-utils.js';
 
 class FeishuApiClient {
   /**
    * @param {string} appId
    * @param {string} appSecret
+   * @param {any} [requestUrl] Injected requestUrl implementation
    */
-  constructor(appId, appSecret) {
+  constructor(appId, appSecret, requestUrl) {
     this.appId = String(appId || '').trim();
     this.appSecret = String(appSecret || '').trim();
     this.accessToken = '';
     this.tokenExpiry = 0;
     this.baseUrl = 'https://open.feishu.cn/open-apis';
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic requestUrl extraction
+    const obsidianApi = getActiveWindowValue('obsidian');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic requestUrl extraction
+    this.requestUrl = requestUrl || (obsidianApi && typeof obsidianApi.requestUrl === 'function' ? obsidianApi.requestUrl : null);
   }
 
   /**
@@ -34,7 +41,7 @@ class FeishuApiClient {
     }
 
     const url = `${this.baseUrl}/auth/v3/tenant_access_token/internal`;
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'POST',
       headers: {
@@ -74,7 +81,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files?folder_token=${encodeURIComponent(folderToken)}&page_size=200`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'GET',
       headers: {
@@ -105,7 +112,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files/create_folder`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'POST',
       headers: {
@@ -195,7 +202,7 @@ class FeishuApiClient {
       offset += part.length;
     }
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'POST',
       headers: {
@@ -228,7 +235,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files/${fileToken}?type=${encodeURIComponent(type)}`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'DELETE',
       headers: {
@@ -268,7 +275,7 @@ class FeishuApiClient {
       };
     }
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'POST',
       headers: {
@@ -300,7 +307,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/import_tasks/${ticket}`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'GET',
       headers: {
@@ -351,7 +358,7 @@ class FeishuApiClient {
         }
         // Wait 3 seconds initially, increase to 5 seconds later
         const waitTime = retryCount >= 3 ? 5000 : 3000;
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
+        await new Promise((resolve) => window.setTimeout(resolve, waitTime));
       } else {
         throw new Error(`飞书导入任务失败 (job_status ${result.job_status})`);
       }
@@ -367,7 +374,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks?page_size=500`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'GET',
       headers: {
@@ -395,7 +402,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${rootBlockId}/children/batch_delete?document_revision_id=-1`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'POST',
       headers: {
@@ -425,7 +432,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/blocks/convert`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'POST',
       headers: {
@@ -458,7 +465,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${parentId}/children?document_revision_id=-1`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'POST',
       headers: {
@@ -547,7 +554,7 @@ class FeishuApiClient {
       offset += part.length;
     }
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'POST',
       headers: {
@@ -581,7 +588,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${blockId}?document_revision_id=-1`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'PATCH',
       headers: {
@@ -609,7 +616,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files/${fileToken}`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'PATCH',
       headers: {
@@ -639,7 +646,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/permissions/${docToken}/members/transfer_owner?need_notification=false&old_owner_perm=full_access&remove_old_owner=false&stay_put=true&type=docx`;
 
-    const resp = await requestUrl({
+    const resp = await this.requestUrl({
       url,
       method: 'POST',
       headers: {
@@ -661,6 +668,6 @@ class FeishuApiClient {
   }
 }
 
-module.exports = {
+export {
   FeishuApiClient,
 };

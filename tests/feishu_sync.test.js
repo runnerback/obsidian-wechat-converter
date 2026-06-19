@@ -1,19 +1,37 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 const obsidianMock = require('obsidian');
 
 // Mock requestUrl BEFORE requiring modules under test so they destructure the spy
 obsidianMock.requestUrl = vi.fn();
 
-const { FeishuApiClient } = require('../services/feishu-api');
-const {
-  stripYamlFrontmatter,
-  parseYamlTitle,
-  convertWikilinks,
-  convertObsidianImageSyntax,
-  extractImagesFromMarkdown,
-} = require('../services/feishu-markdown-processor');
-const { syncNoteToFeishu } = require('../services/feishu-sync');
-const { createDefaultFeishuSyncSettings } = require('../services/feishu-settings');
+let FeishuApiClient;
+let stripYamlFrontmatter;
+let parseYamlTitle;
+let convertWikilinks;
+let convertObsidianImageSyntax;
+let extractImagesFromMarkdown;
+let syncNoteToFeishu;
+let createDefaultFeishuSyncSettings;
+
+beforeAll(async () => {
+  globalThis.obsidian = obsidianMock;
+
+  const apiMod = await import('../services/feishu-api.js');
+  FeishuApiClient = apiMod.FeishuApiClient;
+
+  const processorMod = await import('../services/feishu-markdown-processor.js');
+  stripYamlFrontmatter = processorMod.stripYamlFrontmatter;
+  parseYamlTitle = processorMod.parseYamlTitle;
+  convertWikilinks = processorMod.convertWikilinks;
+  convertObsidianImageSyntax = processorMod.convertObsidianImageSyntax;
+  extractImagesFromMarkdown = processorMod.extractImagesFromMarkdown;
+
+  const syncMod = await import('../services/feishu-sync.js');
+  syncNoteToFeishu = syncMod.syncNoteToFeishu;
+
+  const settingsMod = await import('../services/feishu-settings.js');
+  createDefaultFeishuSyncSettings = settingsMod.createDefaultFeishuSyncSettings;
+});
 
 describe('Feishu Markdown Processor', () => {
   it('should strip YAML frontmatter', () => {

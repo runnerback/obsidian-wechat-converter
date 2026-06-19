@@ -1,18 +1,19 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- reason: JS file handles dynamic API responses without strict typescript type annotations */
 // services/feishu-sync.js
 //
 // High-level orchestrator for Feishu cloud documents synchronization.
 // Integrates settings, preprocessor, and low-level API client.
 // Uses Obsidian APIs (via injected 'app' dependency) and requestUrl.
 
-const { requestUrl } = require('obsidian');
-const { FeishuApiClient } = require('./feishu-api');
-const {
+import { getActiveWindowValue } from './dom-utils.js';
+import { FeishuApiClient } from './feishu-api.js';
+import {
   stripYamlFrontmatter,
   parseYamlTitle,
   convertWikilinks,
   extractImagesFromMarkdown,
-} = require('./feishu-markdown-processor');
-const { addFeishuUploadHistory, findFeishuHistoryByPath } = require('./feishu-settings');
+} from './feishu-markdown-processor.js';
+import { addFeishuUploadHistory, findFeishuHistoryByPath } from './feishu-settings.js';
 
 /**
  * Converts an ArrayBuffer to a base64 string.
@@ -34,11 +35,12 @@ function arrayBufferToBase64(buffer) {
  * @param {any} app Obsidian App instance
  * @param {{ path: string, originalSrc: string, isRemote: boolean }} imageInfo
  * @param {string} activeNotePath
+ * @param {any} requestUrlImpl requestUrl function implementation
  * @returns {Promise<string>} base64 string
  */
-async function resolveImageToBase64(app, imageInfo, activeNotePath) {
+async function resolveImageToBase64(app, imageInfo, activeNotePath, requestUrlImpl) {
   if (imageInfo.isRemote) {
-    const resp = await requestUrl({ url: imageInfo.originalSrc });
+    const resp = await requestUrlImpl({ url: imageInfo.originalSrc });
     return arrayBufferToBase64(resp.arrayBuffer);
   } else {
     const file = app.metadataCache.getFirstLinkpathDest(imageInfo.path, activeNotePath);
@@ -58,14 +60,20 @@ async function resolveImageToBase64(app, imageInfo, activeNotePath) {
  * @param {any} params.activeFile TFile
  * @param {string} params.markdown Note content
  * @param {function} [params.onProgress] progress callback (stage, message)
+ * @param {any} [params.requestUrl] requestUrl implementation
  * @returns {Promise<{ title: string, url: string, docToken: string, transferOwnerWarning?: string }>}
  */
-async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgress }) {
+async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgress, requestUrl }) {
   const notify = (stage, msg) => {
     if (typeof onProgress === 'function') {
       onProgress(stage, msg);
     }
   };
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic requestUrl extraction
+  const obsidianApi = getActiveWindowValue('obsidian');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic requestUrl extraction
+  const requestUrlImpl = requestUrl || (obsidianApi && typeof obsidianApi.requestUrl === 'function' ? obsidianApi.requestUrl : null);
 
   // 1. Resolve document title
   let title = parseYamlTitle(markdown);
@@ -77,7 +85,7 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
   title = title.substring(0, 250); // limit Feishu title length
 
   // 2. Initialize API client
-  const client = new FeishuApiClient(settings.appId, settings.appSecret);
+  const client = new FeishuApiClient(settings.appId, settings.appSecret, requestUrlImpl);
 
   // 3. Fallback Folder Search for lost history
   let historyItem = findFeishuHistoryByPath(settings, activeFile.path);
@@ -137,7 +145,7 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
         notify('importing', `正在写入内容块 (${i + 1}/${newBlocks.length})...`);
         await client.createDocumentBlocks(docToken, docToken, i, chunk);
         if (i + chunkSize < newBlocks.length) {
-          await new Promise((resolve) => setTimeout(resolve, 300)); // rate throttle
+          await new Promise((resolve) => window.setTimeout(resolve, 300)); // rate throttle
         }
       }
     }
@@ -193,7 +201,7 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
       notify('processing_images', `正在同步正文图片 (${i + 1}/${images.length}): ${image.fileName}...`);
       
       try {
-        const base64 = await resolveImageToBase64(app, image, activeFile.path);
+        const base64 = await resolveImageToBase64(app, image, activeFile.path, requestUrlImpl);
         const imageToken = await client.uploadImageMaterial(image.fileName, base64, docToken, block.block_id);
         
         await client.updateBlock(docToken, block.block_id, {
@@ -234,6 +242,6 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
   };
 }
 
-module.exports = {
+export {
   syncNoteToFeishu,
 };

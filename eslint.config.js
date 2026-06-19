@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import sdl from "@microsoft/eslint-plugin-sdl";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
 
 /**
  * @param {unknown} value
@@ -23,6 +24,11 @@ function normalizePluginModule(pluginModule) {
 }
 
 export default [
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
+    },
+  },
   js.configs.recommended,
   // Default CommonJS settings for plugin source files
   {
@@ -30,6 +36,7 @@ export default [
     plugins: {
       obsidianmd: normalizePluginModule(/** @type {unknown} */ (obsidianmd)),
       "@microsoft/sdl": normalizePluginModule(/** @type {unknown} */ (sdl)),
+      "@typescript-eslint": normalizePluginModule(/** @type {unknown} */ (tsPlugin)),
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -81,6 +88,10 @@ export default [
       "services/chinese-punctuation.js",
       "services/dependency-loader.js",
       "services/dom-utils.js",
+      "services/feishu-api.js",
+      "services/feishu-markdown-processor.js",
+      "services/feishu-settings.js",
+      "services/feishu-sync.js",
       "services/path-utils.js",
       "services/markdown-source.js",
       "services/render-pipeline.js",
@@ -100,7 +111,9 @@ export default [
       "services/wechatsync-results.js",
       "services/wechatsync-settings.js",
       "views/connection-status-bar.js",
+      "views/publish-modal/feishu.js",
       "views/publish-modal/multi-platform.js",
+      "views/settings/feishu-tab.js",
       "views/settings/multi-platform-tab.js",
     ],
     languageOptions: {

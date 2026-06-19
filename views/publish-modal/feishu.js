@@ -1,20 +1,29 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return -- reason: JS file handles dynamic API responses without strict typescript type annotations */
 // views/publish-modal/feishu.js
 //
 // Renders the Feishu tab content inside the publish modal.
 // Modularized to avoid bloat in input.js.
 // Uses Obsidian APIs (Setting, Notice, etc.).
 
-const { Setting, Notice } = require('obsidian');
-const { syncNoteToFeishu } = require('../../services/feishu-sync');
-const { findFeishuHistoryByPath } = require('../../services/feishu-settings');
+import { getActiveWindowValue } from '../../services/dom-utils.js';
+import { syncNoteToFeishu } from '../../services/feishu-sync.js';
+import { findFeishuHistoryByPath } from '../../services/feishu-settings.js';
 
 /**
  * Renders the Feishu publish tab content.
  * @param {any} view AppleStyleView instance
  * @param {any} modal Obsidian Modal instance
  * @param {HTMLDivElement} containerEl The container to render the tab content inside
+ * @param {object} [options={}] Injected options
  */
-function renderFeishuPublishTab(view, modal, containerEl) {
+function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic obsidian api resolution
+  const obsidian = options.obsidianApi || view.plugin.obsidianApi || getActiveWindowValue('obsidian') || {};
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic Setting component
+  const Setting = obsidian.Setting;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic Notice component
+  const Notice = obsidian.Notice;
+
   const { plugin } = view;
   const settings = plugin.settings.feishuSync;
 
@@ -154,6 +163,7 @@ function renderFeishuPublishTab(view, modal, containerEl) {
         onProgress: (stage, message) => {
           progressText.setText(message);
         },
+        requestUrl: obsidian.requestUrl,
       });
 
       // Save settings
@@ -178,16 +188,11 @@ function renderFeishuPublishTab(view, modal, containerEl) {
       const a = linkContainer.createEl('a', { text: result.title, href: result.url });
       a.onclick = (e) => {
         e.preventDefault();
-        try {
-          const electron = require('electron');
-          if (electron?.shell?.openExternal) {
-            electron.shell.openExternal(result.url);
-            return;
-          }
-        } catch {
-          // fallback
+        if (view.plugin && typeof view.plugin.openExternalUrl === 'function') {
+          view.plugin.openExternalUrl(result.url);
+        } else {
+          window.open(result.url, '_blank', 'noopener');
         }
-        window.open(result.url, '_blank', 'noopener');
       };
 
       const resultActions = resultCard.createDiv();
@@ -197,13 +202,10 @@ function renderFeishuPublishTab(view, modal, containerEl) {
       openBtn.onclick = () => a.click();
 
       const copyBtn = resultActions.createEl('button', { text: '复制链接' });
-      copyBtn.onClickEvent?.(() => {
+      copyBtn.onclick = () => {
         navigator.clipboard.writeText(result.url);
         new Notice('✅ 链接已复制到剪贴板');
-      }) || (copyBtn.onclick = () => {
-        navigator.clipboard.writeText(result.url);
-        new Notice('✅ 链接已复制到剪贴板');
-      });
+      };
 
       resultCard.setCssStyles({ display: 'block' });
       
@@ -227,6 +229,6 @@ function renderFeishuPublishTab(view, modal, containerEl) {
   };
 }
 
-module.exports = {
+export {
   renderFeishuPublishTab,
 };
