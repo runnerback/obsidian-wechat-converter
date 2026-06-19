@@ -542,6 +542,13 @@ import {
 
 import { renderMultiPlatformSettingsTab } from './views/settings/multi-platform-tab.js';
 import { showMultiPlatformPublishModal } from './views/publish-modal/multi-platform.js';
+import { renderFeishuSettingsTab } from './views/settings/feishu-tab.js';
+import { renderFeishuPublishTab } from './views/publish-modal/feishu.js';
+import {
+  createDefaultFeishuSyncSettings,
+  normalizeFeishuSyncSettings,
+  updateFeishuHistoryPath,
+} from './services/feishu-settings.js';
 
 function getObsidianModalClass() {
   return obsidianApi.Modal;
@@ -721,6 +728,7 @@ const DEFAULT_SETTINGS = {
   cleanupUseSystemTrash: true,
   cleanupDirTemplate: '', // 发送成功后要清理的目录（支持 {{note}}）
   multiPlatformSync: createDefaultMultiPlatformSyncSettings(),
+  feishuSync: createDefaultFeishuSyncSettings(),
   // 旧字段保留用于迁移检测
   wechatAppId: '',
   wechatAppSecret: '',
@@ -5015,11 +5023,21 @@ class AppleStyleView extends ItemView {
       text: '微信草稿箱',
       cls: `wechat-publish-mode-tab${activeMode === 'wechat' ? ' is-active' : ''}`,
     });
+
+    let feishuTab = null;
+    const feishuEnabled = this.plugin.settings.feishuSync?.enabled;
+    if (feishuEnabled) {
+      feishuTab = publishModeTabs.createEl('button', {
+        text: '飞书云文档',
+        cls: `wechat-publish-mode-tab${activeMode === 'feishu' ? ' is-active' : ''}`,
+      });
+    }
+
     const multiPlatformTab = publishModeTabs.createEl('button', {
       cls: `wechat-publish-mode-tab${activeMode === 'multi' ? ' is-active' : ''}`,
     });
     multiPlatformTab.createEl('span', { text: MULTI_PLATFORM_TAB_LABEL });
-    return { wechatTab, multiPlatformTab };
+    return { wechatTab, feishuTab, multiPlatformTab };
   }
 
   /**
@@ -5037,7 +5055,10 @@ class AppleStyleView extends ItemView {
         const modal = options.modal;
         const mobileSync = isMobileClient(this.app);
         this.preparePublishModalShell(modal, { mode: 'wechat', mobileSync });
-        const { multiPlatformTab } = this.createPublishModeTabs(modal, 'wechat');
+        const { feishuTab, multiPlatformTab } = this.createPublishModeTabs(modal, 'wechat');
+        if (feishuTab) {
+          feishuTab.onclick = () => this.showFeishuSyncModal({ modal });
+        }
         multiPlatformTab.onclick = () => this.showMultiPlatformSyncModal({ modal });
         const empty = modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' });
         empty.createEl('h3', { text: '尚未配置微信公众号账号' });
@@ -5047,6 +5068,10 @@ class AppleStyleView extends ItemView {
           modal.close();
           this.openPluginSettings();
         };
+        return;
+      }
+      if (this.plugin.settings.feishuSync?.enabled) {
+        this.showFeishuSyncModal();
         return;
       }
       if (this.plugin.settings.multiPlatformSync?.enabled) {
@@ -5061,7 +5086,12 @@ class AppleStyleView extends ItemView {
     const mobileSync = isMobileClient(this.app);
     this.preparePublishModalShell(modal, { mode: 'wechat', mobileSync });
 
-    const { multiPlatformTab } = this.createPublishModeTabs(modal, 'wechat');
+    const { feishuTab, multiPlatformTab } = this.createPublishModeTabs(modal, 'wechat');
+    if (feishuTab) {
+      feishuTab.onclick = () => {
+        this.showFeishuSyncModal({ modal });
+      };
+    }
     multiPlatformTab.onclick = () => {
       this.showMultiPlatformSyncModal({ modal });
     };
@@ -6118,6 +6148,30 @@ class AppleStyleView extends ItemView {
    */
   async showMultiPlatformSyncModal(options = {}) {
     return /** @type {Promise<unknown>} */ (showMultiPlatformPublishModal(this, { ...options, obsidianApi }));
+  }
+
+  showFeishuSyncModal(options = {}) {
+    const modal = options.modal || createObsidianModal(this.app);
+    const mobileSync = isMobileClient(this.app);
+    this.preparePublishModalShell(modal, { mode: 'feishu', mobileSync });
+
+    const { wechatTab, multiPlatformTab } = this.createPublishModeTabs(modal, 'feishu');
+    if (wechatTab) {
+      wechatTab.onclick = () => {
+        this.showSyncModal({ modal });
+      };
+    }
+    if (multiPlatformTab) {
+      multiPlatformTab.onclick = () => {
+        this.showMultiPlatformSyncModal({ modal });
+      };
+    }
+
+    renderFeishuPublishTab(this, modal, modal.contentEl);
+
+    if (!options.modal) {
+      modal.open();
+    }
   }
 
   /**
@@ -7521,30 +7575,49 @@ class AppleStyleSettingTab extends PluginSettingTab {
     // === Tab 导航 ===
     const tabBar = containerEl.createDiv({ cls: 'apple-settings-tabs' });
     const wechatTab = tabBar.createDiv({ cls: 'apple-settings-tab active', text: '微信' });
+    const feishuTab = tabBar.createDiv({ cls: 'apple-settings-tab', text: '飞书' });
     const multiTab = tabBar.createDiv({ cls: 'apple-settings-tab apple-settings-tab-multi' });
     multiTab.createSpan({ text: MULTI_PLATFORM_TAB_LABEL, cls: 'apple-settings-tab-label' });
 
     const wechatContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
+    const feishuContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
+    feishuContent.setCssStyles({ display: 'none' });
     const multiContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
     multiContent.setCssStyles({ display: 'none' });
 
     wechatTab.onclick = () => {
       this._activeSettingsTab = 'wechat';
       wechatTab.addClass('active');
+      feishuTab.removeClass('active');
       multiTab.removeClass('active');
       wechatContent.setCssStyles({ display: '' });
+      feishuContent.setCssStyles({ display: 'none' });
       multiContent.setCssStyles({ display: 'none' });
+    };
+    feishuTab.onclick = () => {
+      this._activeSettingsTab = 'feishu';
+      feishuTab.addClass('active');
+      wechatTab.removeClass('active');
+      multiTab.removeClass('active');
+      wechatContent.setCssStyles({ display: 'none' });
+      feishuContent.setCssStyles({ display: '' });
+      multiContent.setCssStyles({ display: 'none' });
+      renderFeishuSettingsTab(this, feishuContent);
     };
     multiTab.onclick = () => {
       this._activeSettingsTab = 'multi';
       multiTab.addClass('active');
       wechatTab.removeClass('active');
+      feishuTab.removeClass('active');
       wechatContent.setCssStyles({ display: 'none' });
+      feishuContent.setCssStyles({ display: 'none' });
       multiContent.setCssStyles({ display: '' });
     };
 
     // 恢复上次激活的 Tab
-    if (this._activeSettingsTab === 'multi') {
+    if (this._activeSettingsTab === 'feishu') {
+      feishuTab.onclick();
+    } else if (this._activeSettingsTab === 'multi') {
       multiTab.onclick();
     }
 
@@ -8523,6 +8596,21 @@ class AppleStylePlugin extends Plugin {
       });
     });
 
+    if (typeof this.app.vault.on === 'function') {
+      this.registerEvent(
+        this.app.vault.on('rename', (file, oldPath) => {
+          if (this.settings.feishuSync) {
+            const changed = updateFeishuHistoryPath(this.settings.feishuSync, oldPath, file.path);
+            if (changed) {
+              this.saveSettings().catch((err) => {
+                console.error('保存重命名设置失败:', err);
+              });
+            }
+          }
+        })
+      );
+    }
+
     this.startWechatSyncBridgeInBackground('plugin-load');
 
     console.log('✅ Obsidian 发布助手加载完成');
@@ -8684,6 +8772,7 @@ class AppleStylePlugin extends Plugin {
     }
 
     settings['multiPlatformSync'] = normalizeMultiPlatformSyncSettings(settings['multiPlatformSync']);
+    settings['feishuSync'] = normalizeFeishuSyncSettings(settings['feishuSync']);
 
     const normalizedDraftCache = normalizeDraftCache(settings['draftCache']);
     settings['draftCache'] = normalizedDraftCache.cache;

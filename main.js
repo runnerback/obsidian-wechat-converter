@@ -5441,6 +5441,1372 @@ ${macHeader}
   }
 });
 
+// services/feishu-api.js
+var require_feishu_api = __commonJS({
+  "services/feishu-api.js"(exports, module2) {
+    var { requestUrl } = require("obsidian");
+    var FeishuApiClient = class {
+      /**
+       * @param {string} appId
+       * @param {string} appSecret
+       */
+      constructor(appId, appSecret) {
+        this.appId = String(appId || "").trim();
+        this.appSecret = String(appSecret || "").trim();
+        this.accessToken = "";
+        this.tokenExpiry = 0;
+        this.baseUrl = "https://open.feishu.cn/open-apis";
+      }
+      /**
+       * Gets the tenant_access_token, refreshing it if expired.
+       * @returns {Promise<string>}
+       */
+      async getAccessToken() {
+        const now = Date.now();
+        if (this.accessToken && this.tokenExpiry > now + 60 * 1e3) {
+          return this.accessToken;
+        }
+        if (!this.appId || !this.appSecret) {
+          throw new Error("\u672A\u914D\u7F6E\u98DE\u4E66 AppID \u6216 AppSecret\uFF0C\u65E0\u6CD5\u83B7\u53D6 Access Token");
+        }
+        const url = `${this.baseUrl}/auth/v3/tenant_access_token/internal`;
+        const resp = await requestUrl({
+          url,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          body: JSON.stringify({
+            app_id: this.appId,
+            app_secret: this.appSecret
+          })
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u83B7\u53D6\u98DE\u4E66 tenant_access_token \u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        const token = data.tenant_access_token || "";
+        if (!token) {
+          throw new Error("\u98DE\u4E66\u63A5\u53E3\u8FD4\u56DE\u6570\u636E\u4E2D\u7F3A\u5C11 tenant_access_token");
+        }
+        const expireIn = Number(data.expire || 7200);
+        this.accessToken = token;
+        this.tokenExpiry = now + (expireIn - 300) * 1e3;
+        return token;
+      }
+      /**
+       * List files/folders under a folder.
+       * @param {string} folderToken
+       * @returns {Promise<Array<{ type: string, name: string, token: string }>>}
+       */
+      async listFolderItems(folderToken) {
+        var _a5;
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/drive/v1/files?folder_token=${encodeURIComponent(folderToken)}&page_size=200`;
+        const resp = await requestUrl({
+          url,
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u8BFB\u53D6\u98DE\u4E66\u6587\u4EF6\u5939\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        const files = ((_a5 = data.data) == null ? void 0 : _a5.files) || [];
+        return files.map((item) => ({
+          type: item.type || "",
+          name: item.name || "",
+          token: item.token || ""
+        }));
+      }
+      /**
+       * Creates a folder in the parent folder.
+       * @param {string} parentFolderToken
+       * @param {string} folderName
+       * @returns {Promise<string>} Folder token
+       */
+      async createFolder(parentFolderToken, folderName) {
+        var _a5;
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/drive/v1/files/create_folder`;
+        const resp = await requestUrl({
+          url,
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          body: JSON.stringify({
+            name: folderName,
+            folder_token: parentFolderToken
+          })
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u521B\u5EFA\u98DE\u4E66\u6587\u4EF6\u5939\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        const folderToken = ((_a5 = data.data) == null ? void 0 : _a5.token) || "";
+        if (!folderToken) {
+          throw new Error("\u98DE\u4E66\u521B\u5EFA\u6587\u4EF6\u5939\u63A5\u53E3\u672A\u8FD4\u56DE\u6587\u4EF6\u5939 Token");
+        }
+        return folderToken;
+      }
+      /**
+       * Upload a raw file (like markdown) to the drive.
+       * @param {string} fileName
+       * @param {string} base64Content
+       * @param {string} [folderToken]
+       * @returns {Promise<string>} File token
+       */
+      async uploadFile(fileName, base64Content, folderToken = "") {
+        var _a5;
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/drive/v1/files/upload_all`;
+        const binaryStr = atob(base64Content);
+        const binaryData = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          binaryData[i] = binaryStr.charCodeAt(i);
+        }
+        const boundary = "feishu-file-boundary-" + Math.random().toString(36).substring(2, 15);
+        const encoder = new TextEncoder();
+        const parts = [];
+        parts.push(encoder.encode(`--${boundary}\r
+`));
+        parts.push(encoder.encode(`Content-Disposition: form-data; name="file_name"\r
+\r
+`));
+        parts.push(encoder.encode(`${fileName}\r
+`));
+        parts.push(encoder.encode(`--${boundary}\r
+`));
+        parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_type"\r
+\r
+`));
+        parts.push(encoder.encode(`explorer\r
+`));
+        if (folderToken) {
+          parts.push(encoder.encode(`--${boundary}\r
+`));
+          parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_node"\r
+\r
+`));
+          parts.push(encoder.encode(`${folderToken}\r
+`));
+        }
+        parts.push(encoder.encode(`--${boundary}\r
+`));
+        parts.push(encoder.encode(`Content-Disposition: form-data; name="size"\r
+\r
+`));
+        parts.push(encoder.encode(`${binaryData.length.toString()}\r
+`));
+        parts.push(encoder.encode(`--${boundary}\r
+`));
+        const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+        parts.push(encoder.encode(`Content-Disposition: form-data; name="file"; filename="${fileNameWithoutExt}"\r
+`));
+        parts.push(encoder.encode(`Content-Type: application/octet-stream\r
+\r
+`));
+        parts.push(binaryData);
+        parts.push(encoder.encode(`\r
+`));
+        parts.push(encoder.encode(`--${boundary}--\r
+`));
+        const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+        const bodyBuffer = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const part of parts) {
+          bodyBuffer.set(part, offset);
+          offset += part.length;
+        }
+        const resp = await requestUrl({
+          url,
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": `multipart/form-data; boundary=${boundary}`
+          },
+          body: bodyBuffer.buffer
+          // Use raw ArrayBuffer
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u4E0A\u4F20\u98DE\u4E66\u4E34\u65F6\u6587\u4EF6\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        const fileToken = ((_a5 = data.data) == null ? void 0 : _a5.file_token) || "";
+        if (!fileToken) {
+          throw new Error("\u98DE\u4E66\u4E0A\u4F20\u6587\u4EF6\u63A5\u53E3\u672A\u8FD4\u56DE file_token");
+        }
+        return fileToken;
+      }
+      /**
+       * Delete a file on the drive (useful for cleaning up temporary uploads).
+       * @param {string} fileToken
+       * @param {string} [type='file'] 'file' | 'folder' | 'docx'
+       * @returns {Promise<boolean>}
+       */
+      async deleteFile(fileToken, type = "file") {
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/drive/v1/files/${fileToken}?type=${encodeURIComponent(type)}`;
+        const resp = await requestUrl({
+          url,
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        const data = resp.json;
+        return data.code === 0;
+      }
+      /**
+       * Create a drive import task to convert a markdown file token into a docx cloud document.
+       * @param {string} fileName
+       * @param {string} fileToken
+       * @param {string} [folderToken]
+       * @returns {Promise<string>} Ticket
+       */
+      async createImportTask(fileName, fileToken, folderToken = "") {
+        var _a5;
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/drive/v1/import_tasks`;
+        const lastDotIndex = fileName.lastIndexOf(".");
+        const pureFileName = lastDotIndex > 0 ? fileName.substring(0, lastDotIndex) : fileName;
+        const requestBody = {
+          file_extension: "md",
+          file_name: pureFileName,
+          type: "docx",
+          file_token: fileToken
+        };
+        if (folderToken) {
+          requestBody.point = {
+            mount_type: 1,
+            // 1 represents folder
+            mount_key: folderToken
+          };
+        }
+        const resp = await requestUrl({
+          url,
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          body: JSON.stringify(requestBody)
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u521B\u5EFA\u98DE\u4E66\u5BFC\u5165\u4EFB\u52A1\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        const ticket = ((_a5 = data.data) == null ? void 0 : _a5.ticket) || "";
+        if (!ticket) {
+          throw new Error("\u98DE\u4E66\u521B\u5EFA\u5BFC\u5165\u4EFB\u52A1\u63A5\u53E3\u672A\u8FD4\u56DE ticket");
+        }
+        return ticket;
+      }
+      /**
+       * Query import task status.
+       * @param {string} ticket
+       * @returns {Promise<{ job_status: number, token?: string, url?: string }>}
+       */
+      async queryImportTask(ticket) {
+        var _a5;
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/drive/v1/import_tasks/${ticket}`;
+        const resp = await requestUrl({
+          url,
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json; charset=utf-8"
+          }
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u67E5\u8BE2\u98DE\u4E66\u5BFC\u5165\u4EFB\u52A1\u72B6\u6001\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        const taskResult = ((_a5 = data.data) == null ? void 0 : _a5.result) || data.data;
+        if (!taskResult) {
+          throw new Error("\u98DE\u4E66\u67E5\u8BE2\u5BFC\u5165\u4EFB\u52A1\u72B6\u6001\u672A\u8FD4\u56DE\u6709\u6548\u6570\u636E");
+        }
+        return {
+          job_status: taskResult.job_status,
+          token: taskResult.token,
+          url: taskResult.url
+        };
+      }
+      /**
+       * Polls the import task until finished or timed out.
+       * @param {string} ticket
+       * @param {number} [maxRetries=5]
+       * @returns {Promise<{ token: string, url: string }>}
+       */
+      async waitForImportTask(ticket, maxRetries = 6) {
+        let retryCount = 0;
+        while (retryCount <= maxRetries) {
+          const result = await this.queryImportTask(ticket);
+          if (result.job_status === 0) {
+            if (!result.token || !result.url) {
+              throw new Error("\u98DE\u4E66\u5BFC\u5165\u5B8C\u6210\uFF0C\u4F46\u672A\u8FD4\u56DE\u6587\u6863 Token \u6216 URL");
+            }
+            return {
+              token: result.token,
+              url: result.url
+            };
+          } else if (result.job_status === 1 || result.job_status === 2) {
+            retryCount++;
+            if (retryCount > maxRetries) {
+              throw new Error("\u98DE\u4E66\u6587\u6863\u5BFC\u5165\u5904\u7406\u8D85\u65F6\uFF0C\u8BF7\u7A0D\u540E\u524D\u5F80\u4E91\u6587\u6863\u67E5\u770B");
+            }
+            const waitTime = retryCount >= 3 ? 5e3 : 3e3;
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
+          } else {
+            throw new Error(`\u98DE\u4E66\u5BFC\u5165\u4EFB\u52A1\u5931\u8D25 (job_status ${result.job_status})`);
+          }
+        }
+      }
+      /**
+       * Fetch all blocks of a docx document.
+       * @param {string} documentId
+       * @returns {Promise<Array<{ block_id: string, parent_id: string, block_type: number }>>}
+       */
+      async getDocumentBlocks(documentId) {
+        var _a5;
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks?page_size=500`;
+        const resp = await requestUrl({
+          url,
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u83B7\u53D6\u98DE\u4E66\u6587\u6863\u7ED3\u6784\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        return ((_a5 = data.data) == null ? void 0 : _a5.items) || [];
+      }
+      /**
+       * Batch deletes child blocks from the document root.
+       * @param {string} documentId
+       * @param {string} rootBlockId
+       * @param {number} startIndex (inclusive)
+       * @param {number} endIndex (exclusive)
+       * @returns {Promise<boolean>}
+       */
+      async batchDeleteBlocks(documentId, rootBlockId, startIndex, endIndex) {
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${rootBlockId}/children/batch_delete?document_revision_id=-1`;
+        const resp = await requestUrl({
+          url,
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          body: JSON.stringify({
+            start_index: startIndex,
+            end_index: endIndex
+          })
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u6279\u91CF\u5220\u9664\u98DE\u4E66\u6587\u6863\u5757\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        return true;
+      }
+      /**
+       * Convert markdown text to docx block structures.
+       * @param {string} markdownContent
+       * @returns {Promise<Array<Record<string, unknown>>>>}
+       */
+      async convertMarkdownToBlocks(markdownContent) {
+        var _a5;
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/docx/v1/documents/blocks/convert`;
+        const resp = await requestUrl({
+          url,
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          body: JSON.stringify({
+            content_type: "markdown",
+            content: markdownContent
+          })
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u8F6C\u6362 Markdown \u5230\u6587\u6863\u5757\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        return ((_a5 = data.data) == null ? void 0 : _a5.blocks) || [];
+      }
+      /**
+       * Create document blocks under a parent block.
+       * @param {string} documentId
+       * @param {string} parentId
+       * @param {number} index
+       * @param {Array<Record<string, unknown>>} children
+       * @returns {Promise<unknown>}
+       */
+      async createDocumentBlocks(documentId, parentId, index, children) {
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${parentId}/children?document_revision_id=-1`;
+        const resp = await requestUrl({
+          url,
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          body: JSON.stringify({
+            index,
+            children
+          })
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u63D2\u5165\u6587\u6863\u5757\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        return data.data;
+      }
+      /**
+       * Upload an image to the document media space.
+       * @param {string} fileName
+       * @param {string} base64Content
+       * @param {string} documentId
+       * @param {string} blockId
+       * @returns {Promise<string>} Image token
+       */
+      async uploadImageMaterial(fileName, base64Content, documentId, blockId) {
+        var _a5;
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/drive/v1/medias/upload_all`;
+        const binaryStr = atob(base64Content);
+        const binaryData = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          binaryData[i] = binaryStr.charCodeAt(i);
+        }
+        const boundary = "feishu-image-boundary-" + Math.random().toString(36).substring(2, 15);
+        const encoder = new TextEncoder();
+        const parts = [];
+        parts.push(encoder.encode(`--${boundary}\r
+`));
+        parts.push(encoder.encode(`Content-Disposition: form-data; name="file_name"\r
+\r
+`));
+        parts.push(encoder.encode(`${fileName}\r
+`));
+        parts.push(encoder.encode(`--${boundary}\r
+`));
+        parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_type"\r
+\r
+`));
+        parts.push(encoder.encode(`docx_image\r
+`));
+        parts.push(encoder.encode(`--${boundary}\r
+`));
+        parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_node"\r
+\r
+`));
+        parts.push(encoder.encode(`${blockId}\r
+`));
+        parts.push(encoder.encode(`--${boundary}\r
+`));
+        parts.push(encoder.encode(`Content-Disposition: form-data; name="size"\r
+\r
+`));
+        parts.push(encoder.encode(`${binaryData.length.toString()}\r
+`));
+        parts.push(encoder.encode(`--${boundary}\r
+`));
+        parts.push(encoder.encode(`Content-Disposition: form-data; name="extra"\r
+\r
+`));
+        const extraData = JSON.stringify({ drive_route_token: documentId });
+        parts.push(encoder.encode(`${extraData}\r
+`));
+        parts.push(encoder.encode(`--${boundary}\r
+`));
+        parts.push(encoder.encode(`Content-Disposition: form-data; name="file"; filename="${fileName}"\r
+`));
+        parts.push(encoder.encode(`Content-Type: application/octet-stream\r
+\r
+`));
+        parts.push(binaryData);
+        parts.push(encoder.encode(`\r
+`));
+        parts.push(encoder.encode(`--${boundary}--\r
+`));
+        const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+        const bodyBuffer = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const part of parts) {
+          bodyBuffer.set(part, offset);
+          offset += part.length;
+        }
+        const resp = await requestUrl({
+          url,
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": `multipart/form-data; boundary=${boundary}`
+          },
+          body: bodyBuffer.buffer
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u4E0A\u4F20\u98DE\u4E66\u6587\u6863\u56FE\u7247\u7D20\u6750\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        const fileToken = ((_a5 = data.data) == null ? void 0 : _a5.file_token) || "";
+        if (!fileToken) {
+          throw new Error("\u98DE\u4E66\u4E0A\u4F20\u56FE\u7247\u63A5\u53E3\u672A\u8FD4\u56DE file_token");
+        }
+        return fileToken;
+      }
+      /**
+       * Update a specific block.
+       * @param {string} documentId
+       * @param {string} blockId
+       * @param {Record<string, unknown>} blockData
+       * @returns {Promise<unknown>}
+       */
+      async updateBlock(documentId, blockId, blockData) {
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${blockId}?document_revision_id=-1`;
+        const resp = await requestUrl({
+          url,
+          method: "PATCH",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(blockData)
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u66F4\u65B0\u98DE\u4E66\u6587\u6863\u5757\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        return data.data;
+      }
+      /**
+       * Rename a drive file/document.
+       * @param {string} fileToken
+       * @param {string} name
+       * @returns {Promise<boolean>}
+       */
+      async renameFile(fileToken, name) {
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/drive/v1/files/${fileToken}`;
+        const resp = await requestUrl({
+          url,
+          method: "PATCH",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          body: JSON.stringify({
+            name
+          })
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u91CD\u547D\u540D\u98DE\u4E66\u6587\u4EF6\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        return true;
+      }
+      /**
+       * Transfer document ownership from the Robot to the user's userId.
+       * @param {string} docToken
+       * @param {string} userId
+       * @returns {Promise<boolean>}
+       */
+      async transferDocumentOwnership(docToken, userId) {
+        const token = await this.getAccessToken();
+        const url = `${this.baseUrl}/drive/v1/permissions/${docToken}/members/transfer_owner?need_notification=false&old_owner_perm=full_access&remove_old_owner=false&stay_put=true&type=docx`;
+        const resp = await requestUrl({
+          url,
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          body: JSON.stringify({
+            member_id: userId,
+            member_type: "user_id"
+            // Feishu userId format (e.g. abc1234)
+          })
+        });
+        const data = resp.json;
+        if (data.code !== 0) {
+          throw new Error(`\u8F6C\u79FB\u98DE\u4E66\u6587\u6863\u6240\u6709\u6743\u5931\u8D25 (code ${data.code}): ${data.msg}`);
+        }
+        return true;
+      }
+    };
+    module2.exports = {
+      FeishuApiClient
+    };
+  }
+});
+
+// services/feishu-settings.js
+var require_feishu_settings = __commonJS({
+  "services/feishu-settings.js"(exports, module2) {
+    function createDefaultFeishuSyncSettings2() {
+      return {
+        enabled: false,
+        appId: "",
+        appSecret: "",
+        folderToken: "",
+        userId: "",
+        // Required for transferring ownership from Bot to User
+        enableSmartUpdate: true,
+        enableDoubleLinkMode: false,
+        debugLoggingEnabled: false,
+        uploadHistory: []
+        // [{ title, url, uploadTime, docToken, sourcePath }]
+      };
+    }
+    function normalizeFeishuSyncSettings2(value) {
+      const source = value && typeof value === "object" ? value : {};
+      const uploadHistory = Array.isArray(source.uploadHistory) ? source.uploadHistory.map((item) => {
+        if (!item || typeof item !== "object")
+          return null;
+        return {
+          title: typeof item.title === "string" ? item.title : "\u65E0\u6807\u9898\u6587\u7AE0",
+          url: typeof item.url === "string" ? item.url : "",
+          uploadTime: typeof item.uploadTime === "string" ? item.uploadTime : "",
+          docToken: typeof item.docToken === "string" ? item.docToken : "",
+          sourcePath: typeof item.sourcePath === "string" ? item.sourcePath : ""
+        };
+      }).filter(Boolean) : [];
+      return {
+        enabled: source.enabled === true,
+        appId: typeof source.appId === "string" ? source.appId.trim() : "",
+        appSecret: typeof source.appSecret === "string" ? source.appSecret.trim() : "",
+        folderToken: typeof source.folderToken === "string" ? source.folderToken.trim() : "",
+        userId: typeof source.userId === "string" ? source.userId.trim() : "",
+        enableSmartUpdate: source.enableSmartUpdate !== false,
+        enableDoubleLinkMode: source.enableDoubleLinkMode === true,
+        debugLoggingEnabled: source.debugLoggingEnabled === true,
+        uploadHistory
+      };
+    }
+    function addFeishuUploadHistory(settings, item) {
+      if (!settings || typeof settings !== "object")
+        return;
+      if (!Array.isArray(settings.uploadHistory)) {
+        settings.uploadHistory = [];
+      }
+      const normalizedItem = {
+        title: typeof item.title === "string" ? item.title : "\u65E0\u6807\u9898\u6587\u7AE0",
+        url: typeof item.url === "string" ? item.url : "",
+        uploadTime: typeof item.uploadTime === "string" ? item.uploadTime : new Date().toISOString(),
+        docToken: typeof item.docToken === "string" ? item.docToken : "",
+        sourcePath: typeof item.sourcePath === "string" ? item.sourcePath : ""
+      };
+      settings.uploadHistory = settings.uploadHistory.filter(
+        (x) => x.docToken !== normalizedItem.docToken && x.sourcePath !== normalizedItem.sourcePath
+      );
+      settings.uploadHistory.unshift(normalizedItem);
+      if (settings.uploadHistory.length > 100) {
+        settings.uploadHistory = settings.uploadHistory.slice(0, 100);
+      }
+    }
+    function findFeishuHistoryByPath(settings, path) {
+      if (!settings || !Array.isArray(settings.uploadHistory))
+        return null;
+      const targetPath = String(path || "").trim();
+      if (!targetPath)
+        return null;
+      return settings.uploadHistory.find((x) => x.sourcePath === targetPath) || null;
+    }
+    function updateFeishuHistoryPath2(settings, oldPath, newPath) {
+      if (!settings || !Array.isArray(settings.uploadHistory))
+        return false;
+      const targetOld = String(oldPath || "").trim();
+      const targetNew = String(newPath || "").trim();
+      if (!targetOld || !targetNew)
+        return false;
+      let changed = false;
+      settings.uploadHistory.forEach((x) => {
+        if (x.sourcePath === targetOld) {
+          x.sourcePath = targetNew;
+          changed = true;
+        }
+      });
+      return changed;
+    }
+    module2.exports = {
+      createDefaultFeishuSyncSettings: createDefaultFeishuSyncSettings2,
+      normalizeFeishuSyncSettings: normalizeFeishuSyncSettings2,
+      addFeishuUploadHistory,
+      findFeishuHistoryByPath,
+      updateFeishuHistoryPath: updateFeishuHistoryPath2
+    };
+  }
+});
+
+// views/settings/feishu-tab.js
+var require_feishu_tab = __commonJS({
+  "views/settings/feishu-tab.js"(exports, module2) {
+    var { Setting: Setting2, Notice: Notice2 } = require("obsidian");
+    var { FeishuApiClient } = require_feishu_api();
+    var { normalizeFeishuSyncSettings: normalizeFeishuSyncSettings2 } = require_feishu_settings();
+    function renderFeishuSettingsTab2(tab, containerEl) {
+      const { plugin } = tab;
+      const settings = normalizeFeishuSyncSettings2(plugin.settings.feishuSync);
+      plugin.settings.feishuSync = settings;
+      containerEl.empty();
+      containerEl.createEl("h2", { text: "\u98DE\u4E66\u4E91\u6587\u6863\u540C\u6B65\u914D\u7F6E", cls: "wechat-feishu-heading" });
+      containerEl.createEl("p", {
+        text: "\u901A\u8FC7\u98DE\u4E66\u81EA\u5EFA\u5E94\u7528\u673A\u5668\u4EBA\u63A5\u53E3\uFF0C\u5C06\u5F53\u524D Obsidian \u7B14\u8BB0\u4E00\u952E\u53D1\u5E03\u5E76\u8F6C\u6362\u4E3A\u539F\u751F\u7684\u98DE\u4E66\u4E91\u6587\u6863\uFF08docx\uFF09\uFF0C\u652F\u6301\u4FDD\u7559\u6807\u9898\u3001\u8868\u683C\u3001\u4EE5\u53CA\u56FE\u7247\u4E0A\u4F20\uFF08\u5305\u542B\u672C\u5730\u548C\u56FE\u5E8A\u56FE\u7247\uFF09\u3002",
+        cls: "setting-item-description"
+      });
+      new Setting2(containerEl).setName("\u542F\u7528\u98DE\u4E66\u540C\u6B65\u529F\u80FD").setDesc("\u5F00\u542F\u540E\uFF0C\u53D1\u5E03\u5F39\u7A97\u4E2D\u4F1A\u51FA\u73B0\u300C\u98DE\u4E66\u300D\u9009\u9879\u5361\uFF0C\u652F\u6301\u5C06\u7B14\u8BB0\u53D1\u5E03\u81F3\u98DE\u4E66\u4E91\u76D8\u3002").addToggle(
+        (toggle) => toggle.setValue(settings.enabled).onChange(async (value) => {
+          settings.enabled = value;
+          await plugin.saveSettings();
+          tab.display();
+        })
+      );
+      if (!settings.enabled)
+        return;
+      new Setting2(containerEl).setName("\u98DE\u4E66\u81EA\u5EFA\u5E94\u7528 App ID").setDesc("\u5728\u98DE\u4E66\u5F00\u653E\u5E73\u53F0\uFF08open.feishu.cn\uFF09\u4E2D\uFF0C\u60A8\u521B\u5EFA\u7684\u4F01\u4E1A\u81EA\u5EFA\u5E94\u7528\u7684 App ID").addText(
+        (text) => text.setPlaceholder("cli_a248xxxxxxxxxxxx").setValue(settings.appId).onChange(async (value) => {
+          settings.appId = value.trim();
+          await plugin.saveSettings();
+        })
+      );
+      new Setting2(containerEl).setName("\u98DE\u4E66\u81EA\u5EFA\u5E94\u7528 App Secret").setDesc("\u81EA\u5EFA\u5E94\u7528\u7684 App Secret \u51ED\u8BC1").addText((text) => {
+        text.inputEl.type = "password";
+        text.setPlaceholder("xxxxxxxxxxxxxxxxxxxx").setValue(settings.appSecret).onChange(async (value) => {
+          settings.appSecret = value.trim();
+          await plugin.saveSettings();
+        });
+      });
+      new Setting2(containerEl).setName("\u540C\u6B65\u76EE\u6807\u6587\u4EF6\u5939 Token").setDesc("\u98DE\u4E66\u6587\u4EF6\u5939\u94FE\u63A5\u4E2D\u7684\u6700\u540E\u4E00\u4E32\u5B57\u7B26\u3002\u4F8B\u5982\uFF1Ahttps://feishu.cn/drive/folder/fldcnXXXXXXXXX \u7684 Token \u662F fldcnXXXXXXXXX").addText(
+        (text) => text.setPlaceholder("fldcnxxxxxxxxxxxxxxxxxx").setValue(settings.folderToken).onChange(async (value) => {
+          settings.folderToken = value.trim();
+          await plugin.saveSettings();
+        })
+      );
+      new Setting2(containerEl).setName("\u98DE\u4E66\u7528\u6237 ID (User ID)").setDesc("\u7528\u4E8E\u5728\u540C\u6B65\u6210\u529F\u540E\uFF0C\u628A\u6587\u6863\u7684\u6240\u6709\u6743\u7531\u673A\u5668\u4EBA\u81EA\u52A8\u8F6C\u79FB\u7ED9\u60A8\u672C\u4EBA\uFF08\u60A8\u7684\u98DE\u4E66\u4E91\u76D8\u4E2D\uFF09\u3002\u5EFA\u8BAE\u4F7F\u7528 user_id \u683C\u5F0F\uFF0C\u5982 abc1234\u3002").addText(
+        (text) => text.setPlaceholder("abc1234").setValue(settings.userId).onChange(async (value) => {
+          settings.userId = value.trim();
+          await plugin.saveSettings();
+        })
+      );
+      new Setting2(containerEl).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u9A8C\u8BC1\u914D\u7F6E\u662F\u5426\u6B63\u786E\u3002\u5C06\u9A8C\u8BC1\u81EA\u5EFA\u5E94\u7528\u6388\u6743\uFF0C\u4EE5\u53CA\u6587\u4EF6\u5939\u7684\u53EF\u5199\u6027\u3002").addButton(
+        (btn) => btn.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
+          if (!settings.appId || !settings.appSecret) {
+            new Notice2("\u274C \u8BF7\u5148\u586B\u5199 App ID \u548C App Secret\uFF01");
+            return;
+          }
+          if (!settings.folderToken) {
+            new Notice2("\u274C \u8BF7\u5148\u586B\u5199\u540C\u6B65\u76EE\u6807\u6587\u4EF6\u5939 Token\uFF01");
+            return;
+          }
+          const notice = new Notice2("\u23F3 \u6B63\u5728\u8FDB\u884C\u98DE\u4E66\u8FDE\u63A5\u6D4B\u8BD5...", 0);
+          try {
+            const client = new FeishuApiClient(settings.appId, settings.appSecret);
+            await client.getAccessToken();
+            await client.listFolderItems(settings.folderToken);
+            notice.hide();
+            new Notice2("\u2705 \u98DE\u4E66\u8FDE\u63A5\u6210\u529F\uFF0C\u4E14\u76EE\u6807\u6587\u4EF6\u5939\u8BBF\u95EE\u6B63\u5E38\uFF01");
+          } catch (err) {
+            notice.hide();
+            console.error("[\u98DE\u4E66\u8FDE\u63A5\u6D4B\u8BD5\u5931\u8D25]:", err);
+            new Notice2(`\u274C \u98DE\u4E66\u8FDE\u63A5\u6D4B\u8BD5\u5931\u8D25: ${err.message || String(err)}`, 7e3);
+          }
+        })
+      );
+      const guideCard = containerEl.createDiv({ cls: "wechat-feishu-guide-card" });
+      guideCard.setCssStyles({
+        margin: "24px 0",
+        padding: "20px",
+        border: "1px solid var(--background-modifier-border-hover)",
+        borderRadius: "8px",
+        background: "var(--background-secondary)",
+        boxShadow: "var(--shadow-s)"
+      });
+      const titleEl = guideCard.createEl("h3", { cls: "guide-card-title" });
+      titleEl.setText("\u98DE\u4E66\u5E94\u7528\u914D\u7F6E\u7B80\u6613\u6B65\u9AA4 (SOP Guide):");
+      titleEl.setCssStyles({
+        fontSize: "15px",
+        fontWeight: "600",
+        color: "var(--text-normal)",
+        margin: "0 0 12px 0"
+      });
+      const detailedLinkRow = guideCard.createDiv({ cls: "wechat-feishu-guide-link-row" });
+      detailedLinkRow.setCssStyles({
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        marginBottom: "18px",
+        padding: "8px 12px",
+        background: "var(--background-primary)",
+        borderRadius: "6px",
+        border: "1px solid var(--background-modifier-border)"
+      });
+      detailedLinkRow.createSpan({ text: "\u{1F4A1} " });
+      const detailedLink = detailedLinkRow.createEl("a", {
+        text: "\u70B9\u51FB\u67E5\u770B\u98DE\u4E66\u540C\u6B65\u8BE6\u7EC6\u56FE\u6587\u914D\u7F6E\u4E0E\u6392\u969C\u6307\u5357 \u2794",
+        href: "https://xiaoweibox.top/chats/feishu-sync"
+      });
+      detailedLink.onclick = (e) => {
+        var _a5;
+        e.preventDefault();
+        try {
+          const electron = require("electron");
+          if ((_a5 = electron == null ? void 0 : electron.shell) == null ? void 0 : _a5.openExternal) {
+            electron.shell.openExternal("https://xiaoweibox.top/chats/feishu-sync");
+            return;
+          }
+        } catch (e2) {
+        }
+        window.open("https://xiaoweibox.top/chats/feishu-sync", "_blank", "noopener");
+      };
+      detailedLink.setCssStyles({
+        color: "var(--text-accent)",
+        textDecoration: "none",
+        fontWeight: "600",
+        fontSize: "13px",
+        cursor: "pointer"
+      });
+      detailedLink.onmouseenter = () => {
+        detailedLink.setCssStyles({ textDecoration: "underline" });
+      };
+      detailedLink.onmouseleave = () => {
+        detailedLink.setCssStyles({ textDecoration: "none" });
+      };
+      const stepsContainer = guideCard.createDiv({ cls: "guide-steps-list" });
+      stepsContainer.setCssStyles({
+        display: "flex",
+        flexDirection: "column",
+        gap: "14px"
+      });
+      const renderStep = (num, contentFn) => {
+        const stepRow = stepsContainer.createDiv();
+        stepRow.setCssStyles({
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "12px"
+        });
+        const badge = stepRow.createSpan();
+        badge.setText(num.toString());
+        badge.setCssStyles({
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "20px",
+          height: "20px",
+          borderRadius: "50%",
+          background: "var(--interactive-accent)",
+          color: "var(--text-on-interactive-accent, #ffffff)",
+          fontSize: "11px",
+          fontWeight: "bold",
+          flexShrink: "0",
+          marginTop: "2px"
+        });
+        const body = stepRow.createDiv();
+        body.setCssStyles({
+          fontSize: "13px",
+          lineHeight: "1.6",
+          color: "var(--text-normal)",
+          flexGrow: "1"
+        });
+        contentFn(body);
+      };
+      renderStep(1, (body) => {
+        body.createSpan({ text: "\u8BBF\u95EE " });
+        const link = body.createEl("a", { text: "\u98DE\u4E66\u5F00\u653E\u5E73\u53F0", href: "https://open.feishu.cn/" });
+        link.onclick = (e) => {
+          var _a5;
+          e.preventDefault();
+          try {
+            const electron = require("electron");
+            if ((_a5 = electron == null ? void 0 : electron.shell) == null ? void 0 : _a5.openExternal) {
+              electron.shell.openExternal("https://open.feishu.cn/");
+              return;
+            }
+          } catch (e2) {
+            console.warn("Failed to open Feishu developer console in Electron shell.");
+          }
+          window.open("https://open.feishu.cn/", "_blank", "noopener");
+        };
+        link.setCssStyles({ color: "var(--text-accent)", textDecoration: "underline" });
+        body.createSpan({ text: " \u521B\u5EFA\u81EA\u5EFA\u5E94\u7528\uFF0C\u5E76\u5728\u300C\u5E94\u7528\u529F\u80FD\u300D\u4E2D\u542F\u7528\u300C\u673A\u5668\u4EBA\u300D\u80FD\u529B\u3002" });
+      });
+      renderStep(2, (body) => {
+        body.createSpan({ text: "\u8FDB\u5165\u300C\u6743\u9650\u7BA1\u7406\u300D\u5F00\u901A\u4EE5\u4E0B\u6743\u9650\uFF0C\u5E76\u70B9\u51FB\u300C\u7248\u672C\u7BA1\u7406\u4E0E\u53D1\u5E03\u300D\u7533\u8BF7\u4E0A\u7EBF\uFF08\u9700\u7BA1\u7406\u5458\u5BA1\u6279\uFF09\uFF1A" });
+        const subList = body.createDiv();
+        subList.setCssStyles({
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+          marginTop: "8px",
+          paddingLeft: "12px",
+          borderLeft: "2px solid var(--interactive-accent)"
+        });
+        const addSubItem = (codeText, descText) => {
+          const item = subList.createDiv();
+          item.setCssStyles({ display: "flex", alignItems: "center", gap: "6px" });
+          const code = item.createEl("code", { text: codeText });
+          code.setCssStyles({
+            fontFamily: "var(--font-monospace)",
+            fontSize: "12px",
+            padding: "2px 6px",
+            background: "var(--background-primary)",
+            border: "1px solid var(--background-modifier-border)",
+            borderRadius: "4px",
+            color: "var(--code-normal)"
+          });
+          const desc = item.createSpan({ text: descText });
+          desc.setCssStyles({ color: "var(--text-muted)", fontSize: "12px" });
+        };
+        addSubItem("drive:drive", "\u67E5\u770B\u3001\u7F16\u8F91\u4E91\u7A7A\u95F4\u6240\u6709\u6587\u4EF6 (\u5E94\u7528\u548C\u7528\u6237\u8EAB\u4EFD)");
+        addSubItem("docs:document:import", "\u5BFC\u5165\u4E3A\u6587\u6863 (\u5E94\u7528\u548C\u7528\u6237\u8EAB\u4EFD)");
+      });
+      renderStep(3, (body) => {
+        body.createSpan({ text: "\u5728\u98DE\u4E66\u5BA2\u6237\u7AEF\u65B0\u5EFA\u7FA4\u804A\uFF0C\u6DFB\u52A0\u81EA\u5EFA\u673A\u5668\u4EBA\uFF0C\u5E76\u5C06\u4E91\u76D8\u540C\u6B65\u6587\u4EF6\u5939\u5171\u4EAB\u7ED9\u8BE5\u7FA4\uFF0C\u534F\u4F5C\u6743\u9650\u5FC5\u987B\u9009\u62E9 " });
+        const strong = body.createEl("strong", { text: "\u300C\u53EF\u7BA1\u7406\u300D" });
+        strong.setCssStyles({ color: "var(--text-accent)" });
+        body.createSpan({ text: " \u6743\u9650\u3002" });
+      });
+    }
+    module2.exports = {
+      renderFeishuSettingsTab: renderFeishuSettingsTab2
+    };
+  }
+});
+
+// services/feishu-markdown-processor.js
+var require_feishu_markdown_processor = __commonJS({
+  "services/feishu-markdown-processor.js"(exports, module2) {
+    function stripYamlFrontmatter(markdown) {
+      return String(markdown || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "");
+    }
+    function parseYamlTitle(markdown) {
+      const match = String(markdown || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+      if (!match)
+        return "";
+      const yamlText = match[1];
+      const lines = yamlText.split("\n");
+      for (const line of lines) {
+        const index = line.indexOf(":");
+        if (index > 0) {
+          const key = line.substring(0, index).trim();
+          if (key === "title") {
+            const value = line.substring(index + 1).trim();
+            return value.replace(/^['"]|['"]$/g, "");
+          }
+        }
+      }
+      return "";
+    }
+    function convertWikilinks(markdown, uploadHistory = []) {
+      const source = String(markdown || "");
+      return source.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, noteName, alias) => {
+        const cleanNoteName = noteName.trim();
+        const displayName = (alias || noteName).trim();
+        const historyItem = (uploadHistory || []).find((x) => {
+          if (!x || !x.title)
+            return false;
+          return x.title === cleanNoteName;
+        });
+        if (historyItem && historyItem.url) {
+          return `[${displayName}](${historyItem.url})`;
+        }
+        return displayName;
+      });
+    }
+    function convertObsidianImageSyntax(markdown) {
+      const source = String(markdown || "");
+      return source.replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, fileName, altText) => {
+        if (!fileName)
+          return match;
+        const cleanFileName = fileName.trim();
+        const alt = (altText || cleanFileName).trim();
+        const encodedFileName = encodeURI(cleanFileName);
+        return `![${alt}](${encodedFileName})`;
+      });
+    }
+    function extractImagesFromMarkdown(markdown) {
+      const converted = convertObsidianImageSyntax(markdown);
+      const markdownImageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g;
+      const images = [];
+      let match;
+      markdownImageRegex.lastIndex = 0;
+      while ((match = markdownImageRegex.exec(converted)) !== null) {
+        const originalSrc = match[2];
+        if (!originalSrc)
+          continue;
+        const decodedPath = decodeURI(originalSrc);
+        const fileName = decodedPath.split("/").pop() || decodedPath;
+        const isRemote = /^https?:\/\//i.test(decodedPath) || decodedPath.startsWith("data:");
+        if (!images.some((x) => x.originalSrc === originalSrc)) {
+          images.push({
+            originalSrc,
+            path: decodedPath,
+            fileName,
+            isRemote
+          });
+        }
+      }
+      return images;
+    }
+    module2.exports = {
+      stripYamlFrontmatter,
+      parseYamlTitle,
+      convertWikilinks,
+      convertObsidianImageSyntax,
+      extractImagesFromMarkdown
+    };
+  }
+});
+
+// services/feishu-sync.js
+var require_feishu_sync = __commonJS({
+  "services/feishu-sync.js"(exports, module2) {
+    var { requestUrl } = require("obsidian");
+    var { FeishuApiClient } = require_feishu_api();
+    var {
+      stripYamlFrontmatter,
+      parseYamlTitle,
+      convertWikilinks,
+      extractImagesFromMarkdown
+    } = require_feishu_markdown_processor();
+    var { addFeishuUploadHistory, findFeishuHistoryByPath } = require_feishu_settings();
+    function arrayBufferToBase64(buffer) {
+      let binary = "";
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
+    }
+    async function resolveImageToBase64(app, imageInfo, activeNotePath) {
+      if (imageInfo.isRemote) {
+        const resp = await requestUrl({ url: imageInfo.originalSrc });
+        return arrayBufferToBase64(resp.arrayBuffer);
+      } else {
+        const file = app.metadataCache.getFirstLinkpathDest(imageInfo.path, activeNotePath);
+        if (!file) {
+          throw new Error(`\u5728\u5E93\u4E2D\u627E\u4E0D\u5230\u672C\u5730\u56FE\u7247\u6587\u4EF6: ${imageInfo.path}`);
+        }
+        const buffer = await app.vault.readBinary(file);
+        return arrayBufferToBase64(buffer);
+      }
+    }
+    async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgress }) {
+      const notify = (stage, msg) => {
+        if (typeof onProgress === "function") {
+          onProgress(stage, msg);
+        }
+      };
+      let title = parseYamlTitle(markdown);
+      if (!title) {
+        const h1Match = markdown.match(/^#\s+(.+)$/m);
+        title = h1Match ? h1Match[1].trim() : activeFile.basename;
+      }
+      title = title.substring(0, 250);
+      const client = new FeishuApiClient(settings.appId, settings.appSecret);
+      let historyItem = findFeishuHistoryByPath(settings, activeFile.path);
+      if (!historyItem) {
+        notify("searching_folder", "\u6B63\u5728\u68C0\u7D22\u98DE\u4E66\u76EE\u6807\u6587\u4EF6\u5939\u4E2D\u662F\u5426\u5B58\u5728\u540C\u540D\u6587\u6863...");
+        try {
+          const items = await client.listFolderItems(settings.folderToken);
+          const matched = items.find((x) => x.name === title && x.type === "docx");
+          if (matched) {
+            historyItem = {
+              title,
+              url: `https://open.feishu.cn/docx/${matched.token}`,
+              docToken: matched.token,
+              sourcePath: activeFile.path
+            };
+            addFeishuUploadHistory(settings, historyItem);
+            notify("searching_folder", "\u547D\u4E2D\u98DE\u4E66\u540C\u540D\u6587\u6863\uFF0C\u81EA\u52A8\u5173\u8054\u5E76\u6062\u590D\u66F4\u65B0\u94FE\u8DEF");
+          }
+        } catch (err) {
+          console.warn("[\u98DE\u4E66\u540C\u6B65] \u6587\u4EF6\u5939\u68C0\u7D22\u5931\u8D25 (\u4E0D\u5F71\u54CD\u6B63\u5E38\u521B\u5EFA):", err);
+        }
+      }
+      let processedMd = stripYamlFrontmatter(markdown);
+      processedMd = convertWikilinks(processedMd, settings.uploadHistory);
+      let docToken = "";
+      let docUrl = "";
+      if (historyItem && historyItem.docToken) {
+        docToken = historyItem.docToken;
+        docUrl = historyItem.url;
+        notify("deleting_blocks", "\u6B63\u5728\u6E05\u7A7A\u65E7\u6587\u6863\u5185\u5BB9...");
+        const blocks = await client.getDocumentBlocks(docToken);
+        const childBlockIds = blocks.filter((x) => x.parent_id === docToken && x.block_id !== docToken).map((x) => x.block_id);
+        if (childBlockIds.length > 0) {
+          await client.batchDeleteBlocks(docToken, docToken, 0, childBlockIds.length);
+        }
+        notify("importing", "\u6B63\u5728\u8F6C\u6362\u5E76\u5199\u5165\u65B0\u5185\u5BB9...");
+        const newBlocks = await client.convertMarkdownToBlocks(processedMd);
+        if (newBlocks && newBlocks.length > 0) {
+          const chunkSize = 50;
+          for (let i = 0; i < newBlocks.length; i += chunkSize) {
+            const chunk = newBlocks.slice(i, i + chunkSize);
+            notify("importing", `\u6B63\u5728\u5199\u5165\u5185\u5BB9\u5757 (${i + 1}/${newBlocks.length})...`);
+            await client.createDocumentBlocks(docToken, docToken, i, chunk);
+            if (i + chunkSize < newBlocks.length) {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+            }
+          }
+        }
+        if (title !== historyItem.title) {
+          notify("renaming", "\u6B63\u5728\u66F4\u65B0\u98DE\u4E66\u6587\u6863\u540D\u79F0...");
+          try {
+            await client.renameFile(docToken, title);
+            historyItem.title = title;
+          } catch (err) {
+            console.warn("[\u98DE\u4E66\u540C\u6B65] \u91CD\u547D\u540D\u5931\u8D25:", err);
+          }
+        }
+      } else {
+        notify("uploading_temp", "\u6B63\u5728\u751F\u6210\u4E34\u65F6 Markdown \u4E0A\u4F20\u6587\u4EF6...");
+        const textEncoder = new TextEncoder();
+        const mdBase64 = arrayBufferToBase64(textEncoder.encode(processedMd).buffer);
+        const tempFileToken = await client.uploadFile(title + ".md", mdBase64, settings.folderToken);
+        notify("importing", "\u6B63\u5728\u5BFC\u5165\u4E3A\u98DE\u4E66\u4E91\u6587\u6863...");
+        const ticket = await client.createImportTask(title, tempFileToken, settings.folderToken);
+        const result = await client.waitForImportTask(ticket);
+        docToken = result.token;
+        docUrl = result.url;
+        client.deleteFile(tempFileToken, "file").catch((err) => {
+          console.warn("[\u98DE\u4E66\u540C\u6B65] \u6E05\u7406\u4E34\u65F6 MD \u6587\u4EF6\u5931\u8D25:", err);
+        });
+        historyItem = {
+          title,
+          url: docUrl,
+          docToken,
+          sourcePath: activeFile.path
+        };
+      }
+      const images = extractImagesFromMarkdown(markdown);
+      if (images.length > 0) {
+        notify("processing_images", "\u6B63\u5728\u626B\u63CF\u6587\u6863\u56FE\u7247\u7ED3\u6784...");
+        const blocks = await client.getDocumentBlocks(docToken);
+        const imageBlocks = blocks.filter((x) => x.block_type === 27);
+        for (let i = 0; i < images.length && i < imageBlocks.length; i++) {
+          const image = images[i];
+          const block = imageBlocks[i];
+          notify("processing_images", `\u6B63\u5728\u540C\u6B65\u6B63\u6587\u56FE\u7247 (${i + 1}/${images.length}): ${image.fileName}...`);
+          try {
+            const base64 = await resolveImageToBase64(app, image, activeFile.path);
+            const imageToken = await client.uploadImageMaterial(image.fileName, base64, docToken, block.block_id);
+            await client.updateBlock(docToken, block.block_id, {
+              replace_image: {
+                token: imageToken,
+                width: 800,
+                height: 600,
+                align: 2
+              }
+            });
+          } catch (err) {
+            console.error(`[\u98DE\u4E66\u540C\u6B65] \u56FE\u7247 ${image.fileName} \u540C\u6B65\u5931\u8D25:`, err);
+          }
+        }
+      }
+      let transferOwnerWarning = "";
+      if (settings.userId) {
+        notify("transfer_owner", "\u6B63\u5728\u8F6C\u79FB\u6587\u6863\u6240\u6709\u6743\u81F3\u914D\u7F6E\u7528\u6237...");
+        try {
+          await client.transferDocumentOwnership(docToken, settings.userId);
+        } catch (err) {
+          console.warn("[\u98DE\u4E66\u540C\u6B65] \u6587\u6863\u6240\u6709\u6743\u8F6C\u79FB\u5931\u8D25:", err);
+          transferOwnerWarning = err.message || String(err);
+        }
+      }
+      addFeishuUploadHistory(settings, historyItem);
+      return {
+        title,
+        url: docUrl,
+        docToken,
+        transferOwnerWarning
+      };
+    }
+    module2.exports = {
+      syncNoteToFeishu
+    };
+  }
+});
+
+// views/publish-modal/feishu.js
+var require_feishu = __commonJS({
+  "views/publish-modal/feishu.js"(exports, module2) {
+    var { Setting: Setting2, Notice: Notice2 } = require("obsidian");
+    var { syncNoteToFeishu } = require_feishu_sync();
+    var { findFeishuHistoryByPath } = require_feishu_settings();
+    function renderFeishuPublishTab2(view, modal, containerEl) {
+      const { plugin } = view;
+      const settings = plugin.settings.feishuSync;
+      containerEl.empty();
+      const tabsWrapper = containerEl.createDiv({ cls: "wechat-publish-mode-tabs" });
+      const wechatTabBtn = tabsWrapper.createEl("button", {
+        text: "\u5FAE\u4FE1\u8349\u7A3F\u7BB1",
+        cls: "wechat-publish-mode-tab"
+      });
+      wechatTabBtn.onclick = () => {
+        view.showSyncModal({ modal });
+      };
+      tabsWrapper.createEl("button", {
+        text: "\u98DE\u4E66\u4E91\u6587\u6863",
+        cls: "wechat-publish-mode-tab is-active"
+      });
+      const multiTabBtn = tabsWrapper.createEl("button", {
+        cls: "wechat-publish-mode-tab"
+      });
+      multiTabBtn.createEl("span", { text: "\u5176\u4ED6\u5E73\u53F0\uFF08\u5C0F\u7EA2\u4E66/\u77E5\u4E4E\u7B49\uFF09" });
+      multiTabBtn.onclick = () => {
+        view.showMultiPlatformSyncModal({ modal });
+      };
+      const contentWrapper = containerEl.createDiv({ cls: "wechat-feishu-publish-content" });
+      contentWrapper.setCssStyles({ padding: "16px 0" });
+      if (!settings || !settings.enabled || !settings.appId || !settings.appSecret || !settings.folderToken) {
+        const emptyState = contentWrapper.createDiv({ cls: "wechat-sync-empty-state" });
+        emptyState.createEl("h3", { text: "\u5C1A\u672A\u5B8C\u6210\u98DE\u4E66\u540C\u6B65\u914D\u7F6E" });
+        emptyState.createEl("p", { text: "\u4E00\u952E\u540C\u6B65\u81F3\u98DE\u4E66\u524D\uFF0C\u9700\u8981\u5148\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u5F00\u542F\u5E76\u586B\u5199 App ID\u3001App Secret \u548C\u76EE\u6807\u6587\u4EF6\u5939 Token\u3002" });
+        const goSettingsBtn = emptyState.createEl("button", { text: "\u53BB\u8BBE\u7F6E", cls: "mod-cta" });
+        goSettingsBtn.onclick = () => {
+          modal.close();
+          view.openPluginSettings();
+        };
+        return;
+      }
+      const activeFile = view.getPublishContextFile();
+      if (!activeFile) {
+        contentWrapper.createEl("p", { text: "\u274C \u672A\u627E\u5230\u5F53\u524D\u6D3B\u52A8\u7684 Markdown \u7B14\u8BB0\uFF0C\u8BF7\u5148\u6253\u5F00\u4E00\u7BC7\u6587\u6863\u3002", cls: "text-error" });
+        return;
+      }
+      const historyItem = findFeishuHistoryByPath(settings, activeFile.path);
+      const isUpdate = !!(historyItem && historyItem.docToken);
+      contentWrapper.createEl("h3", { text: "\u53D1\u5E03\u8BBE\u7F6E", cls: "wechat-feishu-section-title" });
+      let docTitle = activeFile.basename;
+      const titleSetting = new Setting2(contentWrapper).setName("\u6587\u6863\u6807\u9898").setDesc("\u53D1\u5E03\u81F3\u98DE\u4E66\u65F6\u7684\u6587\u6863\u6807\u9898\u3002\u9ED8\u8BA4\u4F7F\u7528\u7B14\u8BB0\u6587\u4EF6\u540D\uFF0C\u652F\u6301\u81EA\u5B9A\u4E49\u3002").addText(
+        (text) => text.setPlaceholder("\u8BF7\u8F93\u5165\u6587\u6863\u6807\u9898").setValue(docTitle).onChange((val) => {
+          docTitle = val.trim();
+        })
+      );
+      new Setting2(contentWrapper).setName("\u540C\u6B65\u76EE\u6807\u6587\u4EF6\u5939").setDesc(`Token: ${settings.folderToken.substring(0, 10)}... (\u5C06\u5728\u6B64\u6587\u4EF6\u5939\u4E0B\u521B\u5EFA or \u8986\u76D6\u6587\u6863)`);
+      const statusCard = contentWrapper.createDiv({ cls: "wechat-feishu-status-card" });
+      statusCard.setCssStyles({
+        margin: "12px 0",
+        padding: "12px 14px",
+        border: "1px solid var(--background-modifier-border)",
+        borderRadius: "6px",
+        background: "var(--background-primary)",
+        fontSize: "13px"
+      });
+      if (isUpdate) {
+        statusCard.createEl("p", {
+          text: `\u{1F504} \u8BE5\u7B14\u8BB0\u5DF2\u4E8E ${historyItem.uploadTime.substring(0, 16).replace("T", " ")} \u540C\u6B65\u8FC7\u3002\u518D\u6B21\u540C\u6B65\u5C06\u542F\u7528\u300C\u667A\u80FD\u8986\u76D6\u66F4\u65B0\u300D\u6A21\u5F0F\uFF0C\u76F4\u63A5\u66F4\u65B0\u98DE\u4E66\u6587\u6863\u6B63\u6587\uFF0C\u94FE\u63A5\u4FDD\u6301\u4E0D\u53D8\u3002`,
+          cls: "text-success"
+        });
+      } else {
+        statusCard.createEl("p", {
+          text: "\u{1F195} \u7B2C\u4E00\u6B21\u540C\u6B65\u8BE5\u7B14\u8BB0\u3002\u70B9\u51FB\u5F00\u59CB\u540C\u6B65\u540E\uFF0C\u7CFB\u7EDF\u4F1A\u68C0\u7D22\u4E91\u7AEF\u662F\u5426\u6709\u540C\u540D\u6587\u6863\uFF0C\u82E5\u6709\u5219\u81EA\u52A8\u5173\u8054\u66F4\u65B0\uFF0C\u82E5\u65E0\u5219\u65B0\u5EFA\u6587\u6863\u5E76\u7ED1\u5B9A\u3002",
+          cls: "text-muted"
+        });
+      }
+      const progressWrapper = contentWrapper.createDiv({ cls: "wechat-feishu-progress" });
+      progressWrapper.setCssStyles({ display: "none", margin: "20px 0", textAlign: "center" });
+      const progressText = progressWrapper.createEl("p", { text: "\u6B63\u5728\u51C6\u5907\u540C\u6B65...", cls: "feishu-progress-message" });
+      progressText.setCssStyles({ fontWeight: "bold", color: "var(--text-accent)" });
+      const resultCard = contentWrapper.createDiv({ cls: "wechat-feishu-result-card" });
+      resultCard.setCssStyles({ display: "none", margin: "16px 0", padding: "16px", border: "1px solid var(--background-modifier-border)", borderRadius: "6px", background: "var(--background-secondary)" });
+      const buttonRow = contentWrapper.createDiv({ cls: "wechat-modal-buttons" });
+      const cancelBtn = buttonRow.createEl("button", { text: "\u53D6\u6D88" });
+      cancelBtn.onclick = () => modal.close();
+      const syncBtn = buttonRow.createEl("button", { text: isUpdate ? "\u66F4\u65B0\u81F3\u98DE\u4E66" : "\u540C\u6B65\u81F3\u98DE\u4E66", cls: "mod-cta" });
+      syncBtn.onclick = async () => {
+        var _a5;
+        titleSetting.settingEl.addClass("is-disabled");
+        syncBtn.disabled = true;
+        cancelBtn.disabled = true;
+        progressWrapper.setCssStyles({ display: "block" });
+        resultCard.setCssStyles({ display: "none" });
+        try {
+          const markdown = await view.app.vault.read(activeFile);
+          const result = await syncNoteToFeishu({
+            app: view.app,
+            settings,
+            activeFile,
+            markdown,
+            onProgress: (stage, message) => {
+              progressText.setText(message);
+            }
+          });
+          await plugin.saveSettings();
+          progressWrapper.setCssStyles({ display: "none" });
+          resultCard.empty();
+          const h4 = resultCard.createEl("h4", { text: "\u{1F389} \u540C\u6B65\u6210\u529F\uFF01" });
+          h4.setCssStyles({ color: "var(--text-success)", marginTop: "0" });
+          if (result.transferOwnerWarning) {
+            const warning = resultCard.createEl("p", {
+              text: `\u26A0\uFE0F \u6587\u6863\u5DF2\u5BFC\u5165\u5E76\u66F4\u65B0\uFF0C\u4F46\u6587\u6863\u6240\u6709\u6743\u8F6C\u79FB\u5931\u8D25 (${result.transferOwnerWarning})\u3002\u6587\u6863\u5DF2\u5B58\u653E\u5728\u76EE\u6807\u6587\u4EF6\u5939\u4E2D\uFF0C\u60A8\u53EF\u4EE5\u7167\u5E38\u534F\u4F5C\u3002`
+            });
+            warning.setCssStyles({ fontSize: "12px", color: "var(--text-warning)" });
+          }
+          const linkContainer = resultCard.createDiv();
+          linkContainer.createSpan({ text: "\u98DE\u4E66\u94FE\u63A5: " });
+          const a = linkContainer.createEl("a", { text: result.title, href: result.url });
+          a.onclick = (e) => {
+            var _a6;
+            e.preventDefault();
+            try {
+              const electron = require("electron");
+              if ((_a6 = electron == null ? void 0 : electron.shell) == null ? void 0 : _a6.openExternal) {
+                electron.shell.openExternal(result.url);
+                return;
+              }
+            } catch (e2) {
+            }
+            window.open(result.url, "_blank", "noopener");
+          };
+          const resultActions = resultCard.createDiv();
+          resultActions.setCssStyles({ marginTop: "12px", display: "flex", gap: "10px" });
+          const openBtn = resultActions.createEl("button", { text: "\u5728\u6D4F\u89C8\u5668\u4E2D\u6253\u5F00", cls: "mod-cta" });
+          openBtn.onclick = () => a.click();
+          const copyBtn = resultActions.createEl("button", { text: "\u590D\u5236\u94FE\u63A5" });
+          ((_a5 = copyBtn.onClickEvent) == null ? void 0 : _a5.call(copyBtn, () => {
+            navigator.clipboard.writeText(result.url);
+            new Notice2("\u2705 \u94FE\u63A5\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F");
+          })) || (copyBtn.onclick = () => {
+            navigator.clipboard.writeText(result.url);
+            new Notice2("\u2705 \u94FE\u63A5\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F");
+          });
+          resultCard.setCssStyles({ display: "block" });
+          cancelBtn.disabled = false;
+          cancelBtn.setText("\u5173\u95ED");
+          syncBtn.setCssStyles({ display: "none" });
+          new Notice2("\u2705 \u98DE\u4E66\u6587\u6863\u540C\u6B65\u6210\u529F\uFF01");
+        } catch (err) {
+          console.error("[\u98DE\u4E66\u540C\u6B65\u5931\u8D25]:", err);
+          progressWrapper.setCssStyles({ display: "none" });
+          titleSetting.settingEl.removeClass("is-disabled");
+          syncBtn.disabled = false;
+          cancelBtn.disabled = false;
+          new Notice2(`\u274C \u540C\u6B65\u5931\u8D25: ${err.message || String(err)}`, 8e3);
+        }
+      };
+    }
+    module2.exports = {
+      renderFeishuPublishTab: renderFeishuPublishTab2
+    };
+  }
+});
+
 // input.js
 var input_exports = {};
 __export(input_exports, {
@@ -49798,10 +51164,15 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   const cachedConnection = bridgeSettings.connection || normalizeMultiPlatformConnection();
   const cachedConnectionRecord = toRecord4(cachedConnection);
   view.preparePublishModalShell(modal, { mode: "multi", mobileSync });
-  const { wechatTab } = view.createPublishModeTabs(modal, "multi");
+  const { wechatTab, feishuTab } = view.createPublishModeTabs(modal, "multi");
   wechatTab.onclick = () => {
     view.showSyncModal({ modal });
   };
+  if (feishuTab) {
+    feishuTab.onclick = () => {
+      view.showFeishuSyncModal({ modal });
+    };
+  }
   const intro = asModalElement(modal.contentEl.createDiv({ cls: "wechat-multiplatform-intro" }));
   const introText = asModalElement(intro.createDiv({ cls: "wechat-multiplatform-intro-text" }));
   introText.createEl("p", {
@@ -50187,6 +51558,9 @@ async function showMultiPlatformPublishModal(view, options = {}) {
 }
 
 // input.js
+var import_feishu_tab = __toESM(require_feishu_tab());
+var import_feishu = __toESM(require_feishu());
+var import_feishu_settings = __toESM(require_feishu_settings());
 var loadCommonJsDependency = (specifier) => {
   const activeWindowRequire = getActiveWindowValue("require");
   if (typeof activeWindowRequire === "function") {
@@ -50596,6 +51970,7 @@ var DEFAULT_SETTINGS = {
   cleanupDirTemplate: "",
   // 发送成功后要清理的目录（支持 {{note}}）
   multiPlatformSync: createDefaultMultiPlatformSyncSettings(),
+  feishuSync: (0, import_feishu_settings.createDefaultFeishuSyncSettings)(),
   // 旧字段保留用于迁移检测
   wechatAppId: "",
   wechatAppSecret: "",
@@ -54410,22 +55785,31 @@ var AppleStyleView = class extends ItemView {
    * @returns {{ wechatTab: ObsidianElementLike, multiPlatformTab: ObsidianElementLike }}
    */
   createPublishModeTabs(modal, activeMode = "wechat") {
+    var _a5;
     const publishModeTabs = modal.contentEl.createDiv({ cls: "wechat-publish-mode-tabs" });
     const wechatTab = publishModeTabs.createEl("button", {
       text: "\u5FAE\u4FE1\u8349\u7A3F\u7BB1",
       cls: `wechat-publish-mode-tab${activeMode === "wechat" ? " is-active" : ""}`
     });
+    let feishuTab = null;
+    const feishuEnabled = (_a5 = this.plugin.settings.feishuSync) == null ? void 0 : _a5.enabled;
+    if (feishuEnabled) {
+      feishuTab = publishModeTabs.createEl("button", {
+        text: "\u98DE\u4E66\u4E91\u6587\u6863",
+        cls: `wechat-publish-mode-tab${activeMode === "feishu" ? " is-active" : ""}`
+      });
+    }
     const multiPlatformTab = publishModeTabs.createEl("button", {
       cls: `wechat-publish-mode-tab${activeMode === "multi" ? " is-active" : ""}`
     });
     multiPlatformTab.createEl("span", { text: MULTI_PLATFORM_TAB_LABEL });
-    return { wechatTab, multiPlatformTab };
+    return { wechatTab, feishuTab, multiPlatformTab };
   }
   /**
    * @param {SyncModalOptionsLike} [options]
    */
   showSyncModal(options = {}) {
-    var _a5, _b;
+    var _a5, _b, _c;
     if (!this.currentHtml) {
       new Notice(this.getMissingRenderNotice());
       return;
@@ -54436,7 +55820,10 @@ var AppleStyleView = class extends ItemView {
         const modal2 = options.modal;
         const mobileSync2 = isMobileClient2(this.app);
         this.preparePublishModalShell(modal2, { mode: "wechat", mobileSync: mobileSync2 });
-        const { multiPlatformTab: multiPlatformTab2 } = this.createPublishModeTabs(modal2, "wechat");
+        const { feishuTab: feishuTab2, multiPlatformTab: multiPlatformTab2 } = this.createPublishModeTabs(modal2, "wechat");
+        if (feishuTab2) {
+          feishuTab2.onclick = () => this.showFeishuSyncModal({ modal: modal2 });
+        }
         multiPlatformTab2.onclick = () => this.showMultiPlatformSyncModal({ modal: modal2 });
         const empty = modal2.contentEl.createDiv({ cls: "wechat-sync-empty-state" });
         empty.createEl("h3", { text: "\u5C1A\u672A\u914D\u7F6E\u5FAE\u4FE1\u516C\u4F17\u53F7\u8D26\u53F7" });
@@ -54448,7 +55835,11 @@ var AppleStyleView = class extends ItemView {
         };
         return;
       }
-      if ((_a5 = this.plugin.settings.multiPlatformSync) == null ? void 0 : _a5.enabled) {
+      if ((_a5 = this.plugin.settings.feishuSync) == null ? void 0 : _a5.enabled) {
+        this.showFeishuSyncModal();
+        return;
+      }
+      if ((_b = this.plugin.settings.multiPlatformSync) == null ? void 0 : _b.enabled) {
         this.showMultiPlatformSyncModal();
         return;
       }
@@ -54459,7 +55850,12 @@ var AppleStyleView = class extends ItemView {
     const shouldOpenModal = !options.modal;
     const mobileSync = isMobileClient2(this.app);
     this.preparePublishModalShell(modal, { mode: "wechat", mobileSync });
-    const { multiPlatformTab } = this.createPublishModeTabs(modal, "wechat");
+    const { feishuTab, multiPlatformTab } = this.createPublishModeTabs(modal, "wechat");
+    if (feishuTab) {
+      feishuTab.onclick = () => {
+        this.showFeishuSyncModal({ modal });
+      };
+    }
     multiPlatformTab.onclick = () => {
       this.showMultiPlatformSyncModal({ modal });
     };
@@ -54472,7 +55868,7 @@ var AppleStyleView = class extends ItemView {
     }
     const defaultId = this.plugin.settings.defaultAccountId;
     const hasDefault = accounts.some((account) => account.id === defaultId);
-    let selectedAccountId = hasDefault ? defaultId : ((_b = accounts[0]) == null ? void 0 : _b.id) || "";
+    let selectedAccountId = hasDefault ? defaultId : ((_c = accounts[0]) == null ? void 0 : _c.id) || "";
     let coverBase64 = (cachedState == null ? void 0 : cachedState.coverBase64) || frontmatterMeta.coverSrc || this.getFirstImageFromArticle() || "";
     let thumbMediaId = (cachedState == null ? void 0 : cachedState.thumbMediaId) || "";
     let materialCover = (cachedState == null ? void 0 : cachedState.materialCover) || null;
@@ -55414,6 +56810,26 @@ var AppleStyleView = class extends ItemView {
       /** @type {Promise<unknown>} */
       showMultiPlatformPublishModal(this, { ...options, obsidianApi })
     );
+  }
+  showFeishuSyncModal(options = {}) {
+    const modal = options.modal || createObsidianModal(this.app);
+    const mobileSync = isMobileClient2(this.app);
+    this.preparePublishModalShell(modal, { mode: "feishu", mobileSync });
+    const { wechatTab, multiPlatformTab } = this.createPublishModeTabs(modal, "feishu");
+    if (wechatTab) {
+      wechatTab.onclick = () => {
+        this.showSyncModal({ modal });
+      };
+    }
+    if (multiPlatformTab) {
+      multiPlatformTab.onclick = () => {
+        this.showMultiPlatformSyncModal({ modal });
+      };
+    }
+    (0, import_feishu.renderFeishuPublishTab)(this, modal, modal.contentEl);
+    if (!options.modal) {
+      modal.open();
+    }
   }
   /**
    * 处理同步到微信逻辑
@@ -56710,26 +58126,45 @@ var AppleStyleSettingTab = class extends PluginSettingTab {
     new Setting(containerEl).setDesc("\u5728 Obsidian \u4E2D\u5B8C\u6210\u5199\u4F5C\u4E0E\u9884\u89C8\uFF1B\u5FAE\u4FE1\u8D26\u53F7\u3001\u6D4F\u89C8\u5668\u63D2\u4EF6\u53D1\u5E03\u548C\u9ED8\u8BA4\u53D1\u5E03\u9009\u9879\u5728\u8FD9\u91CC\u914D\u7F6E\u3002\u66F4\u591A\u6392\u7248\u6837\u5F0F\u8BF7\u5728\u4FA7\u8FB9\u680F\u9762\u677F\u4E2D\u8C03\u6574\u3002");
     const tabBar = containerEl.createDiv({ cls: "apple-settings-tabs" });
     const wechatTab = tabBar.createDiv({ cls: "apple-settings-tab active", text: "\u5FAE\u4FE1" });
+    const feishuTab = tabBar.createDiv({ cls: "apple-settings-tab", text: "\u98DE\u4E66" });
     const multiTab = tabBar.createDiv({ cls: "apple-settings-tab apple-settings-tab-multi" });
     multiTab.createSpan({ text: MULTI_PLATFORM_TAB_LABEL, cls: "apple-settings-tab-label" });
     const wechatContent = containerEl.createDiv({ cls: "apple-settings-tab-content" });
+    const feishuContent = containerEl.createDiv({ cls: "apple-settings-tab-content" });
+    feishuContent.setCssStyles({ display: "none" });
     const multiContent = containerEl.createDiv({ cls: "apple-settings-tab-content" });
     multiContent.setCssStyles({ display: "none" });
     wechatTab.onclick = () => {
       this._activeSettingsTab = "wechat";
       wechatTab.addClass("active");
+      feishuTab.removeClass("active");
       multiTab.removeClass("active");
       wechatContent.setCssStyles({ display: "" });
+      feishuContent.setCssStyles({ display: "none" });
       multiContent.setCssStyles({ display: "none" });
+    };
+    feishuTab.onclick = () => {
+      this._activeSettingsTab = "feishu";
+      feishuTab.addClass("active");
+      wechatTab.removeClass("active");
+      multiTab.removeClass("active");
+      wechatContent.setCssStyles({ display: "none" });
+      feishuContent.setCssStyles({ display: "" });
+      multiContent.setCssStyles({ display: "none" });
+      (0, import_feishu_tab.renderFeishuSettingsTab)(this, feishuContent);
     };
     multiTab.onclick = () => {
       this._activeSettingsTab = "multi";
       multiTab.addClass("active");
       wechatTab.removeClass("active");
+      feishuTab.removeClass("active");
       wechatContent.setCssStyles({ display: "none" });
+      feishuContent.setCssStyles({ display: "none" });
       multiContent.setCssStyles({ display: "" });
     };
-    if (this._activeSettingsTab === "multi") {
+    if (this._activeSettingsTab === "feishu") {
+      feishuTab.onclick();
+    } else if (this._activeSettingsTab === "multi") {
       multiTab.onclick();
     }
     {
@@ -57548,6 +58983,20 @@ var AppleStylePlugin = class extends Plugin {
         console.warn("\u540C\u6B65\u8F6C\u6362\u5668\u6807\u9898\u5931\u8D25:", error);
       });
     });
+    if (typeof this.app.vault.on === "function") {
+      this.registerEvent(
+        this.app.vault.on("rename", (file, oldPath) => {
+          if (this.settings.feishuSync) {
+            const changed = (0, import_feishu_settings.updateFeishuHistoryPath)(this.settings.feishuSync, oldPath, file.path);
+            if (changed) {
+              this.saveSettings().catch((err) => {
+                console.error("\u4FDD\u5B58\u91CD\u547D\u540D\u8BBE\u7F6E\u5931\u8D25:", err);
+              });
+            }
+          }
+        })
+      );
+    }
     this.startWechatSyncBridgeInBackground("plugin-load");
     console.log("\u2705 Obsidian \u53D1\u5E03\u52A9\u624B\u52A0\u8F7D\u5B8C\u6210");
   }
@@ -57695,6 +59144,7 @@ var AppleStylePlugin = class extends Plugin {
       didMigrate = true;
     }
     settings["multiPlatformSync"] = normalizeMultiPlatformSyncSettings(settings["multiPlatformSync"]);
+    settings["feishuSync"] = (0, import_feishu_settings.normalizeFeishuSyncSettings)(settings["feishuSync"]);
     const normalizedDraftCache = normalizeDraftCache(settings["draftCache"]);
     settings["draftCache"] = normalizedDraftCache.cache;
     if (normalizedDraftCache.changed) {
