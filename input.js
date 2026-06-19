@@ -5025,9 +5025,8 @@ class AppleStyleView extends ItemView {
     });
 
     let feishuTab = null;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- reason: dynamic plugin settings access
-    const feishuEnabled = this.plugin.settings.feishuSync?.enabled;
-    if (feishuEnabled) {
+    const feishuSettings = normalizeFeishuSyncSettings(this.plugin.settings.feishuSync);
+    if (feishuSettings.enabled) {
       feishuTab = publishModeTabs.createEl('button', {
         text: '飞书云文档',
         cls: `wechat-publish-mode-tab${activeMode === 'feishu' ? ' is-active' : ''}`,
@@ -6153,8 +6152,10 @@ class AppleStyleView extends ItemView {
     return /** @type {Promise<unknown>} */ (showMultiPlatformPublishModal(this, { ...options, obsidianApi }));
   }
 
+  /**
+   * @param {{ modal?: ModalLike }} [options]
+   */
   showFeishuSyncModal(options = {}) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic modal parameter assignment
     const modal = options.modal || createObsidianModal(this.app);
     const mobileSync = isMobileClient(this.app);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- reason: dynamic modal parameter
@@ -6164,7 +6165,6 @@ class AppleStyleView extends ItemView {
     const { wechatTab, multiPlatformTab } = this.createPublishModeTabs(modal, 'feishu');
     if (wechatTab) {
       wechatTab.onclick = () => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- reason: dynamic modal method call
         this.showSyncModal({ modal });
       };
     }

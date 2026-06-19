@@ -55708,15 +55708,14 @@ var AppleStyleView = class extends ItemView {
    * @returns {{ wechatTab: ObsidianElementLike, multiPlatformTab: ObsidianElementLike }}
    */
   createPublishModeTabs(modal, activeMode = "wechat") {
-    var _a5;
     const publishModeTabs = modal.contentEl.createDiv({ cls: "wechat-publish-mode-tabs" });
     const wechatTab = publishModeTabs.createEl("button", {
       text: "\u5FAE\u4FE1\u8349\u7A3F\u7BB1",
       cls: `wechat-publish-mode-tab${activeMode === "wechat" ? " is-active" : ""}`
     });
     let feishuTab = null;
-    const feishuEnabled = (_a5 = this.plugin.settings.feishuSync) == null ? void 0 : _a5.enabled;
-    if (feishuEnabled) {
+    const feishuSettings = normalizeFeishuSyncSettings(this.plugin.settings.feishuSync);
+    if (feishuSettings.enabled) {
       feishuTab = publishModeTabs.createEl("button", {
         text: "\u98DE\u4E66\u4E91\u6587\u6863",
         cls: `wechat-publish-mode-tab${activeMode === "feishu" ? " is-active" : ""}`
@@ -56734,6 +56733,9 @@ var AppleStyleView = class extends ItemView {
       showMultiPlatformPublishModal(this, { ...options, obsidianApi })
     );
   }
+  /**
+   * @param {{ modal?: ModalLike }} [options]
+   */
   showFeishuSyncModal(options = {}) {
     const modal = options.modal || createObsidianModal(this.app);
     const mobileSync = isMobileClient2(this.app);
