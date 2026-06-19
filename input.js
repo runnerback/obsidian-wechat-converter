@@ -20,7 +20,7 @@
  * @typedef {{ type?: string, state?: Record<string, unknown>, icon?: string, title?: string, active?: boolean }} ViewStateLike
  * @typedef {{ open?: () => void, view?: unknown, getViewState?: () => ViewStateLike, setViewState?: (state: ViewStateLike) => Promise<void> }} LeafLike
  * @typedef {{ on: (name: string, callback: (...args: unknown[]) => unknown) => unknown, getActiveViewOfType: (viewType: unknown) => MarkdownViewLike | null, getActiveFile?: () => TFileLike | null, getLeavesOfType: (viewType: string) => LeafLike[], getRightLeaf: (split?: boolean) => LeafLike | null, getLeaf?: (type?: string | boolean) => LeafLike | null, onLayoutReady: (callback: () => void) => void, revealLeaf?: (leaf: unknown) => Promise<void>, setActiveLeaf?: (leaf: unknown, options?: Record<string, unknown>) => void }} WorkspaceLike
- * @typedef {{ adapter?: unknown, configDir?: string, getConfig?: (key: string) => unknown, getAbstractFileByPath?: (path: string) => unknown, getResourcePath?: (file: unknown) => string, trash?: (file: unknown, useSystemTrash?: boolean) => Promise<void>, delete?: (file: unknown, force?: boolean) => Promise<void>, read?: (file: unknown) => Promise<string>, modify?: (file: unknown, data: string) => Promise<void> }} VaultLike
+ * @typedef {{ adapter?: unknown, configDir?: string, on?: (name: string, callback: (...args: unknown[]) => unknown) => unknown, getConfig?: (key: string) => unknown, getAbstractFileByPath?: (path: string) => unknown, getResourcePath?: (file: unknown) => string, trash?: (file: unknown, useSystemTrash?: boolean) => Promise<void>, delete?: (file: unknown, force?: boolean) => Promise<void>, read?: (file: unknown) => Promise<string>, modify?: (file: unknown, data: string) => Promise<void> }} VaultLike
  * @typedef {{ processFrontMatter?: (file: unknown, callback: (frontmatter: Record<string, unknown>) => void) => Promise<void> }} FileManagerLike
  * @typedef {{ getFileCache?: (file: unknown) => { frontmatter?: Record<string, unknown> } | null }} MetadataCacheLike
  * @typedef {{ activeTab?: Record<string, unknown>, open?: () => void, openTabById?: (id: string) => void }} AppSettingLike
@@ -8606,7 +8606,6 @@ class AppleStylePlugin extends Plugin {
     });
 
     if (typeof this.app.vault.on === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- reason: register dynamic event listener
       this.registerEvent(
         this.app.vault.on('rename', (file, oldPath) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- reason: dynamic plugin settings

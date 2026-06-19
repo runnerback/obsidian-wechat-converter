@@ -5,6 +5,11 @@
 // No DOM, no Obsidian API, no side effects.
 
 /**
+ * @typedef {{ title: string, url: string }} FeishuHistoryLinkLike
+ * @typedef {{ originalSrc: string, path: string, fileName: string, isRemote: boolean }} FeishuMarkdownImageLike
+ */
+
+/**
  * Strips YAML frontmatter block from the beginning of the Markdown content.
  * @param {string} markdown
  * @returns {string}
@@ -46,7 +51,8 @@ function parseYamlTitle(markdown) {
  */
 function convertWikilinks(markdown, uploadHistory = []) {
   const source = String(markdown || '');
-  return source.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, noteName, alias) => {
+  return source.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (...replaceArgs) => {
+    const [, noteName = '', alias = ''] = /** @type {[string, string?, string?, ...unknown[]]} */ (replaceArgs);
     const cleanNoteName = noteName.trim();
     const displayName = (alias || noteName).trim();
     
@@ -71,7 +77,8 @@ function convertWikilinks(markdown, uploadHistory = []) {
  */
 function convertObsidianImageSyntax(markdown) {
   const source = String(markdown || '');
-  return source.replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, fileName, altText) => {
+  return source.replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (...replaceArgs) => {
+    const [match, fileName = '', altText = ''] = /** @type {[string, string?, string?, ...unknown[]]} */ (replaceArgs);
     if (!fileName) return match;
     const cleanFileName = fileName.trim();
     const alt = (altText || cleanFileName).trim();
@@ -89,6 +96,7 @@ function convertObsidianImageSyntax(markdown) {
 function extractImagesFromMarkdown(markdown) {
   const converted = convertObsidianImageSyntax(markdown);
   const markdownImageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g;
+  /** @type {FeishuMarkdownImageLike[]} */
   const images = [];
   let match;
 

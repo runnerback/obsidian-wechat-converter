@@ -4407,7 +4407,7 @@ var require_converter = __commonJS({
     function isRecord10(value) {
       return !!value && typeof value === "object" && !Array.isArray(value);
     }
-    function toRecord6(value) {
+    function toRecord7(value) {
       return isRecord10(value) ? value : {};
     }
     function toText3(value) {
@@ -4508,7 +4508,7 @@ var require_converter = __commonJS({
       typeof window !== "undefined" ? window : {}
     );
     function getRuntimeDependency(name) {
-      const runtimeWindow = typeof window !== "undefined" ? toRecord6(window) : {};
+      const runtimeWindow = typeof window !== "undefined" ? toRecord7(window) : {};
       if (typeof runtimeWindow[name] !== "undefined") {
         return runtimeWindow[name];
       }
@@ -50800,6 +50800,18 @@ var FeishuApiClient = class {
 };
 
 // services/feishu-settings.js
+function toRecord5(value) {
+  return value && typeof value === "object" ? (
+    /** @type {Record<string, unknown>} */
+    value
+  ) : {};
+}
+function toTrimmedString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+function toStringWithFallback(value, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
 function createDefaultFeishuSyncSettings() {
   return {
     enabled: false,
@@ -50816,24 +50828,26 @@ function createDefaultFeishuSyncSettings() {
   };
 }
 function normalizeFeishuSyncSettings(value) {
-  const source = value && typeof value === "object" ? value : {};
-  const uploadHistory = Array.isArray(source.uploadHistory) ? source.uploadHistory.map((item) => {
-    if (!item || typeof item !== "object")
+  const source = toRecord5(value);
+  const rawUploadHistory = source.uploadHistory;
+  const uploadHistory = Array.isArray(rawUploadHistory) ? rawUploadHistory.map((item) => {
+    const historyItem = toRecord5(item);
+    if (!Object.keys(historyItem).length)
       return null;
     return {
-      title: typeof item.title === "string" ? item.title : "\u65E0\u6807\u9898\u6587\u7AE0",
-      url: typeof item.url === "string" ? item.url : "",
-      uploadTime: typeof item.uploadTime === "string" ? item.uploadTime : "",
-      docToken: typeof item.docToken === "string" ? item.docToken : "",
-      sourcePath: typeof item.sourcePath === "string" ? item.sourcePath : ""
+      title: toStringWithFallback(historyItem.title, "\u65E0\u6807\u9898\u6587\u7AE0"),
+      url: toStringWithFallback(historyItem.url),
+      uploadTime: toStringWithFallback(historyItem.uploadTime),
+      docToken: toStringWithFallback(historyItem.docToken),
+      sourcePath: toStringWithFallback(historyItem.sourcePath)
     };
   }).filter(Boolean) : [];
   return {
     enabled: source.enabled === true,
-    appId: typeof source.appId === "string" ? source.appId.trim() : "",
-    appSecret: typeof source.appSecret === "string" ? source.appSecret.trim() : "",
-    folderToken: typeof source.folderToken === "string" ? source.folderToken.trim() : "",
-    userId: typeof source.userId === "string" ? source.userId.trim() : "",
+    appId: toTrimmedString(source.appId),
+    appSecret: toTrimmedString(source.appSecret),
+    folderToken: toTrimmedString(source.folderToken),
+    userId: toTrimmedString(source.userId),
     enableSmartUpdate: source.enableSmartUpdate !== false,
     enableDoubleLinkMode: source.enableDoubleLinkMode === true,
     debugLoggingEnabled: source.debugLoggingEnabled === true,
@@ -50841,43 +50855,56 @@ function normalizeFeishuSyncSettings(value) {
   };
 }
 function addFeishuUploadHistory(settings, item) {
-  if (!settings || typeof settings !== "object")
+  const targetSettings = toRecord5(settings);
+  if (!Object.keys(targetSettings).length)
     return;
-  if (!Array.isArray(settings.uploadHistory)) {
-    settings.uploadHistory = [];
+  const rawUploadHistory = targetSettings.uploadHistory;
+  if (!Array.isArray(rawUploadHistory)) {
+    targetSettings.uploadHistory = [];
   }
+  const uploadHistory = (
+    /** @type {FeishuUploadHistoryItemLike[]} */
+    targetSettings.uploadHistory
+  );
+  const sourceItem = toRecord5(item);
   const normalizedItem = {
-    title: typeof item.title === "string" ? item.title : "\u65E0\u6807\u9898\u6587\u7AE0",
-    url: typeof item.url === "string" ? item.url : "",
-    uploadTime: typeof item.uploadTime === "string" ? item.uploadTime : new Date().toISOString(),
-    docToken: typeof item.docToken === "string" ? item.docToken : "",
-    sourcePath: typeof item.sourcePath === "string" ? item.sourcePath : ""
+    title: toStringWithFallback(sourceItem.title, "\u65E0\u6807\u9898\u6587\u7AE0"),
+    url: toStringWithFallback(sourceItem.url),
+    uploadTime: toStringWithFallback(sourceItem.uploadTime, new Date().toISOString()),
+    docToken: toStringWithFallback(sourceItem.docToken),
+    sourcePath: toStringWithFallback(sourceItem.sourcePath)
   };
-  settings.uploadHistory = settings.uploadHistory.filter(
+  targetSettings.uploadHistory = uploadHistory.filter(
     (x) => x.docToken !== normalizedItem.docToken && x.sourcePath !== normalizedItem.sourcePath
   );
-  settings.uploadHistory.unshift(normalizedItem);
-  if (settings.uploadHistory.length > 100) {
-    settings.uploadHistory = settings.uploadHistory.slice(0, 100);
+  targetSettings.uploadHistory.unshift(normalizedItem);
+  if (targetSettings.uploadHistory.length > 100) {
+    targetSettings.uploadHistory = /** @type {FeishuUploadHistoryItemLike[]} */
+    targetSettings.uploadHistory.slice(0, 100);
   }
 }
 function findFeishuHistoryByPath(settings, path) {
-  if (!settings || !Array.isArray(settings.uploadHistory))
+  const source = toRecord5(settings);
+  if (!Array.isArray(source.uploadHistory))
     return null;
   const targetPath = String(path || "").trim();
   if (!targetPath)
     return null;
-  return settings.uploadHistory.find((x) => x.sourcePath === targetPath) || null;
+  return (
+    /** @type {FeishuUploadHistoryItemLike[]} */
+    source.uploadHistory.find((x) => x.sourcePath === targetPath) || null
+  );
 }
 function updateFeishuHistoryPath(settings, oldPath, newPath) {
-  if (!settings || !Array.isArray(settings.uploadHistory))
+  const source = toRecord5(settings);
+  if (!Array.isArray(source.uploadHistory))
     return false;
   const targetOld = String(oldPath || "").trim();
   const targetNew = String(newPath || "").trim();
   if (!targetOld || !targetNew)
     return false;
   let changed = false;
-  settings.uploadHistory.forEach((x) => {
+  source.uploadHistory.forEach((x) => {
     if (x.sourcePath === targetOld) {
       x.sourcePath = targetNew;
       changed = true;
@@ -51126,7 +51153,11 @@ function parseYamlTitle(markdown) {
 }
 function convertWikilinks(markdown, uploadHistory = []) {
   const source = String(markdown || "");
-  return source.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, noteName, alias) => {
+  return source.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (...replaceArgs) => {
+    const [, noteName = "", alias = ""] = (
+      /** @type {[string, string?, string?, ...unknown[]]} */
+      replaceArgs
+    );
     const cleanNoteName = noteName.trim();
     const displayName = (alias || noteName).trim();
     const historyItem = (uploadHistory || []).find((x) => {
@@ -51142,7 +51173,11 @@ function convertWikilinks(markdown, uploadHistory = []) {
 }
 function convertObsidianImageSyntax(markdown) {
   const source = String(markdown || "");
-  return source.replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, fileName, altText) => {
+  return source.replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (...replaceArgs) => {
+    const [match, fileName = "", altText = ""] = (
+      /** @type {[string, string?, string?, ...unknown[]]} */
+      replaceArgs
+    );
     if (!fileName)
       return match;
     const cleanFileName = fileName.trim();
@@ -51601,7 +51636,7 @@ function toReadableError3(error) {
 function isRecord9(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
-function toRecord5(value) {
+function toRecord6(value) {
   return isRecord9(value) ? value : {};
 }
 function toAiLayoutState(value) {
@@ -51668,18 +51703,18 @@ function parseJsonRecord(value) {
   if (typeof value !== "string" || !value.trim())
     return {};
   try {
-    return toRecord5(JSON.parse(value));
+    return toRecord6(JSON.parse(value));
   } catch (e) {
     return {};
   }
 }
 function normalizeRequestUrlResponse(response) {
   var _a5;
-  const record = toRecord5(response);
+  const record = toRecord6(response);
   const status = (_a5 = toOptionalNumber(record.status)) != null ? _a5 : 200;
   const headers = (
     /** @type {Record<string, string>} */
-    toRecord5(record.headers)
+    toRecord6(record.headers)
   );
   return {
     status,
@@ -51693,7 +51728,7 @@ function normalizeRequestUrlResponse(response) {
   };
 }
 function getResponseJsonRecord(response) {
-  return toRecord5(response.json);
+  return toRecord6(response.json);
 }
 function getProxyErrorMessage(response) {
   const body = isRecord9(response.json) ? response.json : parseJsonRecord(response.text);
@@ -52784,7 +52819,7 @@ var AppleStyleView = class extends ItemView {
           candidateRenderer: async (markdown, context = {}) => {
             const renderContext = (
               /** @type {RenderCandidateContextLike} */
-              toRecord5(context)
+              toRecord6(context)
             );
             const contextSettings = isRecord9(renderContext.settings) ? (
               /** @type {PluginSettingsLike} */
@@ -53255,7 +53290,7 @@ var AppleStyleView = class extends ItemView {
    * @returns {string}
    */
   getFrontmatterString(frontmatter, keys) {
-    const frontmatterRecord = toRecord5(frontmatter);
+    const frontmatterRecord = toRecord6(frontmatter);
     if (!frontmatterRecord)
       return "";
     if (!Array.isArray(keys) || keys.length === 0)
@@ -53288,7 +53323,7 @@ var AppleStyleView = class extends ItemView {
    */
   getFrontmatterKeyMap(frontmatter, keys) {
     const result = {};
-    const frontmatterRecord = toRecord5(frontmatter);
+    const frontmatterRecord = toRecord6(frontmatter);
     if (!frontmatterRecord)
       return result;
     if (!Array.isArray(keys) || keys.length === 0)
@@ -53345,7 +53380,7 @@ var AppleStyleView = class extends ItemView {
    * @returns {boolean}
    */
   clearInvalidPublishMetaInFrontmatter(frontmatter, cleanedDir) {
-    const frontmatterRecord = toRecord5(frontmatter);
+    const frontmatterRecord = toRecord6(frontmatter);
     if (!frontmatterRecord)
       return false;
     let changed = false;
@@ -53402,7 +53437,7 @@ var AppleStyleView = class extends ItemView {
       const processFrontMatter = (_b = (_a5 = this.app) == null ? void 0 : _a5.fileManager) == null ? void 0 : _b["processFrontMatter"];
       if (typeof processFrontMatter === "function") {
         await processFrontMatter.call(this.app.fileManager, activeFile, (frontmatter) => {
-          this.clearInvalidPublishMetaInFrontmatter(toRecord5(frontmatter), cleanedDir);
+          this.clearInvalidPublishMetaInFrontmatter(toRecord6(frontmatter), cleanedDir);
         });
       } else {
         await this.clearInvalidPublishMetaByTextFallback(activeFile, cleanedDir);
@@ -54012,7 +54047,7 @@ var AppleStyleView = class extends ItemView {
     if (!this.aiLayoutOverlay)
       return;
     const pack = this.getAiRenderColorPalette(colorPaletteId || "tech-green");
-    const tokens = toRecord5(pack.tokens);
+    const tokens = toRecord6(pack.tokens);
     this.aiLayoutOverlay.style.setProperty("--ai-layout-accent", tokens.accent || "#0a84ff");
     this.aiLayoutOverlay.style.setProperty("--ai-layout-accent-deep", tokens.accentDeep || tokens.accent || "#0a84ff");
     this.aiLayoutOverlay.style.setProperty("--ai-layout-accent-soft", tokens.accentSoft || "rgba(0, 122, 255, 0.08)");
@@ -55387,7 +55422,7 @@ var AppleStyleView = class extends ItemView {
     } catch (error) {
       console.error("AI \u7F16\u6392\u751F\u6210\u5931\u8D25:", error);
       const readableError = toReadableError3(error);
-      const errorRecord = toRecord5(error);
+      const errorRecord = toRecord6(error);
       const errorGenerationMeta = toAiLayoutGenerationMeta(errorRecord.generationMeta);
       const previousState = this.getCurrentArticleLayoutState();
       const isSchemaError = errorRecord.code === "ai-layout-schema-invalid";
@@ -56306,7 +56341,7 @@ var AppleStyleView = class extends ItemView {
       const capabilities = settings.connection.capabilities || {};
       if (capabilities.openSyncTask !== false) {
         try {
-          const result = typeof bridge.openSyncTask === "function" ? toRecord5(await bridge.openSyncTask(taskId, { timeoutMs: 8e3 })) : {};
+          const result = typeof bridge.openSyncTask === "function" ? toRecord6(await bridge.openSyncTask(taskId, { timeoutMs: 8e3 })) : {};
           if ((result == null ? void 0 : result.opened) !== false) {
             new Notice("\u5DF2\u6253\u5F00\u6D4F\u89C8\u5668\u63D2\u4EF6\u4EFB\u52A1\u7A97\u53E3");
             return true;
@@ -56315,7 +56350,7 @@ var AppleStyleView = class extends ItemView {
           if (!isUnsupportedBridgeMethodError(error))
             throw error;
           const readableError = toReadableError3(error);
-          const errorRecord = toRecord5(error);
+          const errorRecord = toRecord6(error);
           console.warn("[Wechatsync] openSyncTask failed, falling back to task link", {
             code: errorRecord.code,
             message: readableError.message
@@ -56324,7 +56359,7 @@ var AppleStyleView = class extends ItemView {
       }
       if (capabilities.getSyncTaskLink !== false) {
         try {
-          const linkResult = typeof bridge.getSyncTaskLink === "function" ? toRecord5(await bridge.getSyncTaskLink(taskId, { timeoutMs: 5e3 })) : {};
+          const linkResult = typeof bridge.getSyncTaskLink === "function" ? toRecord6(await bridge.getSyncTaskLink(taskId, { timeoutMs: 5e3 })) : {};
           const url = String((linkResult == null ? void 0 : linkResult.url) || "").trim();
           if ((linkResult == null ? void 0 : linkResult.canOpen) !== false && url) {
             return this.openExternalUrl(url, { allowExtensionUrls: true });
@@ -56337,7 +56372,7 @@ var AppleStyleView = class extends ItemView {
           if (!isUnsupportedBridgeMethodError(error))
             throw error;
           const readableError = toReadableError3(error);
-          const errorRecord = toRecord5(error);
+          const errorRecord = toRecord6(error);
           console.warn("[Wechatsync] getSyncTaskLink failed", {
             code: errorRecord.code,
             message: readableError.message
@@ -56348,7 +56383,7 @@ var AppleStyleView = class extends ItemView {
       return false;
     } catch (error) {
       const readableError = toReadableError3(error);
-      const errorRecord = toRecord5(error);
+      const errorRecord = toRecord6(error);
       console.error("[Wechatsync] open task failed", {
         syncId: taskId,
         code: errorRecord.code,
@@ -56371,7 +56406,7 @@ var AppleStyleView = class extends ItemView {
     if (!hasWechatSyncCapability(settings, "getSyncTask"))
       return null;
     try {
-      const task = typeof bridge.getSyncTask === "function" ? toRecord5(await bridge.getSyncTask(taskId, { timeoutMs: 5e3 })) : {};
+      const task = typeof bridge.getSyncTask === "function" ? toRecord6(await bridge.getSyncTask(taskId, { timeoutMs: 5e3 })) : {};
       if ((task == null ? void 0 : task.found) === false)
         return task;
       return Object.keys(task).length ? (
@@ -56382,7 +56417,7 @@ var AppleStyleView = class extends ItemView {
       if (isUnsupportedBridgeMethodError(error))
         return null;
       const readableError = toReadableError3(error);
-      const errorRecord = toRecord5(error);
+      const errorRecord = toRecord6(error);
       console.warn("[Wechatsync] getSyncTask failed after enqueue", {
         syncId: taskId,
         code: errorRecord.code,
@@ -56478,7 +56513,7 @@ var AppleStyleView = class extends ItemView {
     }
     const rawTaskPlatforms = taskPlatformSource;
     const taskPlatforms = sortPlatformItems(rawTaskPlatforms.filter((item) => {
-      const itemRecord = toRecord5(item);
+      const itemRecord = toRecord6(item);
       const platformId = parseWechatsyncPlatformIds([itemRecord.id || itemRecord.platform || item])[0] || "";
       if (!platformId)
         return false;
@@ -56489,7 +56524,7 @@ var AppleStyleView = class extends ItemView {
       }
       return true;
     }), (item) => {
-      const itemRecord = toRecord5(item);
+      const itemRecord = toRecord6(item);
       return parseWechatsyncPlatformIds([itemRecord.id || itemRecord.platform || item])[0] || "";
     });
     if (taskId) {
@@ -56508,7 +56543,7 @@ var AppleStyleView = class extends ItemView {
       }
     }
     for (const item of taskPlatforms) {
-      const itemRecord = toRecord5(item);
+      const itemRecord = toRecord6(item);
       const platformId = String(itemRecord.id || itemRecord.platform || item || "").trim();
       if (!platformId)
         continue;
@@ -59025,7 +59060,7 @@ var AppleStylePlugin = class extends Plugin {
         var _a6, _b2;
         const currentSettings = getPluginSettings(this);
         currentSettings["multiPlatformSync"] = normalizeMultiPlatformSyncSettings({
-          ...toRecord5(currentSettings["multiPlatformSync"]),
+          ...toRecord6(currentSettings["multiPlatformSync"]),
           connectedClients: Array.isArray(clients) ? clients : []
         });
         await this.saveSettings();
@@ -59050,7 +59085,7 @@ var AppleStylePlugin = class extends Plugin {
         status
       });
     }).catch((error) => {
-      const errorRecord = toRecord5(error);
+      const errorRecord = toRecord6(error);
       const readableError = toReadableError3(error);
       console.warn("[Wechatsync] bridge warm start failed", {
         reason,
@@ -59061,7 +59096,7 @@ var AppleStylePlugin = class extends Plugin {
     });
   }
   async loadSettings() {
-    const loadedData = toRecord5(await this.loadData());
+    const loadedData = toRecord6(await this.loadData());
     const settings = setPluginSettings(this, Object.assign({}, DEFAULT_SETTINGS, loadedData));
     let didMigrate = false;
     if (!settings["clientId"]) {
@@ -59078,7 +59113,7 @@ var AppleStylePlugin = class extends Plugin {
     const rawAiSettings = loadedData.ai;
     settings["ai"] = normalizeAiSettings(rawAiSettings || settings["ai"] || {});
     if (rawAiSettings !== void 0) {
-      const normalizedRawAi = normalizeAiSettings(toRecord5(rawAiSettings));
+      const normalizedRawAi = normalizeAiSettings(toRecord6(rawAiSettings));
       if (JSON.stringify(normalizedRawAi) !== JSON.stringify(rawAiSettings)) {
         didMigrate = true;
       }
@@ -59166,8 +59201,8 @@ var AppleStylePlugin = class extends Plugin {
     if (!normalizedPath)
       return null;
     const pluginSettings = getPluginSettings(this);
-    const aiSettings = normalizeAiSettings(toRecord5(pluginSettings["ai"]));
-    const articleLayoutsByPath = toRecord5(aiSettings.articleLayoutsByPath);
+    const aiSettings = normalizeAiSettings(toRecord6(pluginSettings["ai"]));
+    const articleLayoutsByPath = toRecord6(aiSettings.articleLayoutsByPath);
     const entry = articleLayoutsByPath[normalizedPath] || null;
     const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
     if (!normalizedEntry)
