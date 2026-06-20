@@ -47861,8 +47861,38 @@ function stripMarkdownDestination(rawDestination) {
 function splitWikiEmbedTarget(rawTarget) {
   const parts = String(rawTarget || "").split("|");
   const src = (parts.shift() || "").trim();
-  const alias = parts.join("|").trim();
+  let aliasParts = parts.map((part) => part.trim()).filter((part) => part.length > 0);
+  if (aliasParts.length > 1 && isLikelyWikiImageSizeHint(aliasParts[aliasParts.length - 1])) {
+    aliasParts = aliasParts.slice(0, -1);
+  }
+  const alias = aliasParts.join("|").trim();
   return { src, alias };
+}
+function isLikelyWikiImageSizeHint(value) {
+  return /^\d+(?:\s*x\s*\d+)?$/i.test(String(value || "").trim());
+}
+function parseImageSizeHint(value) {
+  const match = String(value || "").trim().match(/^(\d+)(?:\s*x\s*(\d+))?$/i);
+  if (!match)
+    return null;
+  const width = Number(match[1] || 0);
+  const height = match[2] ? Number(match[2]) : null;
+  if (!Number.isFinite(width) || width <= 0)
+    return null;
+  if (height !== null && (!Number.isFinite(height) || height <= 0))
+    return null;
+  return { width, height };
+}
+function extractSizeHintFromAltText(altText) {
+  const raw = String(altText || "").trim();
+  if (!raw)
+    return null;
+  if (!raw.includes("|"))
+    return parseImageSizeHint(raw);
+  const parts = raw.split("|").map((part) => part.trim()).filter(Boolean);
+  if (!parts.length)
+    return null;
+  return parseImageSizeHint(parts[parts.length - 1]);
 }
 function createAltFromSrc(src, fallback = "\u56FE\u7247") {
   const filename = getFilenameFromPath(src);
@@ -47883,7 +47913,8 @@ function collectWikiImageEmbeds(markdown) {
       end: match.index + match[0].length,
       raw: match[0],
       src,
-      alt: alias || createAltFromSrc(src)
+      alt: alias || createAltFromSrc(src),
+      sizeHint: parseImageSizeHint(String(match[1] || "").split("|").map((part) => part.trim()).filter(Boolean).pop() || "")
     });
   }
   return results;
@@ -47909,7 +47940,8 @@ function collectPlainWikiImageLinks(markdown) {
       end: match.index + match[0].length,
       raw: match[0],
       src,
-      alt: alias || createAltFromSrc(src)
+      alt: alias || createAltFromSrc(src),
+      sizeHint: parseImageSizeHint(String(match[1] || "").split("|").map((part) => part.trim()).filter(Boolean).pop() || "")
     });
   }
   return results;
@@ -47970,13 +48002,15 @@ function collectMarkdownImages(markdown) {
     const alt = sourceMarkdown.slice(start + 2, altEnd);
     const destination = stripMarkdownDestination(sourceMarkdown.slice(destinationStart, destinationEnd));
     if (destination) {
+      const sizeHint = extractSizeHintFromAltText(alt);
       results.push({
         type: "markdown",
         start,
         end: destinationEnd + 1,
         raw: sourceMarkdown.slice(start, destinationEnd + 1),
         src: destination,
-        alt
+        alt,
+        sizeHint
       });
     }
     index = destinationEnd + 1;
@@ -48397,6 +48431,7 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
   const replacements = [];
   const assets = [];
   const existingByKey = /* @__PURE__ */ new Map();
+  const resolvedReferences = [];
   const resolveSrc = async (src, originalSrc = src) => {
     const trimmed = String(src || "").trim();
     const original = String(originalSrc || "");
@@ -48433,6 +48468,13 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
   };
   for (const ref of references) {
     const result = await resolveSrc(ref.src, ref.src);
+    resolvedReferences.push({
+      type: ref.type,
+      originalSrc: ref.src,
+      resolvedSrc: result.src,
+      alt: ref.alt,
+      sizeHint: ref.sizeHint || null
+    });
     if (result.warning) {
       warnings.push(result.warning);
       continue;
@@ -48466,7 +48508,8 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
     assets,
     warnings,
     cover,
-    firstImageSrc: getFirstMarkdownImageSrc(resolvedMarkdown)
+    firstImageSrc: getFirstMarkdownImageSrc(resolvedMarkdown),
+    references: resolvedReferences
   };
 }
 
@@ -51221,6 +51264,100 @@ function toUint8Array2(binary) {
   }
   return new Uint8Array(0);
 }
+function getPngDimensions(bytes) {
+  if (bytes.length < 24)
+    return null;
+  if (bytes[0] !== 137 || bytes[1] !== 80 || bytes[2] !== 78 || bytes[3] !== 71 || bytes[4] !== 13 || bytes[5] !== 10 || bytes[6] !== 26 || bytes[7] !== 10) {
+    return null;
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = view.getUint32(16, false);
+  const height = view.getUint32(20, false);
+  if (!width || !height)
+    return null;
+  return { width, height };
+}
+function getGifDimensions(bytes) {
+  if (bytes.length < 10)
+    return null;
+  if (String.fromCharCode(bytes[0], bytes[1], bytes[2]) !== "GIF")
+    return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = view.getUint16(6, true);
+  const height = view.getUint16(8, true);
+  if (!width || !height)
+    return null;
+  return { width, height };
+}
+function getJpegDimensions(bytes) {
+  if (bytes.length < 4 || bytes[0] !== 255 || bytes[1] !== 216)
+    return null;
+  let offset = 2;
+  while (offset + 9 < bytes.length) {
+    if (bytes[offset] !== 255) {
+      offset += 1;
+      continue;
+    }
+    const marker = bytes[offset + 1];
+    if (marker === 216 || marker === 217) {
+      offset += 2;
+      continue;
+    }
+    if (offset + 4 > bytes.length)
+      return null;
+    const length = bytes[offset + 2] << 8 | bytes[offset + 3];
+    if (length < 2 || offset + 2 + length > bytes.length)
+      return null;
+    if (marker >= 192 && marker <= 195 || marker >= 197 && marker <= 199 || marker >= 201 && marker <= 203 || marker >= 205 && marker <= 207) {
+      const height = bytes[offset + 5] << 8 | bytes[offset + 6];
+      const width = bytes[offset + 7] << 8 | bytes[offset + 8];
+      if (!width || !height)
+        return null;
+      return { width, height };
+    }
+    offset += 2 + length;
+  }
+  return null;
+}
+function getWebpDimensions(bytes) {
+  if (bytes.length < 30)
+    return null;
+  const riff = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
+  const webp = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+  if (riff !== "RIFF" || webp !== "WEBP")
+    return null;
+  const chunk = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15]);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (chunk === "VP8X" && bytes.length >= 30) {
+    const width = 1 + bytes[24] + (bytes[25] << 8) + (bytes[26] << 16);
+    const height = 1 + bytes[27] + (bytes[28] << 8) + (bytes[29] << 16);
+    return width && height ? { width, height } : null;
+  }
+  if (chunk === "VP8 " && bytes.length >= 30) {
+    const width = view.getUint16(26, true) & 16383;
+    const height = view.getUint16(28, true) & 16383;
+    return width && height ? { width, height } : null;
+  }
+  if (chunk === "VP8L" && bytes.length >= 25) {
+    const bits = view.getUint32(21, true);
+    const width = (bits & 16383) + 1;
+    const height = (bits >> 14 & 16383) + 1;
+    return width && height ? { width, height } : null;
+  }
+  return null;
+}
+function getImageDimensions(bytes) {
+  return getPngDimensions(bytes) || getGifDimensions(bytes) || getJpegDimensions(bytes) || getWebpDimensions(bytes);
+}
+function buildReplacementSize(bytes, _sizeHint) {
+  const original = getImageDimensions(bytes);
+  if (!original || !original.width || !original.height)
+    return null;
+  return {
+    width: Math.round(original.width),
+    height: Math.round(original.height)
+  };
+}
 function createImageSummary() {
   return {
     uploaded: 0,
@@ -51274,7 +51411,7 @@ async function replaceFeishuImageBlocks({ app, client, docToken, images, assets,
     const block = imageBlocks[imageIndex];
     const filename = (asset == null ? void 0 : asset.filename) || image.fileName || "image";
     if (typeof onProgress === "function") {
-      onProgress("processing_images", `\u6B63\u5728\u540C\u6B65\u6B63\u6587\u56FE\u7247 (${i + 1}/${localImageItems.length}): ${filename}...`);
+      onProgress("processing_images", `\u6B63\u5728\u540C\u6B65\u6B63\u6587\u56FE\u7247 (${i + 1}/${localImageItems.length})...`);
     }
     if (!block) {
       addImageDetail(summary, filename, "skipped", "feishu_image_block_missing");
@@ -51282,6 +51419,7 @@ async function replaceFeishuImageBlocks({ app, client, docToken, images, assets,
     }
     try {
       const bytes = await readAssetBytes(app, asset);
+      const replacementSize = buildReplacementSize(bytes, (image == null ? void 0 : image.sizeHint) || null);
       const imageToken = await client.uploadImageMaterialBytes(
         filename,
         bytes,
@@ -51292,7 +51430,9 @@ async function replaceFeishuImageBlocks({ app, client, docToken, images, assets,
       await client.updateBlock(docToken, block.block_id, {
         replace_image: {
           token: imageToken,
-          align: 2
+          align: 2,
+          ...(replacementSize == null ? void 0 : replacementSize.width) ? { width: replacementSize.width } : {},
+          ...(replacementSize == null ? void 0 : replacementSize.height) ? { height: replacementSize.height } : {}
         }
       });
       addImageDetail(summary, filename, "uploaded", "ok");
@@ -51349,21 +51489,6 @@ function convertWikilinks(markdown, uploadHistory = []) {
     return displayName;
   });
 }
-function convertObsidianImageSyntax(markdown) {
-  const source = String(markdown || "");
-  return source.replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (...replaceArgs) => {
-    const [match, fileName = "", altText = ""] = (
-      /** @type {[string, string?, string?, ...unknown[]]} */
-      replaceArgs
-    );
-    if (!fileName)
-      return match;
-    const cleanFileName = fileName.trim();
-    const alt = (altText || cleanFileName).trim();
-    const encodedFileName = encodeURI(cleanFileName);
-    return `![${alt}](${encodedFileName})`;
-  });
-}
 function getImageFileNameFromSrc(src) {
   const value = String(src || "");
   const dataMatch = value.match(/^data:image\/([a-z0-9.+-]+);base64,/i);
@@ -51372,86 +51497,6 @@ function getImageFileNameFromSrc(src) {
     return `image.${ext}`;
   }
   return value.split("/").pop() || value;
-}
-function stripMarkdownDestination2(rawDestination) {
-  const raw = String(rawDestination || "").trim();
-  if (raw.startsWith("<")) {
-    const end = raw.indexOf(">");
-    if (end > 0)
-      return raw.slice(1, end).trim();
-  }
-  return raw.replace(/\\([()])/g, "$1").trim();
-}
-function extractImagesFromMarkdown(markdown) {
-  const converted = convertObsidianImageSyntax(markdown);
-  const images = [];
-  let index = 0;
-  while (index < converted.length) {
-    const start = converted.indexOf("![", index);
-    if (start < 0)
-      break;
-    let cursor = start + 2;
-    let escaped = false;
-    let altEnd = -1;
-    while (cursor < converted.length) {
-      const char = converted[cursor];
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === "]") {
-        altEnd = cursor;
-        break;
-      }
-      cursor += 1;
-    }
-    if (altEnd < 0 || converted[altEnd + 1] !== "(") {
-      index = start + 2;
-      continue;
-    }
-    const destinationStart = altEnd + 2;
-    cursor = destinationStart;
-    let depth = 0;
-    escaped = false;
-    let destinationEnd = -1;
-    while (cursor < converted.length) {
-      const char = converted[cursor];
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === "(") {
-        depth += 1;
-      } else if (char === ")") {
-        if (depth === 0) {
-          destinationEnd = cursor;
-          break;
-        }
-        depth -= 1;
-      }
-      cursor += 1;
-    }
-    if (destinationEnd < 0) {
-      index = start + 2;
-      continue;
-    }
-    const originalSrc = stripMarkdownDestination2(converted.slice(destinationStart, destinationEnd)).split(/\s+(?=["'])/)[0];
-    if (!originalSrc)
-      continue;
-    const decodedPath = decodeURI(originalSrc);
-    const isRemote = /^https?:\/\//i.test(decodedPath) || decodedPath.startsWith("data:");
-    const fileName = getImageFileNameFromSrc(decodedPath);
-    if (!images.some((x) => x.originalSrc === originalSrc)) {
-      images.push({
-        originalSrc,
-        path: decodedPath,
-        fileName,
-        isRemote
-      });
-    }
-    index = destinationEnd + 1;
-  }
-  return images;
 }
 
 // services/feishu-sync.js
@@ -51474,7 +51519,18 @@ async function prepareLocalImagesForFeishu(app, activeFile, markdown) {
   return {
     markdown: result.markdown,
     assets: result.assets || [],
-    warnings: result.warnings || []
+    warnings: result.warnings || [],
+    references: (result.references || []).map((ref) => {
+      const resolvedSrc = String((ref == null ? void 0 : ref.resolvedSrc) || (ref == null ? void 0 : ref.originalSrc) || "");
+      const decodedPath = decodeURI(resolvedSrc);
+      return {
+        originalSrc: resolvedSrc,
+        path: decodedPath,
+        fileName: getImageFileNameFromSrc(String((ref == null ? void 0 : ref.originalSrc) || resolvedSrc)),
+        isRemote: /^https?:\/\//i.test(decodedPath) || decodedPath.startsWith("data:"),
+        sizeHint: (ref == null ? void 0 : ref.sizeHint) || null
+      };
+    })
   };
 }
 async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgress, requestUrl }) {
@@ -51587,7 +51643,7 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
   } else {
     await importAsNewDocument();
   }
-  const images = extractImagesFromMarkdown(processedMd);
+  const images = localImageResult.references || [];
   if (images.length > 0) {
     notify("processing_images", "\u6B63\u5728\u626B\u63CF\u6587\u6863\u56FE\u7247\u7ED3\u6784...");
     try {

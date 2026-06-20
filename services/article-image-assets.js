@@ -14,7 +14,7 @@ const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
  *   },
  * }} ObsidianAppLike
  * @typedef {{ start: number, end: number }} TextRange
- * @typedef {{ type: string, start: number, end: number, raw: string, src: string, alt: string }} ImageReference
+ * @typedef {{ type: string, start: number, end: number, raw: string, src: string, alt: string, sizeHint?: ImageSizeHint | null }} ImageReference
  * @typedef {{ code: string, message: string, severity: string, src: string, filename: string, size: number }} ImageWarning
  * @typedef {{
  *   kind: string,
@@ -33,6 +33,8 @@ const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
  *   source: ImageAssetSource,
  * }} ImageAsset
  * @typedef {{ start: number, end: number, value: string }} ReplacementRange
+ * @typedef {{ width: number, height: number | null }} ImageSizeHint
+ * @typedef {{ type: string, originalSrc: string, resolvedSrc: string, alt: string, sizeHint: ImageSizeHint | null }} ResolvedImageReference
  */
 
 const SUPPORTED_IMAGE_MIME_BY_EXT = {
@@ -228,6 +230,33 @@ function isLikelyWikiImageSizeHint(value) {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {ImageSizeHint | null}
+ */
+function parseImageSizeHint(value) {
+  const match = String(value || '').trim().match(/^(\d+)(?:\s*x\s*(\d+))?$/i);
+  if (!match) return null;
+  const width = Number(match[1] || 0);
+  const height = match[2] ? Number(match[2]) : null;
+  if (!Number.isFinite(width) || width <= 0) return null;
+  if (height !== null && (!Number.isFinite(height) || height <= 0)) return null;
+  return { width, height };
+}
+
+/**
+ * @param {unknown} altText
+ * @returns {ImageSizeHint | null}
+ */
+function extractSizeHintFromAltText(altText) {
+  const raw = String(altText || '').trim();
+  if (!raw) return null;
+  if (!raw.includes('|')) return parseImageSizeHint(raw);
+  const parts = raw.split('|').map((part) => part.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  return parseImageSizeHint(parts[parts.length - 1]);
+}
+
+/**
  * @param {unknown} src
  * @param {string} fallback
  */
@@ -256,6 +285,7 @@ function collectWikiImageEmbeds(markdown) {
       raw: match[0],
       src,
       alt: alias || createAltFromSrc(src),
+      sizeHint: parseImageSizeHint(String(match[1] || '').split('|').map((part) => part.trim()).filter(Boolean).pop() || ''),
     });
   }
   return results;
@@ -288,6 +318,7 @@ function collectPlainWikiImageLinks(markdown) {
       raw: match[0],
       src,
       alt: alias || createAltFromSrc(src),
+      sizeHint: parseImageSizeHint(String(match[1] || '').split('|').map((part) => part.trim()).filter(Boolean).pop() || ''),
     });
   }
   return results;
@@ -356,6 +387,7 @@ function collectMarkdownImages(markdown) {
     const alt = sourceMarkdown.slice(start + 2, altEnd);
     const destination = stripMarkdownDestination(sourceMarkdown.slice(destinationStart, destinationEnd));
     if (destination) {
+      const sizeHint = extractSizeHintFromAltText(alt);
       results.push({
         type: 'markdown',
         start,
@@ -363,6 +395,7 @@ function collectMarkdownImages(markdown) {
         raw: sourceMarkdown.slice(start, destinationEnd + 1),
         src: destination,
         alt,
+        sizeHint,
       });
     }
     index = destinationEnd + 1;
@@ -917,7 +950,7 @@ function formatArticleImageWarnings(warnings = []) {
  * @param {unknown} markdown
  * @param {unknown} noteFile
  * @param {{ app?: unknown, maxImageSizeBytes?: number, maxTotalImageSizeBytes?: number, unsupportedImageExtensions?: string[], cover?: string, localImageSrcFactory?: (asset: ImageAsset) => string }} options
- * @returns {Promise<{ markdown: string, assets: ImageAsset[], warnings: ImageWarning[], cover: string, firstImageSrc: string }>}
+ * @returns {Promise<{ markdown: string, assets: ImageAsset[], warnings: ImageWarning[], cover: string, firstImageSrc: string, references: ResolvedImageReference[] }>}
  */
 async function resolveArticleImages(markdown, noteFile, options = {}) {
   const app = options.app;
@@ -936,6 +969,8 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
   const assets = [];
   /** @type {Map<string, ImageAsset>} */
   const existingByKey = new Map();
+  /** @type {ResolvedImageReference[]} */
+  const resolvedReferences = [];
 
   /**
    * @param {unknown} src
@@ -977,6 +1012,13 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
 
   for (const ref of references) {
     const result = await resolveSrc(ref.src, ref.src);
+    resolvedReferences.push({
+      type: ref.type,
+      originalSrc: ref.src,
+      resolvedSrc: result.src,
+      alt: ref.alt,
+      sizeHint: ref.sizeHint || null,
+    });
     if (result.warning) {
       warnings.push(result.warning);
       continue;
@@ -1014,6 +1056,7 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
     warnings,
     cover,
     firstImageSrc: getFirstMarkdownImageSrc(resolvedMarkdown),
+    references: resolvedReferences,
   };
 }
 

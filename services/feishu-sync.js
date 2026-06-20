@@ -13,7 +13,7 @@ import {
   stripYamlFrontmatter,
   parseYamlTitle,
   convertWikilinks,
-  extractImagesFromMarkdown,
+  getImageFileNameFromSrc,
 } from './feishu-markdown-processor.js';
 import { addFeishuUploadHistory, findFeishuHistoryByPath } from './feishu-settings.js';
 
@@ -40,7 +40,7 @@ function arrayBufferToBase64(buffer) {
  * @param {any} app Obsidian App instance
  * @param {any} activeFile TFile
  * @param {string} markdown
- * @returns {Promise<{ markdown: string, assets: Array<{ id: string, filename: string, mimeType: string, base64: string }>, warnings: Array<{ message?: string, src?: string, filename?: string }> }>}
+ * @returns {Promise<{ markdown: string, assets: Array<{ id: string, filename: string, mimeType: string, base64: string }>, warnings: Array<{ message?: string, src?: string, filename?: string }>, references: Array<{ originalSrc: string, path: string, fileName: string, isRemote: boolean, sizeHint?: { width: number, height: number | null } | null }> }>}
  */
 async function prepareLocalImagesForFeishu(app, activeFile, markdown) {
   const result = await resolveArticleImages(markdown, activeFile, {
@@ -53,6 +53,17 @@ async function prepareLocalImagesForFeishu(app, activeFile, markdown) {
     markdown: result.markdown,
     assets: result.assets || [],
     warnings: result.warnings || [],
+    references: (result.references || []).map((ref) => {
+      const resolvedSrc = String(ref?.resolvedSrc || ref?.originalSrc || '');
+      const decodedPath = decodeURI(resolvedSrc);
+      return {
+        originalSrc: resolvedSrc,
+        path: decodedPath,
+        fileName: getImageFileNameFromSrc(String(ref?.originalSrc || resolvedSrc)),
+        isRemote: /^https?:\/\//i.test(decodedPath) || decodedPath.startsWith('data:'),
+        sizeHint: ref?.sizeHint || null,
+      };
+    }),
   };
 }
 
@@ -211,7 +222,7 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
   }
 
   // 6. Image processing and patching
-  const images = extractImagesFromMarkdown(processedMd);
+  const images = localImageResult.references || [];
   if (images.length > 0) {
     notify('processing_images', '正在扫描文档图片结构...');
     try {

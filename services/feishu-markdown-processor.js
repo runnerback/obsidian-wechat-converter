@@ -6,7 +6,7 @@
 
 /**
  * @typedef {{ title: string, url: string }} FeishuHistoryLinkLike
- * @typedef {{ originalSrc: string, path: string, fileName: string, isRemote: boolean }} FeishuMarkdownImageLike
+ * @typedef {{ originalSrc: string, path: string, fileName: string, isRemote: boolean, sizeHint?: { width: number, height: number | null } | null }} FeishuMarkdownImageLike
  */
 
 /**
@@ -112,6 +112,33 @@ function isLikelyWikiImageSizeHint(value) {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {{ width: number, height: number | null } | null}
+ */
+function parseImageSizeHint(value) {
+  const match = String(value || '').trim().match(/^(\d+)(?:\s*x\s*(\d+))?$/i);
+  if (!match) return null;
+  const width = Number(match[1] || 0);
+  const height = match[2] ? Number(match[2]) : null;
+  if (!Number.isFinite(width) || width <= 0) return null;
+  if (height !== null && (!Number.isFinite(height) || height <= 0)) return null;
+  return { width, height };
+}
+
+/**
+ * @param {unknown} altText
+ * @returns {{ width: number, height: number | null } | null}
+ */
+function extractSizeHintFromAltText(altText) {
+  const raw = String(altText || '').trim();
+  if (!raw) return null;
+  if (!raw.includes('|')) return parseImageSizeHint(raw);
+  const parts = raw.split('|').map((part) => part.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  return parseImageSizeHint(parts[parts.length - 1]);
+}
+
+/**
  * @param {string} src
  * @returns {string}
  */
@@ -203,12 +230,14 @@ function extractImagesFromMarkdown(markdown) {
       continue;
     }
 
+    const alt = converted.slice(start + 2, altEnd);
     const originalSrc = stripMarkdownDestination(converted.slice(destinationStart, destinationEnd)).split(/\s+(?=["'])/)[0];
     if (!originalSrc) continue;
 
     const decodedPath = decodeURI(originalSrc);
     const isRemote = /^https?:\/\//i.test(decodedPath) || decodedPath.startsWith('data:');
     const fileName = getImageFileNameFromSrc(decodedPath);
+    const sizeHint = extractSizeHintFromAltText(alt);
 
     // Prevent duplicates in the queue
     if (!images.some((x) => x.originalSrc === originalSrc)) {
@@ -217,6 +246,7 @@ function extractImagesFromMarkdown(markdown) {
         path: decodedPath,
         fileName,
         isRemote,
+        sizeHint,
       });
     }
 
