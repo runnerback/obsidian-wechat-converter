@@ -82,10 +82,33 @@ function convertObsidianImageSyntax(markdown) {
     const [match, fileName = '', altText = ''] = /** @type {[string, string?, string?, ...unknown[]]} */ (replaceArgs);
     if (!fileName) return match;
     const cleanFileName = fileName.trim();
-    const alt = (altText || cleanFileName).trim();
+    const alt = getWikiImageAltText(altText, cleanFileName);
     const encodedFileName = encodeURI(cleanFileName);
     return `![${alt}](${encodedFileName})`;
   });
+}
+
+/**
+ * @param {unknown} rawAltText
+ * @param {string} fallback
+ * @returns {string}
+ */
+function getWikiImageAltText(rawAltText, fallback) {
+  const raw = String(rawAltText || '').trim();
+  if (!raw) return fallback;
+  let parts = raw.split('|').map((part) => part.trim()).filter(Boolean);
+  if (parts.length > 1 && isLikelyWikiImageSizeHint(parts[parts.length - 1])) {
+    parts = parts.slice(0, -1);
+  }
+  return parts.join('|').trim() || fallback;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isLikelyWikiImageSizeHint(value) {
+  return /^\d+(?:\s*x\s*\d+)?$/i.test(String(value || '').trim());
 }
 
 /**

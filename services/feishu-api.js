@@ -701,7 +701,7 @@ class FeishuApiClient {
       },
       body: JSON.stringify({
         member_id: userId,
-        member_type: 'user_id', // Feishu userId format (e.g. abc1234)
+        member_type: 'userid', // Feishu User ID value, e.g. abc1234.
       }),
     });
 

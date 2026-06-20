@@ -3982,6 +3982,68 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   background: color-mix(in srgb, var(--apple-error) 7%, transparent);
 }
 
+.wechat-feishu-result-card {
+  margin: 16px 0;
+  padding: 16px 18px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--background-secondary) 88%, var(--background-primary));
+}
+
+.wechat-feishu-result-card.is-hidden {
+  display: none;
+}
+
+.wechat-feishu-result-card.is-success {
+  border-color: color-mix(in srgb, var(--text-success) 35%, var(--background-modifier-border));
+}
+
+.wechat-feishu-result-card.has-warning {
+  border-color: color-mix(in srgb, var(--text-warning) 35%, var(--background-modifier-border));
+}
+
+.wechat-feishu-result-title {
+  margin: 0 0 6px;
+  color: var(--text-success);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.wechat-feishu-result-card.has-warning .wechat-feishu-result-title {
+  color: var(--text-warning);
+}
+
+.wechat-feishu-result-desc {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.wechat-feishu-result-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.wechat-feishu-result-warning {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text-warning) 10%, transparent);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.wechat-feishu-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 .wechat-modal-cover-from-material {
   display: flex;
   align-items: center;

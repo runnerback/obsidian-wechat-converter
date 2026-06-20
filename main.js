@@ -48425,7 +48425,11 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
       assets.push(result.asset);
     if (!result.asset)
       return { src: trimmed };
-    return { src: `asset://${result.asset.id}`, asset: result.asset };
+    const replacementSrc = typeof options.localImageSrcFactory === "function" ? options.localImageSrcFactory(result.asset) : `asset://${result.asset.id}`;
+    if (replacementSrc && replacementSrc !== `asset://${result.asset.id}`) {
+      result.asset.source.placeholderSrc = replacementSrc;
+    }
+    return { src: replacementSrc || `asset://${result.asset.id}`, asset: result.asset };
   };
   for (const ref of references) {
     const result = await resolveSrc(ref.src, ref.src);
@@ -50864,8 +50868,8 @@ var FeishuApiClient = class {
       },
       body: JSON.stringify({
         member_id: userId,
-        member_type: "user_id"
-        // Feishu userId format (e.g. abc1234)
+        member_type: "userid"
+        // Feishu User ID value, e.g. abc1234.
       })
     });
     const data = resp.json;
@@ -51249,23 +51253,25 @@ function findLocalAssetForImage(image, assets) {
     return assets.find((asset) => originalSrc === `asset://${asset.id}`) || null;
   }
   return assets.find((asset) => {
-    var _a5, _b;
-    return ((_a5 = asset == null ? void 0 : asset.source) == null ? void 0 : _a5.originalSrc) === originalSrc || ((_b = asset == null ? void 0 : asset.source) == null ? void 0 : _b.vaultRelativePath) === image.path;
+    var _a5, _b, _c;
+    return ((_a5 = asset == null ? void 0 : asset.source) == null ? void 0 : _a5.placeholderSrc) === originalSrc || ((_b = asset == null ? void 0 : asset.source) == null ? void 0 : _b.originalSrc) === originalSrc || ((_c = asset == null ? void 0 : asset.source) == null ? void 0 : _c.vaultRelativePath) === image.path;
   }) || null;
 }
 async function replaceFeishuImageBlocks({ app, client, docToken, images, assets, onProgress }) {
   const summary = createImageSummary();
-  const localImageItems = (images || []).filter((image) => !image.isRemote).map((image) => ({
+  const imageItems = (images || []).map((image, index) => ({
     image,
+    imageIndex: index,
     asset: findLocalAssetForImage(image, assets || [])
-  })).filter((item) => item.asset);
+  }));
+  const localImageItems = imageItems.filter((item) => item.asset);
   if (localImageItems.length === 0)
     return summary;
   const blocks = await client.getDocumentBlocks(docToken);
   const imageBlocks = (blocks || []).filter((block) => block.block_type === 27);
   for (let i = 0; i < localImageItems.length; i++) {
-    const { image, asset } = localImageItems[i];
-    const block = imageBlocks[i];
+    const { image, imageIndex, asset } = localImageItems[i];
+    const block = imageBlocks[imageIndex];
     const filename = (asset == null ? void 0 : asset.filename) || image.fileName || "image";
     if (typeof onProgress === "function") {
       onProgress("processing_images", `\u6B63\u5728\u540C\u6B65\u6B63\u6587\u56FE\u7247 (${i + 1}/${localImageItems.length}): ${filename}...`);
@@ -51286,8 +51292,6 @@ async function replaceFeishuImageBlocks({ app, client, docToken, images, assets,
       await client.updateBlock(docToken, block.block_id, {
         replace_image: {
           token: imageToken,
-          width: 800,
-          height: 600,
           align: 2
         }
       });
@@ -51451,6 +51455,7 @@ function extractImagesFromMarkdown(markdown) {
 }
 
 // services/feishu-sync.js
+var FEISHU_LOCAL_IMAGE_PLACEHOLDER_BASE = "https://obsidian-wechat-converter.invalid/feishu-local-image";
 function arrayBufferToBase64(buffer) {
   let binary = "";
   const bytes = new Uint8Array(buffer);
@@ -51463,7 +51468,8 @@ function arrayBufferToBase64(buffer) {
 async function prepareLocalImagesForFeishu(app, activeFile, markdown) {
   const result = await resolveArticleImages(markdown, activeFile, {
     app,
-    unsupportedImageExtensions: ["gif"]
+    unsupportedImageExtensions: ["gif"],
+    localImageSrcFactory: (asset) => `${FEISHU_LOCAL_IMAGE_PLACEHOLDER_BASE}/${asset.id}.png`
   });
   return {
     markdown: result.markdown,
@@ -51628,6 +51634,37 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
 }
 
 // views/publish-modal/feishu.js
+function showFeishuNotice(Notice2, message, duration) {
+  if (typeof Notice2 !== "function")
+    return null;
+  return new Notice2(message, duration);
+}
+function updateFeishuNotice(notice, message) {
+  if (notice && typeof notice.setMessage === "function") {
+    notice.setMessage(message);
+  }
+}
+function hideFeishuNotice(notice) {
+  if (notice && typeof notice.hide === "function") {
+    notice.hide();
+  }
+}
+function formatFeishuImageWarning(imageSummary) {
+  const count = Number((imageSummary == null ? void 0 : imageSummary.skipped) || 0) + Number((imageSummary == null ? void 0 : imageSummary.failed) || 0);
+  if (!count)
+    return "";
+  return `\u6709 ${count} \u5F20\u672C\u5730\u56FE\u7247\u672A\u5904\u7406\u3002\u672C\u5730 GIF \u6216\u5F02\u5E38\u56FE\u7247\u5DF2\u8DF3\u8FC7\uFF1B\u8FDC\u7A0B\u56FE\u7247\u4F1A\u4EA4\u7531\u98DE\u4E66\u5BFC\u5165\u3002`;
+}
+function getFeishuResultWarnings(result) {
+  const warnings = [];
+  if (result == null ? void 0 : result.transferOwnerWarning) {
+    warnings.push("\u6587\u6863\u5DF2\u540C\u6B65\uFF0C\u4F46\u6240\u6709\u6743\u8F6C\u79FB\u672A\u5B8C\u6210\u3002\u4F60\u4ECD\u53EF\u4EE5\u7167\u5E38\u4F7F\u7528\u8BE5\u6587\u6863\uFF1B\u5982\u9700\u81EA\u52A8\u8F6C\u79FB\uFF0C\u8BF7\u68C0\u67E5\u98DE\u4E66 User ID \u548C\u5E94\u7528\u6743\u9650\u3002");
+  }
+  const imageWarning = formatFeishuImageWarning(result == null ? void 0 : result.imageSummary);
+  if (imageWarning)
+    warnings.push(imageWarning);
+  return warnings;
+}
 function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
   const obsidian = options.obsidianApi || view.plugin.obsidianApi || getActiveWindowValue("obsidian") || {};
   const Setting2 = obsidian.Setting;
@@ -51702,12 +51739,8 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
       cls: "text-muted"
     });
   }
-  const progressWrapper = contentWrapper.createDiv({ cls: "wechat-feishu-progress" });
-  progressWrapper.setCssStyles({ display: "none", margin: "20px 0", textAlign: "center" });
-  const progressText = progressWrapper.createEl("p", { text: "\u6B63\u5728\u51C6\u5907\u540C\u6B65...", cls: "feishu-progress-message" });
-  progressText.setCssStyles({ fontWeight: "bold", color: "var(--text-accent)" });
   const resultCard = contentWrapper.createDiv({ cls: "wechat-feishu-result-card" });
-  resultCard.setCssStyles({ display: "none", margin: "16px 0", padding: "16px", border: "1px solid var(--background-modifier-border)", borderRadius: "6px", background: "var(--background-secondary)" });
+  resultCard.addClass("is-hidden");
   const buttonRow = contentWrapper.createDiv({ cls: "wechat-modal-buttons" });
   const cancelBtn = buttonRow.createEl("button", { text: "\u53D6\u6D88" });
   cancelBtn.onclick = () => modal.close();
@@ -51716,8 +51749,12 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
     titleSetting.settingEl.addClass("is-disabled");
     syncBtn.disabled = true;
     cancelBtn.disabled = true;
-    progressWrapper.setCssStyles({ display: "block" });
-    resultCard.setCssStyles({ display: "none" });
+    resultCard.addClass("is-hidden");
+    const progressNotice = showFeishuNotice(
+      Notice2,
+      isUpdate ? "\u{1F680} \u6B63\u5728\u66F4\u65B0\u98DE\u4E66\u6587\u6863..." : "\u{1F680} \u6B63\u5728\u540C\u6B65\u5230\u98DE\u4E66\u6587\u6863...",
+      0
+    );
     try {
       const markdown = await view.app.vault.read(activeFile);
       const result = await syncNoteToFeishu({
@@ -51726,63 +51763,65 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
         activeFile,
         markdown,
         onProgress: (stage, message) => {
-          progressText.setText(message);
+          updateFeishuNotice(progressNotice, message);
         },
         requestUrl: obsidian.requestUrl
       });
       await plugin.saveSettings();
-      progressWrapper.setCssStyles({ display: "none" });
+      hideFeishuNotice(progressNotice);
       resultCard.empty();
-      const h4 = resultCard.createEl("h4", { text: "\u{1F389} \u540C\u6B65\u6210\u529F\uFF01" });
-      h4.setCssStyles({ color: "var(--text-success)", marginTop: "0" });
-      if (result.transferOwnerWarning) {
-        const warning = resultCard.createEl("p", {
-          text: `\u26A0\uFE0F \u6587\u6863\u5DF2\u5BFC\u5165\u5E76\u66F4\u65B0\uFF0C\u4F46\u6587\u6863\u6240\u6709\u6743\u8F6C\u79FB\u5931\u8D25 (${result.transferOwnerWarning})\u3002\u6587\u6863\u5DF2\u5B58\u653E\u5728\u76EE\u6807\u6587\u4EF6\u5939\u4E2D\uFF0C\u60A8\u53EF\u4EE5\u7167\u5E38\u534F\u4F5C\u3002`
-        });
-        warning.setCssStyles({ fontSize: "12px", color: "var(--text-warning)" });
+      const warnings = getFeishuResultWarnings(result);
+      resultCard.addClass(warnings.length ? "has-warning" : "is-success");
+      resultCard.removeClass(warnings.length ? "is-success" : "has-warning");
+      resultCard.createEl("h4", {
+        text: warnings.length ? "\u540C\u6B65\u5B8C\u6210" : "\u540C\u6B65\u6210\u529F",
+        cls: "wechat-feishu-result-title"
+      });
+      resultCard.createEl("p", {
+        text: warnings.length ? "\u98DE\u4E66\u6587\u6863\u5DF2\u5BFC\u5165\u5E76\u66F4\u65B0\uFF0C\u4E0B\u9762\u6709\u5C11\u91CF\u4E8B\u9879\u9700\u8981\u786E\u8BA4\u3002" : "\u98DE\u4E66\u6587\u6863\u5DF2\u5BFC\u5165\u5E76\u66F4\u65B0\uFF0C\u53EF\u4EE5\u76F4\u63A5\u6253\u5F00\u67E5\u770B\u3002",
+        cls: "wechat-feishu-result-desc"
+      });
+      if (warnings.length) {
+        const warningList = resultCard.createDiv({ cls: "wechat-feishu-result-warnings" });
+        for (const warningText of warnings) {
+          warningList.createEl("p", { text: warningText, cls: "wechat-feishu-result-warning" });
+        }
       }
-      if (result.imageSummary && (result.imageSummary.skipped || result.imageSummary.failed)) {
-        const imageWarning = resultCard.createEl("p", {
-          text: `\u26A0\uFE0F \u6587\u6863\u5DF2\u540C\u6B65\uFF0C\u4F46\u6709 ${result.imageSummary.skipped + result.imageSummary.failed} \u5F20\u672C\u5730\u56FE\u7247\u672A\u5904\u7406\u3002\u8FDC\u7A0B\u56FE\u7247\u5DF2\u4EA4\u7531\u98DE\u4E66\u5BFC\u5165\uFF1B\u672C\u5730 GIF \u6216\u5F02\u5E38\u56FE\u7247\u4F1A\u88AB\u8DF3\u8FC7\u4EE5\u4FDD\u62A4 Obsidian \u7A33\u5B9A\u6027\u3002`
-        });
-        imageWarning.setCssStyles({ fontSize: "12px", color: "var(--text-warning)" });
-      }
-      const linkContainer = resultCard.createDiv();
-      linkContainer.createSpan({ text: "\u98DE\u4E66\u94FE\u63A5: " });
-      const a = linkContainer.createEl("a", { text: result.title, href: result.url });
-      a.onclick = (e) => {
-        e.preventDefault();
+      const resultActions = resultCard.createDiv({ cls: "wechat-feishu-result-actions" });
+      const openBtn = resultActions.createEl("button", { text: "\u5728\u6D4F\u89C8\u5668\u4E2D\u6253\u5F00", cls: "mod-cta" });
+      openBtn.onclick = () => {
         if (view.plugin && typeof view.plugin.openExternalUrl === "function") {
           view.plugin.openExternalUrl(result.url);
         } else {
           window.open(result.url, "_blank", "noopener");
         }
       };
-      const resultActions = resultCard.createDiv();
-      resultActions.setCssStyles({ marginTop: "12px", display: "flex", gap: "10px" });
-      const openBtn = resultActions.createEl("button", { text: "\u5728\u6D4F\u89C8\u5668\u4E2D\u6253\u5F00", cls: "mod-cta" });
-      openBtn.onclick = () => a.click();
       const copyBtn = resultActions.createEl("button", { text: "\u590D\u5236\u94FE\u63A5" });
-      copyBtn.onclick = () => {
-        navigator.clipboard.writeText(result.url);
-        new Notice2("\u2705 \u94FE\u63A5\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F");
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(result.url);
+          showFeishuNotice(Notice2, "\u2705 \u94FE\u63A5\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F");
+        } catch (copyError) {
+          console.warn("[\u98DE\u4E66\u540C\u6B65] \u590D\u5236\u94FE\u63A5\u5931\u8D25:", copyError);
+          showFeishuNotice(Notice2, "\u274C \u590D\u5236\u94FE\u63A5\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u6253\u5F00\u540E\u590D\u5236");
+        }
       };
-      resultCard.setCssStyles({ display: "block" });
+      resultCard.removeClass("is-hidden");
       cancelBtn.disabled = false;
       cancelBtn.setText("\u5173\u95ED");
       syncBtn.setCssStyles({ display: "none" });
-      if (result.imageSummary && (result.imageSummary.skipped || result.imageSummary.failed)) {
-        new Notice2("\u2705 \u98DE\u4E66\u6587\u6863\u5DF2\u540C\u6B65\uFF0C\u90E8\u5206\u672C\u5730\u56FE\u7247\u672A\u5904\u7406");
-      } else {
-        new Notice2("\u2705 \u98DE\u4E66\u6587\u6863\u540C\u6B65\u6210\u529F\uFF01");
-      }
+      showFeishuNotice(
+        Notice2,
+        warnings.length ? "\u2705 \u98DE\u4E66\u6587\u6863\u5DF2\u540C\u6B65\uFF0C\u90E8\u5206\u4E8B\u9879\u9700\u8981\u786E\u8BA4" : "\u2705 \u98DE\u4E66\u6587\u6863\u540C\u6B65\u6210\u529F\uFF01",
+        warnings.length ? 7e3 : void 0
+      );
     } catch (err) {
       console.error("[\u98DE\u4E66\u540C\u6B65\u5931\u8D25]:", err);
-      progressWrapper.setCssStyles({ display: "none" });
+      hideFeishuNotice(progressNotice);
       titleSetting.settingEl.removeClass("is-disabled");
       syncBtn.disabled = false;
       cancelBtn.disabled = false;
-      new Notice2(`\u274C \u540C\u6B65\u5931\u8D25: ${err.message || String(err)}`, 8e3);
+      showFeishuNotice(Notice2, `\u274C \u540C\u6B65\u5931\u8D25: ${err.message || String(err)}`, 8e3);
     }
   };
 }

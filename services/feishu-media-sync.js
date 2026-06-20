@@ -75,6 +75,7 @@ function findLocalAssetForImage(image, assets) {
     return assets.find((asset) => originalSrc === `asset://${asset.id}`) || null;
   }
   return assets.find((asset) => (
+    asset?.source?.placeholderSrc === originalSrc ||
     asset?.source?.originalSrc === originalSrc ||
     asset?.source?.vaultRelativePath === image.path
   )) || null;
@@ -93,21 +94,20 @@ function findLocalAssetForImage(image, assets) {
  */
 async function replaceFeishuImageBlocks({ app, client, docToken, images, assets, onProgress }) {
   const summary = createImageSummary();
-  const localImageItems = (images || [])
-    .filter((image) => !image.isRemote)
-    .map((image) => ({
-      image,
-      asset: findLocalAssetForImage(image, assets || []),
-    }))
-    .filter((item) => item.asset);
+  const imageItems = (images || []).map((image, index) => ({
+    image,
+    imageIndex: index,
+    asset: findLocalAssetForImage(image, assets || []),
+  }));
+  const localImageItems = imageItems.filter((item) => item.asset);
   if (localImageItems.length === 0) return summary;
 
   const blocks = await client.getDocumentBlocks(docToken);
   const imageBlocks = (blocks || []).filter((block) => block.block_type === 27);
 
   for (let i = 0; i < localImageItems.length; i++) {
-    const { image, asset } = localImageItems[i];
-    const block = imageBlocks[i];
+    const { image, imageIndex, asset } = localImageItems[i];
+    const block = imageBlocks[imageIndex];
     const filename = asset?.filename || image.fileName || 'image';
 
     if (typeof onProgress === 'function') {
@@ -132,8 +132,6 @@ async function replaceFeishuImageBlocks({ app, client, docToken, images, assets,
       await client.updateBlock(docToken, block.block_id, {
         replace_image: {
           token: imageToken,
-          width: 800,
-          height: 600,
           align: 2,
         },
       });

@@ -17,6 +17,8 @@ import {
 } from './feishu-markdown-processor.js';
 import { addFeishuUploadHistory, findFeishuHistoryByPath } from './feishu-settings.js';
 
+const FEISHU_LOCAL_IMAGE_PLACEHOLDER_BASE = 'https://obsidian-wechat-converter.invalid/feishu-local-image';
+
 /**
  * Converts an ArrayBuffer to a base64 string.
  * @param {ArrayBuffer} buffer
@@ -44,6 +46,7 @@ async function prepareLocalImagesForFeishu(app, activeFile, markdown) {
   const result = await resolveArticleImages(markdown, activeFile, {
     app,
     unsupportedImageExtensions: ['gif'],
+    localImageSrcFactory: (asset) => `${FEISHU_LOCAL_IMAGE_PLACEHOLDER_BASE}/${asset.id}.png`,
   });
 
   return {

@@ -10,6 +10,58 @@ import { syncNoteToFeishu } from '../../services/feishu-sync.js';
 import { findFeishuHistoryByPath } from '../../services/feishu-settings.js';
 
 /**
+ * @param {unknown} Notice
+ * @param {string} message
+ * @param {number} [duration]
+ * @returns {any}
+ */
+function showFeishuNotice(Notice, message, duration) {
+  if (typeof Notice !== 'function') return null;
+  return new Notice(message, duration);
+}
+
+/**
+ * @param {any} notice
+ * @param {string} message
+ */
+function updateFeishuNotice(notice, message) {
+  if (notice && typeof notice.setMessage === 'function') {
+    notice.setMessage(message);
+  }
+}
+
+/** @param {any} notice */
+function hideFeishuNotice(notice) {
+  if (notice && typeof notice.hide === 'function') {
+    notice.hide();
+  }
+}
+
+/**
+ * @param {any} imageSummary
+ * @returns {string}
+ */
+function formatFeishuImageWarning(imageSummary) {
+  const count = Number(imageSummary?.skipped || 0) + Number(imageSummary?.failed || 0);
+  if (!count) return '';
+  return `有 ${count} 张本地图片未处理。本地 GIF 或异常图片已跳过；远程图片会交由飞书导入。`;
+}
+
+/**
+ * @param {any} result
+ * @returns {string[]}
+ */
+function getFeishuResultWarnings(result) {
+  const warnings = [];
+  if (result?.transferOwnerWarning) {
+    warnings.push('文档已同步，但所有权转移未完成。你仍可以照常使用该文档；如需自动转移，请检查飞书 User ID 和应用权限。');
+  }
+  const imageWarning = formatFeishuImageWarning(result?.imageSummary);
+  if (imageWarning) warnings.push(imageWarning);
+  return warnings;
+}
+
+/**
  * Renders the Feishu publish tab content.
  * @param {any} view AppleStyleView instance
  * @param {any} modal Obsidian Modal instance
@@ -125,17 +177,11 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
     });
   }
 
-  // 7. Loading / Progress Indicator
-  const progressWrapper = contentWrapper.createDiv({ cls: 'wechat-feishu-progress' });
-  progressWrapper.setCssStyles({ display: 'none', margin: '20px 0', textAlign: 'center' });
-  const progressText = progressWrapper.createEl('p', { text: '正在准备同步...', cls: 'feishu-progress-message' });
-  progressText.setCssStyles({ fontWeight: 'bold', color: 'var(--text-accent)' });
-
-  // 8. Result Card (Doc link, copy, open buttons)
+  // 7. Result Card (summary + actions)
   const resultCard = contentWrapper.createDiv({ cls: 'wechat-feishu-result-card' });
-  resultCard.setCssStyles({ display: 'none', margin: '16px 0', padding: '16px', border: '1px solid var(--background-modifier-border)', borderRadius: '6px', background: 'var(--background-secondary)' });
+  resultCard.addClass('is-hidden');
 
-  // 9. Sync Buttons row
+  // 8. Sync Buttons row
   const buttonRow = contentWrapper.createDiv({ cls: 'wechat-modal-buttons' });
   const cancelBtn = buttonRow.createEl('button', { text: '取消' });
   cancelBtn.onclick = () => modal.close();
@@ -148,9 +194,12 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
     syncBtn.disabled = true;
     cancelBtn.disabled = true;
     
-    // Show progress
-    progressWrapper.setCssStyles({ display: 'block' });
-    resultCard.setCssStyles({ display: 'none' });
+    resultCard.addClass('is-hidden');
+    const progressNotice = showFeishuNotice(
+      Notice,
+      isUpdate ? '🚀 正在更新飞书文档...' : '🚀 正在同步到飞书文档...',
+      0
+    );
 
     try {
       const markdown = await view.app.vault.read(activeFile);
@@ -161,7 +210,7 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
         activeFile,
         markdown,
         onProgress: (stage, message) => {
-          progressText.setText(message);
+          updateFeishuNotice(progressNotice, message);
         },
         requestUrl: obsidian.requestUrl,
       });
@@ -169,32 +218,34 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
       // Save settings
       await plugin.saveSettings();
 
-      // Show success
-      progressWrapper.setCssStyles({ display: 'none' });
+      hideFeishuNotice(progressNotice);
       resultCard.empty();
+      const warnings = getFeishuResultWarnings(result);
+      resultCard.addClass(warnings.length ? 'has-warning' : 'is-success');
+      resultCard.removeClass(warnings.length ? 'is-success' : 'has-warning');
+
+      resultCard.createEl('h4', {
+        text: warnings.length ? '同步完成' : '同步成功',
+        cls: 'wechat-feishu-result-title',
+      });
+      resultCard.createEl('p', {
+        text: warnings.length
+          ? '飞书文档已导入并更新，下面有少量事项需要确认。'
+          : '飞书文档已导入并更新，可以直接打开查看。',
+        cls: 'wechat-feishu-result-desc',
+      });
+
+      if (warnings.length) {
+        const warningList = resultCard.createDiv({ cls: 'wechat-feishu-result-warnings' });
+        for (const warningText of warnings) {
+          warningList.createEl('p', { text: warningText, cls: 'wechat-feishu-result-warning' });
+        }
+      }
+
+      const resultActions = resultCard.createDiv({ cls: 'wechat-feishu-result-actions' });
       
-      const h4 = resultCard.createEl('h4', { text: '🎉 同步成功！' });
-      h4.setCssStyles({ color: 'var(--text-success)', marginTop: '0' });
-
-      if (result.transferOwnerWarning) {
-        const warning = resultCard.createEl('p', {
-          text: `⚠️ 文档已导入并更新，但文档所有权转移失败 (${result.transferOwnerWarning})。文档已存放在目标文件夹中，您可以照常协作。`,
-        });
-        warning.setCssStyles({ fontSize: '12px', color: 'var(--text-warning)' });
-      }
-
-      if (result.imageSummary && (result.imageSummary.skipped || result.imageSummary.failed)) {
-        const imageWarning = resultCard.createEl('p', {
-          text: `⚠️ 文档已同步，但有 ${result.imageSummary.skipped + result.imageSummary.failed} 张本地图片未处理。远程图片已交由飞书导入；本地 GIF 或异常图片会被跳过以保护 Obsidian 稳定性。`,
-        });
-        imageWarning.setCssStyles({ fontSize: '12px', color: 'var(--text-warning)' });
-      }
-
-      const linkContainer = resultCard.createDiv();
-      linkContainer.createSpan({ text: '飞书链接: ' });
-      const a = linkContainer.createEl('a', { text: result.title, href: result.url });
-      a.onclick = (e) => {
-        e.preventDefault();
+      const openBtn = resultActions.createEl('button', { text: '在浏览器中打开', cls: 'mod-cta' });
+      openBtn.onclick = () => {
         if (view.plugin && typeof view.plugin.openExternalUrl === 'function') {
           view.plugin.openExternalUrl(result.url);
         } else {
@@ -202,40 +253,39 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
         }
       };
 
-      const resultActions = resultCard.createDiv();
-      resultActions.setCssStyles({ marginTop: '12px', display: 'flex', gap: '10px' });
-      
-      const openBtn = resultActions.createEl('button', { text: '在浏览器中打开', cls: 'mod-cta' });
-      openBtn.onclick = () => a.click();
-
       const copyBtn = resultActions.createEl('button', { text: '复制链接' });
-      copyBtn.onclick = () => {
-        navigator.clipboard.writeText(result.url);
-        new Notice('✅ 链接已复制到剪贴板');
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(result.url);
+          showFeishuNotice(Notice, '✅ 链接已复制到剪贴板');
+        } catch (copyError) {
+          console.warn('[飞书同步] 复制链接失败:', copyError);
+          showFeishuNotice(Notice, '❌ 复制链接失败，请手动打开后复制');
+        }
       };
 
-      resultCard.setCssStyles({ display: 'block' });
+      resultCard.removeClass('is-hidden');
       
       // Re-enable cancel button to let them close
       cancelBtn.disabled = false;
       cancelBtn.setText('关闭');
       syncBtn.setCssStyles({ display: 'none' });
       
-      if (result.imageSummary && (result.imageSummary.skipped || result.imageSummary.failed)) {
-        new Notice('✅ 飞书文档已同步，部分本地图片未处理');
-      } else {
-        new Notice('✅ 飞书文档同步成功！');
-      }
+      showFeishuNotice(
+        Notice,
+        warnings.length ? '✅ 飞书文档已同步，部分事项需要确认' : '✅ 飞书文档同步成功！',
+        warnings.length ? 7000 : undefined
+      );
     } catch (err) {
       console.error('[飞书同步失败]:', err);
-      progressWrapper.setCssStyles({ display: 'none' });
+      hideFeishuNotice(progressNotice);
       
       // Re-enable
       titleSetting.settingEl.removeClass('is-disabled');
       syncBtn.disabled = false;
       cancelBtn.disabled = false;
       
-      new Notice(`❌ 同步失败: ${err.message || String(err)}`, 8000);
+      showFeishuNotice(Notice, `❌ 同步失败: ${err.message || String(err)}`, 8000);
     }
   };
 }

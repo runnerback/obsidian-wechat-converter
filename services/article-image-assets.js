@@ -22,6 +22,7 @@ const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
  *   notePath: string,
  *   vaultRelativePath: string,
  *   resourceSrc?: string,
+ *   placeholderSrc?: string,
  * }} ImageAssetSource
  * @typedef {{
  *   id: string,
@@ -213,8 +214,17 @@ function stripMarkdownDestination(rawDestination) {
 function splitWikiEmbedTarget(rawTarget) {
   const parts = String(rawTarget || '').split('|');
   const src = (parts.shift() || '').trim();
-  const alias = parts.join('|').trim();
+  let aliasParts = parts.map((part) => part.trim()).filter((part) => part.length > 0);
+  if (aliasParts.length > 1 && isLikelyWikiImageSizeHint(aliasParts[aliasParts.length - 1])) {
+    aliasParts = aliasParts.slice(0, -1);
+  }
+  const alias = aliasParts.join('|').trim();
   return { src, alias };
+}
+
+/** @param {unknown} value */
+function isLikelyWikiImageSizeHint(value) {
+  return /^\d+(?:\s*x\s*\d+)?$/i.test(String(value || '').trim());
 }
 
 /**
@@ -906,7 +916,7 @@ function formatArticleImageWarnings(warnings = []) {
 /**
  * @param {unknown} markdown
  * @param {unknown} noteFile
- * @param {{ app?: unknown, maxImageSizeBytes?: number, maxTotalImageSizeBytes?: number, unsupportedImageExtensions?: string[], cover?: string }} options
+ * @param {{ app?: unknown, maxImageSizeBytes?: number, maxTotalImageSizeBytes?: number, unsupportedImageExtensions?: string[], cover?: string, localImageSrcFactory?: (asset: ImageAsset) => string }} options
  * @returns {Promise<{ markdown: string, assets: ImageAsset[], warnings: ImageWarning[], cover: string, firstImageSrc: string }>}
  */
 async function resolveArticleImages(markdown, noteFile, options = {}) {
@@ -956,7 +966,13 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
     if (result.warning) return { src: trimmed, warning: result.warning };
     if (result.asset && !result.reused) assets.push(result.asset);
     if (!result.asset) return { src: trimmed };
-    return { src: `asset://${result.asset.id}`, asset: result.asset };
+    const replacementSrc = typeof options.localImageSrcFactory === 'function'
+      ? options.localImageSrcFactory(result.asset)
+      : `asset://${result.asset.id}`;
+    if (replacementSrc && replacementSrc !== `asset://${result.asset.id}`) {
+      result.asset.source.placeholderSrc = replacementSrc;
+    }
+    return { src: replacementSrc || `asset://${result.asset.id}`, asset: result.asset };
   };
 
   for (const ref of references) {
