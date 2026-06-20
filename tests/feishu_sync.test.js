@@ -23,6 +23,15 @@ function makePngBytes(width = 100, height = 50) {
   return bytes.buffer;
 }
 
+function makeGifBytes(width = 100, height = 50) {
+  const bytes = new Uint8Array(10);
+  bytes.set([0x47, 0x49, 0x46, 0x38, 0x39, 0x61], 0);
+  const view = new DataView(bytes.buffer);
+  view.setUint16(6, width, true);
+  view.setUint16(8, height, true);
+  return bytes.buffer;
+}
+
 beforeAll(async () => {
   globalThis.obsidian = obsidianMock;
 
@@ -377,15 +386,17 @@ describe('Feishu Sync Coordinator', () => {
     expect(result.markdown).toBe('![音乐](https://obsidian-wechat-converter.invalid/feishu-local-image/image-1.png)');
   });
 
-  it('should skip local GIF files before reading binary for Feishu stability', async () => {
+  it('should prepare local GIF files as Feishu replacement assets', async () => {
     const gifFile = {
       path: 'notes/attachments/demo.gif',
       name: 'demo.gif',
       extension: 'gif',
-      bytes: new Uint8Array([0x47, 0x49, 0x46, 0x38]).buffer,
+      bytes: makeGifBytes(320, 180),
     };
     app.metadataCache.getFirstLinkpathDest.mockReturnValue(gifFile);
     app.vault.getAbstractFileByPath = vi.fn(() => gifFile);
+    app.vault.getResourcePath = vi.fn(() => 'app://local/demo.gif');
+    app.vault.readBinary.mockImplementation(async (file) => file.bytes);
 
     const result = await prepareLocalImagesForFeishu(
       app,
@@ -393,10 +404,14 @@ describe('Feishu Sync Coordinator', () => {
       '![Gif](attachments/demo.gif)'
     );
 
-    expect(result.assets).toHaveLength(0);
-    expect(result.markdown).toBe('![Gif](attachments/demo.gif)');
-    expect(result.warnings.map((warning) => warning.code)).toEqual(['image_unsupported_for_target']);
-    expect(app.vault.readBinary).not.toHaveBeenCalled();
+    expect(result.warnings).toEqual([]);
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0]).toMatchObject({
+      filename: 'demo.gif',
+      mimeType: 'image/gif',
+    });
+    expect(result.markdown).toBe('![Gif](https://obsidian-wechat-converter.invalid/feishu-local-image/image-1.gif)');
+    expect(app.vault.readBinary).toHaveBeenCalledTimes(1);
   });
 
   it('should leave missing local images unchanged and report a warning', async () => {
@@ -782,7 +797,7 @@ describe('Feishu Sync Coordinator', () => {
       path: 'notes/测试.gif',
       name: '测试.gif',
       extension: 'gif',
-      bytes: new Uint8Array([0x47, 0x49, 0x46, 0x38]).buffer,
+      bytes: makeGifBytes(480, 270),
     };
     app.metadataCache.getFirstLinkpathDest.mockImplementation((linkpath) => {
       if (linkpath === 'attachments/音乐卡点调整.png') return wikiFile;
@@ -832,10 +847,10 @@ describe('Feishu Sync Coordinator', () => {
       if (url.includes('medias/upload_all')) {
         return { status: 200, json: { code: 0, data: { file_token: url.includes('token-two') ? 'image_token_2' : 'image_token_1' } } };
       }
-      if (url.includes('/blocks/wiki_image_block') || url.includes('/blocks/relative_image_block')) {
+      if (url.includes('/blocks/wiki_image_block') || url.includes('/blocks/relative_image_block') || url.includes('/blocks/gif_image_block')) {
         return { status: 200, json: { code: 0, data: {} } };
       }
-      if (url.includes('/blocks/remote_image_block') || url.includes('/blocks/gif_image_block')) {
+      if (url.includes('/blocks/remote_image_block')) {
         throw new Error('non-local prepared image block must not be replaced');
       }
       if (url.includes('permissions') && url.includes('transfer_owner')) {
@@ -858,8 +873,8 @@ describe('Feishu Sync Coordinator', () => {
     });
 
     expect(result.imageSummary).toMatchObject({
-      uploaded: 2,
-      skipped: 1,
+      uploaded: 3,
+      skipped: 0,
       failed: 0,
     });
     const calls = obsidianMock.requestUrl.mock.calls.map((call) => call[0]);
@@ -867,10 +882,11 @@ describe('Feishu Sync Coordinator', () => {
     const markdownBody = new TextDecoder().decode(new Uint8Array(markdownUpload.body));
     expect(markdownBody).toContain('![音乐](https://obsidian-wechat-converter.invalid/feishu-local-image/image-1.png)');
     expect(markdownBody).toContain('![测试](https://obsidian-wechat-converter.invalid/feishu-local-image/image-2.png)');
+    expect(markdownBody).toContain('![不对](https://obsidian-wechat-converter.invalid/feishu-local-image/image-3.gif)');
     expect(calls.some((request) => request.url.includes('/blocks/remote_image_block'))).toBe(false);
     expect(calls.some((request) => request.url.includes('/blocks/wiki_image_block') && request.method === 'PATCH')).toBe(true);
     expect(calls.some((request) => request.url.includes('/blocks/relative_image_block') && request.method === 'PATCH')).toBe(true);
-    expect(calls.some((request) => request.url.includes('/blocks/gif_image_block'))).toBe(false);
+    expect(calls.some((request) => request.url.includes('/blocks/gif_image_block') && request.method === 'PATCH')).toBe(true);
     const wikiPatch = calls.find((request) => request.url.includes('/blocks/wiki_image_block') && request.method === 'PATCH');
     expect(JSON.parse(wikiPatch.body).replace_image).toEqual({
       token: 'image_token_1',
@@ -883,6 +899,13 @@ describe('Feishu Sync Coordinator', () => {
       token: 'image_token_1',
       width: 800,
       height: 400,
+      align: 2,
+    });
+    const gifPatch = calls.find((request) => request.url.includes('/blocks/gif_image_block') && request.method === 'PATCH');
+    expect(JSON.parse(gifPatch.body).replace_image).toEqual({
+      token: 'image_token_1',
+      width: 480,
+      height: 270,
       align: 2,
     });
   });
@@ -955,15 +978,17 @@ describe('Feishu Sync Coordinator', () => {
     expect(progressMessages.some((message) => String(message).includes('local.png'))).toBe(false);
   });
 
-  it('should not upload skipped local GIF placeholders during Feishu image post-processing', async () => {
+  it('should upload local GIF placeholders during Feishu image post-processing', async () => {
     const gifFile = {
       path: 'notes/attachments/demo.gif',
       name: 'demo.gif',
       extension: 'gif',
-      bytes: new Uint8Array([0x47, 0x49, 0x46, 0x38]).buffer,
+      bytes: makeGifBytes(300, 200),
     };
     app.metadataCache.getFirstLinkpathDest.mockReturnValue(gifFile);
     app.vault.getAbstractFileByPath = vi.fn(() => gifFile);
+    app.vault.getResourcePath = vi.fn(() => 'app://local/demo.gif');
+    app.vault.readBinary.mockImplementation(async (file) => file.bytes);
 
     obsidianMock.requestUrl.mockImplementation(async (options) => {
       const url = options.url || '';
@@ -990,6 +1015,12 @@ describe('Feishu Sync Coordinator', () => {
           },
         };
       }
+      if (url.includes('medias/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'image_token_1' } } };
+      }
+      if (url.includes('/blocks/image_block_1')) {
+        return { status: 200, json: { code: 0, data: {} } };
+      }
       if (url.includes('permissions') && url.includes('transfer_owner')) {
         return { status: 200, json: { code: 0, msg: 'success' } };
       }
@@ -1005,11 +1036,12 @@ describe('Feishu Sync Coordinator', () => {
     });
 
     expect(result.docToken).toBe('doc_token_456');
-    expect(result.imageSummary.skipped).toBe(1);
+    expect(result.imageSummary.uploaded).toBe(1);
+    expect(result.imageSummary.skipped).toBe(0);
     expect(result.imageSummary.failed).toBe(0);
-    expect(app.vault.readBinary).not.toHaveBeenCalled();
+    expect(app.vault.readBinary).toHaveBeenCalled();
     const calls = obsidianMock.requestUrl.mock.calls.map((call) => call[0]);
-    expect(calls.some((request) => request.url.includes('medias/upload_all'))).toBe(false);
+    expect(calls.some((request) => request.url.includes('medias/upload_all'))).toBe(true);
     expect(errorSpy).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });

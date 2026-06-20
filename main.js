@@ -51501,6 +51501,12 @@ function getImageFileNameFromSrc(src) {
 
 // services/feishu-sync.js
 var FEISHU_LOCAL_IMAGE_PLACEHOLDER_BASE = "https://obsidian-wechat-converter.invalid/feishu-local-image";
+function createFeishuLocalImagePlaceholder(asset) {
+  const rawName = String((asset == null ? void 0 : asset.filename) || "").trim();
+  const extensionMatch = rawName.match(/\.([a-z0-9]+)$/i);
+  const extension = extensionMatch ? extensionMatch[1].toLowerCase() : "png";
+  return `${FEISHU_LOCAL_IMAGE_PLACEHOLDER_BASE}/${(asset == null ? void 0 : asset.id) || "image"}.${extension}`;
+}
 function arrayBufferToBase64(buffer) {
   let binary = "";
   const bytes = new Uint8Array(buffer);
@@ -51513,8 +51519,7 @@ function arrayBufferToBase64(buffer) {
 async function prepareLocalImagesForFeishu(app, activeFile, markdown) {
   const result = await resolveArticleImages(markdown, activeFile, {
     app,
-    unsupportedImageExtensions: ["gif"],
-    localImageSrcFactory: (asset) => `${FEISHU_LOCAL_IMAGE_PLACEHOLDER_BASE}/${asset.id}.png`
+    localImageSrcFactory: createFeishuLocalImagePlaceholder
   });
   return {
     markdown: result.markdown,

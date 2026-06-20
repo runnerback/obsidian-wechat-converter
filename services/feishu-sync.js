@@ -20,6 +20,17 @@ import { addFeishuUploadHistory, findFeishuHistoryByPath } from './feishu-settin
 const FEISHU_LOCAL_IMAGE_PLACEHOLDER_BASE = 'https://obsidian-wechat-converter.invalid/feishu-local-image';
 
 /**
+ * @param {{ id?: string, filename?: string }} asset
+ * @returns {string}
+ */
+function createFeishuLocalImagePlaceholder(asset) {
+  const rawName = String(asset?.filename || '').trim();
+  const extensionMatch = rawName.match(/\.([a-z0-9]+)$/i);
+  const extension = extensionMatch ? extensionMatch[1].toLowerCase() : 'png';
+  return `${FEISHU_LOCAL_IMAGE_PLACEHOLDER_BASE}/${asset?.id || 'image'}.${extension}`;
+}
+
+/**
  * Converts an ArrayBuffer to a base64 string.
  * @param {ArrayBuffer} buffer
  * @returns {string}
@@ -45,8 +56,7 @@ function arrayBufferToBase64(buffer) {
 async function prepareLocalImagesForFeishu(app, activeFile, markdown) {
   const result = await resolveArticleImages(markdown, activeFile, {
     app,
-    unsupportedImageExtensions: ['gif'],
-    localImageSrcFactory: (asset) => `${FEISHU_LOCAL_IMAGE_PLACEHOLDER_BASE}/${asset.id}.png`,
+    localImageSrcFactory: createFeishuLocalImagePlaceholder,
   });
 
   return {
