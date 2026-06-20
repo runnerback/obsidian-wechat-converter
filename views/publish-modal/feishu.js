@@ -183,6 +183,13 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
         warning.setCssStyles({ fontSize: '12px', color: 'var(--text-warning)' });
       }
 
+      if (result.imageSummary && (result.imageSummary.skipped || result.imageSummary.failed)) {
+        const imageWarning = resultCard.createEl('p', {
+          text: `⚠️ 文档已同步，但有 ${result.imageSummary.skipped + result.imageSummary.failed} 张本地图片未处理。远程图片已交由飞书导入；本地 GIF 或异常图片会被跳过以保护 Obsidian 稳定性。`,
+        });
+        imageWarning.setCssStyles({ fontSize: '12px', color: 'var(--text-warning)' });
+      }
+
       const linkContainer = resultCard.createDiv();
       linkContainer.createSpan({ text: '飞书链接: ' });
       const a = linkContainer.createEl('a', { text: result.title, href: result.url });
@@ -214,7 +221,11 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
       cancelBtn.setText('关闭');
       syncBtn.setCssStyles({ display: 'none' });
       
-      new Notice('✅ 飞书文档同步成功！');
+      if (result.imageSummary && (result.imageSummary.skipped || result.imageSummary.failed)) {
+        new Notice('✅ 飞书文档已同步，部分本地图片未处理');
+      } else {
+        new Notice('✅ 飞书文档同步成功！');
+      }
     } catch (err) {
       console.error('[飞书同步失败]:', err);
       progressWrapper.setCssStyles({ display: 'none' });

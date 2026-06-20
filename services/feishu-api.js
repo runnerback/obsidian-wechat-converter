@@ -6,6 +6,7 @@
 // Only returns promises with parsed responses.
 
 import { getActiveWindowValue } from './dom-utils.js';
+import { buildMultipartBody } from './feishu-multipart.js';
 
 class FeishuApiClient {
   /**
@@ -27,6 +28,96 @@ class FeishuApiClient {
   }
 
   /**
+   * Obsidian requestUrl throws before exposing Feishu's JSON body on HTTP 400+ by default.
+   * Keep requests non-throwing here so user-facing errors include the failing endpoint and Feishu message.
+   * @param {string} label
+   * @param {Record<string, unknown>} options
+   * @returns {Promise<any>}
+   */
+  async sendRequest(label, options) {
+    if (typeof this.requestUrl !== 'function') {
+      throw new Error('当前 Obsidian 环境不支持 requestUrl，无法访问飞书 OpenAPI');
+    }
+
+    const requestOptions = {
+      ...options,
+      throw: false,
+    };
+
+    let resp;
+    try {
+      resp = await this.requestUrl(requestOptions);
+    } catch (err) {
+      throw this.createTransportError(label, options.url, err);
+    }
+
+    const status = Number(resp?.status || 0);
+    if (status >= 400) {
+      throw this.createHttpError(label, options.url, resp);
+    }
+    return resp;
+  }
+
+  /**
+   * @param {string} label
+   * @param {unknown} url
+   * @param {unknown} err
+   * @returns {Error}
+   */
+  createTransportError(label, url, err) {
+    const message = err && typeof err === 'object' && 'message' in err
+      ? err.message
+      : String(err || '未知网络错误');
+    return new Error(`${label} 请求失败：${message} (${this.formatEndpoint(url)})`);
+  }
+
+  /**
+   * @param {string} label
+   * @param {unknown} url
+   * @param {any} resp
+   * @returns {Error}
+   */
+  createHttpError(label, url, resp) {
+    const status = Number(resp?.status || 0);
+    const details = this.formatResponseDetails(resp);
+    return new Error(`${label} 请求失败，HTTP ${status}${details ? `：${details}` : ''} (${this.formatEndpoint(url)})`);
+  }
+
+  /**
+   * @param {any} resp
+   * @returns {string}
+   */
+  formatResponseDetails(resp) {
+    let json = null;
+    try {
+      json = resp?.json;
+    } catch {
+      json = null;
+    }
+    if (json && typeof json === 'object') {
+      const code = json.code ?? json.Code ?? '';
+      const msg = json.msg || json.message || json.Message || json.error || '';
+      const requestId = json.request_id || json.requestId || json.log_id || '';
+      return [
+        code !== '' ? `code ${code}` : '',
+        msg ? String(msg) : '',
+        requestId ? `request_id ${requestId}` : '',
+      ].filter(Boolean).join(', ');
+    }
+    const text = String(resp?.text || '').trim();
+    return text.length > 300 ? `${text.slice(0, 300)}...` : text;
+  }
+
+  /**
+   * @param {unknown} url
+   * @returns {string}
+   */
+  formatEndpoint(url) {
+    const value = String(url || '');
+    return value.replace(this.baseUrl, '');
+  }
+
+  /**
    * Gets the tenant_access_token, refreshing it if expired.
    * @returns {Promise<string>}
    */
@@ -41,7 +132,7 @@ class FeishuApiClient {
     }
 
     const url = `${this.baseUrl}/auth/v3/tenant_access_token/internal`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('获取飞书 tenant_access_token', {
       url,
       method: 'POST',
       headers: {
@@ -81,7 +172,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files?folder_token=${encodeURIComponent(folderToken)}&page_size=200`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('读取飞书文件夹', {
       url,
       method: 'GET',
       headers: {
@@ -112,7 +203,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files/create_folder`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('创建飞书文件夹', {
       url,
       method: 'POST',
       headers: {
@@ -156,60 +247,33 @@ class FeishuApiClient {
       binaryData[i] = binaryStr.charCodeAt(i);
     }
 
-    const boundary = 'feishu-file-boundary-' + Math.random().toString(36).substring(2, 15);
-    const encoder = new TextEncoder();
-    const parts = [];
-
-    // file_name
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="file_name"\r\n\r\n`));
-    parts.push(encoder.encode(`${fileName}\r\n`));
-
-    // parent_type
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_type"\r\n\r\n`));
-    parts.push(encoder.encode(`explorer\r\n`));
-
-    // parent_node
+    const fields = {
+      file_name: fileName,
+      parent_type: 'explorer',
+      size: binaryData.length.toString(),
+    };
     if (folderToken) {
-      parts.push(encoder.encode(`--${boundary}\r\n`));
-      parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_node"\r\n\r\n`));
-      parts.push(encoder.encode(`${folderToken}\r\n`));
+      fields.parent_node = folderToken;
     }
+    const boundary = 'feishu-file-boundary-' + Math.random().toString(36).substring(2, 15);
+    const body = buildMultipartBody({
+      boundary,
+      fields,
+      file: {
+        fileName,
+        mimeType: 'text/markdown; charset=utf-8',
+        bytes: binaryData,
+      },
+    });
 
-    // size
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="size"\r\n\r\n`));
-    parts.push(encoder.encode(`${binaryData.length.toString()}\r\n`));
-
-    // file content
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="file"; filename="${fileNameWithoutExt}"\r\n`));
-    parts.push(encoder.encode(`Content-Type: application/octet-stream\r\n\r\n`));
-    parts.push(binaryData);
-    parts.push(encoder.encode(`\r\n`));
-
-    // end boundary
-    parts.push(encoder.encode(`--${boundary}--\r\n`));
-
-    // merge parts
-    const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
-    const bodyBuffer = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const part of parts) {
-      bodyBuffer.set(part, offset);
-      offset += part.length;
-    }
-
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('上传飞书临时 Markdown 文件', {
       url,
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
       },
-      body: bodyBuffer.buffer, // Use raw ArrayBuffer
+      body,
     });
 
     const data = resp.json;
@@ -235,7 +299,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files/${fileToken}?type=${encodeURIComponent(type)}`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('删除飞书临时文件', {
       url,
       method: 'DELETE',
       headers: {
@@ -275,7 +339,7 @@ class FeishuApiClient {
       };
     }
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('创建飞书导入任务', {
       url,
       method: 'POST',
       headers: {
@@ -307,7 +371,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/import_tasks/${ticket}`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('查询飞书导入任务状态', {
       url,
       method: 'GET',
       headers: {
@@ -374,7 +438,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks?page_size=500`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('获取飞书文档结构', {
       url,
       method: 'GET',
       headers: {
@@ -402,7 +466,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${rootBlockId}/children/batch_delete?document_revision_id=-1`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('批量删除飞书文档块', {
       url,
       method: 'POST',
       headers: {
@@ -432,7 +496,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/blocks/convert`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('转换 Markdown 为飞书文档块', {
       url,
       method: 'POST',
       headers: {
@@ -465,7 +529,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${parentId}/children?document_revision_id=-1`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('插入飞书文档块', {
       url,
       method: 'POST',
       headers: {
@@ -495,73 +559,55 @@ class FeishuApiClient {
    * @returns {Promise<string>} Image token
    */
   async uploadImageMaterial(fileName, base64Content, documentId, blockId) {
-    const token = await this.getAccessToken();
-    const url = `${this.baseUrl}/drive/v1/medias/upload_all`;
-
-    // Convert base64 to binary
     const binaryStr = atob(base64Content);
     const binaryData = new Uint8Array(binaryStr.length);
     for (let i = 0; i < binaryStr.length; i++) {
       binaryData[i] = binaryStr.charCodeAt(i);
     }
+    return this.uploadImageMaterialBytes(fileName, binaryData, documentId, blockId, 'application/octet-stream');
+  }
+
+  /**
+   * Upload an image to the document media space using binary bytes directly.
+   * @param {string} fileName
+   * @param {ArrayBuffer | Uint8Array} binaryContent
+   * @param {string} documentId
+   * @param {string} blockId
+   * @param {string} [mimeType='application/octet-stream']
+   * @returns {Promise<string>} Image token
+   */
+  async uploadImageMaterialBytes(fileName, binaryContent, documentId, blockId, mimeType = 'application/octet-stream') {
+    const token = await this.getAccessToken();
+    const url = `${this.baseUrl}/drive/v1/medias/upload_all`;
+    const binaryData = binaryContent instanceof Uint8Array
+      ? binaryContent
+      : new Uint8Array(binaryContent || new ArrayBuffer(0));
 
     const boundary = 'feishu-image-boundary-' + Math.random().toString(36).substring(2, 15);
-    const encoder = new TextEncoder();
-    const parts = [];
+    const body = buildMultipartBody({
+      boundary,
+      fields: {
+        file_name: fileName,
+        parent_type: 'docx_image',
+        parent_node: blockId,
+        size: binaryData.length.toString(),
+        extra: JSON.stringify({ drive_route_token: documentId }),
+      },
+      file: {
+        fileName,
+        mimeType: mimeType || 'application/octet-stream',
+        bytes: binaryData,
+      },
+    });
 
-    // file_name
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="file_name"\r\n\r\n`));
-    parts.push(encoder.encode(`${fileName}\r\n`));
-
-    // parent_type
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_type"\r\n\r\n`));
-    parts.push(encoder.encode(`docx_image\r\n`));
-
-    // parent_node
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_node"\r\n\r\n`));
-    parts.push(encoder.encode(`${blockId}\r\n`));
-
-    // size
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="size"\r\n\r\n`));
-    parts.push(encoder.encode(`${binaryData.length.toString()}\r\n`));
-
-    // extra
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="extra"\r\n\r\n`));
-    const extraData = JSON.stringify({ drive_route_token: documentId });
-    parts.push(encoder.encode(`${extraData}\r\n`));
-
-    // file content
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n`));
-    parts.push(encoder.encode(`Content-Type: application/octet-stream\r\n\r\n`));
-    parts.push(binaryData);
-    parts.push(encoder.encode(`\r\n`));
-
-    // end boundary
-    parts.push(encoder.encode(`--${boundary}--\r\n`));
-
-    // merge parts
-    const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
-    const bodyBuffer = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const part of parts) {
-      bodyBuffer.set(part, offset);
-      offset += part.length;
-    }
-
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('上传飞书文档图片素材', {
       url,
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
       },
-      body: bodyBuffer.buffer,
+      body,
     });
 
     const data = resp.json;
@@ -588,7 +634,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${blockId}?document_revision_id=-1`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('更新飞书文档块', {
       url,
       method: 'PATCH',
       headers: {
@@ -616,7 +662,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files/${fileToken}`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('重命名飞书文件', {
       url,
       method: 'PATCH',
       headers: {
@@ -646,7 +692,7 @@ class FeishuApiClient {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/permissions/${docToken}/members/transfer_owner?need_notification=false&old_owner_perm=full_access&remove_old_owner=false&stay_put=true&type=docx`;
 
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest('转移飞书文档所有权', {
       url,
       method: 'POST',
       headers: {

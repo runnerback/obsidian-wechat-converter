@@ -52,7 +52,8 @@ function parseYamlTitle(markdown) {
 function convertWikilinks(markdown, uploadHistory = []) {
   const source = String(markdown || '');
   return source.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (...replaceArgs) => {
-    const [, noteName = '', alias = ''] = /** @type {[string, string?, string?, ...unknown[]]} */ (replaceArgs);
+    const [match, noteName = '', alias = '', offset = 0] = /** @type {[string, string?, string?, number?, ...unknown[]]} */ (replaceArgs);
+    if (offset > 0 && source[offset - 1] === '!') return match;
     const cleanNoteName = noteName.trim();
     const displayName = (alias || noteName).trim();
     
@@ -88,6 +89,33 @@ function convertObsidianImageSyntax(markdown) {
 }
 
 /**
+ * @param {string} src
+ * @returns {string}
+ */
+function getImageFileNameFromSrc(src) {
+  const value = String(src || '');
+  const dataMatch = value.match(/^data:image\/([a-z0-9.+-]+);base64,/i);
+  if (dataMatch) {
+    const ext = dataMatch[1].replace(/^jpeg$/i, 'jpg').toLowerCase();
+    return `image.${ext}`;
+  }
+  return value.split('/').pop() || value;
+}
+
+/**
+ * @param {unknown} rawDestination
+ * @returns {string}
+ */
+function stripMarkdownDestination(rawDestination) {
+  const raw = String(rawDestination || '').trim();
+  if (raw.startsWith('<')) {
+    const end = raw.indexOf('>');
+    if (end > 0) return raw.slice(1, end).trim();
+  }
+  return raw.replace(/\\([()])/g, '$1').trim();
+}
+
+/**
  * Extracts all image paths and titles from the Markdown content.
  * Matches standard markdown images and converts wiki image embeds first.
  * @param {string} markdown
@@ -95,19 +123,69 @@ function convertObsidianImageSyntax(markdown) {
  */
 function extractImagesFromMarkdown(markdown) {
   const converted = convertObsidianImageSyntax(markdown);
-  const markdownImageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g;
   /** @type {FeishuMarkdownImageLike[]} */
   const images = [];
-  let match;
 
-  markdownImageRegex.lastIndex = 0;
-  while ((match = markdownImageRegex.exec(converted)) !== null) {
-    const originalSrc = match[2];
+  let index = 0;
+  while (index < converted.length) {
+    const start = converted.indexOf('![', index);
+    if (start < 0) break;
+
+    let cursor = start + 2;
+    let escaped = false;
+    let altEnd = -1;
+    while (cursor < converted.length) {
+      const char = converted[cursor];
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === ']') {
+        altEnd = cursor;
+        break;
+      }
+      cursor += 1;
+    }
+
+    if (altEnd < 0 || converted[altEnd + 1] !== '(') {
+      index = start + 2;
+      continue;
+    }
+
+    const destinationStart = altEnd + 2;
+    cursor = destinationStart;
+    let depth = 0;
+    escaped = false;
+    let destinationEnd = -1;
+    while (cursor < converted.length) {
+      const char = converted[cursor];
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '(') {
+        depth += 1;
+      } else if (char === ')') {
+        if (depth === 0) {
+          destinationEnd = cursor;
+          break;
+        }
+        depth -= 1;
+      }
+      cursor += 1;
+    }
+
+    if (destinationEnd < 0) {
+      index = start + 2;
+      continue;
+    }
+
+    const originalSrc = stripMarkdownDestination(converted.slice(destinationStart, destinationEnd)).split(/\s+(?=["'])/)[0];
     if (!originalSrc) continue;
 
     const decodedPath = decodeURI(originalSrc);
-    const fileName = decodedPath.split('/').pop() || decodedPath;
     const isRemote = /^https?:\/\//i.test(decodedPath) || decodedPath.startsWith('data:');
+    const fileName = getImageFileNameFromSrc(decodedPath);
 
     // Prevent duplicates in the queue
     if (!images.some((x) => x.originalSrc === originalSrc)) {
@@ -118,6 +196,8 @@ function extractImagesFromMarkdown(markdown) {
         isRemote,
       });
     }
+
+    index = destinationEnd + 1;
   }
 
   return images;
@@ -129,4 +209,6 @@ export {
   convertWikilinks,
   convertObsidianImageSyntax,
   extractImagesFromMarkdown,
+  getImageFileNameFromSrc,
+  stripMarkdownDestination,
 };

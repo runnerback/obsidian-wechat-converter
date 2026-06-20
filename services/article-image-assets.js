@@ -627,7 +627,7 @@ function isLocalLikeSrc(src) {
  *   assetIndex: number,
  *   originalSrc?: string,
  *   existingByKey: Map<string, ImageAsset>,
- *   limits: { maxImageSizeBytes: number, maxTotalImageSizeBytes: number },
+ *   limits: { maxImageSizeBytes: number, maxTotalImageSizeBytes: number, unsupportedExtensions?: Set<string> },
  * }} params
  * @returns {Promise<{ asset?: ImageAsset, warning?: ImageWarning, reused?: boolean }>}
  */
@@ -674,6 +674,17 @@ async function resolveLocalImageAsset({
   if (existingByKey.has(cacheKey)) {
     const cached = existingByKey.get(cacheKey);
     return cached ? { asset: cached, reused: true } : {};
+  }
+
+  const fileNameBeforeRead = file?.name || getFilenameFromPath(file?.path || src);
+  const fileExtension = getExtension(fileNameBeforeRead);
+  if (limits.unsupportedExtensions?.has(fileExtension)) {
+    return {
+      warning: createWarning('image_unsupported_for_target', `当前目标暂不支持该图片格式：${fileNameBeforeRead}`, {
+        src: originalSrc,
+        filename: fileNameBeforeRead,
+      }),
+    };
   }
 
   try {
@@ -895,7 +906,7 @@ function formatArticleImageWarnings(warnings = []) {
 /**
  * @param {unknown} markdown
  * @param {unknown} noteFile
- * @param {{ app?: unknown, maxImageSizeBytes?: number, maxTotalImageSizeBytes?: number, cover?: string }} options
+ * @param {{ app?: unknown, maxImageSizeBytes?: number, maxTotalImageSizeBytes?: number, unsupportedImageExtensions?: string[], cover?: string }} options
  * @returns {Promise<{ markdown: string, assets: ImageAsset[], warnings: ImageWarning[], cover: string, firstImageSrc: string }>}
  */
 async function resolveArticleImages(markdown, noteFile, options = {}) {
@@ -903,6 +914,7 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
   const limits = {
     maxImageSizeBytes: options.maxImageSizeBytes || DEFAULT_MAX_IMAGE_SIZE_BYTES,
     maxTotalImageSizeBytes: options.maxTotalImageSizeBytes || DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES,
+    unsupportedExtensions: new Set((options.unsupportedImageExtensions || []).map((ext) => String(ext || '').toLowerCase().replace(/^\./, '')).filter(Boolean)),
   };
   const sourceMarkdown = String(markdown || '');
   const references = collectArticleImageReferences(sourceMarkdown);

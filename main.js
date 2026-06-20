@@ -48184,6 +48184,7 @@ async function resolveLocalImageAsset({
   existingByKey,
   limits
 }) {
+  var _a5;
   let file = null;
   let readResult = null;
   let cacheKey = "";
@@ -48214,6 +48215,16 @@ async function resolveLocalImageAsset({
   if (existingByKey.has(cacheKey)) {
     const cached = existingByKey.get(cacheKey);
     return cached ? { asset: cached, reused: true } : {};
+  }
+  const fileNameBeforeRead = (file == null ? void 0 : file.name) || getFilenameFromPath((file == null ? void 0 : file.path) || src);
+  const fileExtension = getExtension(fileNameBeforeRead);
+  if ((_a5 = limits.unsupportedExtensions) == null ? void 0 : _a5.has(fileExtension)) {
+    return {
+      warning: createWarning("image_unsupported_for_target", `\u5F53\u524D\u76EE\u6807\u6682\u4E0D\u652F\u6301\u8BE5\u56FE\u7247\u683C\u5F0F\uFF1A${fileNameBeforeRead}`, {
+        src: originalSrc,
+        filename: fileNameBeforeRead
+      })
+    };
   }
   try {
     readResult = await readVaultAsset(app, file);
@@ -48377,7 +48388,8 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
   const app = options.app;
   const limits = {
     maxImageSizeBytes: options.maxImageSizeBytes || DEFAULT_MAX_IMAGE_SIZE_BYTES,
-    maxTotalImageSizeBytes: options.maxTotalImageSizeBytes || DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES
+    maxTotalImageSizeBytes: options.maxTotalImageSizeBytes || DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES,
+    unsupportedExtensions: new Set((options.unsupportedImageExtensions || []).map((ext) => String(ext || "").toLowerCase().replace(/^\./, "")).filter(Boolean))
   };
   const sourceMarkdown = String(markdown || "");
   const references = collectArticleImageReferences(sourceMarkdown);
@@ -50191,6 +50203,55 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     modal.open();
 }
 
+// services/feishu-multipart.js
+function toUint8Array(binary) {
+  if (binary instanceof Uint8Array)
+    return binary;
+  if (binary instanceof ArrayBuffer)
+    return new Uint8Array(binary);
+  if (ArrayBuffer.isView(binary)) {
+    return new Uint8Array(binary.buffer, binary.byteOffset, binary.byteLength);
+  }
+  return new Uint8Array(0);
+}
+function mergeParts(parts) {
+  const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+  const bodyBuffer = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const part of parts) {
+    bodyBuffer.set(part, offset);
+    offset += part.length;
+  }
+  return bodyBuffer.buffer;
+}
+function buildMultipartBody({ boundary, fields = {}, file }) {
+  const encoder = new TextEncoder();
+  const parts = [];
+  for (const [name, value] of Object.entries(fields)) {
+    parts.push(encoder.encode(`--${boundary}\r
+`));
+    parts.push(encoder.encode(`Content-Disposition: form-data; name="${name}"\r
+\r
+`));
+    parts.push(encoder.encode(`${value}\r
+`));
+  }
+  const fileBytes = toUint8Array(file.bytes);
+  parts.push(encoder.encode(`--${boundary}\r
+`));
+  parts.push(encoder.encode(`Content-Disposition: form-data; name="${file.fieldName || "file"}"; filename="${file.fileName}"\r
+`));
+  parts.push(encoder.encode(`Content-Type: ${file.mimeType || "application/octet-stream"}\r
+\r
+`));
+  parts.push(fileBytes);
+  parts.push(encoder.encode(`\r
+`));
+  parts.push(encoder.encode(`--${boundary}--\r
+`));
+  return mergeParts(parts);
+}
+
 // services/feishu-api.js
 var FeishuApiClient = class {
   /**
@@ -50208,6 +50269,87 @@ var FeishuApiClient = class {
     this.requestUrl = requestUrl || (obsidianApi2 && typeof obsidianApi2.requestUrl === "function" ? obsidianApi2.requestUrl : null);
   }
   /**
+   * Obsidian requestUrl throws before exposing Feishu's JSON body on HTTP 400+ by default.
+   * Keep requests non-throwing here so user-facing errors include the failing endpoint and Feishu message.
+   * @param {string} label
+   * @param {Record<string, unknown>} options
+   * @returns {Promise<any>}
+   */
+  async sendRequest(label, options) {
+    if (typeof this.requestUrl !== "function") {
+      throw new Error("\u5F53\u524D Obsidian \u73AF\u5883\u4E0D\u652F\u6301 requestUrl\uFF0C\u65E0\u6CD5\u8BBF\u95EE\u98DE\u4E66 OpenAPI");
+    }
+    const requestOptions = {
+      ...options,
+      throw: false
+    };
+    let resp;
+    try {
+      resp = await this.requestUrl(requestOptions);
+    } catch (err) {
+      throw this.createTransportError(label, options.url, err);
+    }
+    const status = Number((resp == null ? void 0 : resp.status) || 0);
+    if (status >= 400) {
+      throw this.createHttpError(label, options.url, resp);
+    }
+    return resp;
+  }
+  /**
+   * @param {string} label
+   * @param {unknown} url
+   * @param {unknown} err
+   * @returns {Error}
+   */
+  createTransportError(label, url, err) {
+    const message = err && typeof err === "object" && "message" in err ? err.message : String(err || "\u672A\u77E5\u7F51\u7EDC\u9519\u8BEF");
+    return new Error(`${label} \u8BF7\u6C42\u5931\u8D25\uFF1A${message} (${this.formatEndpoint(url)})`);
+  }
+  /**
+   * @param {string} label
+   * @param {unknown} url
+   * @param {any} resp
+   * @returns {Error}
+   */
+  createHttpError(label, url, resp) {
+    const status = Number((resp == null ? void 0 : resp.status) || 0);
+    const details = this.formatResponseDetails(resp);
+    return new Error(`${label} \u8BF7\u6C42\u5931\u8D25\uFF0CHTTP ${status}${details ? `\uFF1A${details}` : ""} (${this.formatEndpoint(url)})`);
+  }
+  /**
+   * @param {any} resp
+   * @returns {string}
+   */
+  formatResponseDetails(resp) {
+    var _a5, _b;
+    let json = null;
+    try {
+      json = resp == null ? void 0 : resp.json;
+    } catch (e) {
+      json = null;
+    }
+    if (json && typeof json === "object") {
+      const code = (_b = (_a5 = json.code) != null ? _a5 : json.Code) != null ? _b : "";
+      const msg = json.msg || json.message || json.Message || json.error || "";
+      const requestId = json.request_id || json.requestId || json.log_id || "";
+      return [
+        code !== "" ? `code ${code}` : "",
+        msg ? String(msg) : "",
+        requestId ? `request_id ${requestId}` : ""
+      ].filter(Boolean).join(", ");
+    }
+    const text = String((resp == null ? void 0 : resp.text) || "").trim();
+    return text.length > 300 ? `${text.slice(0, 300)}...` : text;
+  }
+  /**
+   * @param {unknown} url
+   * @returns {string}
+   */
+  formatEndpoint(url) {
+    const value = String(url || "");
+    return value.replace(this.baseUrl, "");
+  }
+  /**
    * Gets the tenant_access_token, refreshing it if expired.
    * @returns {Promise<string>}
    */
@@ -50220,7 +50362,7 @@ var FeishuApiClient = class {
       throw new Error("\u672A\u914D\u7F6E\u98DE\u4E66 AppID \u6216 AppSecret\uFF0C\u65E0\u6CD5\u83B7\u53D6 Access Token");
     }
     const url = `${this.baseUrl}/auth/v3/tenant_access_token/internal`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u83B7\u53D6\u98DE\u4E66 tenant_access_token", {
       url,
       method: "POST",
       headers: {
@@ -50253,7 +50395,7 @@ var FeishuApiClient = class {
     var _a5;
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files?folder_token=${encodeURIComponent(folderToken)}&page_size=200`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u8BFB\u53D6\u98DE\u4E66\u6587\u4EF6\u5939", {
       url,
       method: "GET",
       headers: {
@@ -50281,7 +50423,7 @@ var FeishuApiClient = class {
     var _a5;
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files/create_folder`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u521B\u5EFA\u98DE\u4E66\u6587\u4EF6\u5939", {
       url,
       method: "POST",
       headers: {
@@ -50319,68 +50461,32 @@ var FeishuApiClient = class {
     for (let i = 0; i < binaryStr.length; i++) {
       binaryData[i] = binaryStr.charCodeAt(i);
     }
-    const boundary = "feishu-file-boundary-" + Math.random().toString(36).substring(2, 15);
-    const encoder = new TextEncoder();
-    const parts = [];
-    parts.push(encoder.encode(`--${boundary}\r
-`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="file_name"\r
-\r
-`));
-    parts.push(encoder.encode(`${fileName}\r
-`));
-    parts.push(encoder.encode(`--${boundary}\r
-`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_type"\r
-\r
-`));
-    parts.push(encoder.encode(`explorer\r
-`));
+    const fields = {
+      file_name: fileName,
+      parent_type: "explorer",
+      size: binaryData.length.toString()
+    };
     if (folderToken) {
-      parts.push(encoder.encode(`--${boundary}\r
-`));
-      parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_node"\r
-\r
-`));
-      parts.push(encoder.encode(`${folderToken}\r
-`));
+      fields.parent_node = folderToken;
     }
-    parts.push(encoder.encode(`--${boundary}\r
-`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="size"\r
-\r
-`));
-    parts.push(encoder.encode(`${binaryData.length.toString()}\r
-`));
-    parts.push(encoder.encode(`--${boundary}\r
-`));
-    const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="file"; filename="${fileNameWithoutExt}"\r
-`));
-    parts.push(encoder.encode(`Content-Type: application/octet-stream\r
-\r
-`));
-    parts.push(binaryData);
-    parts.push(encoder.encode(`\r
-`));
-    parts.push(encoder.encode(`--${boundary}--\r
-`));
-    const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
-    const bodyBuffer = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const part of parts) {
-      bodyBuffer.set(part, offset);
-      offset += part.length;
-    }
-    const resp = await this.requestUrl({
+    const boundary = "feishu-file-boundary-" + Math.random().toString(36).substring(2, 15);
+    const body = buildMultipartBody({
+      boundary,
+      fields,
+      file: {
+        fileName,
+        mimeType: "text/markdown; charset=utf-8",
+        bytes: binaryData
+      }
+    });
+    const resp = await this.sendRequest("\u4E0A\u4F20\u98DE\u4E66\u4E34\u65F6 Markdown \u6587\u4EF6", {
       url,
       method: "POST",
       headers: {
         "Authorization": `Bearer ${token}`,
         "Content-Type": `multipart/form-data; boundary=${boundary}`
       },
-      body: bodyBuffer.buffer
-      // Use raw ArrayBuffer
+      body
     });
     const data = resp.json;
     if (data.code !== 0) {
@@ -50401,7 +50507,7 @@ var FeishuApiClient = class {
   async deleteFile(fileToken, type = "file") {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files/${fileToken}?type=${encodeURIComponent(type)}`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u5220\u9664\u98DE\u4E66\u4E34\u65F6\u6587\u4EF6", {
       url,
       method: "DELETE",
       headers: {
@@ -50437,7 +50543,7 @@ var FeishuApiClient = class {
         mount_key: folderToken
       };
     }
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u521B\u5EFA\u98DE\u4E66\u5BFC\u5165\u4EFB\u52A1", {
       url,
       method: "POST",
       headers: {
@@ -50465,7 +50571,7 @@ var FeishuApiClient = class {
     var _a5;
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/import_tasks/${ticket}`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u67E5\u8BE2\u98DE\u4E66\u5BFC\u5165\u4EFB\u52A1\u72B6\u6001", {
       url,
       method: "GET",
       headers: {
@@ -50526,7 +50632,7 @@ var FeishuApiClient = class {
     var _a5;
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks?page_size=500`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u83B7\u53D6\u98DE\u4E66\u6587\u6863\u7ED3\u6784", {
       url,
       method: "GET",
       headers: {
@@ -50550,7 +50656,7 @@ var FeishuApiClient = class {
   async batchDeleteBlocks(documentId, rootBlockId, startIndex, endIndex) {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${rootBlockId}/children/batch_delete?document_revision_id=-1`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u6279\u91CF\u5220\u9664\u98DE\u4E66\u6587\u6863\u5757", {
       url,
       method: "POST",
       headers: {
@@ -50577,7 +50683,7 @@ var FeishuApiClient = class {
     var _a5;
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/blocks/convert`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u8F6C\u6362 Markdown \u4E3A\u98DE\u4E66\u6587\u6863\u5757", {
       url,
       method: "POST",
       headers: {
@@ -50606,7 +50712,7 @@ var FeishuApiClient = class {
   async createDocumentBlocks(documentId, parentId, index, children) {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${parentId}/children?document_revision_id=-1`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u63D2\u5165\u98DE\u4E66\u6587\u6863\u5757", {
       url,
       method: "POST",
       headers: {
@@ -50633,80 +50739,51 @@ var FeishuApiClient = class {
    * @returns {Promise<string>} Image token
    */
   async uploadImageMaterial(fileName, base64Content, documentId, blockId) {
-    var _a5;
-    const token = await this.getAccessToken();
-    const url = `${this.baseUrl}/drive/v1/medias/upload_all`;
     const binaryStr = atob(base64Content);
     const binaryData = new Uint8Array(binaryStr.length);
     for (let i = 0; i < binaryStr.length; i++) {
       binaryData[i] = binaryStr.charCodeAt(i);
     }
+    return this.uploadImageMaterialBytes(fileName, binaryData, documentId, blockId, "application/octet-stream");
+  }
+  /**
+   * Upload an image to the document media space using binary bytes directly.
+   * @param {string} fileName
+   * @param {ArrayBuffer | Uint8Array} binaryContent
+   * @param {string} documentId
+   * @param {string} blockId
+   * @param {string} [mimeType='application/octet-stream']
+   * @returns {Promise<string>} Image token
+   */
+  async uploadImageMaterialBytes(fileName, binaryContent, documentId, blockId, mimeType = "application/octet-stream") {
+    var _a5;
+    const token = await this.getAccessToken();
+    const url = `${this.baseUrl}/drive/v1/medias/upload_all`;
+    const binaryData = binaryContent instanceof Uint8Array ? binaryContent : new Uint8Array(binaryContent || new ArrayBuffer(0));
     const boundary = "feishu-image-boundary-" + Math.random().toString(36).substring(2, 15);
-    const encoder = new TextEncoder();
-    const parts = [];
-    parts.push(encoder.encode(`--${boundary}\r
-`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="file_name"\r
-\r
-`));
-    parts.push(encoder.encode(`${fileName}\r
-`));
-    parts.push(encoder.encode(`--${boundary}\r
-`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_type"\r
-\r
-`));
-    parts.push(encoder.encode(`docx_image\r
-`));
-    parts.push(encoder.encode(`--${boundary}\r
-`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="parent_node"\r
-\r
-`));
-    parts.push(encoder.encode(`${blockId}\r
-`));
-    parts.push(encoder.encode(`--${boundary}\r
-`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="size"\r
-\r
-`));
-    parts.push(encoder.encode(`${binaryData.length.toString()}\r
-`));
-    parts.push(encoder.encode(`--${boundary}\r
-`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="extra"\r
-\r
-`));
-    const extraData = JSON.stringify({ drive_route_token: documentId });
-    parts.push(encoder.encode(`${extraData}\r
-`));
-    parts.push(encoder.encode(`--${boundary}\r
-`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="file"; filename="${fileName}"\r
-`));
-    parts.push(encoder.encode(`Content-Type: application/octet-stream\r
-\r
-`));
-    parts.push(binaryData);
-    parts.push(encoder.encode(`\r
-`));
-    parts.push(encoder.encode(`--${boundary}--\r
-`));
-    const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
-    const bodyBuffer = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const part of parts) {
-      bodyBuffer.set(part, offset);
-      offset += part.length;
-    }
-    const resp = await this.requestUrl({
+    const body = buildMultipartBody({
+      boundary,
+      fields: {
+        file_name: fileName,
+        parent_type: "docx_image",
+        parent_node: blockId,
+        size: binaryData.length.toString(),
+        extra: JSON.stringify({ drive_route_token: documentId })
+      },
+      file: {
+        fileName,
+        mimeType: mimeType || "application/octet-stream",
+        bytes: binaryData
+      }
+    });
+    const resp = await this.sendRequest("\u4E0A\u4F20\u98DE\u4E66\u6587\u6863\u56FE\u7247\u7D20\u6750", {
       url,
       method: "POST",
       headers: {
         "Authorization": `Bearer ${token}`,
         "Content-Type": `multipart/form-data; boundary=${boundary}`
       },
-      body: bodyBuffer.buffer
+      body
     });
     const data = resp.json;
     if (data.code !== 0) {
@@ -50728,7 +50805,7 @@ var FeishuApiClient = class {
   async updateBlock(documentId, blockId, blockData) {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${blockId}?document_revision_id=-1`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u66F4\u65B0\u98DE\u4E66\u6587\u6863\u5757", {
       url,
       method: "PATCH",
       headers: {
@@ -50752,7 +50829,7 @@ var FeishuApiClient = class {
   async renameFile(fileToken, name) {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/files/${fileToken}`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u91CD\u547D\u540D\u98DE\u4E66\u6587\u4EF6", {
       url,
       method: "PATCH",
       headers: {
@@ -50778,7 +50855,7 @@ var FeishuApiClient = class {
   async transferDocumentOwnership(docToken, userId) {
     const token = await this.getAccessToken();
     const url = `${this.baseUrl}/drive/v1/permissions/${docToken}/members/transfer_owner?need_notification=false&old_owner_perm=full_access&remove_old_owner=false&stay_put=true&type=docx`;
-    const resp = await this.requestUrl({
+    const resp = await this.sendRequest("\u8F6C\u79FB\u98DE\u4E66\u6587\u6863\u6240\u6709\u6743", {
       url,
       method: "POST",
       headers: {
@@ -50961,7 +51038,7 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
       await plugin.saveSettings();
     })
   );
-  new Setting2(containerEl).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u9A8C\u8BC1\u914D\u7F6E\u662F\u5426\u6B63\u786E\u3002\u5C06\u9A8C\u8BC1\u81EA\u5EFA\u5E94\u7528\u6388\u6743\uFF0C\u4EE5\u53CA\u6587\u4EF6\u5939\u7684\u53EF\u5199\u6027\u3002").addButton(
+  new Setting2(containerEl).setName("\u6D4B\u8BD5\u8FDE\u63A5").setDesc("\u9A8C\u8BC1\u81EA\u5EFA\u5E94\u7528\u6388\u6743\u548C\u76EE\u6807\u6587\u4EF6\u5939\u8BFB\u53D6\u6743\u9650\u3002\u5B8C\u6574\u4E0A\u4F20/\u5BFC\u5165\u6743\u9650\u4F1A\u5728\u5B9E\u9645\u540C\u6B65\u65F6\u9A8C\u8BC1\u3002").addButton(
     (btn) => btn.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
       if (!settings.appId || !settings.appSecret) {
         new Notice2("\u274C \u8BF7\u5148\u586B\u5199 App ID \u548C App Secret\uFF01");
@@ -51129,6 +51206,101 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
   });
 }
 
+// services/feishu-media-sync.js
+function toUint8Array2(binary) {
+  if (binary instanceof Uint8Array)
+    return binary;
+  if (binary instanceof ArrayBuffer)
+    return new Uint8Array(binary);
+  if (ArrayBuffer.isView(binary)) {
+    return new Uint8Array(binary.buffer, binary.byteOffset, binary.byteLength);
+  }
+  return new Uint8Array(0);
+}
+function createImageSummary() {
+  return {
+    uploaded: 0,
+    skipped: 0,
+    failed: 0,
+    details: []
+  };
+}
+function addImageDetail(summary, filename, status, reason) {
+  summary.details.push({ filename, status, reason });
+  if (status === "uploaded")
+    summary.uploaded += 1;
+  else if (status === "skipped")
+    summary.skipped += 1;
+  else
+    summary.failed += 1;
+}
+async function readAssetBytes(app, asset) {
+  var _a5, _b;
+  const vaultRelativePath = ((_a5 = asset == null ? void 0 : asset.source) == null ? void 0 : _a5.vaultRelativePath) || "";
+  const file = vaultRelativePath && ((_b = app == null ? void 0 : app.vault) == null ? void 0 : _b.getAbstractFileByPath) ? app.vault.getAbstractFileByPath(vaultRelativePath) : null;
+  if (!file) {
+    throw new Error(`\u627E\u4E0D\u5230\u672C\u5730\u56FE\u7247\u6587\u4EF6: ${vaultRelativePath || asset.filename}`);
+  }
+  return toUint8Array2(await app.vault.readBinary(file));
+}
+function findLocalAssetForImage(image, assets) {
+  const originalSrc = String((image == null ? void 0 : image.originalSrc) || "");
+  if (originalSrc.startsWith("asset://")) {
+    return assets.find((asset) => originalSrc === `asset://${asset.id}`) || null;
+  }
+  return assets.find((asset) => {
+    var _a5, _b;
+    return ((_a5 = asset == null ? void 0 : asset.source) == null ? void 0 : _a5.originalSrc) === originalSrc || ((_b = asset == null ? void 0 : asset.source) == null ? void 0 : _b.vaultRelativePath) === image.path;
+  }) || null;
+}
+async function replaceFeishuImageBlocks({ app, client, docToken, images, assets, onProgress }) {
+  const summary = createImageSummary();
+  const localImageItems = (images || []).filter((image) => !image.isRemote).map((image) => ({
+    image,
+    asset: findLocalAssetForImage(image, assets || [])
+  })).filter((item) => item.asset);
+  if (localImageItems.length === 0)
+    return summary;
+  const blocks = await client.getDocumentBlocks(docToken);
+  const imageBlocks = (blocks || []).filter((block) => block.block_type === 27);
+  for (let i = 0; i < localImageItems.length; i++) {
+    const { image, asset } = localImageItems[i];
+    const block = imageBlocks[i];
+    const filename = (asset == null ? void 0 : asset.filename) || image.fileName || "image";
+    if (typeof onProgress === "function") {
+      onProgress("processing_images", `\u6B63\u5728\u540C\u6B65\u6B63\u6587\u56FE\u7247 (${i + 1}/${localImageItems.length}): ${filename}...`);
+    }
+    if (!block) {
+      addImageDetail(summary, filename, "skipped", "feishu_image_block_missing");
+      continue;
+    }
+    try {
+      const bytes = await readAssetBytes(app, asset);
+      const imageToken = await client.uploadImageMaterialBytes(
+        filename,
+        bytes,
+        docToken,
+        block.block_id,
+        asset.mimeType || "application/octet-stream"
+      );
+      await client.updateBlock(docToken, block.block_id, {
+        replace_image: {
+          token: imageToken,
+          width: 800,
+          height: 600,
+          align: 2
+        }
+      });
+      addImageDetail(summary, filename, "uploaded", "ok");
+    } catch (err) {
+      console.error(`[\u98DE\u4E66\u540C\u6B65] \u56FE\u7247 ${filename} \u540C\u6B65\u5931\u8D25:`, err);
+      const reason = err && typeof err === "object" && "message" in err ? err.message : String(err || "unknown_error");
+      addImageDetail(summary, filename, "failed", reason);
+    }
+  }
+  return summary;
+}
+
 // services/feishu-markdown-processor.js
 function stripYamlFrontmatter(markdown) {
   return String(markdown || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "");
@@ -51154,10 +51326,12 @@ function parseYamlTitle(markdown) {
 function convertWikilinks(markdown, uploadHistory = []) {
   const source = String(markdown || "");
   return source.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (...replaceArgs) => {
-    const [, noteName = "", alias = ""] = (
-      /** @type {[string, string?, string?, ...unknown[]]} */
+    const [match, noteName = "", alias = "", offset = 0] = (
+      /** @type {[string, string?, string?, number?, ...unknown[]]} */
       replaceArgs
     );
+    if (offset > 0 && source[offset - 1] === "!")
+      return match;
     const cleanNoteName = noteName.trim();
     const displayName = (alias || noteName).trim();
     const historyItem = (uploadHistory || []).find((x) => {
@@ -51186,19 +51360,83 @@ function convertObsidianImageSyntax(markdown) {
     return `![${alt}](${encodedFileName})`;
   });
 }
+function getImageFileNameFromSrc(src) {
+  const value = String(src || "");
+  const dataMatch = value.match(/^data:image\/([a-z0-9.+-]+);base64,/i);
+  if (dataMatch) {
+    const ext = dataMatch[1].replace(/^jpeg$/i, "jpg").toLowerCase();
+    return `image.${ext}`;
+  }
+  return value.split("/").pop() || value;
+}
+function stripMarkdownDestination2(rawDestination) {
+  const raw = String(rawDestination || "").trim();
+  if (raw.startsWith("<")) {
+    const end = raw.indexOf(">");
+    if (end > 0)
+      return raw.slice(1, end).trim();
+  }
+  return raw.replace(/\\([()])/g, "$1").trim();
+}
 function extractImagesFromMarkdown(markdown) {
   const converted = convertObsidianImageSyntax(markdown);
-  const markdownImageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g;
   const images = [];
-  let match;
-  markdownImageRegex.lastIndex = 0;
-  while ((match = markdownImageRegex.exec(converted)) !== null) {
-    const originalSrc = match[2];
+  let index = 0;
+  while (index < converted.length) {
+    const start = converted.indexOf("![", index);
+    if (start < 0)
+      break;
+    let cursor = start + 2;
+    let escaped = false;
+    let altEnd = -1;
+    while (cursor < converted.length) {
+      const char = converted[cursor];
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "]") {
+        altEnd = cursor;
+        break;
+      }
+      cursor += 1;
+    }
+    if (altEnd < 0 || converted[altEnd + 1] !== "(") {
+      index = start + 2;
+      continue;
+    }
+    const destinationStart = altEnd + 2;
+    cursor = destinationStart;
+    let depth = 0;
+    escaped = false;
+    let destinationEnd = -1;
+    while (cursor < converted.length) {
+      const char = converted[cursor];
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "(") {
+        depth += 1;
+      } else if (char === ")") {
+        if (depth === 0) {
+          destinationEnd = cursor;
+          break;
+        }
+        depth -= 1;
+      }
+      cursor += 1;
+    }
+    if (destinationEnd < 0) {
+      index = start + 2;
+      continue;
+    }
+    const originalSrc = stripMarkdownDestination2(converted.slice(destinationStart, destinationEnd)).split(/\s+(?=["'])/)[0];
     if (!originalSrc)
       continue;
     const decodedPath = decodeURI(originalSrc);
-    const fileName = decodedPath.split("/").pop() || decodedPath;
     const isRemote = /^https?:\/\//i.test(decodedPath) || decodedPath.startsWith("data:");
+    const fileName = getImageFileNameFromSrc(decodedPath);
     if (!images.some((x) => x.originalSrc === originalSrc)) {
       images.push({
         originalSrc,
@@ -51207,6 +51445,7 @@ function extractImagesFromMarkdown(markdown) {
         isRemote
       });
     }
+    index = destinationEnd + 1;
   }
   return images;
 }
@@ -51221,18 +51460,16 @@ function arrayBufferToBase64(buffer) {
   }
   return window.btoa(binary);
 }
-async function resolveImageToBase64(app, imageInfo, activeNotePath, requestUrlImpl) {
-  if (imageInfo.isRemote) {
-    const resp = await requestUrlImpl({ url: imageInfo.originalSrc });
-    return arrayBufferToBase64(resp.arrayBuffer);
-  } else {
-    const file = app.metadataCache.getFirstLinkpathDest(imageInfo.path, activeNotePath);
-    if (!file) {
-      throw new Error(`\u5728\u5E93\u4E2D\u627E\u4E0D\u5230\u672C\u5730\u56FE\u7247\u6587\u4EF6: ${imageInfo.path}`);
-    }
-    const buffer = await app.vault.readBinary(file);
-    return arrayBufferToBase64(buffer);
-  }
+async function prepareLocalImagesForFeishu(app, activeFile, markdown) {
+  const result = await resolveArticleImages(markdown, activeFile, {
+    app,
+    unsupportedImageExtensions: ["gif"]
+  });
+  return {
+    markdown: result.markdown,
+    assets: result.assets || [],
+    warnings: result.warnings || []
+  };
 }
 async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgress, requestUrl }) {
   const notify = (stage, msg) => {
@@ -51243,10 +51480,8 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
   const obsidianApi2 = getActiveWindowValue("obsidian");
   const requestUrlImpl = requestUrl || (obsidianApi2 && typeof obsidianApi2.requestUrl === "function" ? obsidianApi2.requestUrl : null);
   let title = parseYamlTitle(markdown);
-  if (!title) {
-    const h1Match = markdown.match(/^#\s+(.+)$/m);
-    title = h1Match ? h1Match[1].trim() : activeFile.basename;
-  }
+  if (!title)
+    title = activeFile.basename;
   title = title.substring(0, 250);
   const client = new FeishuApiClient(settings.appId, settings.appSecret, requestUrlImpl);
   let historyItem = findFeishuHistoryByPath(settings, activeFile.path);
@@ -51271,40 +51506,22 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
   }
   let processedMd = stripYamlFrontmatter(markdown);
   processedMd = convertWikilinks(processedMd, settings.uploadHistory);
+  const localImageResult = await prepareLocalImagesForFeishu(app, activeFile, processedMd);
+  processedMd = localImageResult.markdown;
+  const imageSummary = createImageSummary();
+  for (const warning of localImageResult.warnings) {
+    const detail = warning.filename || warning.src || "";
+    console.warn("[\u98DE\u4E66\u540C\u6B65] \u672C\u5730\u56FE\u7247\u9884\u5904\u7406\u8DF3\u8FC7:", detail ? `${warning.message || "\u56FE\u7247\u65E0\u6CD5\u5904\u7406"} (${detail})` : warning.message || warning);
+    imageSummary.skipped += 1;
+    imageSummary.details.push({
+      filename: warning.filename || warning.src || "image",
+      status: "skipped",
+      reason: warning.code || warning.message || "image_prepare_warning"
+    });
+  }
   let docToken = "";
   let docUrl = "";
-  if (historyItem && historyItem.docToken) {
-    docToken = historyItem.docToken;
-    docUrl = historyItem.url;
-    notify("deleting_blocks", "\u6B63\u5728\u6E05\u7A7A\u65E7\u6587\u6863\u5185\u5BB9...");
-    const blocks = await client.getDocumentBlocks(docToken);
-    const childBlockIds = blocks.filter((x) => x.parent_id === docToken && x.block_id !== docToken).map((x) => x.block_id);
-    if (childBlockIds.length > 0) {
-      await client.batchDeleteBlocks(docToken, docToken, 0, childBlockIds.length);
-    }
-    notify("importing", "\u6B63\u5728\u8F6C\u6362\u5E76\u5199\u5165\u65B0\u5185\u5BB9...");
-    const newBlocks = await client.convertMarkdownToBlocks(processedMd);
-    if (newBlocks && newBlocks.length > 0) {
-      const chunkSize = 50;
-      for (let i = 0; i < newBlocks.length; i += chunkSize) {
-        const chunk = newBlocks.slice(i, i + chunkSize);
-        notify("importing", `\u6B63\u5728\u5199\u5165\u5185\u5BB9\u5757 (${i + 1}/${newBlocks.length})...`);
-        await client.createDocumentBlocks(docToken, docToken, i, chunk);
-        if (i + chunkSize < newBlocks.length) {
-          await new Promise((resolve) => window.setTimeout(resolve, 300));
-        }
-      }
-    }
-    if (title !== historyItem.title) {
-      notify("renaming", "\u6B63\u5728\u66F4\u65B0\u98DE\u4E66\u6587\u6863\u540D\u79F0...");
-      try {
-        await client.renameFile(docToken, title);
-        historyItem.title = title;
-      } catch (err) {
-        console.warn("[\u98DE\u4E66\u540C\u6B65] \u91CD\u547D\u540D\u5931\u8D25:", err);
-      }
-    }
-  } else {
+  const importAsNewDocument = async () => {
     notify("uploading_temp", "\u6B63\u5728\u751F\u6210\u4E34\u65F6 Markdown \u4E0A\u4F20\u6587\u4EF6...");
     const textEncoder = new TextEncoder();
     const mdBase64 = arrayBufferToBase64(textEncoder.encode(processedMd).buffer);
@@ -51323,30 +51540,71 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
       docToken,
       sourcePath: activeFile.path
     };
+  };
+  if (historyItem && historyItem.docToken) {
+    docToken = historyItem.docToken;
+    docUrl = historyItem.url;
+    try {
+      notify("deleting_blocks", "\u6B63\u5728\u6E05\u7A7A\u65E7\u6587\u6863\u5185\u5BB9...");
+      const blocks = await client.getDocumentBlocks(docToken);
+      const childBlockIds = blocks.filter((x) => x.parent_id === docToken && x.block_id !== docToken).map((x) => x.block_id);
+      if (childBlockIds.length > 0) {
+        await client.batchDeleteBlocks(docToken, docToken, 0, childBlockIds.length);
+      }
+      notify("importing", "\u6B63\u5728\u8F6C\u6362\u5E76\u5199\u5165\u65B0\u5185\u5BB9...");
+      const newBlocks = await client.convertMarkdownToBlocks(processedMd);
+      if (newBlocks && newBlocks.length > 0) {
+        const chunkSize = 50;
+        for (let i = 0; i < newBlocks.length; i += chunkSize) {
+          const chunk = newBlocks.slice(i, i + chunkSize);
+          notify("importing", `\u6B63\u5728\u5199\u5165\u5185\u5BB9\u5757 (${i + 1}/${newBlocks.length})...`);
+          await client.createDocumentBlocks(docToken, docToken, i, chunk);
+          if (i + chunkSize < newBlocks.length) {
+            await new Promise((resolve) => window.setTimeout(resolve, 300));
+          }
+        }
+      }
+      if (title !== historyItem.title) {
+        notify("renaming", "\u6B63\u5728\u66F4\u65B0\u98DE\u4E66\u6587\u6863\u540D\u79F0...");
+        try {
+          await client.renameFile(docToken, title);
+          historyItem.title = title;
+        } catch (err) {
+          console.warn("[\u98DE\u4E66\u540C\u6B65] \u91CD\u547D\u540D\u5931\u8D25:", err);
+        }
+      }
+    } catch (err) {
+      console.warn("[\u98DE\u4E66\u540C\u6B65] \u667A\u80FD\u8986\u76D6\u66F4\u65B0\u5931\u8D25\uFF0C\u964D\u7EA7\u4E3A\u65B0\u5EFA\u6587\u6863:", err);
+      notify("importing", "\u66F4\u65B0\u65E7\u6587\u6863\u5931\u8D25\uFF0C\u6B63\u5728\u65B0\u5EFA\u98DE\u4E66\u6587\u6863...");
+      await importAsNewDocument();
+    }
+  } else {
+    await importAsNewDocument();
   }
-  const images = extractImagesFromMarkdown(markdown);
+  const images = extractImagesFromMarkdown(processedMd);
   if (images.length > 0) {
     notify("processing_images", "\u6B63\u5728\u626B\u63CF\u6587\u6863\u56FE\u7247\u7ED3\u6784...");
-    const blocks = await client.getDocumentBlocks(docToken);
-    const imageBlocks = blocks.filter((x) => x.block_type === 27);
-    for (let i = 0; i < images.length && i < imageBlocks.length; i++) {
-      const image = images[i];
-      const block = imageBlocks[i];
-      notify("processing_images", `\u6B63\u5728\u540C\u6B65\u6B63\u6587\u56FE\u7247 (${i + 1}/${images.length}): ${image.fileName}...`);
-      try {
-        const base64 = await resolveImageToBase64(app, image, activeFile.path, requestUrlImpl);
-        const imageToken = await client.uploadImageMaterial(image.fileName, base64, docToken, block.block_id);
-        await client.updateBlock(docToken, block.block_id, {
-          replace_image: {
-            token: imageToken,
-            width: 800,
-            height: 600,
-            align: 2
-          }
-        });
-      } catch (err) {
-        console.error(`[\u98DE\u4E66\u540C\u6B65] \u56FE\u7247 ${image.fileName} \u540C\u6B65\u5931\u8D25:`, err);
-      }
+    try {
+      const replacementSummary = await replaceFeishuImageBlocks({
+        app,
+        client,
+        docToken,
+        images,
+        assets: localImageResult.assets,
+        onProgress: notify
+      });
+      imageSummary.uploaded += replacementSummary.uploaded;
+      imageSummary.skipped += replacementSummary.skipped;
+      imageSummary.failed += replacementSummary.failed;
+      imageSummary.details.push(...replacementSummary.details);
+    } catch (err) {
+      console.warn("[\u98DE\u4E66\u540C\u6B65] \u56FE\u7247\u540E\u5904\u7406\u8DF3\u8FC7\uFF0C\u6587\u6863\u6B63\u6587\u5DF2\u5BFC\u5165:", err);
+      imageSummary.failed += 1;
+      imageSummary.details.push({
+        filename: "\u6587\u6863\u56FE\u7247\u7ED3\u6784",
+        status: "failed",
+        reason: (err == null ? void 0 : err.message) || String(err || "image_post_process_failed")
+      });
     }
   }
   let transferOwnerWarning = "";
@@ -51364,7 +51622,8 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
     title,
     url: docUrl,
     docToken,
-    transferOwnerWarning
+    transferOwnerWarning,
+    imageSummary
   };
 }
 
@@ -51482,6 +51741,12 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
         });
         warning.setCssStyles({ fontSize: "12px", color: "var(--text-warning)" });
       }
+      if (result.imageSummary && (result.imageSummary.skipped || result.imageSummary.failed)) {
+        const imageWarning = resultCard.createEl("p", {
+          text: `\u26A0\uFE0F \u6587\u6863\u5DF2\u540C\u6B65\uFF0C\u4F46\u6709 ${result.imageSummary.skipped + result.imageSummary.failed} \u5F20\u672C\u5730\u56FE\u7247\u672A\u5904\u7406\u3002\u8FDC\u7A0B\u56FE\u7247\u5DF2\u4EA4\u7531\u98DE\u4E66\u5BFC\u5165\uFF1B\u672C\u5730 GIF \u6216\u5F02\u5E38\u56FE\u7247\u4F1A\u88AB\u8DF3\u8FC7\u4EE5\u4FDD\u62A4 Obsidian \u7A33\u5B9A\u6027\u3002`
+        });
+        imageWarning.setCssStyles({ fontSize: "12px", color: "var(--text-warning)" });
+      }
       const linkContainer = resultCard.createDiv();
       linkContainer.createSpan({ text: "\u98DE\u4E66\u94FE\u63A5: " });
       const a = linkContainer.createEl("a", { text: result.title, href: result.url });
@@ -51506,7 +51771,11 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
       cancelBtn.disabled = false;
       cancelBtn.setText("\u5173\u95ED");
       syncBtn.setCssStyles({ display: "none" });
-      new Notice2("\u2705 \u98DE\u4E66\u6587\u6863\u540C\u6B65\u6210\u529F\uFF01");
+      if (result.imageSummary && (result.imageSummary.skipped || result.imageSummary.failed)) {
+        new Notice2("\u2705 \u98DE\u4E66\u6587\u6863\u5DF2\u540C\u6B65\uFF0C\u90E8\u5206\u672C\u5730\u56FE\u7247\u672A\u5904\u7406");
+      } else {
+        new Notice2("\u2705 \u98DE\u4E66\u6587\u6863\u540C\u6B65\u6210\u529F\uFF01");
+      }
     } catch (err) {
       console.error("[\u98DE\u4E66\u540C\u6B65\u5931\u8D25]:", err);
       progressWrapper.setCssStyles({ display: "none" });

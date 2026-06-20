@@ -6,7 +6,9 @@
 // Uses Obsidian APIs (via injected 'app' dependency) and requestUrl.
 
 import { getActiveWindowValue } from './dom-utils.js';
+import { resolveArticleImages } from './article-image-assets.js';
 import { FeishuApiClient } from './feishu-api.js';
+import { createImageSummary, replaceFeishuImageBlocks } from './feishu-media-sync.js';
 import {
   stripYamlFrontmatter,
   parseYamlTitle,
@@ -31,25 +33,24 @@ function arrayBufferToBase64(buffer) {
 }
 
 /**
- * Helper to resolve an image to base64.
+ * Resolves local Obsidian image references for Feishu block replacement while
+ * keeping the Markdown import source readable for Feishu's converter.
  * @param {any} app Obsidian App instance
- * @param {{ path: string, originalSrc: string, isRemote: boolean }} imageInfo
- * @param {string} activeNotePath
- * @param {any} requestUrlImpl requestUrl function implementation
- * @returns {Promise<string>} base64 string
+ * @param {any} activeFile TFile
+ * @param {string} markdown
+ * @returns {Promise<{ markdown: string, assets: Array<{ id: string, filename: string, mimeType: string, base64: string }>, warnings: Array<{ message?: string, src?: string, filename?: string }> }>}
  */
-async function resolveImageToBase64(app, imageInfo, activeNotePath, requestUrlImpl) {
-  if (imageInfo.isRemote) {
-    const resp = await requestUrlImpl({ url: imageInfo.originalSrc });
-    return arrayBufferToBase64(resp.arrayBuffer);
-  } else {
-    const file = app.metadataCache.getFirstLinkpathDest(imageInfo.path, activeNotePath);
-    if (!file) {
-      throw new Error(`在库中找不到本地图片文件: ${imageInfo.path}`);
-    }
-    const buffer = await app.vault.readBinary(file);
-    return arrayBufferToBase64(buffer);
-  }
+async function prepareLocalImagesForFeishu(app, activeFile, markdown) {
+  const result = await resolveArticleImages(markdown, activeFile, {
+    app,
+    unsupportedImageExtensions: ['gif'],
+  });
+
+  return {
+    markdown: result.markdown,
+    assets: result.assets || [],
+    warnings: result.warnings || [],
+  };
 }
 
 /**
@@ -61,7 +62,7 @@ async function resolveImageToBase64(app, imageInfo, activeNotePath, requestUrlIm
  * @param {string} params.markdown Note content
  * @param {function} [params.onProgress] progress callback (stage, message)
  * @param {any} [params.requestUrl] requestUrl implementation
- * @returns {Promise<{ title: string, url: string, docToken: string, transferOwnerWarning?: string }>}
+ * @returns {Promise<{ title: string, url: string, docToken: string, transferOwnerWarning?: string, imageSummary: { uploaded: number, skipped: number, failed: number, details: Array<{ filename: string, status: string, reason: string }> } }>}
  */
 async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgress, requestUrl }) {
   const notify = (stage, msg) => {
@@ -77,11 +78,7 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
 
   // 1. Resolve document title
   let title = parseYamlTitle(markdown);
-  if (!title) {
-    // Try to find first H1 heading
-    const h1Match = markdown.match(/^#\s+(.+)$/m);
-    title = h1Match ? h1Match[1].trim() : activeFile.basename;
-  }
+  if (!title) title = activeFile.basename;
   title = title.substring(0, 250); // limit Feishu title length
 
   // 2. Initialize API client
@@ -112,56 +109,25 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
   // 4. Preprocess Markdown body
   let processedMd = stripYamlFrontmatter(markdown);
   processedMd = convertWikilinks(processedMd, settings.uploadHistory);
+  const localImageResult = await prepareLocalImagesForFeishu(app, activeFile, processedMd);
+  processedMd = localImageResult.markdown;
+  const imageSummary = createImageSummary();
+  for (const warning of localImageResult.warnings) {
+    const detail = warning.filename || warning.src || '';
+    console.warn('[飞书同步] 本地图片预处理跳过:', detail ? `${warning.message || '图片无法处理'} (${detail})` : warning.message || warning);
+    imageSummary.skipped += 1;
+    imageSummary.details.push({
+      filename: warning.filename || warning.src || 'image',
+      status: 'skipped',
+      reason: warning.code || warning.message || 'image_prepare_warning',
+    });
+  }
 
   // 5. Check if it's a Smart Update or a New Document
   let docToken = '';
   let docUrl = '';
 
-  if (historyItem && historyItem.docToken) {
-    docToken = historyItem.docToken;
-    docUrl = historyItem.url;
-
-    // Smart Update: Delete child blocks and overwrite
-    notify('deleting_blocks', '正在清空旧文档内容...');
-    const blocks = await client.getDocumentBlocks(docToken);
-    
-    // Find direct children of root block (root block id = docToken)
-    const childBlockIds = blocks
-      .filter((x) => x.parent_id === docToken && x.block_id !== docToken)
-      .map((x) => x.block_id);
-
-    if (childBlockIds.length > 0) {
-      await client.batchDeleteBlocks(docToken, docToken, 0, childBlockIds.length);
-    }
-
-    notify('importing', '正在转换并写入新内容...');
-    const newBlocks = await client.convertMarkdownToBlocks(processedMd);
-    
-    // Chunk block insertions to Feishu's 50 blocks limit per request
-    if (newBlocks && newBlocks.length > 0) {
-      const chunkSize = 50;
-      for (let i = 0; i < newBlocks.length; i += chunkSize) {
-        const chunk = newBlocks.slice(i, i + chunkSize);
-        notify('importing', `正在写入内容块 (${i + 1}/${newBlocks.length})...`);
-        await client.createDocumentBlocks(docToken, docToken, i, chunk);
-        if (i + chunkSize < newBlocks.length) {
-          await new Promise((resolve) => window.setTimeout(resolve, 300)); // rate throttle
-        }
-      }
-    }
-
-    // Check if renamed locally and update Feishu document filename
-    if (title !== historyItem.title) {
-      notify('renaming', '正在更新飞书文档名称...');
-      try {
-        await client.renameFile(docToken, title);
-        historyItem.title = title;
-      } catch (err) {
-        console.warn('[飞书同步] 重命名失败:', err);
-      }
-    }
-  } else {
-    // New Document Flow
+  const importAsNewDocument = async () => {
     notify('uploading_temp', '正在生成临时 Markdown 上传文件...');
     const textEncoder = new TextEncoder();
     const mdBase64 = arrayBufferToBase64(textEncoder.encode(processedMd).buffer);
@@ -186,36 +152,86 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
       docToken: docToken,
       sourcePath: activeFile.path,
     };
+  };
+
+  if (historyItem && historyItem.docToken) {
+    docToken = historyItem.docToken;
+    docUrl = historyItem.url;
+
+    try {
+      // Smart Update: Delete child blocks and overwrite
+      notify('deleting_blocks', '正在清空旧文档内容...');
+      const blocks = await client.getDocumentBlocks(docToken);
+      
+      // Find direct children of root block (root block id = docToken)
+      const childBlockIds = blocks
+        .filter((x) => x.parent_id === docToken && x.block_id !== docToken)
+        .map((x) => x.block_id);
+
+      if (childBlockIds.length > 0) {
+        await client.batchDeleteBlocks(docToken, docToken, 0, childBlockIds.length);
+      }
+
+      notify('importing', '正在转换并写入新内容...');
+      const newBlocks = await client.convertMarkdownToBlocks(processedMd);
+      
+      // Chunk block insertions to Feishu's 50 blocks limit per request
+      if (newBlocks && newBlocks.length > 0) {
+        const chunkSize = 50;
+        for (let i = 0; i < newBlocks.length; i += chunkSize) {
+          const chunk = newBlocks.slice(i, i + chunkSize);
+          notify('importing', `正在写入内容块 (${i + 1}/${newBlocks.length})...`);
+          await client.createDocumentBlocks(docToken, docToken, i, chunk);
+          if (i + chunkSize < newBlocks.length) {
+            await new Promise((resolve) => window.setTimeout(resolve, 300)); // rate throttle
+          }
+        }
+      }
+
+      // Check if renamed locally and update Feishu document filename
+      if (title !== historyItem.title) {
+        notify('renaming', '正在更新飞书文档名称...');
+        try {
+          await client.renameFile(docToken, title);
+          historyItem.title = title;
+        } catch (err) {
+          console.warn('[飞书同步] 重命名失败:', err);
+        }
+      }
+    } catch (err) {
+      console.warn('[飞书同步] 智能覆盖更新失败，降级为新建文档:', err);
+      notify('importing', '更新旧文档失败，正在新建飞书文档...');
+      await importAsNewDocument();
+    }
+  } else {
+    await importAsNewDocument();
   }
 
   // 6. Image processing and patching
-  const images = extractImagesFromMarkdown(markdown);
+  const images = extractImagesFromMarkdown(processedMd);
   if (images.length > 0) {
     notify('processing_images', '正在扫描文档图片结构...');
-    const blocks = await client.getDocumentBlocks(docToken);
-    const imageBlocks = blocks.filter((x) => x.block_type === 27); // 27 = Image Block
-
-    for (let i = 0; i < images.length && i < imageBlocks.length; i++) {
-      const image = images[i];
-      const block = imageBlocks[i];
-      notify('processing_images', `正在同步正文图片 (${i + 1}/${images.length}): ${image.fileName}...`);
-      
-      try {
-        const base64 = await resolveImageToBase64(app, image, activeFile.path, requestUrlImpl);
-        const imageToken = await client.uploadImageMaterial(image.fileName, base64, docToken, block.block_id);
-        
-        await client.updateBlock(docToken, block.block_id, {
-          replace_image: {
-            token: imageToken,
-            width: 800,
-            height: 600,
-            align: 2,
-          },
-        });
-      } catch (err) {
-        console.error(`[飞书同步] 图片 ${image.fileName} 同步失败:`, err);
-        // Continue with other images on failure
-      }
+    try {
+      const replacementSummary = await replaceFeishuImageBlocks({
+        app,
+        client,
+        docToken,
+        images,
+        assets: localImageResult.assets,
+        onProgress: notify,
+      });
+      imageSummary.uploaded += replacementSummary.uploaded;
+      imageSummary.skipped += replacementSummary.skipped;
+      imageSummary.failed += replacementSummary.failed;
+      imageSummary.details.push(...replacementSummary.details);
+    } catch (err) {
+      console.warn('[飞书同步] 图片后处理跳过，文档正文已导入:', err);
+      imageSummary.failed += 1;
+      imageSummary.details.push({
+        filename: '文档图片结构',
+        status: 'failed',
+        reason: err?.message || String(err || 'image_post_process_failed'),
+      });
     }
   }
 
@@ -239,10 +255,12 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
     url: docUrl,
     docToken,
     transferOwnerWarning,
+    imageSummary,
   };
 }
 
 export {
+  prepareLocalImagesForFeishu,
   syncNoteToFeishu,
 };
 

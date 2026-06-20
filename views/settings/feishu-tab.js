@@ -107,7 +107,7 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
   // 6. Test Connection Button
   new Setting(containerEl)
     .setName('测试连接')
-    .setDesc('验证配置是否正确。将验证自建应用授权，以及文件夹的可写性。')
+    .setDesc('验证自建应用授权和目标文件夹读取权限。完整上传/导入权限会在实际同步时验证。')
     .addButton((btn) => btn
       .setButtonText('测试连接')
       .onClick(async () => {

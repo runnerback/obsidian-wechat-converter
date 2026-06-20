@@ -10,6 +10,7 @@ let parseYamlTitle;
 let convertWikilinks;
 let convertObsidianImageSyntax;
 let extractImagesFromMarkdown;
+let prepareLocalImagesForFeishu;
 let syncNoteToFeishu;
 let createDefaultFeishuSyncSettings;
 
@@ -27,6 +28,7 @@ beforeAll(async () => {
   extractImagesFromMarkdown = processorMod.extractImagesFromMarkdown;
 
   const syncMod = await import('../services/feishu-sync.js');
+  prepareLocalImagesForFeishu = syncMod.prepareLocalImagesForFeishu;
   syncNoteToFeishu = syncMod.syncNoteToFeishu;
 
   const settingsMod = await import('../services/feishu-settings.js');
@@ -50,6 +52,11 @@ describe('Feishu Markdown Processor', () => {
     expect(convertWikilinks(md, history)).toBe('Check [Linked Note](https://feishu.cn/docx/token123) and Alias');
   });
 
+  it('should not convert Obsidian image embeds as normal wikilinks', () => {
+    const md = 'Local ![[attachments/音乐卡点调整.png|音乐|510]] and [[Unlinked Note|Alias]]';
+    expect(convertWikilinks(md, [])).toBe('Local ![[attachments/音乐卡点调整.png|音乐|510]] and Alias');
+  });
+
   it('should convert Obsidian image syntax to standard Markdown image syntax', () => {
     const md = 'Embed ![[photo.png|My Photo]]';
     expect(convertObsidianImageSyntax(md)).toBe('Embed ![My Photo](photo.png)');
@@ -67,6 +74,17 @@ describe('Feishu Markdown Processor', () => {
     });
     expect(images[1].isRemote).toBe(true);
     expect(images[2].fileName).toBe('wiki.png');
+  });
+
+  it('should extract asset image placeholders without regex stack overflow', () => {
+    const images = extractImagesFromMarkdown('![Local](asset://image-1)');
+
+    expect(images).toHaveLength(1);
+    expect(images[0]).toMatchObject({
+      originalSrc: 'asset://image-1',
+      fileName: 'image-1',
+      isRemote: false,
+    });
   });
 });
 
@@ -115,6 +133,96 @@ describe('Feishu Api Client', () => {
       name: 'My Doc',
       token: 'doc_token_abc'
     });
+  });
+
+  it('should expose Feishu HTTP error details instead of a generic 400', async () => {
+    obsidianMock.requestUrl.mockResolvedValue({
+      status: 400,
+      json: {
+        code: 99991663,
+        msg: 'invalid multipart payload',
+        request_id: 'req-debug-1',
+      },
+      text: '',
+    });
+
+    const client = new FeishuApiClient('appid', 'appsecret', obsidianMock.requestUrl);
+    client.accessToken = 't-123';
+    client.tokenExpiry = Date.now() + 100000;
+
+    await expect(client.uploadFile('test.md', 'IyBUZXN0', 'folder-token')).rejects.toThrow(
+      '上传飞书临时 Markdown 文件 请求失败，HTTP 400：code 99991663, invalid multipart payload, request_id req-debug-1'
+    );
+    expect(obsidianMock.requestUrl.mock.calls[0][0].throw).toBe(false);
+  });
+
+  it('should safely report non-json Feishu HTTP errors', async () => {
+    const response = {
+      status: 404,
+      text: '404 page not found',
+    };
+    Object.defineProperty(response, 'json', {
+      get() {
+        throw new SyntaxError('Unexpected non-whitespace character after JSON');
+      },
+    });
+    obsidianMock.requestUrl.mockResolvedValue(response);
+
+    const client = new FeishuApiClient('appid', 'appsecret', obsidianMock.requestUrl);
+    client.accessToken = 't-123';
+    client.tokenExpiry = Date.now() + 100000;
+
+    await expect(client.batchDeleteBlocks('doc-token', 'doc-token', 0, 1)).rejects.toThrow(
+      '批量删除飞书文档块 请求失败，HTTP 404：404 page not found'
+    );
+  });
+
+  it('should upload markdown with the original .md filename in multipart payload', async () => {
+    obsidianMock.requestUrl.mockResolvedValue({
+      status: 200,
+      json: { code: 0, data: { file_token: 'temp_file_token' } },
+    });
+
+    const client = new FeishuApiClient('appid', 'appsecret', obsidianMock.requestUrl);
+    client.accessToken = 't-123';
+    client.tokenExpiry = Date.now() + 100000;
+
+    await client.uploadFile('测试.md', 'IyBUZXN0', 'folder-token');
+
+    const request = obsidianMock.requestUrl.mock.calls[0][0];
+    const bodyText = new TextDecoder().decode(new Uint8Array(request.body));
+    expect(bodyText).toContain('filename="测试.md"');
+    expect(bodyText).toContain('Content-Type: text/markdown; charset=utf-8');
+    expect(request.throw).toBe(false);
+  });
+
+  it('should upload image material with binary bytes and the real mime type', async () => {
+    obsidianMock.requestUrl.mockResolvedValue({
+      status: 200,
+      json: { code: 0, data: { file_token: 'image_token_1' } },
+    });
+
+    const client = new FeishuApiClient('appid', 'appsecret', obsidianMock.requestUrl);
+    client.accessToken = 't-123';
+    client.tokenExpiry = Date.now() + 100000;
+
+    await client.uploadImageMaterialBytes(
+      'local.png',
+      new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+      'doc-token',
+      'image-block-id',
+      'image/png'
+    );
+
+    const request = obsidianMock.requestUrl.mock.calls[0][0];
+    const bodyText = new TextDecoder().decode(new Uint8Array(request.body));
+    expect(bodyText).toContain('name="parent_type"');
+    expect(bodyText).toContain('docx_image');
+    expect(bodyText).toContain('name="parent_node"');
+    expect(bodyText).toContain('image-block-id');
+    expect(bodyText).toContain('filename="local.png"');
+    expect(bodyText).toContain('Content-Type: image/png');
+    expect(request.throw).toBe(false);
   });
 });
 
@@ -169,6 +277,101 @@ describe('Feishu Sync Coordinator', () => {
     });
   });
 
+  it('should prepare local Markdown images as Feishu replacement assets', async () => {
+    const localFile = {
+      path: 'notes/attachments/local.png',
+      name: 'local.png',
+      extension: 'png',
+      bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer,
+    };
+    app.metadataCache.getFirstLinkpathDest.mockImplementation((linkpath) => (
+      linkpath === 'attachments/local.png' ? localFile : null
+    ));
+    app.vault.getAbstractFileByPath = vi.fn((filePath) => (
+      filePath === 'notes/attachments/local.png' ? localFile : null
+    ));
+    app.vault.getResourcePath = vi.fn(() => 'app://local/local.png');
+    app.vault.readBinary.mockImplementation(async (file) => file.bytes);
+
+    const result = await prepareLocalImagesForFeishu(
+      app,
+      activeFile,
+      '# Test\n![Local](attachments/local.png)\n![Remote](https://cdn.example.com/a.png)'
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0]).toMatchObject({
+      filename: 'local.png',
+      mimeType: 'image/png',
+      base64: 'iVBORw==',
+    });
+    expect(result.markdown).toContain('![Local](asset://image-1)');
+    expect(result.markdown).toContain('![Remote](https://cdn.example.com/a.png)');
+  });
+
+  it('should prepare Obsidian wiki image embeds with Chinese paths for Feishu replacement', async () => {
+    const localFile = {
+      path: 'notes/attachments/音乐卡点调整.png',
+      name: '音乐卡点调整.png',
+      extension: 'png',
+      bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer,
+    };
+    app.metadataCache.getFirstLinkpathDest.mockReturnValue(localFile);
+    app.vault.getAbstractFileByPath = vi.fn(() => null);
+    app.vault.getResourcePath = vi.fn(() => 'app://local/music.png');
+    app.vault.readBinary.mockImplementation(async (file) => file.bytes);
+
+    const result = await prepareLocalImagesForFeishu(
+      app,
+      activeFile,
+      '![[attachments/音乐卡点调整.png|音乐|510]]'
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.assets[0]).toMatchObject({
+      filename: '音乐卡点调整.png',
+      base64: 'iVBORw==',
+    });
+    expect(result.markdown).toBe('![音乐|510](asset://image-1)');
+  });
+
+  it('should skip local GIF files before reading binary for Feishu stability', async () => {
+    const gifFile = {
+      path: 'notes/attachments/demo.gif',
+      name: 'demo.gif',
+      extension: 'gif',
+      bytes: new Uint8Array([0x47, 0x49, 0x46, 0x38]).buffer,
+    };
+    app.metadataCache.getFirstLinkpathDest.mockReturnValue(gifFile);
+    app.vault.getAbstractFileByPath = vi.fn(() => gifFile);
+
+    const result = await prepareLocalImagesForFeishu(
+      app,
+      activeFile,
+      '![Gif](attachments/demo.gif)'
+    );
+
+    expect(result.assets).toHaveLength(0);
+    expect(result.markdown).toBe('![Gif](attachments/demo.gif)');
+    expect(result.warnings.map((warning) => warning.code)).toEqual(['image_unsupported_for_target']);
+    expect(app.vault.readBinary).not.toHaveBeenCalled();
+  });
+
+  it('should leave missing local images unchanged and report a warning', async () => {
+    app.metadataCache.getFirstLinkpathDest.mockReturnValue(null);
+    app.vault.getAbstractFileByPath = vi.fn(() => null);
+
+    const result = await prepareLocalImagesForFeishu(
+      app,
+      activeFile,
+      '![Missing](attachments/missing.png)'
+    );
+
+    expect(result.markdown).toBe('![Missing](attachments/missing.png)');
+    expect(result.warnings.map((warning) => warning.code)).toEqual(['image_local_missing']);
+  });
+
   it('should import new note successfully', async () => {
     const result = await syncNoteToFeishu({
       app,
@@ -181,6 +384,20 @@ describe('Feishu Sync Coordinator', () => {
     expect(result.url).toBe('https://feishu.cn/docx/doc_token_456');
     expect(settings.uploadHistory.length).toBe(1);
     expect(settings.uploadHistory[0].docToken).toBe('doc_token_456');
+  });
+
+  it('should use the Obsidian file basename as the default Feishu document title', async () => {
+    await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# 一级标题\nSome text.',
+    });
+
+    const importTaskRequest = obsidianMock.requestUrl.mock.calls.find((call) => (
+      call[0].url.includes('import_tasks') && call[0].method === 'POST'
+    ))[0];
+    expect(JSON.parse(importTaskRequest.body).file_name).toBe('test-note');
   });
 
   it('should perform smart update for previously synced note', async () => {
@@ -234,5 +451,307 @@ describe('Feishu Sync Coordinator', () => {
     const calls = obsidianMock.requestUrl.mock.calls;
     expect(calls.some(c => c[0].url.includes('batch_delete'))).toBe(true);
     expect(calls.some(c => c[0].url.includes('children?document_revision_id'))).toBe(true);
+  });
+
+  it('should keep the imported document when image block scanning fails after import', async () => {
+    const localFile = {
+      path: 'notes/attachments/local.png',
+      name: 'local.png',
+      extension: 'png',
+      bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer,
+    };
+    app.metadataCache.getFirstLinkpathDest.mockImplementation((linkpath) => (
+      linkpath === 'attachments/local.png' ? localFile : null
+    ));
+    app.vault.getAbstractFileByPath = vi.fn((filePath) => (
+      filePath === 'notes/attachments/local.png' ? localFile : null
+    ));
+    app.vault.getResourcePath = vi.fn(() => 'app://local/local.png');
+    app.vault.readBinary.mockImplementation(async (file) => file.bytes);
+
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks')) {
+        if (options.method === 'POST') {
+          return { status: 200, json: { code: 0, data: { ticket: 'ticket_123' } } };
+        }
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'doc_token_456', url: 'https://feishu.cn/docx/doc_token_456' } } } };
+      }
+      if (url.includes('blocks?page_size')) {
+        return {
+          status: 404,
+          json: { code: 404, msg: 'document block not found' },
+          text: '',
+        };
+      }
+      if (url.includes('permissions') && url.includes('transfer_owner')) {
+        return { status: 200, json: { code: 0, msg: 'success' } };
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# Test Note\n![Local](attachments/local.png)',
+    });
+
+    expect(result.docToken).toBe('doc_token_456');
+    expect(result.url).toBe('https://feishu.cn/docx/doc_token_456');
+    expect(settings.uploadHistory.length).toBe(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[飞书同步] 图片后处理跳过，文档正文已导入:',
+      expect.any(Error)
+    );
+    expect(result.imageSummary.failed).toBe(1);
+    warnSpy.mockRestore();
+  });
+
+  it('should upload prepared local image assets and replace Feishu image blocks', async () => {
+    const localFile = {
+      path: 'notes/attachments/local.png',
+      name: 'local.png',
+      extension: 'png',
+      bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer,
+    };
+    app.metadataCache.getFirstLinkpathDest.mockImplementation((linkpath) => (
+      linkpath === 'attachments/local.png' ? localFile : null
+    ));
+    app.vault.getAbstractFileByPath = vi.fn((filePath) => (
+      filePath === 'notes/attachments/local.png' ? localFile : null
+    ));
+    app.vault.getResourcePath = vi.fn(() => 'app://local/local.png');
+    app.vault.readBinary.mockImplementation(async (file) => file.bytes);
+
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks')) {
+        if (options.method === 'POST') {
+          return { status: 200, json: { code: 0, data: { ticket: 'ticket_123' } } };
+        }
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'doc_token_456', url: 'https://feishu.cn/docx/doc_token_456' } } } };
+      }
+      if (url.includes('blocks?page_size')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [{ block_id: 'image_block_1', parent_id: 'doc_token_456', block_type: 27 }],
+            },
+          },
+        };
+      }
+      if (url.includes('medias/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'image_token_1' } } };
+      }
+      if (url.includes('/blocks/image_block_1')) {
+        return { status: 200, json: { code: 0, data: {} } };
+      }
+      if (url.includes('permissions') && url.includes('transfer_owner')) {
+        return { status: 200, json: { code: 0, msg: 'success' } };
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# Test Note\n![Local](attachments/local.png)',
+    });
+
+    expect(result.docToken).toBe('doc_token_456');
+    expect(result.imageSummary).toMatchObject({
+      uploaded: 1,
+      skipped: 0,
+      failed: 0,
+    });
+    const calls = obsidianMock.requestUrl.mock.calls.map((call) => call[0]);
+    const markdownUpload = calls.find((request) => request.url.includes('files/upload_all'));
+    const markdownBody = new TextDecoder().decode(new Uint8Array(markdownUpload.body));
+    expect(markdownBody).toContain('![Local](asset://image-1)');
+    expect(calls.some((request) => request.url.includes('medias/upload_all'))).toBe(true);
+    expect(calls.some((request) => request.url.includes('/blocks/image_block_1') && request.method === 'PATCH')).toBe(true);
+    const imageUpload = calls.find((request) => request.url.includes('medias/upload_all'));
+    const imageUploadBody = new TextDecoder().decode(new Uint8Array(imageUpload.body));
+    expect(imageUploadBody).toContain('Content-Type: image/png');
+  });
+
+  it('should leave remote images to Feishu import without re-uploading them', async () => {
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks')) {
+        if (options.method === 'POST') {
+          return { status: 200, json: { code: 0, data: { ticket: 'ticket_123' } } };
+        }
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'doc_token_456', url: 'https://feishu.cn/docx/doc_token_456' } } } };
+      }
+      if (url.includes('blocks?page_size')) {
+        throw new Error('remote images should not trigger image block replacement');
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# Test Note\n![Remote](https://cdn.example.com/a.png)',
+    });
+
+    expect(result.imageSummary).toEqual({
+      uploaded: 0,
+      skipped: 0,
+      failed: 0,
+      details: [],
+    });
+    const calls = obsidianMock.requestUrl.mock.calls.map((call) => call[0]);
+    expect(calls.some((request) => request.url.includes('medias/upload_all'))).toBe(false);
+  });
+
+  it('should not upload skipped local GIF placeholders during Feishu image post-processing', async () => {
+    const gifFile = {
+      path: 'notes/attachments/demo.gif',
+      name: 'demo.gif',
+      extension: 'gif',
+      bytes: new Uint8Array([0x47, 0x49, 0x46, 0x38]).buffer,
+    };
+    app.metadataCache.getFirstLinkpathDest.mockReturnValue(gifFile);
+    app.vault.getAbstractFileByPath = vi.fn(() => gifFile);
+
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks')) {
+        if (options.method === 'POST') {
+          return { status: 200, json: { code: 0, data: { ticket: 'ticket_123' } } };
+        }
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'doc_token_456', url: 'https://feishu.cn/docx/doc_token_456' } } } };
+      }
+      if (url.includes('blocks?page_size')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [{ block_id: 'image_block_1', parent_id: 'doc_token_456', block_type: 27 }],
+            },
+          },
+        };
+      }
+      if (url.includes('permissions') && url.includes('transfer_owner')) {
+        return { status: 200, json: { code: 0, msg: 'success' } };
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# Test Note\n![Gif](attachments/demo.gif)',
+    });
+
+    expect(result.docToken).toBe('doc_token_456');
+    expect(result.imageSummary.skipped).toBe(1);
+    expect(result.imageSummary.failed).toBe(0);
+    expect(app.vault.readBinary).not.toHaveBeenCalled();
+    const calls = obsidianMock.requestUrl.mock.calls.map((call) => call[0]);
+    expect(calls.some((request) => request.url.includes('medias/upload_all'))).toBe(false);
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('should fall back to creating a new document when smart update deletion fails', async () => {
+    settings.uploadHistory = [{
+      title: 'test-note',
+      url: 'https://feishu.cn/docx/old_doc_token',
+      docToken: 'old_doc_token',
+      sourcePath: 'notes/test-note.md',
+      uploadTime: '2026-06-19T00:00:00Z',
+    }];
+
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('blocks?page_size')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [
+                { block_id: 'old_child_1', parent_id: 'old_doc_token', block_type: 1 },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('children/batch_delete')) {
+        return {
+          status: 404,
+          text: '404 page not found',
+        };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks')) {
+        if (options.method === 'POST') {
+          return { status: 200, json: { code: 0, data: { ticket: 'ticket_123' } } };
+        }
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'new_doc_token', url: 'https://feishu.cn/docx/new_doc_token' } } } };
+      }
+      if (url.includes('permissions') && url.includes('transfer_owner')) {
+        return { status: 200, json: { code: 0, msg: 'success' } };
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# test-note\nUpdated content.',
+    });
+
+    expect(result.docToken).toBe('new_doc_token');
+    expect(result.url).toBe('https://feishu.cn/docx/new_doc_token');
+    expect(settings.uploadHistory[0].docToken).toBe('new_doc_token');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[飞书同步] 智能覆盖更新失败，降级为新建文档:',
+      expect.any(Error)
+    );
+    warnSpy.mockRestore();
   });
 });
