@@ -1403,6 +1403,156 @@ describe('Feishu Sync Coordinator', () => {
     expect(calls.some((request) => request.url.includes('medias/upload_all'))).toBe(false);
   });
 
+  it('should re-upload remote images when smart updating an existing document', async () => {
+    settings.uploadHistory = [{
+      title: 'test-note',
+      url: 'https://feishu.cn/docx/doc_token_456',
+      docToken: 'doc_token_456',
+      sourcePath: 'notes/test-note.md',
+      uploadTime: '2026-06-19T00:00:00Z',
+    }];
+
+    const originalFetch = globalThis.fetch;
+    const fetchSpy = vi.fn();
+    globalThis.fetch = fetchSpy;
+    let didInsertNewBlocks = false;
+
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('/documents/doc_token_456/blocks?page_size')) {
+        if (didInsertNewBlocks) {
+          return {
+            status: 200,
+            json: {
+              code: 0,
+              data: {
+                items: [
+                  { block_id: 'doc_token_456', parent_id: '', block_type: 1, children: ['created_heading_1', 'created_remote_image_1'] },
+                  { block_id: 'created_heading_1', parent_id: 'doc_token_456', block_type: 3, heading1: { elements: [{ text_run: { content: 'Updated title' } }] } },
+                  { block_id: 'created_remote_image_1', parent_id: 'doc_token_456', block_type: 27, image: { token: '', width: 1303, height: 409 } },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [
+                { block_id: 'doc_token_456', parent_id: '', block_type: 1, children: ['old_child_1'] },
+                { block_id: 'old_child_1', parent_id: 'doc_token_456', block_type: 2, text: { elements: [{ text_run: { content: 'old' } }] } },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('/documents/temp_doc_token/blocks?page_size')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [
+                { block_id: 'temp_doc_token', parent_id: '', block_type: 1, children: ['temp_heading', 'temp_image'] },
+                { block_id: 'temp_heading', parent_id: 'temp_doc_token', block_type: 3, heading1: { elements: [{ text_run: { content: 'Updated title' } }] } },
+                { block_id: 'temp_image', parent_id: 'temp_doc_token', block_type: 27, image: { token: 'remote_file_token', width: 1303, height: 409, scale: 1 } },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks') && options.method === 'POST') {
+        return { status: 200, json: { code: 0, data: { ticket: 'ticket_temp_update' } } };
+      }
+      if (url.includes('/import_tasks/ticket_temp_update')) {
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'temp_doc_token', url: 'https://feishu.cn/docx/temp_doc_token' } } } };
+      }
+      if (url.includes('/documents/doc_token_456/blocks/doc_token_456/children?document_revision_id=-1') && options.method === 'POST') {
+        const body = JSON.parse(options.body);
+        expect(body).toEqual({
+          index: 1,
+          children: [
+            { block_type: 3, heading1: { elements: [{ text_run: { content: 'Updated title' } }] } },
+            { block_type: 27, image: { file_token: 'remote_file_token', width: 1303, height: 409 } },
+          ],
+        });
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              children: [
+                { block_id: 'created_heading_1', block_type: 3, parent_id: 'doc_token_456' },
+                { block_id: 'created_remote_image_1', block_type: 27, parent_id: 'doc_token_456', image: { token: '', width: 1303, height: 409 } },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('/blocks/doc_token_456/children/batch_delete') && options.method === 'DELETE') {
+        didInsertNewBlocks = true;
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('/drive/v1/files/temp_doc_token?type=docx') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('/drive/v1/files/temp_file_token?type=file') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url === 'https://cdn.example.com/remote.png') {
+        return {
+          status: 200,
+          headers: { 'content-type': 'image/png' },
+          arrayBuffer: makePngBytes(1303, 409),
+        };
+      }
+      if (url.includes('medias/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'reuploaded_remote_image_token' } } };
+      }
+      if (url.includes('/documents/doc_token_456/blocks/created_remote_image_1?document_revision_id=-1') && options.method === 'PATCH') {
+        return { status: 200, json: { code: 0, data: {} } };
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    try {
+      const result = await syncNoteToFeishu({
+        app,
+        settings,
+        activeFile,
+        markdown: '# test-note\n![bob](https://cdn.example.com/remote.png)',
+      });
+
+      expect(result.docToken).toBe('doc_token_456');
+      expect(result.imageSummary).toMatchObject({
+        uploaded: 1,
+        skipped: 0,
+        failed: 0,
+      });
+      expect(fetchSpy).not.toHaveBeenCalled();
+      const calls = obsidianMock.requestUrl.mock.calls.map((call) => call[0]);
+      expect(calls.some((request) => request.url === 'https://cdn.example.com/remote.png')).toBe(true);
+      expect(calls.some((request) => request.url.includes('medias/upload_all'))).toBe(true);
+      const imagePatch = calls.find((request) => request.url.includes('/documents/doc_token_456/blocks/created_remote_image_1?document_revision_id=-1') && request.method === 'PATCH');
+      expect(JSON.parse(imagePatch.body).replace_image).toEqual({
+        token: 'reuploaded_remote_image_token',
+        width: 1303,
+        height: 409,
+        align: 2,
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('should replace local images at their original markdown image block positions', async () => {
     const localFile = {
       path: 'notes/attachments/local.png',

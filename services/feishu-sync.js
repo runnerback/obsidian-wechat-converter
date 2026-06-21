@@ -628,6 +628,7 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
   let docToken = '';
   let docUrl = '';
   let shouldTransferOwnership = false;
+  let didUpdateExistingDocument = false;
 
   const importAsNewDocument = async () => {
     notify('uploading_temp', '正在生成临时 Markdown 上传文件...');
@@ -732,6 +733,7 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
         }
       }
 
+      didUpdateExistingDocument = true;
       return true;
     } finally {
       await cleanupTempDocument();
@@ -794,6 +796,8 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
         docToken,
         images,
         assets: localImageResult.assets,
+        requestUrl: requestUrlImpl,
+        includeRemoteImages: didUpdateExistingDocument,
         onProgress: notify,
       });
       imageSummary.uploaded += replacementSummary.uploaded;

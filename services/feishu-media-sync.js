@@ -4,6 +4,8 @@
 // Feishu docx image replacement adapter. It consumes prepared local image
 // assets and leaves remote images to Feishu's import pipeline.
 
+import { getActiveWindowValue } from './dom-utils.js';
+
 /**
  * @typedef {{ originalSrc: string, path: string, fileName: string, isRemote: boolean, sizeHint?: { width: number, height: number | null } | null }} FeishuMarkdownImageLike
  * @typedef {{ id: string, filename: string, mimeType: string, base64?: string, source?: { vaultRelativePath?: string, originalSrc?: string } }} FeishuLocalImageAssetLike
@@ -165,6 +167,128 @@ function createImageSummary() {
 }
 
 /**
+ * @param {string} fileName
+ * @returns {string}
+ */
+function guessMimeTypeFromFileName(fileName) {
+  const normalized = String(fileName || '').trim().toLowerCase();
+  if (normalized.endsWith('.png')) return 'image/png';
+  if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) return 'image/jpeg';
+  if (normalized.endsWith('.gif')) return 'image/gif';
+  if (normalized.endsWith('.webp')) return 'image/webp';
+  return 'application/octet-stream';
+}
+
+/**
+ * @param {string} contentType
+ * @param {string} fallbackFileName
+ * @returns {string}
+ */
+function normalizeRemoteImageMimeType(contentType, fallbackFileName) {
+  const normalized = String(contentType || '').split(';')[0].trim().toLowerCase();
+  if (normalized.startsWith('image/')) return normalized;
+  return guessMimeTypeFromFileName(fallbackFileName);
+}
+
+/**
+ * @returns {typeof fetch | null}
+ */
+function getRequestUrlImplementation() {
+  const obsidianApi = getActiveWindowValue('obsidian');
+  const requestUrl = obsidianApi && typeof obsidianApi.requestUrl === 'function'
+    ? obsidianApi.requestUrl
+    : null;
+  return typeof requestUrl === 'function' ? requestUrl : null;
+}
+
+/**
+ * @returns {typeof fetch | null}
+ */
+function getFetchImplementation() {
+  const windowFetch = getActiveWindowValue('fetch');
+  if (typeof windowFetch === 'function') return /** @type {typeof fetch} */ (windowFetch);
+  if (typeof globalThis.fetch === 'function') return globalThis.fetch;
+  return null;
+}
+
+/**
+ * @param {string} dataUrl
+ * @returns {{ bytes: Uint8Array, mimeType: string }}
+ */
+function readDataUrlImageBytes(dataUrl) {
+  const match = String(dataUrl || '').match(/^data:([^;,]+)?(?:;charset=[^;,]+)?;base64,(.+)$/i);
+  if (!match) {
+    throw new Error('不支持的 data URL 图片格式');
+  }
+
+  const mimeType = normalizeRemoteImageMimeType(match[1] || '', 'image');
+  const base64 = match[2] || '';
+  const binary = globalThis.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return { bytes, mimeType };
+}
+
+/**
+ * @param {FeishuMarkdownImageLike} image
+ * @param {((options: Record<string, unknown>) => Promise<unknown>) | null | undefined} requestUrl
+ * @returns {Promise<{ bytes: Uint8Array, mimeType: string }>}
+ */
+async function readRemoteImageBytes(image, requestUrl) {
+  const src = String(image?.path || image?.originalSrc || '').trim();
+  if (!src) {
+    throw new Error('远程图片地址为空，无法同步到飞书文档');
+  }
+
+  if (src.startsWith('data:')) {
+    return readDataUrlImageBytes(src);
+  }
+
+  const requestUrlImpl = typeof requestUrl === 'function' ? requestUrl : getRequestUrlImplementation();
+  if (requestUrlImpl) {
+    const response = await requestUrlImpl({
+      url: src,
+      method: 'GET',
+      throw: false,
+    });
+    const status = Number(response?.status || 0);
+    if (status >= 400) {
+      throw new Error(`下载远程图片失败 (${status})`);
+    }
+    const binary = response?.arrayBuffer
+      || response?.raw
+      || response?.buffer
+      || new Uint8Array(0);
+    const bytes = toUint8Array(binary);
+    if (!bytes.byteLength) {
+      throw new Error('下载远程图片失败 (empty body)');
+    }
+    return {
+      bytes,
+      mimeType: normalizeRemoteImageMimeType(response?.headers?.['content-type'] || response?.headers?.['Content-Type'] || '', image?.fileName || 'image'),
+    };
+  }
+
+  const fetchImpl = getFetchImplementation();
+  if (!fetchImpl) {
+    throw new Error('当前环境缺少 requestUrl/fetch，无法重新上传远程图片到飞书文档');
+  }
+
+  const response = await fetchImpl(src);
+  if (!response || !response.ok) {
+    throw new Error(`下载远程图片失败 (${response?.status || 0})`);
+  }
+
+  const buffer = await response.arrayBuffer();
+  return {
+    bytes: toUint8Array(buffer),
+    mimeType: normalizeRemoteImageMimeType(response.headers?.get?.('content-type') || '', image?.fileName || 'image'),
+  };
+}
+
+/**
  * @param {FeishuImageSummary} summary
  * @param {string} filename
  * @param {string} status
@@ -217,30 +341,32 @@ function findLocalAssetForImage(image, assets) {
  *   docToken: string,
  *   images: FeishuMarkdownImageLike[],
  *   assets: FeishuLocalImageAssetLike[],
+ *   requestUrl?: ((options: Record<string, unknown>) => Promise<unknown>) | null,
+ *   includeRemoteImages?: boolean,
  *   onProgress?: Function,
  * }} params
  * @returns {Promise<FeishuImageSummary>}
  */
-async function replaceFeishuImageBlocks({ app, client, docToken, images, assets, onProgress }) {
+async function replaceFeishuImageBlocks({ app, client, docToken, images, assets, requestUrl = null, includeRemoteImages = false, onProgress }) {
   const summary = createImageSummary();
   const imageItems = (images || []).map((image, index) => ({
     image,
     imageIndex: index,
     asset: findLocalAssetForImage(image, assets || []),
   }));
-  const localImageItems = imageItems.filter((item) => item.asset);
-  if (localImageItems.length === 0) return summary;
+  const selectedImageItems = imageItems.filter((item) => item.asset || (includeRemoteImages && item.image?.isRemote));
+  if (selectedImageItems.length === 0) return summary;
 
   const blocks = await client.getDocumentBlocks(docToken);
   const imageBlocks = (blocks || []).filter((block) => block.block_type === 27);
 
-  for (let i = 0; i < localImageItems.length; i++) {
-    const { image, imageIndex, asset } = localImageItems[i];
+  for (let i = 0; i < selectedImageItems.length; i++) {
+    const { image, imageIndex, asset } = selectedImageItems[i];
     const block = imageBlocks[imageIndex];
     const filename = asset?.filename || image.fileName || 'image';
 
     if (typeof onProgress === 'function') {
-      onProgress('processing_images', `正在同步正文图片 (${i + 1}/${localImageItems.length})...`);
+      onProgress('processing_images', `正在同步正文图片 (${i + 1}/${selectedImageItems.length})...`);
     }
 
     if (!block) {
@@ -249,14 +375,19 @@ async function replaceFeishuImageBlocks({ app, client, docToken, images, assets,
     }
 
     try {
-      const bytes = await readAssetBytes(app, asset);
+      const { bytes, mimeType } = asset
+        ? {
+            bytes: await readAssetBytes(app, asset),
+            mimeType: asset.mimeType || 'application/octet-stream',
+          }
+        : await readRemoteImageBytes(image, requestUrl);
       const replacementSize = buildReplacementSize(bytes, image?.sizeHint || null);
       const imageToken = await client.uploadImageMaterialBytes(
         filename,
         bytes,
         docToken,
         block.block_id,
-        asset.mimeType || 'application/octet-stream'
+        mimeType
       );
 
       await client.updateBlock(docToken, block.block_id, {
