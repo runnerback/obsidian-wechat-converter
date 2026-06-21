@@ -8,7 +8,7 @@ import { getActiveWindowValue } from './dom-utils.js';
 
 /**
  * @typedef {{ originalSrc: string, path: string, fileName: string, isRemote: boolean, sizeHint?: { width: number, height: number | null } | null }} FeishuMarkdownImageLike
- * @typedef {{ id: string, filename: string, mimeType: string, base64?: string, source?: { vaultRelativePath?: string, originalSrc?: string } }} FeishuLocalImageAssetLike
+ * @typedef {{ id: string, filename: string, mimeType: string, base64?: string, source?: { vaultRelativePath?: string, originalSrc?: string, placeholderSrc?: string } }} FeishuLocalImageAssetLike
  * @typedef {{ uploaded: number, skipped: number, failed: number, details: Array<{ filename: string, status: string, reason: string }> }} FeishuImageSummary
  */
 
@@ -307,6 +307,15 @@ function addImageDetail(summary, filename, status, reason) {
  * @returns {Promise<Uint8Array>}
  */
 async function readAssetBytes(app, asset) {
+  if (asset?.base64) {
+    const binary = globalThis.atob(String(asset.base64 || ''));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  }
+
   const vaultRelativePath = asset?.source?.vaultRelativePath || '';
   const file = vaultRelativePath && app?.vault?.getAbstractFileByPath
     ? app.vault.getAbstractFileByPath(vaultRelativePath)

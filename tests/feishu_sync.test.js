@@ -11,6 +11,7 @@ let convertWikilinks;
 let convertObsidianImageSyntax;
 let extractImagesFromMarkdown;
 let prepareLocalImagesForFeishu;
+let prepareMermaidDiagramsForFeishu;
 let syncNoteToFeishu;
 let createDefaultFeishuSyncSettings;
 let parseFeishuDocUrlOrToken;
@@ -53,6 +54,9 @@ beforeAll(async () => {
   const syncMod = await import('../services/feishu-sync.js');
   prepareLocalImagesForFeishu = syncMod.prepareLocalImagesForFeishu;
   syncNoteToFeishu = syncMod.syncNoteToFeishu;
+
+  const mermaidMod = await import('../services/feishu-mermaid-renderer.js');
+  prepareMermaidDiagramsForFeishu = mermaidMod.prepareMermaidDiagramsForFeishu;
 
   const settingsMod = await import('../services/feishu-settings.js');
   createDefaultFeishuSyncSettings = settingsMod.createDefaultFeishuSyncSettings;
@@ -622,6 +626,55 @@ describe('Feishu Sync Coordinator', () => {
     expect(app.vault.readBinary).toHaveBeenCalledTimes(1);
   });
 
+  it('should prepare Mermaid fences as Feishu image placeholder assets', async () => {
+    const mermaidApi = {
+      render: vi.fn(async () => ({
+        svg: '<svg id="feishu-mermaid-test" viewBox="0 0 100 60"><rect width="100" height="60"></rect></svg>',
+      })),
+    };
+    const rasterizeSvg = vi.fn(async () => ({
+      dataUrl: 'data:image/png;base64,bWVybWFpZA==',
+      width: 100,
+      height: 60,
+      style: '',
+    }));
+
+    const result = await prepareMermaidDiagramsForFeishu(
+      'Before\n```mermaid\ngraph TD\nA-->B\n```\nAfter',
+      {
+        mermaidApi,
+        rasterizeSvg,
+        localImageSrcFactory: (asset) => `https://obsidian-wechat-converter.invalid/feishu-local-image/${asset.id}.png`,
+        notePath: activeFile.path,
+      }
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0]).toMatchObject({
+      id: 'feishu-mermaid-1',
+      filename: 'mermaid-diagram-1.png',
+      mimeType: 'image/png',
+      base64: 'bWVybWFpZA==',
+    });
+    expect(result.markdown).toContain('![Mermaid diagram 1](https://obsidian-wechat-converter.invalid/feishu-local-image/feishu-mermaid-1.png)');
+    expect(result.markdown).not.toContain('```mermaid');
+  });
+
+  it('should keep Mermaid source when local rendering is unavailable', async () => {
+    const result = await prepareMermaidDiagramsForFeishu(
+      '```mermaid\ngraph TD\nA-->B\n```',
+      { mermaidApi: null }
+    );
+
+    expect(result.assets).toEqual([]);
+    expect(result.markdown).toContain('```mermaid');
+    expect(result.warnings[0]).toMatchObject({
+      code: 'feishu_mermaid_render_unavailable',
+      severity: 'info',
+    });
+  });
+
   it('should leave missing local images unchanged and report a warning', async () => {
     app.metadataCache.getFirstLinkpathDest.mockReturnValue(null);
     app.vault.getAbstractFileByPath = vi.fn(() => null);
@@ -648,6 +701,36 @@ describe('Feishu Sync Coordinator', () => {
     expect(result.url).toBe('https://feishu.cn/docx/doc_token_456');
     expect(settings.uploadHistory.length).toBe(1);
     expect(settings.uploadHistory[0].docToken).toBe('doc_token_456');
+  });
+
+  it('should import Mermaid as an image placeholder instead of source code', async () => {
+    const mermaidApi = {
+      render: vi.fn(async () => ({
+        svg: '<svg id="feishu-mermaid-sync" viewBox="0 0 120 80"><rect width="120" height="80"></rect></svg>',
+      })),
+    };
+    const rasterizeSvg = vi.fn(async () => ({
+      dataUrl: 'data:image/png;base64,bWVybWFpZA==',
+      width: 120,
+      height: 80,
+      style: '',
+    }));
+
+    await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# Diagram\n```mermaid\ngraph TD\nA-->B\n```',
+      mermaidApi,
+      rasterizeSvg,
+    });
+
+    const uploadCall = obsidianMock.requestUrl.mock.calls.find((call) => (
+      call[0].url.includes('files/upload_all') && call[0].method === 'POST'
+    ));
+    const bodyText = new TextDecoder().decode(new Uint8Array(uploadCall[0].body));
+    expect(bodyText).toContain('![Mermaid diagram 1](https://obsidian-wechat-converter.invalid/feishu-local-image/feishu-mermaid-1.png)');
+    expect(bodyText).not.toContain('```mermaid');
   });
 
   it('should use the Obsidian file basename as the default Feishu document title', async () => {

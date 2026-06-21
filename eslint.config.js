@@ -91,6 +91,7 @@ export default [
 	      "services/feishu-api.js",
 	      "services/feishu-markdown-processor.js",
 	      "services/feishu-media-sync.js",
+	      "services/feishu-mermaid-renderer.js",
 	      "services/feishu-multipart.js",
 	      "services/feishu-settings.js",
 	      "services/feishu-sync.js",

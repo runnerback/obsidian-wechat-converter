@@ -8,6 +8,7 @@
 import { getActiveWindowValue } from './dom-utils.js';
 import { resolveArticleImages } from './article-image-assets.js';
 import { FeishuApiClient } from './feishu-api.js';
+import { prepareMermaidDiagramsForFeishu } from './feishu-mermaid-renderer.js';
 import { createImageSummary, replaceFeishuImageBlocks } from './feishu-media-sync.js';
 import {
   stripYamlFrontmatter,
@@ -564,9 +565,24 @@ async function prepareLocalImagesForFeishu(app, activeFile, markdown) {
  * @param {string} params.markdown Note content
  * @param {function} [params.onProgress] progress callback (stage, message)
  * @param {any} [params.requestUrl] requestUrl implementation
+ * @param {any} [params.mermaidApi] optional Mermaid API override
+ * @param {any} [params.rasterizeSvg] optional SVG rasterizer override
+ * @param {any} [params.simpleHash] optional cache hash function
+ * @param {Map<string, unknown>} [params.mermaidImageCache] optional Mermaid image cache
  * @returns {Promise<{ title: string, url: string, docToken: string, transferOwnerWarning?: string, imageSummary: { uploaded: number, skipped: number, failed: number, details: Array<{ filename: string, status: string, reason: string }> } }>}
  */
-async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgress, requestUrl }) {
+async function syncNoteToFeishu({
+  app,
+  settings,
+  activeFile,
+  markdown,
+  onProgress,
+  requestUrl,
+  mermaidApi,
+  rasterizeSvg,
+  simpleHash,
+  mermaidImageCache,
+}) {
   const notify = (stage, msg) => {
     if (typeof onProgress === 'function') {
       onProgress(stage, msg);
@@ -610,19 +626,34 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
   // 4. Preprocess Markdown body
   let processedMd = stripYamlFrontmatter(markdown);
   processedMd = convertWikilinks(processedMd, settings.uploadHistory);
+  const mermaidImageResult = await prepareMermaidDiagramsForFeishu(processedMd, {
+    localImageSrcFactory: createFeishuLocalImagePlaceholder,
+    notePath: activeFile.path,
+    mermaidApi,
+    rasterizeSvg,
+    simpleHash,
+    mermaidImageCache,
+  });
+  processedMd = mermaidImageResult.markdown;
   const localImageResult = await prepareLocalImagesForFeishu(app, activeFile, processedMd);
   processedMd = localImageResult.markdown;
   const imageSummary = createImageSummary();
-  for (const warning of localImageResult.warnings) {
+  for (const warning of [...(mermaidImageResult.warnings || []), ...localImageResult.warnings]) {
     const detail = warning.filename || warning.src || '';
-    console.warn('[飞书同步] 本地图片预处理跳过:', detail ? `${warning.message || '图片无法处理'} (${detail})` : warning.message || warning);
-    imageSummary.skipped += 1;
+    if (warning.severity !== 'info') {
+      console.warn('[飞书同步] 图片预处理跳过:', detail ? `${warning.message || '图片无法处理'} (${detail})` : warning.message || warning);
+      imageSummary.skipped += 1;
+    }
     imageSummary.details.push({
       filename: warning.filename || warning.src || 'image',
       status: 'skipped',
       reason: warning.code || warning.message || 'image_prepare_warning',
     });
   }
+  const preparedImageAssets = [
+    ...(mermaidImageResult.assets || []),
+    ...localImageResult.assets,
+  ];
 
   // 5. Check if it's a Smart Update or a New Document
   let docToken = '';
@@ -795,7 +826,7 @@ async function syncNoteToFeishu({ app, settings, activeFile, markdown, onProgres
         client,
         docToken,
         images,
-        assets: localImageResult.assets,
+        assets: preparedImageAssets,
         requestUrl: requestUrlImpl,
         includeRemoteImages: didUpdateExistingDocument,
         onProgress: notify,
