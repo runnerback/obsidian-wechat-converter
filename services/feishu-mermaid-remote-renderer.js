@@ -1,5 +1,10 @@
+import { getActiveWindow, getActiveWindowValue } from './dom-utils.js';
+
 /**
- * @typedef {{ requestUrl?: Function | null, endpoint?: string, timeoutMs?: number, maxImageBytes?: number }} KrokiRenderOptions
+ * @typedef {(options: Record<string, unknown>) => Promise<unknown> | unknown} RequestUrlLike
+ * @typedef {{ from: (bytes: Uint8Array) => { toString: (encoding: string) => string } }} BufferLike
+ * @typedef {{ arrayBuffer?: () => Promise<unknown> | unknown, raw?: unknown, buffer?: unknown, status?: unknown, headers?: unknown }} ResponseLike
+ * @typedef {{ requestUrl?: RequestUrlLike | null, endpoint?: string, timeoutMs?: number, maxImageBytes?: number }} KrokiRenderOptions
  */
 
 const DEFAULT_KROKI_MERMAID_PNG_ENDPOINT = 'https://kroki.io/mermaid/png';
@@ -20,12 +25,39 @@ function toUint8Array(binary) {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {value is BufferLike}
+ */
+function isBufferLike(value) {
+  if (!value || typeof value !== 'object') return false;
+  const from = /** @type {{ from?: unknown }} */ (value).from;
+  return typeof from === 'function';
+}
+
+/**
+ * @returns {BufferLike | null}
+ */
+function getBufferConstructor() {
+  const bufferCtor = getActiveWindowValue('Buffer');
+  return isBufferLike(bufferCtor) ? bufferCtor : null;
+}
+
+/**
+ * @returns {(value: string) => string}
+ */
+function getBase64Encoder() {
+  const activeWindow = getActiveWindow() || window;
+  return activeWindow.btoa.bind(activeWindow);
+}
+
+/**
  * @param {Uint8Array} bytes
  * @returns {string}
  */
 function bytesToBase64(bytes) {
-  if (globalThis.Buffer && typeof globalThis.Buffer.from === 'function') {
-    return globalThis.Buffer.from(bytes).toString('base64');
+  const BufferCtor = getBufferConstructor();
+  if (BufferCtor) {
+    return BufferCtor.from(bytes).toString('base64');
   }
   let binary = '';
   const chunkSize = 0x8000;
@@ -33,7 +65,17 @@ function bytesToBase64(bytes) {
     const chunk = bytes.subarray(offset, offset + chunkSize);
     binary += String.fromCharCode(...chunk);
   }
-  return globalThis.btoa(binary);
+  return getBase64Encoder()(binary);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {ResponseLike}
+ */
+function toResponseLike(value) {
+  return value && typeof value === 'object'
+    ? /** @type {ResponseLike} */ (value)
+    : {};
 }
 
 /**
@@ -41,11 +83,10 @@ function bytesToBase64(bytes) {
  * @returns {Promise<Uint8Array>}
  */
 async function readResponseBytes(response) {
-  const record = response && typeof response === 'object'
-    ? /** @type {{ arrayBuffer?: unknown, raw?: unknown, buffer?: unknown }} */ (response)
-    : {};
-  if (typeof record.arrayBuffer === 'function') {
-    return toUint8Array(await record.arrayBuffer());
+  const record = toResponseLike(response);
+  const readArrayBuffer = record.arrayBuffer;
+  if (typeof readArrayBuffer === 'function') {
+    return toUint8Array(await readArrayBuffer());
   }
   return toUint8Array(record.arrayBuffer || record.raw || record.buffer);
 }
@@ -76,7 +117,7 @@ function normalizeKrokiEndpoint(endpoint) {
     }
     return url.toString();
   } catch (error) {
-    if (error?.message === 'Kroki 渲染服务必须使用 HTTPS') throw error;
+    if (error instanceof Error && error.message === 'Kroki 渲染服务必须使用 HTTPS') throw error;
     throw new Error('Kroki 渲染服务地址无效');
   }
 }
@@ -99,9 +140,10 @@ async function renderMermaidWithKroki(source, options = {}) {
   const maxImageBytes = Number(options.maxImageBytes) > 0
     ? Number(options.maxImageBytes)
     : DEFAULT_KROKI_MAX_IMAGE_BYTES;
+  const activeWindow = getActiveWindow() || window;
   let timeoutId = 0;
   const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = globalThis.setTimeout(() => {
+    timeoutId = activeWindow.setTimeout(() => {
       reject(new Error('Kroki Mermaid 渲染超时'));
     }, timeoutMs);
   });
@@ -122,7 +164,8 @@ async function renderMermaidWithKroki(source, options = {}) {
       })),
       timeoutPromise,
     ]);
-    const status = Number(response?.status || 0);
+    const responseRecord = toResponseLike(response);
+    const status = Number(responseRecord.status || 0);
     if (status >= 400) {
       throw new Error(`Kroki Mermaid 渲染失败 (${status})`);
     }
@@ -133,13 +176,13 @@ async function renderMermaidWithKroki(source, options = {}) {
     if (bytes.byteLength > maxImageBytes) {
       throw new Error(`Kroki Mermaid 渲染图片过大 (${bytes.byteLength} bytes)`);
     }
-    const contentType = getHeaderValue(response?.headers, 'content-type') || 'image/png';
+    const contentType = getHeaderValue(responseRecord.headers, 'content-type') || 'image/png';
     if (!contentType.toLowerCase().startsWith('image/')) {
       throw new Error('Kroki Mermaid 渲染返回了非图片内容');
     }
     return `data:image/png;base64,${bytesToBase64(bytes)}`;
   } finally {
-    if (timeoutId) globalThis.clearTimeout(timeoutId);
+    if (timeoutId) activeWindow.clearTimeout(timeoutId);
   }
 }
 

@@ -4,7 +4,7 @@
 // Feishu docx image replacement adapter. It consumes prepared local image
 // assets and leaves remote images to Feishu's import pipeline.
 
-import { getActiveWindowValue } from './dom-utils.js';
+import { getActiveWindow, getActiveWindowValue } from './dom-utils.js';
 
 /**
  * @typedef {{ originalSrc: string, path: string, fileName: string, isRemote: boolean, sizeHint?: { width: number, height: number | null } | null }} FeishuMarkdownImageLike
@@ -191,6 +191,20 @@ function normalizeRemoteImageMimeType(contentType, fallbackFileName) {
 }
 
 /**
+ * @param {string} base64
+ * @returns {Uint8Array}
+ */
+function decodeBase64ImageBytes(base64) {
+  const activeWindow = getActiveWindow() || window;
+  const binary = activeWindow.atob(String(base64 || ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+/**
  * @returns {typeof fetch | null}
  */
 function getRequestUrlImplementation() {
@@ -205,9 +219,8 @@ function getRequestUrlImplementation() {
  * @returns {typeof fetch | null}
  */
 function getFetchImplementation() {
-  const windowFetch = getActiveWindowValue('fetch');
-  if (typeof windowFetch === 'function') return /** @type {typeof fetch} */ (windowFetch);
-  if (typeof globalThis.fetch === 'function') return globalThis.fetch;
+  const activeWindow = getActiveWindow() || window;
+  if (typeof activeWindow.fetch === 'function') return activeWindow.fetch.bind(activeWindow);
   return null;
 }
 
@@ -223,12 +236,7 @@ function readDataUrlImageBytes(dataUrl) {
 
   const mimeType = normalizeRemoteImageMimeType(match[1] || '', 'image');
   const base64 = match[2] || '';
-  const binary = globalThis.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return { bytes, mimeType };
+  return { bytes: decodeBase64ImageBytes(base64), mimeType };
 }
 
 /**
@@ -302,6 +310,14 @@ function addImageDetail(summary, filename, status, reason) {
 }
 
 /**
+ * @param {unknown} error
+ * @returns {string}
+ */
+function getErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error || 'unknown_error');
+}
+
+/**
  * @param {unknown} app
  * @param {FeishuLocalImageAssetLike} asset
  * @returns {Promise<Uint8Array>}
@@ -316,12 +332,7 @@ async function readAssetBytes(app, asset) {
   }
 
   if (asset?.base64) {
-    const binary = globalThis.atob(String(asset.base64 || ''));
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    return bytes;
+    return decodeBase64ImageBytes(String(asset.base64 || ''));
   }
 
   throw new Error(`找不到本地图片文件: ${vaultRelativePath || asset.filename}`);
@@ -411,8 +422,7 @@ async function replaceFeishuImageBlocks({ app, client, docToken, images, assets,
       addImageDetail(summary, filename, 'uploaded', 'ok');
     } catch (err) {
       console.error(`[飞书同步] 图片 ${filename} 同步失败:`, err);
-      const reason = err && typeof err === 'object' && 'message' in err ? err.message : String(err || 'unknown_error');
-      addImageDetail(summary, filename, 'failed', reason);
+      addImageDetail(summary, filename, 'failed', getErrorMessage(err));
     }
   }
 

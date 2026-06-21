@@ -79,7 +79,7 @@ function parseFeishuDocUrlOrToken(value) {
         docToken,
         url: `${parsedUrl.origin}/docx/${docToken}`,
       };
-    } catch (err) {
+    } catch {
       return null;
     }
   }

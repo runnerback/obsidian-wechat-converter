@@ -7,6 +7,14 @@ const FEISHU_MERMAID_MAX_SOURCE_CHARS = 20000;
 const FEISHU_MERMAID_MAX_DIAGRAMS = 8;
 
 /**
+ * @param {unknown} error
+ * @returns {string}
+ */
+function getErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error || 'unknown_error');
+}
+
+/**
  * @param {unknown} value
  * @returns {string}
  */
@@ -168,7 +176,7 @@ async function prepareMermaidDiagramsForFeishu(markdown, options = {}) {
     } catch (error) {
       warnings.push({
         code: 'feishu_mermaid_render_failed',
-        message: `Mermaid 图表渲染失败，已保留原始代码块：${error?.message || String(error || 'unknown_error')}`,
+        message: `Mermaid 图表渲染失败，已保留原始代码块：${getErrorMessage(error)}`,
         severity: 'warning',
         src: `mermaid-${ordinal}`,
         filename: `mermaid-diagram-${ordinal}.png`,

@@ -51,8 +51,7 @@ function parseYamlTitle(markdown) {
  */
 function convertWikilinks(markdown, uploadHistory = []) {
   const source = String(markdown || '');
-  return source.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (...replaceArgs) => {
-    const [match, noteName = '', alias = '', offset = 0] = /** @type {[string, string?, string?, number?, ...unknown[]]} */ (replaceArgs);
+  return source.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, noteName = '', alias = '', offset = 0) => {
     if (offset > 0 && source[offset - 1] === '!') return match;
     const cleanNoteName = noteName.trim();
     const displayName = (alias || noteName).trim();
@@ -78,8 +77,7 @@ function convertWikilinks(markdown, uploadHistory = []) {
  */
 function convertObsidianImageSyntax(markdown) {
   const source = String(markdown || '');
-  return source.replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (...replaceArgs) => {
-    const [match, fileName = '', altText = ''] = /** @type {[string, string?, string?, ...unknown[]]} */ (replaceArgs);
+  return source.replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, fileName = '', altText = '') => {
     if (!fileName) return match;
     const cleanFileName = fileName.trim();
     const alt = getWikiImageAltText(altText, cleanFileName);

@@ -5,7 +5,7 @@
 // Integrates settings, preprocessor, and low-level API client.
 // Uses Obsidian APIs (via injected 'app' dependency) and requestUrl.
 
-import { getActiveWindowValue } from './dom-utils.js';
+import { getActiveWindow, getActiveWindowValue } from './dom-utils.js';
 import { resolveArticleImages } from './article-image-assets.js';
 import { FeishuApiClient } from './feishu-api.js';
 import { prepareMermaidDiagramsForFeishu } from './feishu-mermaid-renderer.js';
@@ -334,8 +334,8 @@ function buildFeishuCreatePayloadBlocks(blocks, rootBlockId) {
  */
 function waitForFeishuBlockThrottle(delayMs) {
   return new Promise((resolve) => {
-    const timer = globalThis.window?.setTimeout || globalThis.setTimeout;
-    timer(resolve, delayMs);
+    const activeWindow = getActiveWindow() || window;
+    activeWindow.setTimeout(resolve, delayMs);
   });
 }
 
@@ -860,7 +860,7 @@ async function syncNoteToFeishu({
       await client.transferDocumentOwnership(docToken, settings.userId);
     } catch (err) {
       console.warn('[飞书同步] 文档所有权转移失败:', err);
-      transferOwnerWarning = err.message || String(err);
+      transferOwnerWarning = err instanceof Error ? err.message : String(err || 'unknown_error');
     }
   }
 
