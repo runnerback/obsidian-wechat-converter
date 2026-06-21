@@ -3231,13 +3231,9 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   bottom: -1px;
   z-index: 4;
   margin: auto 0 0;
-  padding: 16px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--apple-border) 80%, transparent);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--background-primary) 0%, transparent),
-    var(--background-primary) 34%
-  );
+  padding: 14px 0 0;
+  border-top: none;
+  background: transparent;
 }
 
 .wechat-feishu-publish-shell .wechat-modal-buttons {

@@ -166,6 +166,9 @@ describe('Feishu publish modal UX', () => {
     expect(buttonRow).not.toBeNull();
     expect(buttonRow.parentElement).toBe(shell);
     expect(content.contains(buttonRow)).toBe(false);
+    expect(containerEl.textContent).not.toContain('发布设置');
+    expect(containerEl.textContent).not.toContain('同步目标文件夹');
+    expect(containerEl.textContent).not.toContain('Token: folder-token');
   });
 
   it('rebinds the current note to a pasted Feishu docx URL', async () => {

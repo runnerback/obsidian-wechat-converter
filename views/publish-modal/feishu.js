@@ -192,7 +192,6 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
   });
 
   const settingsSection = contentWrapper.createDiv({ cls: 'wechat-modal-section wechat-feishu-section wechat-feishu-card-section' });
-  settingsSection.createEl('h3', { text: '发布设置', cls: 'wechat-feishu-section-title' });
 
   // 5. Title setting
   let docTitle = activeFile.basename;
@@ -206,11 +205,6 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
         docTitle = val.trim();
       })
     );
-
-  // 6. Sync info / Target Info
-  new Setting(settingsSection)
-    .setName('同步目标文件夹')
-    .setDesc(`Token: ${settings.folderToken.substring(0, 10)}... (将在此文件夹下创建 or 覆盖文档)`);
 
   const mermaidSection = contentWrapper.createDiv({ cls: 'wechat-modal-section wechat-feishu-section wechat-feishu-mermaid-section is-hidden' });
 
