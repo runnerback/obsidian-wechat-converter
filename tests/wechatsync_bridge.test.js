@@ -924,6 +924,7 @@ describe('Wechatsync bridge service', () => {
     expect(createReadableBridgeError(new Error('Request timeout: syncArticle')).code).toBe('SYNC_TIMEOUT');
     expect(createReadableBridgeError(new Error('Request timeout: enqueueSyncArticle')).code).toBe('BRIDGE_REQUEST_TIMEOUT');
     expect(createReadableBridgeError(new Error('Request timeout: getSyncTask')).code).toBe('BRIDGE_REQUEST_TIMEOUT');
+    expect(createReadableBridgeError(new Error('port 55111 is already in use by another bridge with a different token')).code).toBe('BRIDGE_UNAVAILABLE');
   });
 
   it('only treats unsupported methods as fallback-safe task action errors', () => {
