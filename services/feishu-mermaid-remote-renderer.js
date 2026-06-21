@@ -47,7 +47,8 @@ function getBufferConstructor() {
  */
 function getBase64Encoder() {
   const activeWindow = getActiveWindow() || window;
-  return activeWindow.btoa.bind(activeWindow);
+  const encode = activeWindow.btoa;
+  return (value) => encode.call(activeWindow, value);
 }
 
 /**
@@ -140,30 +141,26 @@ async function renderMermaidWithKroki(source, options = {}) {
   const maxImageBytes = Number(options.maxImageBytes) > 0
     ? Number(options.maxImageBytes)
     : DEFAULT_KROKI_MAX_IMAGE_BYTES;
-  const activeWindow = getActiveWindow() || window;
   let timeoutId = 0;
   const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = activeWindow.setTimeout(() => {
+    timeoutId = window.setTimeout(() => {
       reject(new Error('Kroki Mermaid 渲染超时'));
     }, timeoutMs);
   });
 
   try {
-    const response = await Promise.race([
-      Promise.resolve(requestUrl({
-        url: endpoint,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          Accept: 'image/png',
-        },
-        body: JSON.stringify({
-          diagram_source: mermaidSource,
-        }),
-        throw: false,
-      })),
-      timeoutPromise,
-    ]);
+    const response = await requestKrokiWithTimeout(requestUrl, {
+      url: endpoint,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        Accept: 'image/png',
+      },
+      body: JSON.stringify({
+        diagram_source: mermaidSource,
+      }),
+      throw: false,
+    }, timeoutPromise);
     const responseRecord = toResponseLike(response);
     const status = Number(responseRecord.status || 0);
     if (status >= 400) {
@@ -182,8 +179,19 @@ async function renderMermaidWithKroki(source, options = {}) {
     }
     return `data:image/png;base64,${bytesToBase64(bytes)}`;
   } finally {
-    if (timeoutId) activeWindow.clearTimeout(timeoutId);
+    if (timeoutId) window.clearTimeout(timeoutId);
   }
+}
+
+/**
+ * @param {RequestUrlLike} requestUrl
+ * @param {Record<string, unknown>} options
+ * @param {Promise<unknown>} timeoutPromise
+ * @returns {Promise<unknown>}
+ */
+function requestKrokiWithTimeout(requestUrl, options, timeoutPromise) {
+  const requestPromise = Promise.resolve(requestUrl(options));
+  return Promise.race([requestPromise, timeoutPromise]);
 }
 
 export {

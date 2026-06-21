@@ -205,22 +205,25 @@ function decodeBase64ImageBytes(base64) {
 }
 
 /**
- * @returns {typeof fetch | null}
+ * @returns {(((options: Record<string, unknown>) => Promise<unknown>) | null)}
  */
 function getRequestUrlImplementation() {
   const obsidianApi = getActiveWindowValue('obsidian');
   const requestUrl = obsidianApi && typeof obsidianApi.requestUrl === 'function'
     ? obsidianApi.requestUrl
     : null;
-  return typeof requestUrl === 'function' ? requestUrl : null;
+  if (typeof requestUrl !== 'function') return null;
+  return (options) => Promise.resolve(requestUrl(options));
 }
 
 /**
- * @returns {typeof fetch | null}
+ * @returns {(((input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) | null)}
  */
 function getFetchImplementation() {
   const activeWindow = getActiveWindow() || window;
-  if (typeof activeWindow.fetch === 'function') return activeWindow.fetch.bind(activeWindow);
+  if (typeof activeWindow.fetch === 'function') {
+    return (input, init) => activeWindow.fetch(input, init);
+  }
   return null;
 }
 

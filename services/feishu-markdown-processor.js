@@ -51,8 +51,22 @@ function parseYamlTitle(markdown) {
  */
 function convertWikilinks(markdown, uploadHistory = []) {
   const source = String(markdown || '');
-  return source.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, noteName = '', alias = '', offset = 0) => {
-    if (offset > 0 && source[offset - 1] === '!') return match;
+  const pattern = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+  let result = '';
+  let lastIndex = 0;
+  let match = pattern.exec(source);
+  while (match) {
+    const matchText = String(match[0] || '');
+    const noteName = String(match[1] || '');
+    const alias = String(match[2] || '');
+    const offset = match.index;
+    result += source.slice(lastIndex, offset);
+    if (offset > 0 && source[offset - 1] === '!') {
+      result += matchText;
+      lastIndex = offset + matchText.length;
+      match = pattern.exec(source);
+      continue;
+    }
     const cleanNoteName = noteName.trim();
     const displayName = (alias || noteName).trim();
     
@@ -63,10 +77,14 @@ function convertWikilinks(markdown, uploadHistory = []) {
     });
 
     if (historyItem && historyItem.url) {
-      return `[${displayName}](${historyItem.url})`;
+      result += `[${displayName}](${historyItem.url})`;
+    } else {
+      result += displayName;
     }
-    return displayName;
-  });
+    lastIndex = offset + matchText.length;
+    match = pattern.exec(source);
+  }
+  return result + source.slice(lastIndex);
 }
 
 /**
@@ -77,13 +95,30 @@ function convertWikilinks(markdown, uploadHistory = []) {
  */
 function convertObsidianImageSyntax(markdown) {
   const source = String(markdown || '');
-  return source.replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, fileName = '', altText = '') => {
-    if (!fileName) return match;
+  const pattern = /!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+  let result = '';
+  let lastIndex = 0;
+  let match = pattern.exec(source);
+  while (match) {
+    const matchText = String(match[0] || '');
+    const fileName = String(match[1] || '');
+    const altText = String(match[2] || '');
+    const offset = match.index;
+    result += source.slice(lastIndex, offset);
+    if (!fileName) {
+      result += matchText;
+      lastIndex = offset + matchText.length;
+      match = pattern.exec(source);
+      continue;
+    }
     const cleanFileName = fileName.trim();
     const alt = getWikiImageAltText(altText, cleanFileName);
     const encodedFileName = encodeURI(cleanFileName);
-    return `![${alt}](${encodedFileName})`;
-  });
+    result += `![${alt}](${encodedFileName})`;
+    lastIndex = offset + matchText.length;
+    match = pattern.exec(source);
+  }
+  return result + source.slice(lastIndex);
 }
 
 /**

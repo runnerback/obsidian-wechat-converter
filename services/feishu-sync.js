@@ -5,7 +5,7 @@
 // Integrates settings, preprocessor, and low-level API client.
 // Uses Obsidian APIs (via injected 'app' dependency) and requestUrl.
 
-import { getActiveWindow, getActiveWindowValue } from './dom-utils.js';
+import { getActiveWindowValue } from './dom-utils.js';
 import { resolveArticleImages } from './article-image-assets.js';
 import { FeishuApiClient } from './feishu-api.js';
 import { prepareMermaidDiagramsForFeishu } from './feishu-mermaid-renderer.js';
@@ -334,8 +334,7 @@ function buildFeishuCreatePayloadBlocks(blocks, rootBlockId) {
  */
 function waitForFeishuBlockThrottle(delayMs) {
   return new Promise((resolve) => {
-    const activeWindow = getActiveWindow() || window;
-    activeWindow.setTimeout(resolve, delayMs);
+    window.setTimeout(resolve, delayMs);
   });
 }
 
