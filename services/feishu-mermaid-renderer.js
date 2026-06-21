@@ -1,13 +1,10 @@
-import {
-  convertRenderedMermaidDiagramsToImages,
-  renderMermaidCodeBlocks,
-} from './rendered-mermaid.js';
-import { getActiveDocument } from './dom-utils.js';
-
 /**
  * @typedef {{ start: number, end: number, raw: string, source: string }} MermaidFence
  * @typedef {{ id: string, filename: string, mimeType: string, size: number, base64: string, source: Record<string, unknown> }} FeishuMermaidAsset
  */
+
+const FEISHU_MERMAID_MAX_SOURCE_CHARS = 20000;
+const FEISHU_MERMAID_MAX_DIAGRAMS = 8;
 
 /**
  * @param {unknown} value
@@ -83,58 +80,37 @@ function extensionFromMimeType(mimeType) {
 /**
  * @param {string} source
  * @param {object} options
- * @param {unknown} [options.mermaidApi]
- * @param {unknown} [options.rasterizeSvg]
- * @param {unknown} [options.simpleHash]
- * @param {unknown} [options.mermaidImageCache]
+ * @param {(source: string, options: object) => Promise<string> | string} [options.renderMermaidFenceToDataUrl]
  * @returns {Promise<string>}
  */
 async function renderMermaidFenceToDataUrl(source, options = {}) {
-  const activeDocument = getActiveDocument();
-  if (!activeDocument) return '';
-
-  const host = activeDocument.createElement('div');
-  const pre = activeDocument.createElement('pre');
-  const code = activeDocument.createElement('code');
-  code.className = 'language-mermaid';
-  code.textContent = String(source || '').trim();
-  pre.appendChild(code);
-  host.appendChild(pre);
-
-  const renderedCount = await renderMermaidCodeBlocks(host, {
-    mermaidApi: options.mermaidApi,
-  });
-  if (renderedCount <= 0) return '';
-
-  const convertedCount = await convertRenderedMermaidDiagramsToImages(host, {
-    rasterizeSvg: typeof options.rasterizeSvg === 'function' ? options.rasterizeSvg : undefined,
-    simpleHash: typeof options.simpleHash === 'function' ? options.simpleHash : null,
-    mermaidImageCache: options.mermaidImageCache instanceof Map ? options.mermaidImageCache : null,
-  });
-  if (convertedCount <= 0) return '';
-
-  const img = host.querySelector?.('img.mermaid-diagram-image');
-  return String(img?.getAttribute?.('src') || '');
+  const normalizedSource = String(source || '').trim();
+  if (!normalizedSource) return '';
+  if (normalizedSource.length > FEISHU_MERMAID_MAX_SOURCE_CHARS) {
+    throw new Error(`Mermaid 图表源码超过 ${FEISHU_MERMAID_MAX_SOURCE_CHARS} 字符，已保留原始代码块`);
+  }
+  if (typeof options.renderMermaidFenceToDataUrl === 'function') {
+    return String(await options.renderMermaidFenceToDataUrl(normalizedSource, options));
+  }
+  return '';
 }
 
 /**
  * Converts Mermaid fenced blocks into Feishu image placeholders. Feishu OpenAPI
- * does not render Mermaid directly, so we rasterize locally and then reuse the
- * existing image replacement pipeline.
+ * does not render Mermaid directly. To avoid Obsidian renderer crashes, local
+ * rasterization is intentionally not wired here by default; callers must inject
+ * a renderer explicitly.
  *
  * @param {unknown} markdown
  * @param {object} [options]
  * @param {(asset: FeishuMermaidAsset) => string} [options.localImageSrcFactory]
- * @param {unknown} [options.mermaidApi]
- * @param {unknown} [options.rasterizeSvg]
- * @param {unknown} [options.simpleHash]
- * @param {unknown} [options.mermaidImageCache]
+ * @param {(source: string, options: object) => Promise<string> | string} [options.renderMermaidFenceToDataUrl]
  * @param {unknown} [options.notePath]
  * @returns {Promise<{ markdown: string, assets: FeishuMermaidAsset[], warnings: Array<{ code: string, message: string, severity: string, src: string, filename: string, size: number }> }>}
  */
 async function prepareMermaidDiagramsForFeishu(markdown, options = {}) {
   const source = String(markdown || '');
-  const fences = collectMermaidFences(source);
+  const fences = collectMermaidFences(source).slice(0, FEISHU_MERMAID_MAX_DIAGRAMS);
   if (!fences.length) {
     return { markdown: source, assets: [], warnings: [] };
   }

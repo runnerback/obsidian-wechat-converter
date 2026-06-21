@@ -2,13 +2,6 @@ import { serializeObsidianRenderedHtml } from './obsidian-triplet-serializer.js'
 import { normalizeRenderedDomPunctuation } from './chinese-punctuation.js';
 import { findAllElements, getActiveDocument, getActiveWindowValue } from './dom-utils.js';
 import { normalizeAdjacentMarkdownBlockHeadings } from './native-renderer.js';
-import {
-  hasMermaidMarker,
-  renderMermaidCodeBlocks,
-  looksLikeMermaidSvg,
-  normalizeRenderedMermaidDiagrams,
-  rasterizeRenderedMermaidDiagrams,
-} from './rendered-mermaid.js';
 
 /**
  * @typedef {{ marker: '`' | '~', length: number }} FenceState
@@ -1439,7 +1432,16 @@ function shouldObserveMermaidRenderWindow(markdown) {
  */
 function collectMermaidHostElements(root) {
   if (!root) return [];
-  const elements = findAllElements(root, '*').filter((el) => hasMermaidMarker(el));
+  const elements = findAllElements(root, '*').filter((el) => {
+    const values = [
+      el.getAttribute?.('class'),
+      el.getAttribute?.('id'),
+      el.getAttribute?.('data-type'),
+      el.getAttribute?.('aria-label'),
+      el.getAttribute?.('aria-roledescription'),
+    ].filter(Boolean).join(' ').toLowerCase();
+    return values.includes('mermaid');
+  });
   return elements.filter((el) => {
     if (el.closest('mjx-container')) return false;
     const tagName = el.tagName?.toLowerCase?.();
@@ -1451,7 +1453,10 @@ function collectMermaidHostElements(root) {
 /** @param {Element | null | undefined} root */
 function countRenderedMermaidDiagrams(root) {
   if (!root) return 0;
-  const svgCount = findAllElements(root, 'svg').filter(looksLikeMermaidSvg).length;
+  const svgCount = findAllElements(root, 'svg').filter((svg) => {
+    if (svg.closest?.('mjx-container,mjx-math,.MathJax')) return false;
+    return !!svg.closest?.('.mermaid,[data-obsidian-wechat-mermaid="true"]');
+  }).length;
   const imageCount = findAllElements(root, 'img.mermaid-diagram-image').length;
   return svgCount + imageCount;
 }
@@ -1463,7 +1468,10 @@ function countPendingMermaidHosts(root) {
   for (const host of hosts) {
     if (host.tagName?.toLowerCase?.() === 'svg') continue;
     if (host.tagName?.toLowerCase?.() === 'img' && host.classList.contains('mermaid-diagram-image')) continue;
-    const hasRenderedSvg = findAllElements(host, 'svg').some(looksLikeMermaidSvg);
+    const hasRenderedSvg = findAllElements(host, 'svg').some((svg) => {
+      if (svg.closest?.('mjx-container,mjx-math,.MathJax')) return false;
+      return !!svg.closest?.('.mermaid,[data-obsidian-wechat-mermaid="true"]');
+    });
     const hasRenderedImage = !!host.querySelector('img.mermaid-diagram-image');
     if (!hasRenderedSvg && !hasRenderedImage) {
       pending += 1;
@@ -1683,8 +1691,8 @@ async function renderObsidianTripletMarkdown({
   settings = {},
   markdownRenderer = getDefaultMarkdownRenderer(),
   serializer = serializeObsidianRenderedHtml,
-  mermaidCodeRenderer = renderMermaidCodeBlocks,
-  mermaidRasterizer = rasterizeRenderedMermaidDiagrams,
+  mermaidCodeRenderer = null,
+  mermaidRasterizer = null,
   mermaidApi = null,
   rasterizeMermaid = true,
   preserveSvgStyleTags = false,
@@ -1716,9 +1724,10 @@ async function renderObsidianTripletMarkdown({
     minObserveMs: shouldObserveWindow ? void 0 : 0,
     observeMermaid: shouldObserveMermaid,
   });
-  await mermaidCodeRenderer(container, { mermaidApi });
-  normalizeRenderedMermaidDiagrams(container);
-  if (rasterizeMermaid !== false) {
+  if (typeof mermaidCodeRenderer === 'function') {
+    await mermaidCodeRenderer(container, { mermaidApi });
+  }
+  if (rasterizeMermaid !== false && typeof mermaidRasterizer === 'function') {
     await mermaidRasterizer(container);
   }
 
