@@ -6,7 +6,8 @@
 
 /**
  * @typedef {{ title: string, url: string, uploadTime: string, docToken: string, sourcePath: string }} FeishuUploadHistoryItemLike
- * @typedef {{ enabled: boolean, appId: string, appSecret: string, folderToken: string, userId: string, enableSmartUpdate: boolean, enableDoubleLinkMode: boolean, debugLoggingEnabled: boolean, uploadHistory: FeishuUploadHistoryItemLike[] }} FeishuSyncSettingsLike
+ * @typedef {{ mode: 'source' | 'remote-image', provider: 'kroki', updatedAt: number }} FeishuMermaidPreferenceLike
+ * @typedef {{ enabled: boolean, appId: string, appSecret: string, folderToken: string, userId: string, enableSmartUpdate: boolean, enableDoubleLinkMode: boolean, debugLoggingEnabled: boolean, uploadHistory: FeishuUploadHistoryItemLike[], mermaidPreferences: Record<string, FeishuMermaidPreferenceLike> }} FeishuSyncSettingsLike
  */
 
 /**
@@ -100,7 +101,45 @@ function createDefaultFeishuSyncSettings() {
     enableDoubleLinkMode: false,
     debugLoggingEnabled: false,
     uploadHistory: [], // [{ title, url, uploadTime, docToken, sourcePath }]
+    mermaidPreferences: {},
   };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {'source' | 'remote-image'}
+ */
+function normalizeMermaidRenderMode(value) {
+  return value === 'remote-image' ? 'remote-image' : 'source';
+}
+
+/**
+ * @param {unknown} value
+ * @returns {'kroki'}
+ */
+function normalizeMermaidRenderProvider(value) {
+  return value === 'kroki' ? 'kroki' : 'kroki';
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, FeishuMermaidPreferenceLike>}
+ */
+function normalizeMermaidPreferences(value) {
+  const source = toRecord(value);
+  /** @type {Record<string, FeishuMermaidPreferenceLike>} */
+  const result = {};
+  for (const [path, rawPreference] of Object.entries(source)) {
+    const normalizedPath = toTrimmedString(path);
+    if (!normalizedPath) continue;
+    const preference = toRecord(rawPreference);
+    result[normalizedPath] = {
+      mode: normalizeMermaidRenderMode(preference.mode),
+      provider: normalizeMermaidRenderProvider(preference.provider),
+      updatedAt: Number.isFinite(Number(preference.updatedAt)) ? Number(preference.updatedAt) : 0,
+    };
+  }
+  return result;
 }
 
 /**
@@ -110,6 +149,7 @@ function createDefaultFeishuSyncSettings() {
 function normalizeFeishuSyncSettings(value) {
   const source = toRecord(value);
   const rawUploadHistory = source.uploadHistory;
+  const rawMermaidPreferences = source.mermaidPreferences || source.feishuMermaidPreferences;
 
   const uploadHistory = Array.isArray(rawUploadHistory)
     ? rawUploadHistory.map((item) => {
@@ -135,6 +175,7 @@ function normalizeFeishuSyncSettings(value) {
     enableDoubleLinkMode: source.enableDoubleLinkMode === true,
     debugLoggingEnabled: source.debugLoggingEnabled === true,
     uploadHistory,
+    mermaidPreferences: normalizeMermaidPreferences(rawMermaidPreferences),
   };
 }
 
@@ -255,6 +296,59 @@ function updateFeishuHistoryPath(settings, oldPath, newPath) {
   return changed;
 }
 
+/**
+ * @param {unknown} settings
+ * @param {unknown} path
+ * @returns {FeishuMermaidPreferenceLike | null}
+ */
+function getFeishuMermaidPreferenceByPath(settings, path) {
+  const source = toRecord(settings);
+  const targetPath = toTrimmedString(path);
+  if (!targetPath) return null;
+  const preferences = normalizeMermaidPreferences(source.mermaidPreferences || source.feishuMermaidPreferences);
+  return preferences[targetPath] || null;
+}
+
+/**
+ * @param {unknown} settings
+ * @param {unknown} path
+ * @param {unknown} value
+ * @returns {FeishuMermaidPreferenceLike | null}
+ */
+function setFeishuMermaidPreferenceByPath(settings, path, value) {
+  const source = toRecord(settings);
+  if (!Object.keys(source).length) return null;
+  const targetPath = toTrimmedString(path);
+  if (!targetPath) return null;
+  const preference = toRecord(value);
+  const normalized = {
+    mode: normalizeMermaidRenderMode(preference.mode),
+    provider: normalizeMermaidRenderProvider(preference.provider),
+    updatedAt: Number.isFinite(Number(preference.updatedAt)) ? Number(preference.updatedAt) : Date.now(),
+  };
+  const preferences = normalizeMermaidPreferences(source.mermaidPreferences || source.feishuMermaidPreferences);
+  preferences[targetPath] = normalized;
+  source.mermaidPreferences = preferences;
+  return normalized;
+}
+
+/**
+ * @param {unknown} settings
+ * @param {unknown} path
+ * @returns {boolean}
+ */
+function removeFeishuMermaidPreferenceByPath(settings, path) {
+  const source = toRecord(settings);
+  if (!Object.keys(source).length) return false;
+  const targetPath = toTrimmedString(path);
+  if (!targetPath) return false;
+  const preferences = normalizeMermaidPreferences(source.mermaidPreferences || source.feishuMermaidPreferences);
+  if (!preferences[targetPath]) return false;
+  delete preferences[targetPath];
+  source.mermaidPreferences = preferences;
+  return true;
+}
+
 export {
   createDefaultFeishuSyncSettings,
   normalizeFeishuSyncSettings,
@@ -264,4 +358,9 @@ export {
   findFeishuHistoryByPath,
   removeFeishuHistoryByPath,
   updateFeishuHistoryPath,
+  getFeishuMermaidPreferenceByPath,
+  setFeishuMermaidPreferenceByPath,
+  removeFeishuMermaidPreferenceByPath,
+  normalizeMermaidRenderMode,
+  normalizeMermaidRenderProvider,
 };

@@ -4120,6 +4120,57 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   line-height: 1.6;
 }
 
+.wechat-feishu-mermaid-section.is-hidden {
+  display: none;
+}
+
+.wechat-feishu-mermaid-desc,
+.wechat-feishu-mermaid-privacy {
+  margin: 0;
+  color: var(--apple-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.wechat-feishu-mermaid-options {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.wechat-feishu-mermaid-option,
+.wechat-feishu-mermaid-remember {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--apple-primary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.wechat-feishu-mermaid-option input,
+.wechat-feishu-mermaid-remember input {
+  margin-top: 2px;
+}
+
+.wechat-feishu-mermaid-privacy {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--text-warning) 10%, transparent);
+  color: var(--apple-secondary);
+}
+
+.wechat-feishu-mermaid-privacy.is-hidden {
+  display: none;
+}
+
+.wechat-feishu-mermaid-remember {
+  margin-top: 10px;
+  color: var(--apple-secondary);
+  font-size: 12px;
+}
+
 .wechat-feishu-rebind-card {
   margin-top: 10px;
   padding: 12px 14px;

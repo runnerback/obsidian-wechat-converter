@@ -76,6 +76,7 @@ function makeView() {
         folderToken: 'folder-token',
         userId: 'ou-user',
         uploadHistory: [],
+        mermaidPreferences: {},
       },
     },
     saveSettings: vi.fn(),
@@ -197,5 +198,173 @@ describe('Feishu publish modal UX', () => {
     expect(globalThis.__feishuPublishNotices.at(-1).message).toBe('✅ 已重新绑定当前笔记的飞书文档');
     expect(containerEl.textContent).toContain('覆盖更新模式');
     expect(Array.from(containerEl.querySelectorAll('button')).some((button) => button.textContent === '更新至飞书')).toBe(true);
+  });
+
+  it('does not show Mermaid options or enable remote rendering when the note has no Mermaid fences', async () => {
+    syncNoteToFeishu.mockResolvedValue({
+      title: '飞书测试',
+      url: 'https://feishu.cn/docx/doc-token',
+      docToken: 'doc-token',
+      imageSummary: { uploaded: 0, skipped: 0, failed: 0, details: [] },
+    });
+
+    const view = makeView();
+    view.app.vault.read.mockResolvedValue('# No Mermaid\n正文');
+    const modal = { close: vi.fn() };
+    const containerEl = applyExtensions(document.createElement('div'));
+
+    renderFeishuPublishTab(view, modal, containerEl, {
+      obsidianApi: {
+        Setting: TestSetting,
+        Notice: TestNotice,
+        requestUrl: vi.fn(),
+      },
+    });
+    await Promise.resolve();
+
+    expect(containerEl.querySelector('.wechat-feishu-mermaid-section').classList.contains('is-hidden')).toBe(true);
+
+    const syncBtn = Array.from(containerEl.querySelectorAll('button'))
+      .find((button) => button.textContent === '同步至飞书');
+    await syncBtn.onclick();
+
+    expect(syncNoteToFeishu).toHaveBeenCalledWith(expect.objectContaining({
+      mermaidRenderMode: 'source',
+      mermaidRenderProvider: 'kroki',
+    }));
+    expect(view.plugin.settings.feishuSync.mermaidPreferences).toEqual({});
+  });
+
+  it('shows Mermaid options only for Mermaid notes and defaults to source mode', async () => {
+    syncNoteToFeishu.mockResolvedValue({
+      title: '飞书测试',
+      url: 'https://feishu.cn/docx/doc-token',
+      docToken: 'doc-token',
+      imageSummary: { uploaded: 0, skipped: 0, failed: 0, details: [] },
+    });
+
+    const view = makeView();
+    view.app.vault.read.mockResolvedValue('# Diagram\n```mermaid\ngraph TD\nA-->B\n```');
+    const modal = { close: vi.fn() };
+    const containerEl = applyExtensions(document.createElement('div'));
+
+    renderFeishuPublishTab(view, modal, containerEl, {
+      obsidianApi: {
+        Setting: TestSetting,
+        Notice: TestNotice,
+        requestUrl: vi.fn(),
+      },
+    });
+    await Promise.resolve();
+
+    const mermaidSection = containerEl.querySelector('.wechat-feishu-mermaid-section');
+    expect(mermaidSection.classList.contains('is-hidden')).toBe(false);
+    expect(mermaidSection.textContent).toContain('检测到 1 个 Mermaid 图表');
+    expect(mermaidSection.textContent).toContain('保留源码');
+    expect(mermaidSection.textContent).toContain('Kroki');
+    expect(mermaidSection.querySelector('input[value="source"]').checked).toBe(true);
+    expect(mermaidSection.querySelector('.wechat-feishu-mermaid-privacy').classList.contains('is-hidden')).toBe(true);
+
+    const syncBtn = Array.from(containerEl.querySelectorAll('button'))
+      .find((button) => button.textContent === '同步至飞书');
+    await syncBtn.onclick();
+
+    expect(syncNoteToFeishu).toHaveBeenCalledWith(expect.objectContaining({
+      mermaidRenderMode: 'source',
+      mermaidRenderProvider: 'kroki',
+    }));
+  });
+
+  it('persists per-note Mermaid remote rendering preference only when requested', async () => {
+    syncNoteToFeishu.mockResolvedValue({
+      title: '飞书测试',
+      url: 'https://feishu.cn/docx/doc-token',
+      docToken: 'doc-token',
+      imageSummary: { uploaded: 0, skipped: 0, failed: 0, details: [] },
+    });
+
+    const view = makeView();
+    view.app.vault.read.mockResolvedValue('# Diagram\n```mermaid\ngraph TD\nA-->B\n```');
+    const modal = { close: vi.fn() };
+    const containerEl = applyExtensions(document.createElement('div'));
+
+    renderFeishuPublishTab(view, modal, containerEl, {
+      obsidianApi: {
+        Setting: TestSetting,
+        Notice: TestNotice,
+        requestUrl: vi.fn(),
+      },
+    });
+    await Promise.resolve();
+
+    const remoteRadio = containerEl.querySelector('input[value="remote-image"]');
+    remoteRadio.checked = true;
+    remoteRadio.dispatchEvent(new Event('change'));
+    const rememberInput = containerEl.querySelector('.wechat-feishu-mermaid-remember input');
+    rememberInput.checked = true;
+    rememberInput.dispatchEvent(new Event('change'));
+
+    expect(containerEl.querySelector('.wechat-feishu-mermaid-privacy').classList.contains('is-hidden')).toBe(false);
+
+    const syncBtn = Array.from(containerEl.querySelectorAll('button'))
+      .find((button) => button.textContent === '同步至飞书');
+    await syncBtn.onclick();
+
+    expect(syncNoteToFeishu).toHaveBeenCalledWith(expect.objectContaining({
+      mermaidRenderMode: 'remote-image',
+      mermaidRenderProvider: 'kroki',
+    }));
+    expect(view.plugin.settings.feishuSync.mermaidPreferences['notes/feishu-test.md']).toMatchObject({
+      mode: 'remote-image',
+      provider: 'kroki',
+    });
+    expect(view.plugin.saveSettings).toHaveBeenCalled();
+  });
+
+  it('clears an existing per-note Mermaid preference when remember is unchecked', async () => {
+    syncNoteToFeishu.mockResolvedValue({
+      title: '飞书测试',
+      url: 'https://feishu.cn/docx/doc-token',
+      docToken: 'doc-token',
+      imageSummary: { uploaded: 0, skipped: 0, failed: 0, details: [] },
+    });
+
+    const view = makeView();
+    view.plugin.settings.feishuSync.mermaidPreferences['notes/feishu-test.md'] = {
+      mode: 'remote-image',
+      provider: 'kroki',
+      updatedAt: 123,
+    };
+    view.app.vault.read.mockResolvedValue('# Diagram\n```mermaid\ngraph TD\nA-->B\n```');
+    const modal = { close: vi.fn() };
+    const containerEl = applyExtensions(document.createElement('div'));
+
+    renderFeishuPublishTab(view, modal, containerEl, {
+      obsidianApi: {
+        Setting: TestSetting,
+        Notice: TestNotice,
+        requestUrl: vi.fn(),
+      },
+    });
+    await Promise.resolve();
+
+    const remoteRadio = containerEl.querySelector('input[value="remote-image"]');
+    const rememberInput = containerEl.querySelector('.wechat-feishu-mermaid-remember input');
+    expect(remoteRadio.checked).toBe(true);
+    expect(rememberInput.checked).toBe(true);
+
+    rememberInput.checked = false;
+    rememberInput.dispatchEvent(new Event('change'));
+
+    const syncBtn = Array.from(containerEl.querySelectorAll('button'))
+      .find((button) => button.textContent === '同步至飞书');
+    await syncBtn.onclick();
+
+    expect(syncNoteToFeishu).toHaveBeenCalledWith(expect.objectContaining({
+      mermaidRenderMode: 'remote-image',
+      mermaidRenderProvider: 'kroki',
+    }));
+    expect(view.plugin.settings.feishuSync.mermaidPreferences['notes/feishu-test.md']).toBeUndefined();
+    expect(view.plugin.saveSettings).toHaveBeenCalled();
   });
 });

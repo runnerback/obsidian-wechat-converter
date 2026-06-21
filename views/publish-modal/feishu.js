@@ -7,10 +7,14 @@
 
 import { getActiveWindowValue } from '../../services/dom-utils.js';
 import { syncNoteToFeishu } from '../../services/feishu-sync.js';
+import { collectMermaidFences } from '../../services/feishu-mermaid-renderer.js';
 import {
   findFeishuHistoryByPath,
+  getFeishuMermaidPreferenceByPath,
   parseFeishuDocUrlOrToken,
   rebindFeishuHistoryByPath,
+  removeFeishuMermaidPreferenceByPath,
+  setFeishuMermaidPreferenceByPath,
 } from '../../services/feishu-settings.js';
 
 /**
@@ -63,6 +67,33 @@ function getFeishuResultWarnings(result) {
   const imageWarning = formatFeishuImageWarning(result?.imageSummary);
   if (imageWarning) warnings.push(imageWarning);
   return warnings;
+}
+
+/**
+ * @param {unknown} markdown
+ * @returns {number}
+ */
+function countMermaidFences(markdown) {
+  return collectMermaidFences(markdown).filter((fence) => String(fence.source || '').trim()).length;
+}
+
+/**
+ * @param {HTMLElement} container
+ * @param {string} name
+ * @param {string} value
+ * @param {boolean} checked
+ * @returns {HTMLInputElement}
+ */
+function createFeishuRadio(container, name, value, checked) {
+  const input = /** @type {HTMLInputElement} */ (container.createEl('input', {
+    attr: {
+      type: 'radio',
+      name,
+      value,
+    },
+  }));
+  input.checked = checked;
+  return input;
 }
 
 /**
@@ -139,6 +170,10 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
   // Resolve defaults
   const historyItem = findFeishuHistoryByPath(settings, activeFile.path);
   const isUpdate = !!(historyItem && historyItem.docToken);
+  const savedMermaidPreference = getFeishuMermaidPreferenceByPath(settings, activeFile.path);
+  let mermaidCount = 0;
+  let mermaidRenderMode = savedMermaidPreference?.mode || 'source';
+  let rememberMermaidPreference = !!savedMermaidPreference;
 
   const introCard = contentWrapper.createDiv({ cls: 'wechat-feishu-intro-card' });
   introCard.createEl('div', { text: isUpdate ? '覆盖更新模式' : '首次同步模式', cls: 'wechat-feishu-intro-kicker' });
@@ -168,6 +203,63 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
   new Setting(settingsSection)
     .setName('同步目标文件夹')
     .setDesc(`Token: ${settings.folderToken.substring(0, 10)}... (将在此文件夹下创建 or 覆盖文档)`);
+
+  const mermaidSection = contentWrapper.createDiv({ cls: 'wechat-modal-section wechat-feishu-section wechat-feishu-mermaid-section is-hidden' });
+
+  const renderMermaidSection = (count) => {
+    mermaidCount = count;
+    mermaidSection.empty();
+    if (!count) {
+      mermaidSection.addClass('is-hidden');
+      return;
+    }
+
+    mermaidSection.removeClass('is-hidden');
+    mermaidSection.createEl('h3', { text: 'Mermaid 图表', cls: 'wechat-feishu-section-title' });
+    mermaidSection.createEl('p', {
+      text: `检测到 ${count} 个 Mermaid 图表。飞书 OpenAPI 暂不直接渲染 Mermaid，可为这篇笔记单独选择处理方式。`,
+      cls: 'wechat-feishu-mermaid-desc',
+    });
+
+    const optionList = mermaidSection.createDiv({ cls: 'wechat-feishu-mermaid-options' });
+    const sourceLabel = optionList.createEl('label', { cls: 'wechat-feishu-mermaid-option' });
+    const sourceRadio = createFeishuRadio(sourceLabel, 'feishu-mermaid-mode', 'source', mermaidRenderMode !== 'remote-image');
+    sourceLabel.createEl('span', { text: '保留源码（推荐，最安全）' });
+
+    const remoteLabel = optionList.createEl('label', { cls: 'wechat-feishu-mermaid-option' });
+    const remoteRadio = createFeishuRadio(remoteLabel, 'feishu-mermaid-mode', 'remote-image', mermaidRenderMode === 'remote-image');
+    remoteLabel.createEl('span', { text: '使用 Kroki 远端渲染成图片' });
+
+    const privacyHint = mermaidSection.createEl('p', {
+      text: '远端渲染会把 Mermaid 源码发送到 Kroki 渲染服务。请确认这篇笔记中的图表源码不包含敏感信息。',
+      cls: 'wechat-feishu-mermaid-privacy',
+    });
+    privacyHint.toggleClass('is-hidden', mermaidRenderMode !== 'remote-image');
+
+    const rememberLabel = mermaidSection.createEl('label', { cls: 'wechat-feishu-mermaid-remember' });
+    const rememberInput = /** @type {HTMLInputElement} */ (rememberLabel.createEl('input', { attr: { type: 'checkbox' } }));
+    rememberInput.checked = rememberMermaidPreference;
+    rememberLabel.createEl('span', { text: '记住这篇笔记的选择' });
+
+    const syncMode = () => {
+      mermaidRenderMode = remoteRadio.checked ? 'remote-image' : 'source';
+      rememberMermaidPreference = rememberInput.checked;
+      privacyHint.toggleClass('is-hidden', mermaidRenderMode !== 'remote-image');
+    };
+    sourceRadio.onchange = syncMode;
+    remoteRadio.onchange = syncMode;
+    rememberInput.onchange = syncMode;
+  };
+
+  const cachedMarkdown = view.lastResolvedSourcePath === activeFile.path ? view.lastResolvedMarkdown : '';
+  if (cachedMarkdown) {
+    renderMermaidSection(countMermaidFences(cachedMarkdown));
+  }
+  view.app.vault.read(activeFile).then((markdown) => {
+    renderMermaidSection(countMermaidFences(markdown));
+  }).catch((err) => {
+    console.warn('[飞书同步] 读取当前笔记以检测 Mermaid 失败:', err);
+  });
 
   const statusSection = contentWrapper.createDiv({ cls: 'wechat-modal-section wechat-feishu-section' });
   statusSection.createEl('h3', { text: '同步状态', cls: 'wechat-feishu-section-title' });
@@ -255,6 +347,18 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
 
     try {
       const markdown = await view.app.vault.read(activeFile);
+      const currentMermaidCount = countMermaidFences(markdown);
+      if (currentMermaidCount !== mermaidCount) {
+        renderMermaidSection(currentMermaidCount);
+      }
+      if (currentMermaidCount > 0 && rememberMermaidPreference) {
+        setFeishuMermaidPreferenceByPath(settings, activeFile.path, {
+          mode: mermaidRenderMode,
+          provider: 'kroki',
+        });
+      } else if (savedMermaidPreference) {
+        removeFeishuMermaidPreferenceByPath(settings, activeFile.path);
+      }
       
       const result = await syncNoteToFeishu({
         app: view.app,
@@ -265,6 +369,8 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
           updateFeishuNotice(progressNotice, message);
         },
         requestUrl: obsidian.requestUrl,
+        mermaidRenderMode: currentMermaidCount > 0 ? mermaidRenderMode : 'source',
+        mermaidRenderProvider: 'kroki',
       });
 
       // Save settings

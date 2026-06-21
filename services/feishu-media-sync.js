@@ -307,6 +307,14 @@ function addImageDetail(summary, filename, status, reason) {
  * @returns {Promise<Uint8Array>}
  */
 async function readAssetBytes(app, asset) {
+  const vaultRelativePath = asset?.source?.vaultRelativePath || '';
+  const file = vaultRelativePath && app?.vault?.getAbstractFileByPath
+    ? app.vault.getAbstractFileByPath(vaultRelativePath)
+    : null;
+  if (file) {
+    return toUint8Array(await app.vault.readBinary(file));
+  }
+
   if (asset?.base64) {
     const binary = globalThis.atob(String(asset.base64 || ''));
     const bytes = new Uint8Array(binary.length);
@@ -316,14 +324,7 @@ async function readAssetBytes(app, asset) {
     return bytes;
   }
 
-  const vaultRelativePath = asset?.source?.vaultRelativePath || '';
-  const file = vaultRelativePath && app?.vault?.getAbstractFileByPath
-    ? app.vault.getAbstractFileByPath(vaultRelativePath)
-    : null;
-  if (!file) {
-    throw new Error(`找不到本地图片文件: ${vaultRelativePath || asset.filename}`);
-  }
-  return toUint8Array(await app.vault.readBinary(file));
+  throw new Error(`找不到本地图片文件: ${vaultRelativePath || asset.filename}`);
 }
 
 /**

@@ -158,6 +158,7 @@ async function prepareMermaidDiagramsForFeishu(markdown, options = {}) {
         ? options.localImageSrcFactory(asset)
         : `asset://${asset.id}`;
       asset.source.placeholderSrc = placeholder;
+      asset.source.originalSrc = placeholder;
       assets.push(asset);
       replacements.push({
         start: fence.start,

@@ -16,6 +16,9 @@ let syncNoteToFeishu;
 let createDefaultFeishuSyncSettings;
 let parseFeishuDocUrlOrToken;
 let rebindFeishuHistoryByPath;
+let getFeishuMermaidPreferenceByPath;
+let setFeishuMermaidPreferenceByPath;
+let removeFeishuMermaidPreferenceByPath;
 let getFeishuDirectChildBlocks;
 let summarizeFeishuBlockChunk;
 let buildFeishuCreatePayloadBlocks;
@@ -62,6 +65,9 @@ beforeAll(async () => {
   createDefaultFeishuSyncSettings = settingsMod.createDefaultFeishuSyncSettings;
   parseFeishuDocUrlOrToken = settingsMod.parseFeishuDocUrlOrToken;
   rebindFeishuHistoryByPath = settingsMod.rebindFeishuHistoryByPath;
+  getFeishuMermaidPreferenceByPath = settingsMod.getFeishuMermaidPreferenceByPath;
+  setFeishuMermaidPreferenceByPath = settingsMod.setFeishuMermaidPreferenceByPath;
+  removeFeishuMermaidPreferenceByPath = settingsMod.removeFeishuMermaidPreferenceByPath;
   getFeishuDirectChildBlocks = syncMod.getFeishuDirectChildBlocks;
   summarizeFeishuBlockChunk = syncMod.summarizeFeishuBlockChunk;
   buildFeishuCreatePayloadBlocks = syncMod.buildFeishuCreatePayloadBlocks;
@@ -177,6 +183,48 @@ describe('Feishu settings helpers', () => {
     expect(settings.uploadHistory[0].docToken).toBe('FZJjdrUPIoMPUpxpOTVcOpdInIa');
     expect(settings.uploadHistory.some((item) => item.docToken === 'old_doc_token')).toBe(false);
     expect(settings.uploadHistory.some((item) => item.docToken === 'other_doc_token')).toBe(true);
+  });
+
+  it('should store Mermaid render preferences per note path', () => {
+    const settings = createDefaultFeishuSyncSettings();
+
+    expect(getFeishuMermaidPreferenceByPath(settings, 'notes/a.md')).toBeNull();
+
+    const saved = setFeishuMermaidPreferenceByPath(settings, 'notes/a.md', {
+      mode: 'remote-image',
+      provider: 'kroki',
+      updatedAt: 123,
+    });
+
+    expect(saved).toEqual({
+      mode: 'remote-image',
+      provider: 'kroki',
+      updatedAt: 123,
+    });
+    expect(getFeishuMermaidPreferenceByPath(settings, 'notes/a.md')).toEqual(saved);
+    expect(getFeishuMermaidPreferenceByPath(settings, 'notes/b.md')).toBeNull();
+  });
+
+  it('should remove Mermaid render preferences per note path', () => {
+    const settings = createDefaultFeishuSyncSettings();
+    setFeishuMermaidPreferenceByPath(settings, 'notes/a.md', {
+      mode: 'remote-image',
+      provider: 'kroki',
+      updatedAt: 123,
+    });
+    setFeishuMermaidPreferenceByPath(settings, 'notes/b.md', {
+      mode: 'remote-image',
+      provider: 'kroki',
+      updatedAt: 456,
+    });
+
+    expect(removeFeishuMermaidPreferenceByPath(settings, 'notes/a.md')).toBe(true);
+    expect(getFeishuMermaidPreferenceByPath(settings, 'notes/a.md')).toBeNull();
+    expect(getFeishuMermaidPreferenceByPath(settings, 'notes/b.md')).toMatchObject({
+      mode: 'remote-image',
+      provider: 'kroki',
+    });
+    expect(removeFeishuMermaidPreferenceByPath(settings, 'notes/a.md')).toBe(false);
   });
 });
 
@@ -566,8 +614,11 @@ describe('Feishu Sync Coordinator', () => {
     expect(result.assets[0]).toMatchObject({
       filename: 'local.png',
       mimeType: 'image/png',
-      base64: 'iVBORw0KGgoAAAAAAAAAAAAAAGQAAAAy',
+      source: {
+        vaultRelativePath: 'notes/attachments/local.png',
+      },
     });
+    expect(result.assets[0].base64).toBeUndefined();
     expect(result.markdown).toContain('![Local](https://obsidian-wechat-converter.invalid/feishu-local-image/image-1.png)');
     expect(result.markdown).toContain('![Remote](https://cdn.example.com/a.png)');
   });
@@ -593,8 +644,11 @@ describe('Feishu Sync Coordinator', () => {
     expect(result.warnings).toEqual([]);
     expect(result.assets[0]).toMatchObject({
       filename: '音乐卡点调整.png',
-      base64: 'iVBORw0KGgoAAAAAAAAAAAAAAGQAAAAy',
+      source: {
+        vaultRelativePath: 'notes/attachments/音乐卡点调整.png',
+      },
     });
+    expect(result.assets[0].base64).toBeUndefined();
     expect(result.markdown).toBe('![音乐](https://obsidian-wechat-converter.invalid/feishu-local-image/image-1.png)');
   });
 
@@ -621,7 +675,11 @@ describe('Feishu Sync Coordinator', () => {
     expect(result.assets[0]).toMatchObject({
       filename: 'demo.gif',
       mimeType: 'image/gif',
+      source: {
+        vaultRelativePath: 'notes/attachments/demo.gif',
+      },
     });
+    expect(result.assets[0].base64).toBeUndefined();
     expect(result.markdown).toBe('![Gif](https://obsidian-wechat-converter.invalid/feishu-local-image/image-1.gif)');
     expect(app.vault.readBinary).toHaveBeenCalledTimes(1);
   });
@@ -741,6 +799,105 @@ describe('Feishu Sync Coordinator', () => {
     expect(rasterizeSvg).not.toHaveBeenCalled();
     expect(bodyText).toContain('```mermaid');
     expect(bodyText).toContain('graph TD');
+  });
+
+  it('should render Mermaid as Feishu image assets only when remote-image mode is selected', async () => {
+    const renderMermaidFenceToDataUrl = vi.fn(async () => 'data:image/png;base64,bWVybWFpZA==');
+
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks')) {
+        if (options.method === 'POST') {
+          return { status: 200, json: { code: 0, data: { ticket: 'ticket_123' } } };
+        }
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'doc_token_456', url: 'https://feishu.cn/docx/doc_token_456' } } } };
+      }
+      if (url.includes('blocks?page_size')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [{ block_id: 'image_block_1', parent_id: 'doc_token_456', block_type: 27 }],
+            },
+          },
+        };
+      }
+      if (url.includes('medias/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'mermaid_image_token' } } };
+      }
+      if (url.includes('/blocks/image_block_1')) {
+        return { status: 200, json: { code: 0, data: {} } };
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# Diagram\n```mermaid\ngraph TD\nA-->B\n```',
+      mermaidRenderMode: 'remote-image',
+      renderMermaidFenceToDataUrl,
+    });
+
+    expect(renderMermaidFenceToDataUrl).toHaveBeenCalledTimes(1);
+    expect(result.imageSummary).toMatchObject({
+      uploaded: 1,
+      skipped: 0,
+      failed: 0,
+    });
+
+    const calls = obsidianMock.requestUrl.mock.calls.map((call) => call[0]);
+    const markdownUpload = calls.find((request) => request.url.includes('files/upload_all'));
+    const markdownBody = new TextDecoder().decode(new Uint8Array(markdownUpload.body));
+    expect(markdownBody).toContain('![Mermaid diagram 1](https://obsidian-wechat-converter.invalid/feishu-local-image/feishu-mermaid-1.png)');
+    expect(markdownBody).not.toContain('```mermaid');
+
+    const imageUpload = calls.find((request) => request.url.includes('medias/upload_all'));
+    expect(imageUpload).toBeTruthy();
+    const imageUploadBody = new TextDecoder().decode(new Uint8Array(imageUpload.body));
+    expect(imageUploadBody).toContain('filename="mermaid-diagram-1.png"');
+    expect(imageUploadBody).toContain('Content-Type: image/png');
+  });
+
+  it('should keep Mermaid source and continue sync when remote rendering fails', async () => {
+    const renderMermaidFenceToDataUrl = vi.fn(async () => {
+      throw new Error('remote renderer unavailable');
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# Diagram\n```mermaid\ngraph TD\nA-->B\n```',
+      mermaidRenderMode: 'remote-image',
+      renderMermaidFenceToDataUrl,
+    });
+
+    expect(result.docToken).toBe('doc_token_456');
+    expect(result.imageSummary.skipped).toBe(1);
+    expect(result.imageSummary.details[0]).toMatchObject({
+      filename: 'mermaid-diagram-1.png',
+      status: 'skipped',
+      reason: 'feishu_mermaid_render_failed',
+    });
+
+    const uploadCall = obsidianMock.requestUrl.mock.calls.find((call) => (
+      call[0].url.includes('files/upload_all') && call[0].method === 'POST'
+    ));
+    const bodyText = new TextDecoder().decode(new Uint8Array(uploadCall[0].body));
+    expect(bodyText).toContain('```mermaid');
+    expect(bodyText).toContain('graph TD');
+
+    warnSpy.mockRestore();
   });
 
   it('should use the Obsidian file basename as the default Feishu document title', async () => {
@@ -1997,6 +2154,70 @@ describe('Feishu Sync Coordinator', () => {
     expect(calls.some((request) => request.url.includes('medias/upload_all'))).toBe(true);
     expect(errorSpy).not.toHaveBeenCalled();
     errorSpy.mockRestore();
+  });
+
+  it('should prefer vault bytes over asset base64 when uploading local GIFs', async () => {
+    const gifFile = {
+      path: 'notes/attachments/demo.gif',
+      name: 'demo.gif',
+      extension: 'gif',
+      bytes: makeGifBytes(320, 180),
+    };
+    app.metadataCache.getFirstLinkpathDest.mockReturnValue(gifFile);
+    app.vault.getAbstractFileByPath = vi.fn(() => gifFile);
+    app.vault.getResourcePath = vi.fn(() => 'app://local/demo.gif');
+    app.vault.readBinary.mockImplementation(async (file) => file.bytes);
+
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks')) {
+        if (options.method === 'POST') {
+          return { status: 200, json: { code: 0, data: { ticket: 'ticket_123' } } };
+        }
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'doc_token_456', url: 'https://feishu.cn/docx/doc_token_456' } } } };
+      }
+      if (url.includes('blocks?page_size')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [{ block_id: 'image_block_1', parent_id: 'doc_token_456', block_type: 27 }],
+            },
+          },
+        };
+      }
+      if (url.includes('medias/upload_all')) {
+        const bodyText = new TextDecoder().decode(new Uint8Array(options.body));
+        expect(bodyText).toContain('filename="demo.gif"');
+        expect(bodyText).not.toContain('not-a-real-gif');
+        return { status: 200, json: { code: 0, data: { file_token: 'image_token_1' } } };
+      }
+      if (url.includes('/blocks/image_block_1')) {
+        return { status: 200, json: { code: 0, data: {} } };
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# Test Note\n![Gif](attachments/demo.gif)',
+      renderMermaidFenceToDataUrl: async () => 'data:image/png;base64,bm90LWEtcmVhbC1naWY=',
+    });
+
+    expect(result.imageSummary).toMatchObject({
+      uploaded: 1,
+      failed: 0,
+    });
+    expect(app.vault.readBinary).toHaveBeenCalledTimes(2);
   });
 
   it('should fall back to creating a new document when smart update deletion fails', async () => {

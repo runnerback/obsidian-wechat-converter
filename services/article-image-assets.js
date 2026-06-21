@@ -671,6 +671,7 @@ function isLocalLikeSrc(src) {
  *   originalSrc?: string,
  *   existingByKey: Map<string, ImageAsset>,
  *   limits: { maxImageSizeBytes: number, maxTotalImageSizeBytes: number, unsupportedExtensions?: Set<string> },
+ *   embedAssetBase64?: boolean,
  * }} params
  * @returns {Promise<{ asset?: ImageAsset, warning?: ImageWarning, reused?: boolean }>}
  */
@@ -682,6 +683,7 @@ async function resolveLocalImageAsset({
   originalSrc = src,
   existingByKey,
   limits,
+  embedAssetBase64 = true,
 }) {
   /** @type {VaultFileLike | null} */
   let file = null;
@@ -772,7 +774,6 @@ async function resolveLocalImageAsset({
     filename,
     mimeType,
     size,
-    base64: buffer.toString('base64'),
     source: {
       kind: 'obsidian-local',
       originalSrc,
@@ -780,6 +781,9 @@ async function resolveLocalImageAsset({
       vaultRelativePath,
     },
   });
+  if (embedAssetBase64 !== false) {
+    asset.base64 = buffer.toString('base64');
+  }
   if (resourceSrc) asset.source.resourceSrc = resourceSrc;
 
   existingByKey.set(cacheKey, asset);
@@ -949,7 +953,7 @@ function formatArticleImageWarnings(warnings = []) {
 /**
  * @param {unknown} markdown
  * @param {unknown} noteFile
- * @param {{ app?: unknown, maxImageSizeBytes?: number, maxTotalImageSizeBytes?: number, unsupportedImageExtensions?: string[], cover?: string, localImageSrcFactory?: (asset: ImageAsset) => string }} options
+ * @param {{ app?: unknown, maxImageSizeBytes?: number, maxTotalImageSizeBytes?: number, unsupportedImageExtensions?: string[], cover?: string, localImageSrcFactory?: (asset: ImageAsset) => string, embedAssetBase64?: boolean }} options
  * @returns {Promise<{ markdown: string, assets: ImageAsset[], warnings: ImageWarning[], cover: string, firstImageSrc: string, references: ResolvedImageReference[] }>}
  */
 async function resolveArticleImages(markdown, noteFile, options = {}) {
@@ -997,6 +1001,7 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
       originalSrc: original,
       existingByKey,
       limits,
+      embedAssetBase64: options.embedAssetBase64 !== false,
     });
     if (result.warning) return { src: trimmed, warning: result.warning };
     if (result.asset && !result.reused) assets.push(result.asset);
