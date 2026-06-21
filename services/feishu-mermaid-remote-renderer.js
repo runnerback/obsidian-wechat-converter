@@ -1,4 +1,4 @@
-import { getActiveWindow, getActiveWindowValue } from './dom-utils.js';
+import { getActiveWindowValue } from './dom-utils.js';
 
 /**
  * @typedef {(options: Record<string, unknown>) => Promise<unknown> | unknown} RequestUrlLike
@@ -43,15 +43,6 @@ function getBufferConstructor() {
 }
 
 /**
- * @returns {(value: string) => string}
- */
-function getBase64Encoder() {
-  const activeWindow = getActiveWindow() || window;
-  const encode = activeWindow.btoa;
-  return (value) => encode.call(activeWindow, value);
-}
-
-/**
  * @param {Uint8Array} bytes
  * @returns {string}
  */
@@ -66,7 +57,7 @@ function bytesToBase64(bytes) {
     const chunk = bytes.subarray(offset, offset + chunkSize);
     binary += String.fromCharCode(...chunk);
   }
-  return getBase64Encoder()(binary);
+  return window.btoa(binary);
 }
 
 /**
