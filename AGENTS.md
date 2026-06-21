@@ -89,6 +89,7 @@ This file provides guidance to Codex when working with code in this repository.
 - `input.js` is the source of truth for the plugin entry; rebuild after changing it.
 - `main.js` and `services/generated-embedded-deps.js` are generated artifacts and should stay in sync with source edits.
 - If you touch runtime code that is embedded or eval-loaded, always consider whether `npm run generate:embedded` is required before testing.
+- Do not run file-writing build/generate/release commands in parallel with `git status`, `git diff`, or staging. Wait for the writer to finish, then inspect the final tree; otherwise generated artifacts such as `main.js` can appear as transient mid-build changes.
 
 ### 2. WeChat Compatibility
 - WeChat strips `<style>` tags and most class-based styling. Rendered article output must remain robust with inline styles and self-contained markup.
@@ -112,6 +113,7 @@ This file provides guidance to Codex when working with code in this repository.
 - Before merging feature work that could affect Obsidian review results, run `npm run review:guard`.
 - CI/CD must use the same `npm run review:guard` gatekeeper so local, PR, and release checks stay aligned.
 - Avoid introducing new scan-triggering APIs: prefer DOM helpers over `innerHTML`, `setCssStyles(...)` over static `element.style.*`, Obsidian `Modal` over `confirm()`, and local parsing over `fetch(data:)`.
+- Avoid production `globalThis`; use `window` or `services/dom-utils.js` active-window helpers. Timers should use `window.setTimeout()` / `window.clearTimeout()`, and dynamic browser APIs should not be returned as `.call()` / `.bind()` wrappers.
 - Avoid adding stylesheet `!important`; prefer stronger selectors, CSS variables, or narrow rendered-output compatibility styles covered by tests.
 - If a scan-sensitive API is intentionally required for compatibility, keep the usage narrow, document the reason inline, and add regression tests around the behavior.
 - During feature development, use `npm run scan:guard` for quick feedback before running the full `npm run review:guard`.

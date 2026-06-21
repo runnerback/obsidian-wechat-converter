@@ -28,6 +28,8 @@ npm test -- --run
 npm run build
 ```
 
+Do not run file-writing commands such as `npm run build`, `npm run generate:*`, `npm run check:build-artifacts`, `npm run review:guard`, or `npm run release:pack` in parallel with `git status`, `git diff`, or staging commands. Let the writer finish first, then inspect the final working tree. Otherwise Git may report a transient generated-artifact state while the build is still writing files.
+
 ## High-Risk API Checklist
 
 Review every new usage of these APIs before committing:
@@ -38,6 +40,9 @@ Review every new usage of these APIs before committing:
 - `confirm()`, `alert()`, `prompt()`: use an Obsidian `Modal` or `Notice` instead.
 - Clipboard fallback: do not remove the rich HTML `execCommand('copy')` fallback without manual regression coverage in Obsidian/Electron and mobile-like environments.
 - `fetch(data:)`: parse `data:` URLs locally instead of fetching them.
+- `globalThis`: avoid it in production plugin code. Prefer `window` or the helpers in `services/dom-utils.js` so popout windows stay compatible.
+- Timer helpers: use `window.setTimeout()` and `window.clearTimeout()` for timers instead of `activeWindow.setTimeout()` / `activeWindow.clearTimeout()`.
+- Dynamic window APIs: avoid returning functions produced from dynamic `.call()` / `.bind()` access. Wrap the call in a named helper or call the safe API directly so TypeScript-style review scans do not classify the return as unsafe.
 - File deletion or cleanup: validate vault-relative paths, block config/system directories, and add tests for unsafe paths.
 
 ## Browser Extension Bridge Safety
