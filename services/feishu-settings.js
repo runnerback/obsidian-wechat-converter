@@ -36,6 +36,59 @@ function toStringWithFallback(value, fallback = '') {
   return typeof value === 'string' ? value : fallback;
 }
 
+/**
+ * @param {string} token
+ * @returns {boolean}
+ */
+function isSafeFeishuDocToken(token) {
+  return /^[A-Za-z0-9_-]{8,}$/.test(String(token || '').trim());
+}
+
+/**
+ * @param {URL} parsedUrl
+ * @returns {boolean}
+ */
+function isFeishuDocHost(parsedUrl) {
+  const hostname = parsedUrl.hostname.toLowerCase();
+  return hostname === 'feishu.cn'
+    || hostname.endsWith('.feishu.cn')
+    || hostname === 'larksuite.com'
+    || hostname.endsWith('.larksuite.com');
+}
+
+/**
+ * Extracts a Feishu docx token from a pasted URL or a plain token.
+ * @param {unknown} value
+ * @returns {{ docToken: string, url: string } | null}
+ */
+function parseFeishuDocUrlOrToken(value) {
+  const input = toTrimmedString(value);
+  if (!input) return null;
+
+  const urlMatch = input.match(/\/docx\/([A-Za-z0-9_-]+)/);
+  const plainToken = isSafeFeishuDocToken(input) ? input : '';
+  const docToken = urlMatch ? urlMatch[1] : plainToken;
+  if (!isSafeFeishuDocToken(docToken)) return null;
+
+  if (urlMatch) {
+    try {
+      const parsedUrl = new URL(input);
+      if (!isFeishuDocHost(parsedUrl)) return null;
+      return {
+        docToken,
+        url: `${parsedUrl.origin}/docx/${docToken}`,
+      };
+    } catch (err) {
+      return null;
+    }
+  }
+
+  return {
+    docToken,
+    url: `https://open.feishu.cn/docx/${docToken}`,
+  };
+}
+
 function createDefaultFeishuSyncSettings() {
   return {
     enabled: false,
@@ -122,6 +175,32 @@ function addFeishuUploadHistory(settings, item) {
 }
 
 /**
+ * Rebinds one Obsidian note path to a specific Feishu docx URL/token.
+ * @param {unknown} settings
+ * @param {unknown} sourcePath
+ * @param {unknown} value URL, plain token, or object containing url/docToken/title
+ * @returns {FeishuUploadHistoryItemLike | null}
+ */
+function rebindFeishuHistoryByPath(settings, sourcePath, value) {
+  const source = toRecord(value);
+  const targetPath = toTrimmedString(sourcePath);
+  if (!targetPath) return null;
+
+  const parsed = parseFeishuDocUrlOrToken(source.url || source.docToken || value);
+  if (!parsed) return null;
+
+  const historyItem = {
+    title: toStringWithFallback(source.title, '无标题文章'),
+    url: parsed.url,
+    uploadTime: toStringWithFallback(source.uploadTime, new Date().toISOString()),
+    docToken: parsed.docToken,
+    sourcePath: targetPath,
+  };
+  addFeishuUploadHistory(settings, historyItem);
+  return historyItem;
+}
+
+/**
  * @param {unknown} settings
  * @param {unknown} path
  * @returns {FeishuUploadHistoryItemLike | null}
@@ -132,6 +211,25 @@ function findFeishuHistoryByPath(settings, path) {
   const targetPath = String(path || '').trim();
   if (!targetPath) return null;
   return /** @type {FeishuUploadHistoryItemLike[]} */ (source.uploadHistory).find((x) => x.sourcePath === targetPath) || null;
+}
+
+/**
+ * @param {unknown} settings
+ * @param {unknown} path
+ * @returns {boolean}
+ */
+function removeFeishuHistoryByPath(settings, path) {
+  const source = toRecord(settings);
+  if (!Array.isArray(source.uploadHistory)) return false;
+  const targetPath = String(path || '').trim();
+  if (!targetPath) return false;
+
+  const history = /** @type {FeishuUploadHistoryItemLike[]} */ (source.uploadHistory);
+  const nextHistory = history.filter((item) => item.sourcePath !== targetPath);
+  if (nextHistory.length === history.length) return false;
+
+  source.uploadHistory = nextHistory;
+  return true;
 }
 
 /**
@@ -160,7 +258,10 @@ function updateFeishuHistoryPath(settings, oldPath, newPath) {
 export {
   createDefaultFeishuSyncSettings,
   normalizeFeishuSyncSettings,
+  parseFeishuDocUrlOrToken,
   addFeishuUploadHistory,
+  rebindFeishuHistoryByPath,
   findFeishuHistoryByPath,
+  removeFeishuHistoryByPath,
   updateFeishuHistoryPath,
 };

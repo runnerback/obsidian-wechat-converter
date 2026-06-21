@@ -7,7 +7,11 @@
 
 import { getActiveWindowValue } from '../../services/dom-utils.js';
 import { syncNoteToFeishu } from '../../services/feishu-sync.js';
-import { findFeishuHistoryByPath } from '../../services/feishu-settings.js';
+import {
+  findFeishuHistoryByPath,
+  parseFeishuDocUrlOrToken,
+  rebindFeishuHistoryByPath,
+} from '../../services/feishu-settings.js';
 
 /**
  * @param {unknown} Notice
@@ -44,7 +48,7 @@ function hideFeishuNotice(notice) {
 function formatFeishuImageWarning(imageSummary) {
   const count = Number(imageSummary?.skipped || 0) + Number(imageSummary?.failed || 0);
   if (!count) return '';
-  return `有 ${count} 张本地图片未处理。本地 GIF 或异常图片已跳过；远程图片会交由飞书导入。`;
+  return `有 ${count} 张图片未完成同步处理，通常是异常文件或后处理失败；远程图片仍会交由飞书导入。`;
 }
 
 /**
@@ -106,9 +110,10 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
     view.showMultiPlatformSyncModal({ modal });
   };
 
+  const shell = containerEl.createDiv({ cls: 'wechat-feishu-publish-shell' });
+
   // 2. Tab Content wrapper
-  const contentWrapper = containerEl.createDiv({ cls: 'wechat-feishu-publish-content' });
-  contentWrapper.setCssStyles({ padding: '16px 0' });
+  const contentWrapper = shell.createDiv({ cls: 'wechat-feishu-publish-content' });
 
   // 3. Check if Feishu sync is enabled and configured
   if (!settings || !settings.enabled || !settings.appId || !settings.appSecret || !settings.folderToken) {
@@ -135,11 +140,20 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
   const historyItem = findFeishuHistoryByPath(settings, activeFile.path);
   const isUpdate = !!(historyItem && historyItem.docToken);
 
-  contentWrapper.createEl('h3', { text: '发布设置', cls: 'wechat-feishu-section-title' });
+  const introCard = contentWrapper.createDiv({ cls: 'wechat-feishu-intro-card' });
+  introCard.createEl('div', { text: isUpdate ? '覆盖更新模式' : '首次同步模式', cls: 'wechat-feishu-intro-kicker' });
+  introCard.createEl('p', {
+    text: isUpdate
+      ? '本次会尽量保持原文档链接不变，先清空旧正文，再写入最新内容。'
+      : '本次会优先在目标文件夹里查找同名文档，命中则自动恢复绑定，未命中则新建。',
+  });
+
+  const settingsSection = contentWrapper.createDiv({ cls: 'wechat-modal-section wechat-feishu-section' });
+  settingsSection.createEl('h3', { text: '发布设置', cls: 'wechat-feishu-section-title' });
 
   // 5. Title setting
   let docTitle = activeFile.basename;
-  const titleSetting = new Setting(contentWrapper)
+  const titleSetting = new Setting(settingsSection)
     .setName('文档标题')
     .setDesc('发布至飞书时的文档标题。默认使用笔记文件名，支持自定义。')
     .addText((text) => text
@@ -151,19 +165,13 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
     );
 
   // 6. Sync info / Target Info
-  new Setting(contentWrapper)
+  new Setting(settingsSection)
     .setName('同步目标文件夹')
     .setDesc(`Token: ${settings.folderToken.substring(0, 10)}... (将在此文件夹下创建 or 覆盖文档)`);
 
-  const statusCard = contentWrapper.createDiv({ cls: 'wechat-feishu-status-card' });
-  statusCard.setCssStyles({
-    margin: '12px 0',
-    padding: '12px 14px',
-    border: '1px solid var(--background-modifier-border)',
-    borderRadius: '6px',
-    background: 'var(--background-primary)',
-    fontSize: '13px',
-  });
+  const statusSection = contentWrapper.createDiv({ cls: 'wechat-modal-section wechat-feishu-section' });
+  statusSection.createEl('h3', { text: '同步状态', cls: 'wechat-feishu-section-title' });
+  const statusCard = statusSection.createDiv({ cls: 'wechat-feishu-status-card' });
 
   if (isUpdate) {
     statusCard.createEl('p', {
@@ -177,12 +185,56 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
     });
   }
 
+  const rebindCard = statusSection.createDiv({ cls: 'wechat-feishu-rebind-card' });
+  rebindCard.createEl('div', { text: '文档绑定', cls: 'wechat-feishu-rebind-title' });
+  rebindCard.createEl('p', {
+    text: '如果飞书端文档被移动、重建，或本地缓存还指向旧 token，可以粘贴新的飞书 docx 链接来重新绑定当前笔记。',
+    cls: 'wechat-feishu-rebind-desc',
+  });
+  const rebindControls = rebindCard.createDiv({ cls: 'wechat-feishu-rebind-controls' });
+  const rebindInput = rebindControls.createEl('input', {
+    type: 'text',
+    placeholder: '粘贴飞书文档 URL 或 docx token',
+    cls: 'wechat-feishu-rebind-input',
+  });
+  if (historyItem?.url) {
+    rebindInput.value = historyItem.url;
+  }
+  const rebindBtn = rebindControls.createEl('button', { text: isUpdate ? '更新绑定' : '绑定已有文档' });
+  const rebindHint = rebindCard.createEl('p', { text: '', cls: 'wechat-feishu-rebind-hint' });
+  rebindBtn.onclick = async () => {
+    const parsed = parseFeishuDocUrlOrToken(rebindInput.value);
+    if (!parsed) {
+      rebindHint.setText('请输入有效的飞书 docx 链接或 token。');
+      rebindHint.addClass('is-error');
+      showFeishuNotice(Notice, '❌ 飞书文档链接无效');
+      return;
+    }
+
+    const rebound = rebindFeishuHistoryByPath(settings, activeFile.path, {
+      title: docTitle || activeFile.basename,
+      url: parsed.url,
+      docToken: parsed.docToken,
+      uploadTime: new Date().toISOString(),
+    });
+    if (!rebound) {
+      rebindHint.setText('绑定失败，请确认当前笔记路径和飞书链接。');
+      rebindHint.addClass('is-error');
+      showFeishuNotice(Notice, '❌ 绑定失败');
+      return;
+    }
+
+    await plugin.saveSettings();
+    showFeishuNotice(Notice, '✅ 已重新绑定当前笔记的飞书文档');
+    renderFeishuPublishTab(view, modal, containerEl, options);
+  };
+
   // 7. Result Card (summary + actions)
   const resultCard = contentWrapper.createDiv({ cls: 'wechat-feishu-result-card' });
   resultCard.addClass('is-hidden');
 
   // 8. Sync Buttons row
-  const buttonRow = contentWrapper.createDiv({ cls: 'wechat-modal-buttons' });
+  const buttonRow = shell.createDiv({ cls: 'wechat-modal-buttons' });
   const cancelBtn = buttonRow.createEl('button', { text: '取消' });
   cancelBtn.onclick = () => modal.close();
 

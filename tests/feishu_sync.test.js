@@ -13,6 +13,11 @@ let extractImagesFromMarkdown;
 let prepareLocalImagesForFeishu;
 let syncNoteToFeishu;
 let createDefaultFeishuSyncSettings;
+let parseFeishuDocUrlOrToken;
+let rebindFeishuHistoryByPath;
+let getFeishuDirectChildBlocks;
+let summarizeFeishuBlockChunk;
+let buildFeishuCreatePayloadBlocks;
 
 function makePngBytes(width = 100, height = 50) {
   const bytes = new Uint8Array(24);
@@ -51,6 +56,11 @@ beforeAll(async () => {
 
   const settingsMod = await import('../services/feishu-settings.js');
   createDefaultFeishuSyncSettings = settingsMod.createDefaultFeishuSyncSettings;
+  parseFeishuDocUrlOrToken = settingsMod.parseFeishuDocUrlOrToken;
+  rebindFeishuHistoryByPath = settingsMod.rebindFeishuHistoryByPath;
+  getFeishuDirectChildBlocks = syncMod.getFeishuDirectChildBlocks;
+  summarizeFeishuBlockChunk = syncMod.summarizeFeishuBlockChunk;
+  buildFeishuCreatePayloadBlocks = syncMod.buildFeishuCreatePayloadBlocks;
 });
 
 describe('Feishu Markdown Processor', () => {
@@ -115,6 +125,186 @@ describe('Feishu Markdown Processor', () => {
       fileName: 'image-1',
       isRemote: false,
     });
+  });
+});
+
+describe('Feishu settings helpers', () => {
+  it('should parse Feishu docx URLs and plain tokens', () => {
+    expect(parseFeishuDocUrlOrToken('https://o7y2a6yi3x.feishu.cn/docx/FZJjdrUPIoMPUpxpOTVcOpdInIa?from=copy')).toEqual({
+      docToken: 'FZJjdrUPIoMPUpxpOTVcOpdInIa',
+      url: 'https://o7y2a6yi3x.feishu.cn/docx/FZJjdrUPIoMPUpxpOTVcOpdInIa',
+    });
+    expect(parseFeishuDocUrlOrToken('FZJjdrUPIoMPUpxpOTVcOpdInIa')).toEqual({
+      docToken: 'FZJjdrUPIoMPUpxpOTVcOpdInIa',
+      url: 'https://open.feishu.cn/docx/FZJjdrUPIoMPUpxpOTVcOpdInIa',
+    });
+    expect(parseFeishuDocUrlOrToken('https://example.com/wiki/not-docx')).toBeNull();
+    expect(parseFeishuDocUrlOrToken('https://example.com/docx/FZJjdrUPIoMPUpxpOTVcOpdInIa')).toBeNull();
+  });
+
+  it('should rebind one Obsidian source path and replace stale history', () => {
+    const settings = createDefaultFeishuSyncSettings();
+    settings.uploadHistory = [{
+      title: 'Old Title',
+      url: 'https://feishu.cn/docx/old_doc_token',
+      docToken: 'old_doc_token',
+      sourcePath: 'notes/test-note.md',
+      uploadTime: '2026-06-19T00:00:00Z',
+    }, {
+      title: 'Other Note',
+      url: 'https://feishu.cn/docx/other_doc_token',
+      docToken: 'other_doc_token',
+      sourcePath: 'notes/other-note.md',
+      uploadTime: '2026-06-19T00:00:00Z',
+    }];
+
+    const rebound = rebindFeishuHistoryByPath(settings, 'notes/test-note.md', {
+      title: 'New Title',
+      url: 'https://o7y2a6yi3x.feishu.cn/docx/FZJjdrUPIoMPUpxpOTVcOpdInIa',
+      uploadTime: '2026-06-20T10:00:00Z',
+    });
+
+    expect(rebound).toMatchObject({
+      title: 'New Title',
+      docToken: 'FZJjdrUPIoMPUpxpOTVcOpdInIa',
+      sourcePath: 'notes/test-note.md',
+    });
+    expect(settings.uploadHistory).toHaveLength(2);
+    expect(settings.uploadHistory[0].docToken).toBe('FZJjdrUPIoMPUpxpOTVcOpdInIa');
+    expect(settings.uploadHistory.some((item) => item.docToken === 'old_doc_token')).toBe(false);
+    expect(settings.uploadHistory.some((item) => item.docToken === 'other_doc_token')).toBe(true);
+  });
+});
+
+describe('Feishu smart update block helpers', () => {
+  it('should only count direct children of the document root block', () => {
+    const children = getFeishuDirectChildBlocks([
+      { block_id: 'doc-token', parent_id: '', block_type: 1 },
+      { block_id: 'child-1', parent_id: 'doc-token', block_type: 2 },
+      { block_id: 'child-2', parent_id: 'doc-token', block_type: 3 },
+      { block_id: 'grandchild-1', parent_id: 'child-1', block_type: 2 },
+    ], 'doc-token');
+
+    expect(children.map((block) => block.block_id)).toEqual(['child-1', 'child-2']);
+  });
+
+  it('should summarize failing block chunks for diagnostics', () => {
+    expect(summarizeFeishuBlockChunk([
+      { block_type: 2, text: {} },
+      { block_type: 2, text: {} },
+      { block_type: 31, table: {} },
+    ])).toBe('count=3; types=2:2, 31:1; first=type=2, keys=block_type|text');
+  });
+
+  it('should convert flattened convert-api blocks into clean create payload trees', () => {
+    const payload = buildFeishuCreatePayloadBlocks([
+      { block_id: 'doc-token', parent_id: '', block_type: 1 },
+      {
+        block_id: 'list-1',
+        parent_id: 'doc-token',
+        block_type: 12,
+        bullet: { style: 'unordered' },
+        children: [{ block_id: 'list-item-1' }],
+      },
+      {
+        block_id: 'list-item-1',
+        parent_id: 'list-1',
+        block_type: 2,
+        text: { elements: [{ text_run: { content: 'hello' } }] },
+      },
+      {
+        block_id: 'paragraph-1',
+        parent_id: 'doc-token',
+        block_type: 2,
+        text: { elements: [{ text_run: { content: 'world' } }] },
+        index: 3,
+      },
+    ], 'doc-token');
+
+    expect(payload).toEqual([
+      {
+        block_type: 12,
+        bullet: { style: 'unordered' },
+        children: [{
+          block_type: 2,
+          text: { elements: [{ text_run: { content: 'hello' } }] },
+        }],
+      },
+      {
+        block_type: 2,
+        text: { elements: [{ text_run: { content: 'world' } }] },
+      },
+    ]);
+  });
+
+  it('should build ordered create payload trees from document root children ids', () => {
+    const payload = buildFeishuCreatePayloadBlocks([
+      { block_id: 'doc-token', parent_id: '', block_type: 1, children: ['ordered-1', 'paragraph-1'] },
+      {
+        block_id: 'ordered-1',
+        parent_id: 'doc-token',
+        block_type: 13,
+        ordered: { elements: [{ text_run: { content: '第一步' } }], style: { align: 1 } },
+        children: ['bullet-1'],
+      },
+      {
+        block_id: 'bullet-1',
+        parent_id: 'ordered-1',
+        block_type: 12,
+        bullet: { elements: [{ text_run: { content: '子项' } }], style: { align: 1 } },
+      },
+      {
+        block_id: 'paragraph-1',
+        parent_id: 'doc-token',
+        block_type: 2,
+        text: { elements: [{ text_run: { content: '尾段' } }] },
+      },
+    ], 'doc-token');
+
+    expect(payload).toEqual([
+      {
+        block_type: 13,
+        ordered: { elements: [{ text_run: { content: '第一步' } }], style: { align: 1 } },
+        children: [
+          {
+            block_type: 12,
+            bullet: { elements: [{ text_run: { content: '子项' } }], style: { align: 1 } },
+          },
+        ],
+      },
+      {
+        block_type: 2,
+        text: { elements: [{ text_run: { content: '尾段' } }] },
+      },
+    ]);
+  });
+
+  it('should convert imported Feishu image tokens into create payload file tokens', () => {
+    const payload = buildFeishuCreatePayloadBlocks([
+      { block_id: 'doc-token', parent_id: '', block_type: 1, children: ['image-1'] },
+      {
+        block_id: 'image-1',
+        parent_id: 'doc-token',
+        block_type: 27,
+        image: {
+          token: 'imported-image-token',
+          width: 640,
+          height: 360,
+          scale: 1,
+        },
+      },
+    ], 'doc-token');
+
+    expect(payload).toEqual([
+      {
+        block_type: 27,
+        image: {
+          file_token: 'imported-image-token',
+          width: 640,
+          height: 360,
+        },
+      },
+    ]);
   });
 });
 
@@ -205,6 +395,24 @@ describe('Feishu Api Client', () => {
     await expect(client.batchDeleteBlocks('doc-token', 'doc-token', 0, 1)).rejects.toThrow(
       '批量删除飞书文档块 请求失败，HTTP 404：404 page not found'
     );
+  });
+
+  it('should delete one block by id through the parent children batch endpoint', async () => {
+    obsidianMock.requestUrl.mockResolvedValue({
+      status: 200,
+      json: { code: 0 },
+    });
+
+    const client = new FeishuApiClient('appid', 'appsecret', obsidianMock.requestUrl);
+    client.accessToken = 't-123';
+    client.tokenExpiry = Date.now() + 100000;
+
+    await client.deleteBlock('doc-token', 'child-block-1', 'doc-token');
+
+    const request = obsidianMock.requestUrl.mock.calls[0][0];
+    expect(request.method).toBe('DELETE');
+    expect(request.url).toContain('/docx/v1/documents/doc-token/blocks/doc-token/children/batch_delete');
+    expect(JSON.parse(request.body)).toEqual({ block_ids: ['child-block-1'] });
   });
 
   it('should upload markdown with the original .md filename in multipart payload', async () => {
@@ -456,7 +664,7 @@ describe('Feishu Sync Coordinator', () => {
     expect(JSON.parse(importTaskRequest.body).file_name).toBe('test-note');
   });
 
-  it('should perform smart update for previously synced note', async () => {
+  it('should perform smart update for previously synced note via temporary imported document order', async () => {
     settings.uploadHistory = [{
       title: 'test-note',
       url: 'https://feishu.cn/docx/doc_token_456',
@@ -471,25 +679,51 @@ describe('Feishu Sync Coordinator', () => {
         return { json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
       }
       if (url.includes('blocks?page_size')) {
-        // Return existing children blocks
+        if (url.includes('/documents/doc_token_456/blocks?page_size')) {
+          return {
+            json: {
+              code: 0,
+              data: {
+                items: [
+                  { block_id: 'doc_token_456', parent_id: '', block_type: 1, children: ['old_child_1'] },
+                  { block_id: 'old_child_1', parent_id: 'doc_token_456', block_type: 2, text: { elements: [{ text_run: { content: 'old' } }] } },
+                ]
+              }
+            }
+          };
+        }
         return {
           json: {
             code: 0,
             data: {
               items: [
-                { block_id: 'block_child_1', parent_id: 'doc_token_456', block_type: 1 }
+                { block_id: 'temp_doc_token', parent_id: '', block_type: 1, children: ['temp_heading', 'temp_paragraph'] },
+                { block_id: 'temp_heading', parent_id: 'temp_doc_token', block_type: 3, heading1: { elements: [{ text_run: { content: 'Updated title' } }] } },
+                { block_id: 'temp_paragraph', parent_id: 'temp_doc_token', block_type: 2, text: { elements: [{ text_run: { content: 'Updated content.' } }] } },
               ]
             }
           }
         };
       }
-      if (url.includes('children/batch_delete')) {
+      if (url.includes('/blocks/doc_token_456/children/batch_delete') && options.method === 'DELETE') {
         return { json: { code: 0 } };
       }
-      if (url.includes('blocks/convert')) {
-        return { json: { code: 0, data: { blocks: [{ block_type: 2, text: {} }] } } };
+      if (url.includes('import_tasks') && options.method === 'POST') {
+        return { json: { code: 0, data: { ticket: 'ticket_temp_update' } } };
+      }
+      if (url.includes('/import_tasks/ticket_temp_update')) {
+        return { json: { code: 0, data: { result: { job_status: 0, token: 'temp_doc_token', url: 'https://feishu.cn/docx/temp_doc_token' } } } };
+      }
+      if (url.includes('files/upload_all')) {
+        return { json: { code: 0, data: { file_token: 'temp_file_token' } } };
       }
       if (url.includes('children?document_revision_id')) {
+        return { json: { code: 0 } };
+      }
+      if (url.includes('/drive/v1/files/temp_doc_token?type=docx') && options.method === 'DELETE') {
+        return { json: { code: 0 } };
+      }
+      if (url.includes('/drive/v1/files/temp_file_token?type=file') && options.method === 'DELETE') {
         return { json: { code: 0 } };
       }
       return { json: { code: 0 } };
@@ -505,8 +739,484 @@ describe('Feishu Sync Coordinator', () => {
     expect(result.docToken).toBe('doc_token_456');
     expect(settings.uploadHistory.length).toBe(1);
     const calls = obsidianMock.requestUrl.mock.calls;
-    expect(calls.some(c => c[0].url.includes('batch_delete'))).toBe(true);
+    const deleteCall = calls.find(c => c[0].url.includes('/blocks/doc_token_456/children/batch_delete') && c[0].method === 'DELETE');
+    expect(deleteCall).toBeTruthy();
+    expect(JSON.parse(deleteCall[0].body)).toEqual({ start_index: 0, end_index: 1 });
+    const createCall = calls.find(c => c[0].url.includes('/documents/doc_token_456/blocks/doc_token_456/children?document_revision_id=-1'));
+    expect(JSON.parse(createCall[0].body)).toEqual({
+      index: 1,
+      children: [
+        { block_type: 3, heading1: { elements: [{ text_run: { content: 'Updated title' } }] } },
+        { block_type: 2, text: { elements: [{ text_run: { content: 'Updated content.' } }] } },
+      ],
+    });
     expect(calls.some(c => c[0].url.includes('children?document_revision_id'))).toBe(true);
+    expect(calls.some(c => c[0].url.includes('transfer_owner'))).toBe(false);
+    expect(calls.some(c => c[0].url.includes('/drive/v1/files/temp_doc_token?type=docx') && c[0].method === 'DELETE')).toBe(true);
+  });
+
+  it('should build create payload from imported document root children order', async () => {
+    settings.uploadHistory = [{
+      title: 'test-note',
+      url: 'https://feishu.cn/docx/doc_token_456',
+      docToken: 'doc_token_456',
+      sourcePath: 'notes/test-note.md',
+      uploadTime: '2026-06-19T00:00:00Z',
+    }];
+
+    let rootCreateCount = 0;
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('blocks?page_size')) {
+        if (url.includes('/documents/doc_token_456/blocks?page_size')) {
+          return {
+            status: 200,
+            json: {
+              code: 0,
+              data: {
+                items: [
+                  { block_id: 'doc_token_456', parent_id: '', block_type: 1, children: ['old_child_1'] },
+                  { block_id: 'old_child_1', parent_id: 'doc_token_456', block_type: 2 },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [
+                { block_id: 'temp_doc_token', parent_id: '', block_type: 1, children: ['bullet_1', 'paragraph_2'] },
+                {
+                  block_id: 'bullet_1',
+                  parent_id: 'temp_doc_token',
+                  block_type: 13,
+                  ordered: { elements: [{ text_run: { content: '第一步' } }], style: { align: 1 } },
+                  children: ['paragraph_1'],
+                },
+                {
+                  block_id: 'paragraph_1',
+                  parent_id: 'bullet_1',
+                  block_type: 12,
+                  bullet: { elements: [{ text_run: { content: 'item 1' } }], style: { align: 1 } },
+                },
+                {
+                  block_id: 'paragraph_2',
+                  parent_id: 'temp_doc_token',
+                  block_type: 2,
+                  text: { elements: [{ text_run: { content: 'tail' } }] },
+                },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('import_tasks') && options.method === 'POST') {
+        return { status: 200, json: { code: 0, data: { ticket: 'ticket_temp_update' } } };
+      }
+      if (url.includes('/import_tasks/ticket_temp_update')) {
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'temp_doc_token', url: 'https://feishu.cn/docx/temp_doc_token' } } } };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('/documents/doc_token_456/blocks/created_ordered_1/children?document_revision_id=-1')) {
+        const body = JSON.parse(options.body);
+        expect(body).toEqual({
+          index: 0,
+          children: [
+            {
+              block_type: 12,
+              bullet: { elements: [{ text_run: { content: 'item 1' } }], style: { align: 1 } },
+            },
+          ],
+        });
+        return { status: 200, json: { code: 0, data: { children: [{ block_id: 'created_bullet_1' }] } } };
+      }
+      if (url.includes('/documents/doc_token_456/blocks/doc_token_456/children?document_revision_id=-1') && options.method === 'POST') {
+        const body = JSON.parse(options.body);
+        if (rootCreateCount === 0) {
+          expect(body).toEqual({
+            index: 1,
+            children: [
+              {
+                block_type: 13,
+                ordered: { elements: [{ text_run: { content: '第一步' } }], style: { align: 1 } },
+              },
+            ],
+          });
+          rootCreateCount += 1;
+          return { status: 200, json: { code: 0, data: { children: [{ block_id: 'created_ordered_1' }] } } };
+        }
+
+        expect(body).toEqual({
+          index: 2,
+          children: [
+            {
+              block_type: 2,
+              text: { elements: [{ text_run: { content: 'tail' } }] },
+            },
+          ],
+        });
+        rootCreateCount += 1;
+        return { status: 200, json: { code: 0, data: { children: [{ block_id: 'created_top_1' }] } } };
+      }
+      if (url.includes('/blocks/doc_token_456/children/batch_delete') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('/drive/v1/files/temp_doc_token?type=docx') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('/drive/v1/files/temp_file_token?type=file') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('permissions') && url.includes('transfer_owner')) {
+        return { status: 200, json: { code: 0, msg: 'success' } };
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# test-note\nUpdated content.',
+    });
+
+    expect(result.docToken).toBe('doc_token_456');
+    expect(rootCreateCount).toBe(2);
+    expect(obsidianMock.requestUrl.mock.calls.some((call) => call[0].url.includes('transfer_owner'))).toBe(false);
+  });
+
+  it('should transfer ownership only for newly created documents', async () => {
+    settings.userId = 'ou-user-123';
+
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# Test Note\nSome text.',
+    });
+
+    expect(result.docToken).toBe('doc_token_456');
+    expect(obsidianMock.requestUrl.mock.calls.some((call) => call[0].url.includes('transfer_owner'))).toBe(true);
+  });
+
+  it('should keep old document content when smart update insertion schema is rejected', async () => {
+    settings.uploadHistory = [{
+      title: 'test-note',
+      url: 'https://feishu.cn/docx/doc_token_456',
+      docToken: 'doc_token_456',
+      sourcePath: 'notes/test-note.md',
+      uploadTime: '2026-06-19T00:00:00Z',
+    }];
+
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('blocks?page_size')) {
+        if (url.includes('/documents/doc_token_456/blocks?page_size')) {
+          return {
+            status: 200,
+            json: {
+              code: 0,
+              data: {
+                items: [
+                  { block_id: 'doc_token_456', parent_id: '', block_type: 1, children: ['block_child_1'] },
+                  { block_id: 'block_child_1', parent_id: 'doc_token_456', block_type: 2, text: {} },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [
+                { block_id: 'temp_doc_token', parent_id: '', block_type: 1, children: ['temp_paragraph_1'] },
+                { block_id: 'temp_paragraph_1', parent_id: 'temp_doc_token', block_type: 2, text: { elements: [{ text_run: { content: 'Updated content.' } }] } },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks') && options.method === 'POST') {
+        return { status: 200, json: { code: 0, data: { ticket: 'ticket_temp_update' } } };
+      }
+      if (url.includes('/import_tasks/ticket_temp_update')) {
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'temp_doc_token', url: 'https://feishu.cn/docx/temp_doc_token' } } } };
+      }
+      if (url.includes('/documents/doc_token_456/blocks/doc_token_456/children?document_revision_id=-1')) {
+        return {
+          status: 400,
+          json: { code: 1770006, msg: 'schema mismatch' },
+          text: '',
+        };
+      }
+      if (url.includes('/drive/v1/files/temp_doc_token?type=docx') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('/drive/v1/files/temp_file_token?type=file') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('/blocks/doc_token_456/children/batch_delete')) {
+        throw new Error('old blocks must not be deleted before new blocks are inserted successfully');
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# test-note\nUpdated content.',
+    })).rejects.toThrow('schema mismatch');
+
+    const calls = obsidianMock.requestUrl.mock.calls.map((call) => call[0]);
+    expect(calls.some((request) => request.url.includes('/children?document_revision_id=-1'))).toBe(true);
+    expect(calls.some((request) => request.url.includes('children/batch_delete'))).toBe(false);
+    expect(settings.uploadHistory[0].docToken).toBe('doc_token_456');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[飞书同步] 智能覆盖写入失败，旧文档内容已保留:',
+      expect.any(Error)
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('should not create a duplicate document when Feishu rejects nested children with invalid parameter 9499', async () => {
+    settings.uploadHistory = [{
+      title: 'test-note',
+      url: 'https://feishu.cn/docx/doc_token_456',
+      docToken: 'doc_token_456',
+      sourcePath: 'notes/test-note.md',
+      uploadTime: '2026-06-19T00:00:00Z',
+    }];
+
+    let markdownUploadCount = 0;
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('/documents/doc_token_456/blocks?page_size')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [
+                { block_id: 'doc_token_456', parent_id: '', block_type: 1, children: ['old_child_1'] },
+                { block_id: 'old_child_1', parent_id: 'doc_token_456', block_type: 2, text: {} },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('/documents/temp_doc_token/blocks?page_size')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [
+                { block_id: 'temp_doc_token', parent_id: '', block_type: 1, children: ['temp_paragraph_1'] },
+                {
+                  block_id: 'temp_paragraph_1',
+                  parent_id: 'temp_doc_token',
+                  block_type: 2,
+                  text: { elements: [{ text_run: { content: 'Updated content.' } }] },
+                },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('files/upload_all')) {
+        markdownUploadCount += 1;
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks') && options.method === 'POST') {
+        return { status: 200, json: { code: 0, data: { ticket: 'ticket_temp_update' } } };
+      }
+      if (url.includes('/import_tasks/ticket_temp_update')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              result: {
+                job_status: 0,
+                token: 'temp_doc_token',
+                url: 'https://feishu.cn/docx/temp_doc_token',
+              },
+            },
+          },
+        };
+      }
+      if (url.includes('/documents/doc_token_456/blocks/doc_token_456/children?document_revision_id=-1')) {
+        return {
+          status: 400,
+          json: {
+            code: 9499,
+            msg: 'Invalid parameter type in json: children. Invalid parameter value: {"block_type":12,"bullet":{"elements":[{"text_run":{"content":"清洗数据 (Python)"}}]}}. Please check and modify accordingly.',
+          },
+          text: '',
+        };
+      }
+      if (url.includes('/drive/v1/files/temp_doc_token?type=docx') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('/drive/v1/files/temp_file_token?type=file') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('/blocks/doc_token_456/children/batch_delete')) {
+        throw new Error('old blocks must not be deleted when new block insertion is rejected');
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# test-note\nUpdated content.',
+    })).rejects.toThrow('Invalid parameter type in json: children');
+
+    const calls = obsidianMock.requestUrl.mock.calls.map((call) => call[0]);
+    expect(markdownUploadCount).toBe(1);
+    expect(calls.some((request) => request.url.includes('children/batch_delete'))).toBe(false);
+    expect(calls.some((request) => request.url.includes('/drive/v1/files/temp_doc_token?type=docx') && request.method === 'DELETE')).toBe(true);
+    expect(settings.uploadHistory[0].docToken).toBe('doc_token_456');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[飞书同步] 智能覆盖写入失败，旧文档内容已保留:',
+      expect.any(Error)
+    );
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      '[飞书同步] 智能覆盖更新失败，降级为新建文档:',
+      expect.any(Error)
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('should relink a stale history token from folder and continue smart update', async () => {
+    settings.uploadHistory = [{
+      title: 'test-note',
+      url: 'https://feishu.cn/docx/stale_doc_token',
+      docToken: 'stale_doc_token',
+      sourcePath: 'notes/test-note.md',
+      uploadTime: '2026-06-19T00:00:00Z',
+    }];
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    obsidianMock.requestUrl.mockImplementation(async (options) => {
+      const url = options.url || '';
+      if (url.includes('tenant_access_token')) {
+        return { status: 200, json: { code: 0, tenant_access_token: 't-123', expire: 7200 } };
+      }
+      if (url.includes('files?folder_token')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              files: [
+                { type: 'docx', name: 'test-note', token: 'relinked_doc_token' },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('/documents/stale_doc_token/blocks?page_size')) {
+        return {
+          status: 400,
+          json: { code: 1770003, msg: 'resource deleted' },
+          text: '',
+        };
+      }
+      if (url.includes('/documents/relinked_doc_token/blocks?page_size')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [
+                { block_id: 'relinked_doc_token', parent_id: '', block_type: 1, children: ['relinked_child_1'] },
+                { block_id: 'relinked_child_1', parent_id: 'relinked_doc_token', block_type: 2, text: { elements: [{ text_run: { content: 'old content' } }] } },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('/blocks/relinked_doc_token/children/batch_delete') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('files/upload_all')) {
+        return { status: 200, json: { code: 0, data: { file_token: 'temp_file_token' } } };
+      }
+      if (url.includes('import_tasks') && options.method === 'POST') {
+        return { status: 200, json: { code: 0, data: { ticket: 'ticket_temp_update' } } };
+      }
+      if (url.includes('/import_tasks/ticket_temp_update')) {
+        return { status: 200, json: { code: 0, data: { result: { job_status: 0, token: 'temp_doc_token', url: 'https://feishu.cn/docx/temp_doc_token' } } } };
+      }
+      if (url.includes('/documents/temp_doc_token/blocks?page_size')) {
+        return {
+          status: 200,
+          json: {
+            code: 0,
+            data: {
+              items: [
+                { block_id: 'temp_doc_token', parent_id: '', block_type: 1, children: ['temp_paragraph_1'] },
+                { block_id: 'temp_paragraph_1', parent_id: 'temp_doc_token', block_type: 2, text: { elements: [{ text_run: { content: 'Updated content.' } }] } },
+              ],
+            },
+          },
+        };
+      }
+      if (url.includes('/documents/relinked_doc_token/blocks/relinked_doc_token/children?document_revision_id=-1')) {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('/drive/v1/files/temp_doc_token?type=docx') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('/drive/v1/files/temp_file_token?type=file') && options.method === 'DELETE') {
+        return { status: 200, json: { code: 0 } };
+      }
+      if (url.includes('permissions') && url.includes('transfer_owner')) {
+        return { status: 200, json: { code: 0, msg: 'success' } };
+      }
+      return { status: 200, json: { code: 0 } };
+    });
+
+    const result = await syncNoteToFeishu({
+      app,
+      settings,
+      activeFile,
+      markdown: '# test-note\nUpdated content.',
+    });
+
+    expect(result.docToken).toBe('relinked_doc_token');
+    expect(result.url).toBe('https://open.feishu.cn/docx/relinked_doc_token');
+    expect(settings.uploadHistory[0]).toMatchObject({
+      docToken: 'relinked_doc_token',
+      sourcePath: 'notes/test-note.md',
+    });
+    expect(warnSpy).toHaveBeenCalledWith('[飞书同步] 检测到历史飞书 token 已失效，已清理本地关联记录');
+    warnSpy.mockRestore();
   });
 
   it('should keep the imported document when image block scanning fails after import', async () => {
@@ -1073,7 +1783,7 @@ describe('Feishu Sync Coordinator', () => {
           },
         };
       }
-      if (url.includes('children/batch_delete')) {
+      if (url.includes('/blocks/old_doc_token/children/batch_delete') && options.method === 'DELETE') {
         return {
           status: 404,
           text: '404 page not found',

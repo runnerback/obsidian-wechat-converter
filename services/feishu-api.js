@@ -455,7 +455,7 @@ class FeishuApiClient {
   }
 
   /**
-   * Batch deletes child blocks from the document root.
+   * Batch deletes child blocks from a parent block.
    * @param {string} documentId
    * @param {string} rootBlockId
    * @param {number} startIndex (inclusive)
@@ -468,7 +468,7 @@ class FeishuApiClient {
 
     const resp = await this.sendRequest('批量删除飞书文档块', {
       url,
-      method: 'POST',
+      method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json; charset=utf-8',
@@ -482,6 +482,43 @@ class FeishuApiClient {
     const data = resp.json;
     if (data.code !== 0) {
       throw new Error(`批量删除飞书文档块失败 (code ${data.code}): ${data.msg}`);
+    }
+
+    return true;
+  }
+
+  /**
+   * Deletes one child block either by its parent/index or by block id.
+   * @param {string} documentId
+   * @param {string} blockId
+   * @param {string} [parentId]
+   * @param {number} [index]
+   * @returns {Promise<boolean>}
+   */
+  async deleteBlock(documentId, blockId, parentId, index) {
+    const token = await this.getAccessToken();
+    const targetParentId = parentId || blockId;
+    const url = `${this.baseUrl}/docx/v1/documents/${documentId}/blocks/${targetParentId}/children/batch_delete?document_revision_id=-1`;
+    const hasIndex = Number.isInteger(index);
+
+    const resp = await this.sendRequest('删除飞书文档块', {
+      url,
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+      body: JSON.stringify(hasIndex ? {
+        start_index: index,
+        end_index: index + 1,
+      } : {
+        block_ids: [blockId],
+      }),
+    });
+
+    const data = resp.json;
+    if (data.code !== 0) {
+      throw new Error(`删除飞书文档块失败 (code ${data.code}): ${data.msg}`);
     }
 
     return true;

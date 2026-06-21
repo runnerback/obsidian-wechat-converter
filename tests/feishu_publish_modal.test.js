@@ -149,12 +149,53 @@ describe('Feishu publish modal UX', () => {
     expect(resultCard.classList.contains('is-hidden')).toBe(false);
     expect(resultCard.textContent).toContain('同步完成');
     expect(resultCard.textContent).toContain('所有权转移未完成');
-    expect(resultCard.textContent).toContain('有 2 张本地图片未处理');
+    expect(resultCard.textContent).toContain('有 2 张图片未完成同步处理');
     expect(resultCard.textContent).not.toContain('field_validation failed');
     expect(resultCard.textContent).not.toContain('飞书链接:');
     expect(resultCard.querySelector('a')).toBeNull();
 
     const actionButtons = Array.from(resultCard.querySelectorAll('button')).map((button) => button.textContent);
     expect(actionButtons).toEqual(['在浏览器中打开', '复制链接']);
+
+    const shell = containerEl.querySelector('.wechat-feishu-publish-shell');
+    const content = containerEl.querySelector('.wechat-feishu-publish-content');
+    const buttonRow = containerEl.querySelector('.wechat-modal-buttons');
+    expect(shell).not.toBeNull();
+    expect(content).not.toBeNull();
+    expect(buttonRow).not.toBeNull();
+    expect(buttonRow.parentElement).toBe(shell);
+    expect(content.contains(buttonRow)).toBe(false);
+  });
+
+  it('rebinds the current note to a pasted Feishu docx URL', async () => {
+    const view = makeView();
+    const modal = { close: vi.fn() };
+    const containerEl = applyExtensions(document.createElement('div'));
+
+    renderFeishuPublishTab(view, modal, containerEl, {
+      obsidianApi: {
+        Setting: TestSetting,
+        Notice: TestNotice,
+        requestUrl: vi.fn(),
+      },
+    });
+
+    const rebindInput = containerEl.querySelector('.wechat-feishu-rebind-input');
+    rebindInput.value = 'https://o7y2a6yi3x.feishu.cn/docx/FZJjdrUPIoMPUpxpOTVcOpdInIa?from=copy';
+    const rebindBtn = Array.from(containerEl.querySelectorAll('button'))
+      .find((button) => button.textContent === '绑定已有文档');
+
+    await rebindBtn.onclick();
+
+    expect(view.plugin.saveSettings).toHaveBeenCalledTimes(1);
+    expect(view.plugin.settings.feishuSync.uploadHistory[0]).toMatchObject({
+      title: '飞书测试',
+      url: 'https://o7y2a6yi3x.feishu.cn/docx/FZJjdrUPIoMPUpxpOTVcOpdInIa',
+      docToken: 'FZJjdrUPIoMPUpxpOTVcOpdInIa',
+      sourcePath: 'notes/feishu-test.md',
+    });
+    expect(globalThis.__feishuPublishNotices.at(-1).message).toBe('✅ 已重新绑定当前笔记的飞书文档');
+    expect(containerEl.textContent).toContain('覆盖更新模式');
+    expect(Array.from(containerEl.querySelectorAll('button')).some((button) => button.textContent === '更新至飞书')).toBe(true);
   });
 });
