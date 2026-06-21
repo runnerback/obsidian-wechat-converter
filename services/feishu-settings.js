@@ -7,8 +7,11 @@
 /**
  * @typedef {{ title: string, url: string, uploadTime: string, docToken: string, sourcePath: string }} FeishuUploadHistoryItemLike
  * @typedef {{ mode: 'source' | 'remote-image', provider: 'kroki', updatedAt: number }} FeishuMermaidPreferenceLike
- * @typedef {{ enabled: boolean, appId: string, appSecret: string, folderToken: string, userId: string, enableSmartUpdate: boolean, enableDoubleLinkMode: boolean, debugLoggingEnabled: boolean, uploadHistory: FeishuUploadHistoryItemLike[], mermaidPreferences: Record<string, FeishuMermaidPreferenceLike> }} FeishuSyncSettingsLike
+ * @typedef {{ month: string, count: number, updatedAt: number }} FeishuApiUsageStatsLike
+ * @typedef {{ enabled: boolean, appId: string, appSecret: string, folderToken: string, userId: string, enableSmartUpdate: boolean, enableDoubleLinkMode: boolean, debugLoggingEnabled: boolean, uploadHistory: FeishuUploadHistoryItemLike[], mermaidPreferences: Record<string, FeishuMermaidPreferenceLike>, apiUsage: FeishuApiUsageStatsLike }} FeishuSyncSettingsLike
  */
+
+const FEISHU_FREE_MONTHLY_API_LIMIT = 10000;
 
 /**
  * @param {unknown} value
@@ -102,6 +105,53 @@ function createDefaultFeishuSyncSettings() {
     debugLoggingEnabled: false,
     uploadHistory: [], // [{ title, url, uploadTime, docToken, sourcePath }]
     mermaidPreferences: {},
+    apiUsage: createDefaultFeishuApiUsageStats(),
+  };
+}
+
+/**
+ * @param {Date} [date]
+ * @returns {string}
+ */
+function getFeishuApiUsageMonthKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+/**
+ * @returns {FeishuApiUsageStatsLike}
+ */
+function createDefaultFeishuApiUsageStats() {
+  return {
+    month: getFeishuApiUsageMonthKey(),
+    count: 0,
+    updatedAt: 0,
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @param {Date} [now]
+ * @returns {FeishuApiUsageStatsLike}
+ */
+function normalizeFeishuApiUsageStats(value, now = new Date()) {
+  const source = toRecord(value);
+  const currentMonth = getFeishuApiUsageMonthKey(now);
+  const month = toStringWithFallback(source.month, currentMonth);
+  const count = Math.max(0, Math.floor(Number(source.count) || 0));
+  const updatedAt = Math.max(0, Math.floor(Number(source.updatedAt) || 0));
+  if (month !== currentMonth) {
+    return {
+      month: currentMonth,
+      count: 0,
+      updatedAt: 0,
+    };
+  }
+  return {
+    month,
+    count,
+    updatedAt,
   };
 }
 
@@ -176,7 +226,43 @@ function normalizeFeishuSyncSettings(value) {
     debugLoggingEnabled: source.debugLoggingEnabled === true,
     uploadHistory,
     mermaidPreferences: normalizeMermaidPreferences(rawMermaidPreferences),
+    apiUsage: normalizeFeishuApiUsageStats(source.apiUsage || source.apiUsageStats),
   };
+}
+
+/**
+ * @param {unknown} settings
+ * @param {number} [delta]
+ * @param {Date} [now]
+ * @returns {FeishuApiUsageStatsLike}
+ */
+function incrementFeishuApiUsage(settings, delta = 1, now = new Date()) {
+  const source = toRecord(settings);
+  const current = normalizeFeishuApiUsageStats(source.apiUsage, now);
+  const amount = Math.max(0, Math.floor(Number(delta) || 0));
+  const next = {
+    month: current.month,
+    count: current.count + amount,
+    updatedAt: now.getTime(),
+  };
+  source.apiUsage = next;
+  return next;
+}
+
+/**
+ * @param {unknown} settings
+ * @param {Date} [now]
+ * @returns {FeishuApiUsageStatsLike}
+ */
+function resetFeishuApiUsage(settings, now = new Date()) {
+  const source = toRecord(settings);
+  const next = {
+    month: getFeishuApiUsageMonthKey(now),
+    count: 0,
+    updatedAt: now.getTime(),
+  };
+  source.apiUsage = next;
+  return next;
 }
 
 /**
@@ -351,6 +437,12 @@ function removeFeishuMermaidPreferenceByPath(settings, path) {
 
 export {
   createDefaultFeishuSyncSettings,
+  FEISHU_FREE_MONTHLY_API_LIMIT,
+  getFeishuApiUsageMonthKey,
+  createDefaultFeishuApiUsageStats,
+  normalizeFeishuApiUsageStats,
+  incrementFeishuApiUsage,
+  resetFeishuApiUsage,
   normalizeFeishuSyncSettings,
   parseFeishuDocUrlOrToken,
   addFeishuUploadHistory,

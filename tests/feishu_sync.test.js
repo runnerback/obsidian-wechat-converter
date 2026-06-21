@@ -14,6 +14,10 @@ let prepareLocalImagesForFeishu;
 let prepareMermaidDiagramsForFeishu;
 let syncNoteToFeishu;
 let createDefaultFeishuSyncSettings;
+let FEISHU_FREE_MONTHLY_API_LIMIT;
+let normalizeFeishuSyncSettings;
+let incrementFeishuApiUsage;
+let resetFeishuApiUsage;
 let parseFeishuDocUrlOrToken;
 let rebindFeishuHistoryByPath;
 let getFeishuMermaidPreferenceByPath;
@@ -63,6 +67,10 @@ beforeAll(async () => {
 
   const settingsMod = await import('../services/feishu-settings.js');
   createDefaultFeishuSyncSettings = settingsMod.createDefaultFeishuSyncSettings;
+  FEISHU_FREE_MONTHLY_API_LIMIT = settingsMod.FEISHU_FREE_MONTHLY_API_LIMIT;
+  normalizeFeishuSyncSettings = settingsMod.normalizeFeishuSyncSettings;
+  incrementFeishuApiUsage = settingsMod.incrementFeishuApiUsage;
+  resetFeishuApiUsage = settingsMod.resetFeishuApiUsage;
   parseFeishuDocUrlOrToken = settingsMod.parseFeishuDocUrlOrToken;
   rebindFeishuHistoryByPath = settingsMod.rebindFeishuHistoryByPath;
   getFeishuMermaidPreferenceByPath = settingsMod.getFeishuMermaidPreferenceByPath;
@@ -139,6 +147,47 @@ describe('Feishu Markdown Processor', () => {
 });
 
 describe('Feishu settings helpers', () => {
+  it('should initialize and normalize monthly API usage stats', () => {
+    const settings = createDefaultFeishuSyncSettings();
+    expect(FEISHU_FREE_MONTHLY_API_LIMIT).toBe(10000);
+    expect(settings.apiUsage).toMatchObject({
+      month: expect.stringMatching(/^\d{4}-\d{2}$/),
+      count: 0,
+    });
+
+    const normalized = normalizeFeishuSyncSettings({
+      enabled: true,
+      apiUsage: {
+        month: '2026-05',
+        count: 88,
+        updatedAt: 123,
+      },
+    });
+
+    expect(normalized.apiUsage).toEqual({
+      month: expect.stringMatching(/^\d{4}-\d{2}$/),
+      count: 0,
+      updatedAt: 0,
+    });
+  });
+
+  it('should increment and reset Feishu API usage stats', () => {
+    const settings = createDefaultFeishuSyncSettings();
+    const now = new Date('2026-06-21T08:00:00Z');
+
+    expect(incrementFeishuApiUsage(settings, 3, now)).toEqual({
+      month: '2026-06',
+      count: 3,
+      updatedAt: now.getTime(),
+    });
+    expect(incrementFeishuApiUsage(settings, 2, now).count).toBe(5);
+    expect(resetFeishuApiUsage(settings, now)).toEqual({
+      month: '2026-06',
+      count: 0,
+      updatedAt: now.getTime(),
+    });
+  });
+
   it('should parse Feishu docx URLs and plain tokens', () => {
     expect(parseFeishuDocUrlOrToken('https://o7y2a6yi3x.feishu.cn/docx/FZJjdrUPIoMPUpxpOTVcOpdInIa?from=copy')).toEqual({
       docToken: 'FZJjdrUPIoMPUpxpOTVcOpdInIa',
@@ -379,6 +428,21 @@ describe('Feishu Api Client', () => {
     const cachedToken = await client.getAccessToken();
     expect(cachedToken).toBe('t-123456');
     expect(obsidianMock.requestUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it('should count actual OpenAPI requests without double-counting cached tokens', async () => {
+    const onApiCall = vi.fn();
+    const client = new FeishuApiClient('appid', 'appsecret', obsidianMock.requestUrl, { onApiCall });
+    const token = await client.getAccessToken();
+
+    expect(token).toBe('t-123456');
+    expect(obsidianMock.requestUrl).toHaveBeenCalledTimes(1);
+    expect(onApiCall).toHaveBeenCalledTimes(1);
+    expect(onApiCall.mock.calls[0][0]).toBe('获取飞书 tenant_access_token');
+
+    await client.getAccessToken();
+    expect(obsidianMock.requestUrl).toHaveBeenCalledTimes(1);
+    expect(onApiCall).toHaveBeenCalledTimes(1);
   });
 
   it('should handle list folder items', async () => {

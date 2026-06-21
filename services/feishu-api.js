@@ -13,8 +13,9 @@ class FeishuApiClient {
    * @param {string} appId
    * @param {string} appSecret
    * @param {any} [requestUrl] Injected requestUrl implementation
+   * @param {{ onApiCall?: (label: string, options: Record<string, unknown>) => void }} [options]
    */
-  constructor(appId, appSecret, requestUrl) {
+  constructor(appId, appSecret, requestUrl, options = {}) {
     this.appId = String(appId || '').trim();
     this.appSecret = String(appSecret || '').trim();
     this.accessToken = '';
@@ -25,6 +26,21 @@ class FeishuApiClient {
     const obsidianApi = getActiveWindowValue('obsidian');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- reason: dynamic requestUrl extraction
     this.requestUrl = requestUrl || (obsidianApi && typeof obsidianApi.requestUrl === 'function' ? obsidianApi.requestUrl : null);
+    this.onApiCall = typeof options.onApiCall === 'function' ? options.onApiCall : null;
+  }
+
+  /**
+   * @param {string} label
+   * @param {Record<string, unknown>} options
+   * @returns {void}
+   */
+  recordApiCall(label, options) {
+    if (typeof this.onApiCall !== 'function') return;
+    try {
+      this.onApiCall(label, options);
+    } catch (err) {
+      console.warn('[飞书同步] API 调用计数失败:', err);
+    }
   }
 
   /**
@@ -48,8 +64,10 @@ class FeishuApiClient {
     try {
       resp = await this.requestUrl(requestOptions);
     } catch (err) {
+      this.recordApiCall(label, requestOptions);
       throw this.createTransportError(label, options.url, err);
     }
+    this.recordApiCall(label, requestOptions);
 
     const status = Number(resp?.status || 0);
     if (status >= 400) {

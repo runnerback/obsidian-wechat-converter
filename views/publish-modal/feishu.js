@@ -174,16 +174,24 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
   let mermaidCount = 0;
   let mermaidRenderMode = savedMermaidPreference?.mode || 'source';
   let rememberMermaidPreference = !!savedMermaidPreference;
+  const syncedAt = isUpdate && historyItem.uploadTime
+    ? historyItem.uploadTime.substring(0, 16).replace('T', ' ')
+    : '';
 
   const introCard = contentWrapper.createDiv({ cls: 'wechat-feishu-intro-card' });
-  introCard.createEl('div', { text: isUpdate ? '覆盖更新模式' : '首次同步模式', cls: 'wechat-feishu-intro-kicker' });
-  introCard.createEl('p', {
+  const introCopy = introCard.createDiv({ cls: 'wechat-feishu-intro-copy' });
+  introCopy.createEl('div', { text: isUpdate ? '覆盖更新模式' : '首次同步模式', cls: 'wechat-feishu-intro-kicker' });
+  introCopy.createEl('p', {
     text: isUpdate
       ? '本次会尽量保持原文档链接不变，先清空旧正文，再写入最新内容。'
       : '本次会优先在目标文件夹里查找同名文档，命中则自动恢复绑定，未命中则新建。',
   });
+  introCard.createEl('div', {
+    text: isUpdate ? '保持链接' : '自动绑定',
+    cls: `wechat-feishu-mode-pill${isUpdate ? ' is-update' : ''}`,
+  });
 
-  const settingsSection = contentWrapper.createDiv({ cls: 'wechat-modal-section wechat-feishu-section' });
+  const settingsSection = contentWrapper.createDiv({ cls: 'wechat-modal-section wechat-feishu-section wechat-feishu-card-section' });
   settingsSection.createEl('h3', { text: '发布设置', cls: 'wechat-feishu-section-title' });
 
   // 5. Title setting
@@ -261,26 +269,28 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
     console.warn('[飞书同步] 读取当前笔记以检测 Mermaid 失败:', err);
   });
 
-  const statusSection = contentWrapper.createDiv({ cls: 'wechat-modal-section wechat-feishu-section' });
+  const statusSection = contentWrapper.createDiv({ cls: 'wechat-modal-section wechat-feishu-section wechat-feishu-status-section' });
   statusSection.createEl('h3', { text: '同步状态', cls: 'wechat-feishu-section-title' });
-  const statusCard = statusSection.createDiv({ cls: 'wechat-feishu-status-card' });
+  const statusGrid = statusSection.createDiv({ cls: 'wechat-feishu-status-grid' });
+  const statusCard = statusGrid.createDiv({ cls: 'wechat-feishu-status-card' });
+  statusCard.createEl('div', { text: isUpdate ? '已绑定文档' : '首次同步', cls: 'wechat-feishu-status-label' });
 
   if (isUpdate) {
     statusCard.createEl('p', {
-      text: `🔄 该笔记已于 ${historyItem.uploadTime.substring(0, 16).replace('T', ' ')} 同步过。再次同步将启用「智能覆盖更新」模式，直接更新飞书文档正文，链接保持不变。`,
+      text: `该笔记已于 ${syncedAt} 同步过。再次同步会直接更新飞书文档正文，链接保持不变。`,
       cls: 'text-success',
     });
   } else {
     statusCard.createEl('p', {
-      text: '🆕 第一次同步该笔记。点击开始同步后，系统会检索云端是否有同名文档，若有则自动关联更新，若无则新建文档并绑定。',
+      text: '第一次同步该笔记。开始后会先检索目标文件夹中的同名文档，命中则自动绑定更新，未命中则新建文档。',
       cls: 'text-muted',
     });
   }
 
-  const rebindCard = statusSection.createDiv({ cls: 'wechat-feishu-rebind-card' });
+  const rebindCard = statusGrid.createDiv({ cls: 'wechat-feishu-rebind-card' });
   rebindCard.createEl('div', { text: '文档绑定', cls: 'wechat-feishu-rebind-title' });
   rebindCard.createEl('p', {
-    text: '如果飞书端文档被移动、重建，或本地缓存还指向旧 token，可以粘贴新的飞书 docx 链接来重新绑定当前笔记。',
+    text: '飞书端文档被移动、重建，或本地缓存指向旧 token 时，可粘贴新的 docx 链接重新绑定。',
     cls: 'wechat-feishu-rebind-desc',
   });
   const rebindControls = rebindCard.createDiv({ cls: 'wechat-feishu-rebind-controls' });

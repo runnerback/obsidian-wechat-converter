@@ -20,6 +20,7 @@ import {
 import {
   addFeishuUploadHistory,
   findFeishuHistoryByPath,
+  incrementFeishuApiUsage,
   removeFeishuHistoryByPath,
 } from './feishu-settings.js';
 
@@ -599,7 +600,11 @@ async function syncNoteToFeishu({
   title = title.substring(0, 250); // limit Feishu title length
 
   // 2. Initialize API client
-  const client = new FeishuApiClient(settings.appId, settings.appSecret, requestUrlImpl);
+  const client = new FeishuApiClient(settings.appId, settings.appSecret, requestUrlImpl, {
+    onApiCall: () => {
+      incrementFeishuApiUsage(settings);
+    },
+  });
 
   // 3. Fallback Folder Search for lost history
   let historyItem = findFeishuHistoryByPath(settings, activeFile.path);

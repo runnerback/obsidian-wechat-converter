@@ -7,7 +7,110 @@
 
 import { getActiveWindowValue } from '../../services/dom-utils.js';
 import { FeishuApiClient } from '../../services/feishu-api.js';
-import { normalizeFeishuSyncSettings } from '../../services/feishu-settings.js';
+import {
+  FEISHU_FREE_MONTHLY_API_LIMIT,
+  incrementFeishuApiUsage,
+  normalizeFeishuSyncSettings,
+  resetFeishuApiUsage,
+} from '../../services/feishu-settings.js';
+
+/**
+ * @param {number} value
+ * @returns {string}
+ */
+function formatFeishuUsageNumber(value) {
+  return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('zh-CN');
+}
+
+/**
+ * @param {number} count
+ * @param {number} limit
+ * @returns {string}
+ */
+function formatFeishuUsagePercent(count, limit) {
+  if (!limit) return '0%';
+  return `${Math.min(100, Math.round((count / limit) * 100))}%`;
+}
+
+/**
+ * @param {HTMLDivElement} containerEl
+ * @param {any} tab
+ * @param {object} plugin
+ * @param {ReturnType<typeof normalizeFeishuSyncSettings>} settings
+ * @param {Record<string, unknown>} obsidian
+ * @param {any} Notice
+ * @returns {void}
+ */
+function renderFeishuUsageStats(containerEl, tab, plugin, settings, obsidian, Notice) {
+  const usage = settings.apiUsage;
+  const used = Math.max(0, Number(usage.count) || 0);
+  const limit = FEISHU_FREE_MONTHLY_API_LIMIT;
+  const remaining = Math.max(0, limit - used);
+  const percent = Math.min(100, limit ? (used / limit) * 100 : 0);
+
+  const card = containerEl.createDiv({ cls: 'wechat-feishu-usage-card' });
+  card.setCssStyles({
+    margin: '18px 0 22px',
+    padding: '18px 20px',
+    border: '1px solid var(--background-modifier-border)',
+    borderRadius: '12px',
+    background: 'var(--background-secondary)',
+  });
+
+  const header = card.createDiv({ cls: 'wechat-feishu-usage-header' });
+  header.setCssStyles({
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: '16px',
+  });
+
+  const copy = header.createDiv();
+  copy.createEl('div', { text: '数据统计', cls: 'setting-item-heading' });
+  const sharedCount = Array.isArray(settings.uploadHistory) ? settings.uploadHistory.length : 0;
+  const shareTitle = copy.createEl('div', { text: '分享文档数', cls: 'setting-item-name' });
+  shareTitle.setCssStyles({ marginTop: '10px' });
+  copy.createEl('div', {
+    text: `您已成功分享 ${formatFeishuUsageNumber(sharedCount)} 个文档。`,
+    cls: 'setting-item-description',
+  });
+  const title = copy.createEl('div', { text: '本月 API 调用次数', cls: 'setting-item-name' });
+  title.setCssStyles({ marginTop: '16px' });
+  copy.createEl('div', {
+    text: `插件估算已调用 ${formatFeishuUsageNumber(used)} / ${formatFeishuUsageNumber(limit)} 次，剩余约 ${formatFeishuUsageNumber(remaining)} 次。`,
+    cls: 'setting-item-description',
+  });
+
+  const resetBtn = header.createEl('button', { text: '重置计数' });
+  resetBtn.addClass('mod-warning');
+  resetBtn.onclick = async () => {
+    resetFeishuApiUsage(settings);
+    await plugin.saveSettings();
+    if (Notice) new Notice('✅ 飞书 API 调用计数已重置');
+    renderFeishuSettingsTab(tab, containerEl, { obsidianApi: obsidian });
+  };
+
+  const progressTrack = card.createDiv({ cls: 'wechat-feishu-usage-progress' });
+  progressTrack.setCssStyles({
+    height: '8px',
+    marginTop: '14px',
+    borderRadius: '999px',
+    overflow: 'hidden',
+    background: 'var(--background-modifier-border)',
+  });
+  const progressBar = progressTrack.createDiv();
+  progressBar.setCssStyles({
+    width: formatFeishuUsagePercent(used, limit),
+    height: '100%',
+    borderRadius: '999px',
+    background: percent >= 90 ? 'var(--text-error)' : 'var(--interactive-accent)',
+  });
+
+  card.createEl('p', {
+    text: `统计周期：${usage.month}。该数据仅统计本插件发起的飞书 OpenAPI 请求，实际额度请以飞书开放平台后台为准。`,
+    cls: 'setting-item-description',
+  }).setCssStyles({ marginTop: '10px' });
+}
 
 /**
  * Renders the Feishu Sync settings inside the settings tab.
@@ -49,6 +152,8 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
     );
 
   if (!settings.enabled) return;
+
+  renderFeishuUsageStats(containerEl, tab, plugin, settings, obsidian, Notice);
 
   // 2. App ID
   new Setting(containerEl)
@@ -122,7 +227,13 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
 
         const notice = new Notice('⏳ 正在进行飞书连接测试...', 0);
         try {
-          const client = new FeishuApiClient(settings.appId, settings.appSecret, obsidian.requestUrl);
+          let apiUsageChanged = false;
+          const client = new FeishuApiClient(settings.appId, settings.appSecret, obsidian.requestUrl, {
+            onApiCall: () => {
+              incrementFeishuApiUsage(settings);
+              apiUsageChanged = true;
+            },
+          });
           
           // Verify authentication token
           await client.getAccessToken();
@@ -131,9 +242,11 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
           await client.listFolderItems(settings.folderToken);
           
           notice.hide();
+          if (apiUsageChanged) await plugin.saveSettings();
           new Notice('✅ 飞书连接成功，且目标文件夹访问正常！');
         } catch (err) {
           notice.hide();
+          await plugin.saveSettings();
           console.error('[飞书连接测试失败]:', err);
           new Notice(`❌ 飞书连接测试失败: ${err.message || String(err)}`, 7000);
         }
@@ -264,7 +377,7 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
 
   // Step 2
   renderStep(2, (body) => {
-    body.createSpan({ text: '进入「权限管理」开通以下权限，并点击「版本管理与发布」申请上线（需管理员审批）：' });
+    body.createSpan({ text: '进入「权限管理」，建议按更稳妥的方式开通权限：应用身份开通「云文档」相关全部权限，用户身份开通全部权限。这样可最大限度避免导入、更新、图片处理或所有权转移时遇到 403/权限不足。完成后点击「版本管理与发布」申请上线（需管理员审批）。' });
     const subList = body.createDiv();
     subList.setCssStyles({
       display: 'flex',
@@ -294,8 +407,9 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
       desc.setCssStyles({ color: 'var(--text-muted)', fontSize: '12px' });
     };
 
-    addSubItem('drive:drive', '查看、编辑云空间所有文件 (应用和用户身份)');
-    addSubItem('docs:document:import', '导入为文档 (应用和用户身份)');
+    addSubItem('应用身份', '开通云文档 / 云空间相关全部权限');
+    addSubItem('用户身份', '建议开通全部权限，减少权限边界导致的异常');
+    addSubItem('至少包含', 'drive:drive、docs:document:import 等文档导入与云盘读写权限');
   });
 
   // Step 3
