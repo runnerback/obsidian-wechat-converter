@@ -46,6 +46,15 @@ describe('article image asset resolver', () => {
     ]);
   });
 
+  it('drops trailing size hints from wiki image embed aliases', () => {
+    const refs = collectArticleImageReferences('a ![[img one.png|示例|510]] b ![[img two.png|400]]');
+
+    expect(refs.map((ref) => ({ src: ref.src, alt: ref.alt }))).toEqual([
+      { src: 'img one.png', alt: '示例' },
+      { src: 'img two.png', alt: '400' },
+    ]);
+  });
+
   it('ignores image-looking markdown inside fenced code blocks', () => {
     const refs = collectArticleImageReferences([
       '```md',

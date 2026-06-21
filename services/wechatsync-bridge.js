@@ -609,6 +609,12 @@ function getWebSocketOpenState(WebSocketServer) {
 function createReadableBridgeError(error) {
   const readableError = toBridgeErrorLike(error);
   const message = String(readableError.message || error || '');
+  if (/EADDRINUSE|Primary|ECONNREFUSED|not reachable|port .*in use/i.test(message)) {
+    const friendly = new Error('无法连接本地服务。请确认没有其他同步进程占用端口，或稍后重试。');
+    friendly.code = 'BRIDGE_UNAVAILABLE';
+    friendly.cause = error;
+    return friendly;
+  }
   if (/Invalid or missing token|MCP token not configured|401|403/i.test(message)) {
     const friendly = new Error('浏览器插件已响应，但连接令牌校验失败。请确认 Obsidian 与浏览器插件使用同一个连接令牌。');
     friendly.code = 'AUTH_FAILED';
@@ -642,12 +648,6 @@ function createReadableBridgeError(error) {
   if (/Request timeout: (health|listSupportedPlatforms|enqueueSyncArticle|getSyncTask|getSyncTaskLink|openSyncTask|getAuthSnapshot)/i.test(message)) {
     const friendly = new Error('浏览器插件响应超时，请确认浏览器正在运行，地址、端口和连接令牌正确后重试。');
     friendly.code = 'BRIDGE_REQUEST_TIMEOUT';
-    friendly.cause = error;
-    return friendly;
-  }
-  if (/EADDRINUSE|Primary|ECONNREFUSED|not reachable/i.test(message)) {
-    const friendly = new Error('无法连接本地服务。请确认没有其他同步进程占用端口，或稍后重试。');
-    friendly.code = 'BRIDGE_UNAVAILABLE';
     friendly.cause = error;
     return friendly;
   }

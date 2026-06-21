@@ -648,10 +648,17 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   const cachedConnectionRecord = toRecord(cachedConnection);
   view.preparePublishModalShell(modal, { mode: 'multi', mobileSync });
 
-  const { wechatTab } = view.createPublishModeTabs(modal, 'multi');
+  const { wechatTab, feishuTab } = view.createPublishModeTabs(modal, 'multi');
   wechatTab.onclick = () => {
     view.showSyncModal({ modal });
   };
+  if (feishuTab) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- reason: dynamic tab element click handler
+    feishuTab.onclick = () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- reason: dynamic modal invocation
+      view.showFeishuSyncModal({ modal });
+    };
+  }
 
   const intro = asModalElement(modal.contentEl.createDiv({ cls: 'wechat-multiplatform-intro' }));
   const introText = asModalElement(intro.createDiv({ cls: 'wechat-multiplatform-intro-text' }));

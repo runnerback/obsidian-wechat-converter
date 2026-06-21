@@ -12,6 +12,7 @@ vi.mock('obsidian', () => ({
 }));
 
 const { createLegacyConverter } = require('./helpers/render-runtime');
+const { renderMermaidCodeBlocks } = require('../services/rendered-mermaid');
   const {
     neutralizeUnsafeMarkdownLinks,
     normalizeWechatUnsafeTaskListMarkers,
@@ -698,6 +699,7 @@ describe('Obsidian Triplet Renderer', () => {
       markdown: '```mermaid\ngraph TD\nA-->B\n```',
       sourcePath: 'note.md',
       markdownRenderer: { renderMarkdown },
+      mermaidCodeRenderer: renderMermaidCodeBlocks,
       mermaidApi,
       mermaidRasterizer,
       serializer: ({ root }) => root.innerHTML,
@@ -726,6 +728,7 @@ describe('Obsidian Triplet Renderer', () => {
       markdown: '```mermaid\ngraph TD\nA-->B\n```',
       sourcePath: 'note.md',
       markdownRenderer: { renderMarkdown },
+      mermaidCodeRenderer: renderMermaidCodeBlocks,
       mermaidApi,
       mermaidRasterizer,
       rasterizeMermaid: false,

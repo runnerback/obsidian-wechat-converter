@@ -49,7 +49,6 @@ import { createHtmlContainer, getActiveDocument } from './dom-utils.js';
  * @typedef {{ title?: string, titleKey?: string, contentHtml?: string }} RenderedSubsectionFragmentLike
  * @typedef {{ ok: boolean, status: number, statusText?: string, text: () => Promise<string>, json: () => Promise<unknown> }} FetchResponseLike
  * @typedef {(url: string, options: Record<string, unknown>) => Promise<FetchResponseLike>} FetchLike
- * @typedef {typeof globalThis.fetch} GlobalFetchLike
  * @typedef {{ provider: ReturnType<typeof normalizeAiProvider>, title?: string, markdown: string, selection?: AiLayoutSelectionLike, stylePack?: string, imageRefs?: AiImageRefLike[], timeoutMs: number, abortTimeoutMs?: number, fetchImpl: FetchLike }} AiLayoutRequestOptions
  */
 
@@ -183,11 +182,11 @@ function applyElementCssStyles(element, styles) {
   target.setCssStyles(styles);
 }
 
-/** @returns {GlobalFetchLike | undefined} */
+/** @returns {FetchLike | undefined} */
 function getDefaultFetch() {
-  const activeWindow = typeof window !== 'undefined' ? /** @type {Window & typeof globalThis} */ (window) : null;
+  const activeWindow = typeof window !== 'undefined' ? window : null;
   if (activeWindow && typeof activeWindow.fetch === 'function') {
-    /** @type {GlobalFetchLike} */
+    /** @type {FetchLike} */
     const fetchFromActiveWindow = (input, init) => activeWindow.fetch(input, init);
     return fetchFromActiveWindow;
   }
@@ -3327,7 +3326,7 @@ async function requestAnthropicLayout({
 }
 
 /**
- * @param {{ provider?: AiProviderLike | null, title?: unknown, markdown?: unknown, stylePack?: string, selection?: AiLayoutSelectionLike, imageRefs?: AiImageRefLike[], timeoutMs?: number, fetchImpl?: FetchLike | GlobalFetchLike }} options
+ * @param {{ provider?: AiProviderLike | null, title?: unknown, markdown?: unknown, stylePack?: string, selection?: AiLayoutSelectionLike, imageRefs?: AiImageRefLike[], timeoutMs?: number, fetchImpl?: FetchLike }} options
  */
 async function generateArticleLayout({
   provider,
@@ -3467,7 +3466,7 @@ async function generateArticleLayout({
 
 /**
  * @param {AiProviderLike} provider
- * @param {FetchLike | GlobalFetchLike | undefined} [fetchImpl=getDefaultFetch()]
+ * @param {FetchLike | undefined} [fetchImpl=getDefaultFetch()]
  * @returns {Promise<boolean>}
  */
 async function testAiProviderConnection(provider, fetchImpl = getDefaultFetch()) {

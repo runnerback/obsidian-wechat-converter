@@ -14,7 +14,7 @@ const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
  *   },
  * }} ObsidianAppLike
  * @typedef {{ start: number, end: number }} TextRange
- * @typedef {{ type: string, start: number, end: number, raw: string, src: string, alt: string }} ImageReference
+ * @typedef {{ type: string, start: number, end: number, raw: string, src: string, alt: string, sizeHint?: ImageSizeHint | null }} ImageReference
  * @typedef {{ code: string, message: string, severity: string, src: string, filename: string, size: number }} ImageWarning
  * @typedef {{
  *   kind: string,
@@ -22,6 +22,7 @@ const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
  *   notePath: string,
  *   vaultRelativePath: string,
  *   resourceSrc?: string,
+ *   placeholderSrc?: string,
  * }} ImageAssetSource
  * @typedef {{
  *   id: string,
@@ -32,6 +33,8 @@ const DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
  *   source: ImageAssetSource,
  * }} ImageAsset
  * @typedef {{ start: number, end: number, value: string }} ReplacementRange
+ * @typedef {{ width: number, height: number | null }} ImageSizeHint
+ * @typedef {{ type: string, originalSrc: string, resolvedSrc: string, alt: string, sizeHint: ImageSizeHint | null }} ResolvedImageReference
  */
 
 const SUPPORTED_IMAGE_MIME_BY_EXT = {
@@ -213,8 +216,44 @@ function stripMarkdownDestination(rawDestination) {
 function splitWikiEmbedTarget(rawTarget) {
   const parts = String(rawTarget || '').split('|');
   const src = (parts.shift() || '').trim();
-  const alias = parts.join('|').trim();
+  let aliasParts = parts.map((part) => part.trim()).filter((part) => part.length > 0);
+  if (aliasParts.length > 1 && isLikelyWikiImageSizeHint(aliasParts[aliasParts.length - 1])) {
+    aliasParts = aliasParts.slice(0, -1);
+  }
+  const alias = aliasParts.join('|').trim();
   return { src, alias };
+}
+
+/** @param {unknown} value */
+function isLikelyWikiImageSizeHint(value) {
+  return /^\d+(?:\s*x\s*\d+)?$/i.test(String(value || '').trim());
+}
+
+/**
+ * @param {unknown} value
+ * @returns {ImageSizeHint | null}
+ */
+function parseImageSizeHint(value) {
+  const match = String(value || '').trim().match(/^(\d+)(?:\s*x\s*(\d+))?$/i);
+  if (!match) return null;
+  const width = Number(match[1] || 0);
+  const height = match[2] ? Number(match[2]) : null;
+  if (!Number.isFinite(width) || width <= 0) return null;
+  if (height !== null && (!Number.isFinite(height) || height <= 0)) return null;
+  return { width, height };
+}
+
+/**
+ * @param {unknown} altText
+ * @returns {ImageSizeHint | null}
+ */
+function extractSizeHintFromAltText(altText) {
+  const raw = String(altText || '').trim();
+  if (!raw) return null;
+  if (!raw.includes('|')) return parseImageSizeHint(raw);
+  const parts = raw.split('|').map((part) => part.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  return parseImageSizeHint(parts[parts.length - 1]);
 }
 
 /**
@@ -246,6 +285,7 @@ function collectWikiImageEmbeds(markdown) {
       raw: match[0],
       src,
       alt: alias || createAltFromSrc(src),
+      sizeHint: parseImageSizeHint(String(match[1] || '').split('|').map((part) => part.trim()).filter(Boolean).pop() || ''),
     });
   }
   return results;
@@ -278,6 +318,7 @@ function collectPlainWikiImageLinks(markdown) {
       raw: match[0],
       src,
       alt: alias || createAltFromSrc(src),
+      sizeHint: parseImageSizeHint(String(match[1] || '').split('|').map((part) => part.trim()).filter(Boolean).pop() || ''),
     });
   }
   return results;
@@ -346,6 +387,7 @@ function collectMarkdownImages(markdown) {
     const alt = sourceMarkdown.slice(start + 2, altEnd);
     const destination = stripMarkdownDestination(sourceMarkdown.slice(destinationStart, destinationEnd));
     if (destination) {
+      const sizeHint = extractSizeHintFromAltText(alt);
       results.push({
         type: 'markdown',
         start,
@@ -353,6 +395,7 @@ function collectMarkdownImages(markdown) {
         raw: sourceMarkdown.slice(start, destinationEnd + 1),
         src: destination,
         alt,
+        sizeHint,
       });
     }
     index = destinationEnd + 1;
@@ -627,7 +670,8 @@ function isLocalLikeSrc(src) {
  *   assetIndex: number,
  *   originalSrc?: string,
  *   existingByKey: Map<string, ImageAsset>,
- *   limits: { maxImageSizeBytes: number, maxTotalImageSizeBytes: number },
+ *   limits: { maxImageSizeBytes: number, maxTotalImageSizeBytes: number, unsupportedExtensions?: Set<string> },
+ *   embedAssetBase64?: boolean,
  * }} params
  * @returns {Promise<{ asset?: ImageAsset, warning?: ImageWarning, reused?: boolean }>}
  */
@@ -639,6 +683,7 @@ async function resolveLocalImageAsset({
   originalSrc = src,
   existingByKey,
   limits,
+  embedAssetBase64 = true,
 }) {
   /** @type {VaultFileLike | null} */
   let file = null;
@@ -674,6 +719,17 @@ async function resolveLocalImageAsset({
   if (existingByKey.has(cacheKey)) {
     const cached = existingByKey.get(cacheKey);
     return cached ? { asset: cached, reused: true } : {};
+  }
+
+  const fileNameBeforeRead = file?.name || getFilenameFromPath(file?.path || src);
+  const fileExtension = getExtension(fileNameBeforeRead);
+  if (limits.unsupportedExtensions?.has(fileExtension)) {
+    return {
+      warning: createWarning('image_unsupported_for_target', `当前目标暂不支持该图片格式：${fileNameBeforeRead}`, {
+        src: originalSrc,
+        filename: fileNameBeforeRead,
+      }),
+    };
   }
 
   try {
@@ -718,7 +774,6 @@ async function resolveLocalImageAsset({
     filename,
     mimeType,
     size,
-    base64: buffer.toString('base64'),
     source: {
       kind: 'obsidian-local',
       originalSrc,
@@ -726,6 +781,9 @@ async function resolveLocalImageAsset({
       vaultRelativePath,
     },
   });
+  if (embedAssetBase64 !== false) {
+    asset.base64 = buffer.toString('base64');
+  }
   if (resourceSrc) asset.source.resourceSrc = resourceSrc;
 
   existingByKey.set(cacheKey, asset);
@@ -895,14 +953,15 @@ function formatArticleImageWarnings(warnings = []) {
 /**
  * @param {unknown} markdown
  * @param {unknown} noteFile
- * @param {{ app?: unknown, maxImageSizeBytes?: number, maxTotalImageSizeBytes?: number, cover?: string }} options
- * @returns {Promise<{ markdown: string, assets: ImageAsset[], warnings: ImageWarning[], cover: string, firstImageSrc: string }>}
+ * @param {{ app?: unknown, maxImageSizeBytes?: number, maxTotalImageSizeBytes?: number, unsupportedImageExtensions?: string[], cover?: string, localImageSrcFactory?: (asset: ImageAsset) => string, embedAssetBase64?: boolean }} options
+ * @returns {Promise<{ markdown: string, assets: ImageAsset[], warnings: ImageWarning[], cover: string, firstImageSrc: string, references: ResolvedImageReference[] }>}
  */
 async function resolveArticleImages(markdown, noteFile, options = {}) {
   const app = options.app;
   const limits = {
     maxImageSizeBytes: options.maxImageSizeBytes || DEFAULT_MAX_IMAGE_SIZE_BYTES,
     maxTotalImageSizeBytes: options.maxTotalImageSizeBytes || DEFAULT_MAX_TOTAL_IMAGE_SIZE_BYTES,
+    unsupportedExtensions: new Set((options.unsupportedImageExtensions || []).map((ext) => String(ext || '').toLowerCase().replace(/^\./, '')).filter(Boolean)),
   };
   const sourceMarkdown = String(markdown || '');
   const references = collectArticleImageReferences(sourceMarkdown);
@@ -914,6 +973,8 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
   const assets = [];
   /** @type {Map<string, ImageAsset>} */
   const existingByKey = new Map();
+  /** @type {ResolvedImageReference[]} */
+  const resolvedReferences = [];
 
   /**
    * @param {unknown} src
@@ -940,15 +1001,29 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
       originalSrc: original,
       existingByKey,
       limits,
+      embedAssetBase64: options.embedAssetBase64 !== false,
     });
     if (result.warning) return { src: trimmed, warning: result.warning };
     if (result.asset && !result.reused) assets.push(result.asset);
     if (!result.asset) return { src: trimmed };
-    return { src: `asset://${result.asset.id}`, asset: result.asset };
+    const replacementSrc = typeof options.localImageSrcFactory === 'function'
+      ? options.localImageSrcFactory(result.asset)
+      : `asset://${result.asset.id}`;
+    if (replacementSrc && replacementSrc !== `asset://${result.asset.id}`) {
+      result.asset.source.placeholderSrc = replacementSrc;
+    }
+    return { src: replacementSrc || `asset://${result.asset.id}`, asset: result.asset };
   };
 
   for (const ref of references) {
     const result = await resolveSrc(ref.src, ref.src);
+    resolvedReferences.push({
+      type: ref.type,
+      originalSrc: ref.src,
+      resolvedSrc: result.src,
+      alt: ref.alt,
+      sizeHint: ref.sizeHint || null,
+    });
     if (result.warning) {
       warnings.push(result.warning);
       continue;
@@ -986,6 +1061,7 @@ async function resolveArticleImages(markdown, noteFile, options = {}) {
     warnings,
     cover,
     firstImageSrc: getFirstMarkdownImageSrc(resolvedMarkdown),
+    references: resolvedReferences,
   };
 }
 

@@ -43,6 +43,24 @@ const RULES = [
     pattern: /\bfetch\s*\(\s*(['"`])data:/,
   },
   {
+    id: 'no-global-this-production',
+    message: 'Avoid globalThis in production plugin code. Prefer window or active-window helpers for Obsidian popout compatibility.',
+    pattern: /\bglobalThis\b/,
+    extensions: new Set(['.js', '.mjs', '.cjs']),
+  },
+  {
+    id: 'no-active-window-timers',
+    message: 'Use window.setTimeout()/window.clearTimeout() for timers. Reserve active-window helpers for DOM/window-bound APIs.',
+    pattern: /\bactiveWindow\.(?:setTimeout|clearTimeout)\s*\(/,
+    extensions: new Set(['.js', '.mjs', '.cjs']),
+  },
+  {
+    id: 'no-return-dynamic-bound-function',
+    message: 'Avoid returning functions built from dynamic .call/.bind access; wrap the call in a named helper or call the safe API directly.',
+    pattern: /return\s*\([^)]*\)\s*=>[^\n]*(?:\.call|\.bind)\s*\(/,
+    extensions: new Set(['.js', '.mjs', '.cjs']),
+  },
+  {
     id: 'require-eslint-disable-reason',
     message: 'eslint-disable comments must include a "-- reason" explanation for Obsidian scan exceptions.',
     pattern: /eslint-disable(?:-next-line|-line)?(?![^\n]*--)/,
