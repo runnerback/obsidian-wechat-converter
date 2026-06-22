@@ -71,7 +71,7 @@
  * @typedef {{ updateConfig?: (values: Record<string, unknown>) => void, reinit?: () => void, initMarkdownIt?: () => Promise<void> }} ConverterRuntimeLike
  * @typedef {{ renderForPreview: (markdown: string, context: { sourcePath: string, settings: PluginSettingsLike }) => Promise<string> }} RenderPipelineLike
  * @typedef {{ updateAiToolbarState?: () => void, refreshAiLayoutPanel?: () => void }} ConverterViewRefreshLike
- * @typedef {PluginBaseLike & { settings: PluginSettingsLike, obsidianApi?: ObsidianApiLike, _wechatSyncBridgeService?: WechatSyncBridgeServiceLike, _wechatSyncBridgeCacheKey?: string, _lastSaveSettingsErrorAt?: number, openConverter: () => Promise<void>, getConverterView?: () => unknown, getWechatSyncBridgeService?: () => WechatSyncBridgeServiceLike, saveSettings: () => Promise<boolean>, getArticleLayoutState?: (sourcePath: string, selection?: AiLayoutSelectionLike | Record<string, unknown>) => AiLayoutStateLike | null, saveArticleLayoutState?: (sourcePath: string, nextState: AiLayoutStateLike | Record<string, unknown>, selection?: AiLayoutSelectionLike | Record<string, unknown>) => Promise<AiLayoutStateLike | null> }} AppleStylePluginLike
+ * @typedef {PluginBaseLike & { settings: PluginSettingsLike, obsidianApi?: ObsidianApiLike, _wechatSyncBridgeService?: WechatSyncBridgeServiceLike, _wechatSyncBridgeCacheKey?: string, _lastSaveSettingsErrorAt?: number, openConverter: () => Promise<void>, openExternalUrl?: (url: string) => boolean, getConverterView?: () => unknown, getWechatSyncBridgeService?: () => WechatSyncBridgeServiceLike, saveSettings: () => Promise<boolean>, getArticleLayoutState?: (sourcePath: string, selection?: AiLayoutSelectionLike | Record<string, unknown>) => AiLayoutStateLike | null, saveArticleLayoutState?: (sourcePath: string, nextState: AiLayoutStateLike | Record<string, unknown>, selection?: AiLayoutSelectionLike | Record<string, unknown>) => Promise<AiLayoutStateLike | null> }} AppleStylePluginLike
  * @typedef {{ settings?: PluginSettingsLike | Record<string, unknown> }} PluginWithSettingsLike
  * @typedef {{ setDestructive?: () => unknown, setWarning?: () => unknown }} ButtonCompatLike
  * @typedef {{ renderSettingsContent?: () => void, [key: string]: unknown }} SettingTabCompatLike
@@ -7604,7 +7604,10 @@ class AppleStyleSettingTab extends PluginSettingTab {
       cls: 'apple-settings-github-button',
     });
     starButton.onclick = () => {
-      this.plugin.openExternalUrl?.(GITHUB_REPOSITORY_URL);
+      const openExternalUrl = this.plugin.openExternalUrl;
+      if (typeof openExternalUrl === 'function') {
+        openExternalUrl.call(this.plugin, GITHUB_REPOSITORY_URL);
+      }
     };
   }
 
@@ -8763,8 +8766,13 @@ class AppleStylePlugin extends Plugin {
     const target = String(url || '').trim();
     if (!/^https?:\/\//i.test(target)) return false;
     const view = this.getConverterView?.();
-    if (view && typeof view.openExternalUrl === 'function') {
-      return view.openExternalUrl(target);
+    if (view && typeof view === 'object') {
+      const externalLinkView = /** @type {{ openExternalUrl?: unknown }} */ (view);
+      const openExternalUrl = externalLinkView.openExternalUrl;
+      if (typeof openExternalUrl === 'function') {
+        openExternalUrl.call(externalLinkView, target);
+        return true;
+      }
     }
     if (typeof window !== 'undefined' && typeof window.open === 'function') {
       window.open(target, '_blank', 'noopener');

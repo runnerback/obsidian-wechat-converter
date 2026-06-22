@@ -67,7 +67,7 @@ const LEGACY_SETTING_RENDER_KEY = ['dis', 'play'].join('');
  * @typedef {{ listSupportedPlatforms: (options?: Record<string, unknown>) => Promise<unknown>, getAuthSnapshot: (options?: Record<string, unknown>) => Promise<unknown>, start: () => Promise<unknown>, waitForConnection: (timeoutMs: number) => Promise<unknown>, health: (options?: Record<string, unknown>) => Promise<unknown>, getStatus?: () => Promise<unknown>, getDiagnostics?: () => unknown }} WechatBridgeLike
  * @typedef {{ multiPlatformSync?: unknown }} WechatPluginSettingsLike
  * @typedef {{ settings: WechatPluginSettingsLike, obsidianApi?: Partial<WechatObsidianApiLike>, activeView?: { openExternalUrl?: (url: string) => boolean }, openExternalUrl?: (url: string) => boolean, saveSettings: () => Promise<void>, startWechatSyncBridgeInBackground: (reason: string) => unknown, getWechatSyncBridgeService: () => WechatBridgeLike, _wechatSyncBridgeService?: { stop?: () => Promise<unknown> } }} WechatPluginLike
- * @typedef {{ plugin: WechatPluginLike, renderSettingsContent?: () => void, [key: string]: unknown }} WechatSettingsTabLike
+ * @typedef {{ plugin: WechatPluginLike, renderSettingsContent?: () => void, renderSettingsTabIntro?: (containerEl: WechatSettingsElement, description: string) => void, [key: string]: unknown }} WechatSettingsTabLike
  * @typedef {{ Setting: WechatSettingConstructor, Notice: WechatNoticeConstructor }} WechatObsidianApiLike
  * @typedef {{ color: string, path: string }} BrowserIconDef
  * @typedef {{ id: string, name: string, authKnown?: boolean, authStatus?: string, authenticated?: boolean }} WechatPlatformLike
@@ -299,8 +299,10 @@ function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
   plugin.settings.multiPlatformSync = multiPlatformSettings;
   const isProLicensed = hasWechatSyncProLicense(multiPlatformSettings);
 
-  if (typeof tab.renderSettingsTabIntro === 'function') {
-    tab.renderSettingsTabIntro(
+  const renderSettingsTabIntro = tab.renderSettingsTabIntro;
+  if (typeof renderSettingsTabIntro === 'function') {
+    renderSettingsTabIntro.call(
+      tab,
       containerEl,
       '连接浏览器插件，并选择要保存草稿的内容平台。'
     );
