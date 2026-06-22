@@ -1,7 +1,7 @@
 {
 	"id": "wechat-converter",
 	"name": "Wechat Converter",
-	"version": "2.8.11",
+	"version": "2.9.0",
 	"minAppVersion": "1.4.0",
 	"description": "Convert Markdown into polished WeChat articles, Feishu cloud docs, and multi-platform publishing drafts.",
 	"author": "DavidLam (林小卫很行)",
