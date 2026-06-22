@@ -108,12 +108,30 @@
   overflow: hidden; /* 关键：确保子元素截断生效 */
 }
 
+.apple-toolbar-plugin-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-bottom: 2px;
+}
+
 .apple-toolbar-plugin-name {
   font-size: 11px;
   color: var(--apple-tertiary);
   font-weight: 500;
-  margin-bottom: 2px;
   line-height: 1.2;
+}
+
+.apple-toolbar-preview-badge {
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 6%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 84%, transparent);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .apple-toolbar-doc-name {
@@ -2075,7 +2093,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 .apple-placeholder-note {
   font-size: 12px;
   color: #86868b;
-  margin-top: 24px;
+  margin-top: 18px;
   opacity: 0.8;
 }
 
@@ -2085,6 +2103,8 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   align-items: center;
   justify-content: center;
   height: 100%;
+  max-width: 360px;
+  margin: 0 auto;
   text-align: center;
   color: #6e6e73;
   background: transparent;
@@ -2092,34 +2112,41 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .apple-placeholder-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: var(--apple-spacing-md);
+  width: 58px;
+  height: 58px;
+  margin-bottom: 18px;
 }
 
 .apple-placeholder h2 {
   font-size: 20px;
   font-weight: 600;
   color: #1d1d1f;
-  margin: 0 0 var(--apple-spacing-sm) 0;
+  margin: 0 0 10px 0;
 }
 
 .apple-placeholder p {
   font-size: 14px;
   color: #6e6e73;
-  margin: 0 0 var(--apple-spacing-lg) 0;
+  line-height: 1.55;
+  margin: 0 0 22px 0;
+}
+
+.apple-placeholder .apple-placeholder-note {
+  margin: 18px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .apple-steps {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 9px;
   align-items: flex-start;
-  padding: var(--apple-spacing-md);
-  background: #f5f5f7;
-  border-radius: var(--apple-radius-md);
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
   font-size: 13px;
-  color: #1d1d1f;
+  color: #4f4f55;
   /* 确保文字颜色适配 */
 }
 
@@ -3237,6 +3264,9 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .wechat-feishu-publish-shell .wechat-modal-buttons {
+  position: static;
+  flex: 0 0 auto;
+  margin: 0;
   padding-inline: 2px;
 }
 
@@ -3337,6 +3367,10 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   min-height: 560px;
   overflow-y: auto;
   padding-top: 2px;
+}
+
+.wechat-publish-shell .modal-content.wechat-feishu-modal-content {
+  overflow: hidden;
 }
 
 .wechat-publish-shell .modal-content::-webkit-scrollbar {
@@ -3902,6 +3936,86 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 /* ========================================
    设置面板 Tab 导航
    ======================================== */
+.apple-settings-github-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 12px 14px;
+  margin: 2px 0 16px;
+  border: none;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, #f6c343 18%, transparent), transparent 40%),
+    linear-gradient(135deg, color-mix(in srgb, var(--background-primary) 92%, var(--background-secondary)), var(--background-secondary));
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--background-modifier-box-shadow) 14%, transparent);
+}
+
+.apple-settings-github-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: color-mix(in srgb, #f6c343 18%, var(--background-primary));
+  color: #b77900;
+}
+
+.apple-settings-github-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.apple-settings-github-copy {
+  min-width: 0;
+}
+
+.apple-settings-github-kicker {
+  color: var(--text-normal);
+  font-size: 13px;
+  font-weight: 720;
+  line-height: 1.25;
+}
+
+.apple-settings-github-desc {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.apple-settings-github-button {
+  padding: 7px 13px;
+  border: 1px solid color-mix(in srgb, var(--text-normal) 14%, transparent);
+  border-radius: 999px;
+  background: var(--text-normal);
+  color: var(--background-primary);
+  font-size: 12px;
+  font-weight: 720;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+
+.apple-settings-github-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--text-normal) 18%, transparent);
+}
+
+.apple-settings-tab-intro {
+  margin: -2px 0 16px;
+  padding: 0;
+}
+
+.apple-settings-tab-intro-desc {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .apple-settings-tabs {
   display: flex;
   gap: 0;
@@ -3934,6 +4048,17 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 
 .apple-settings-tab-content {
   padding: 0;
+}
+
+@media (max-width: 760px) {
+  .apple-settings-github-banner {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .apple-settings-github-button {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
 }
 
 .wechat-draft-status {
@@ -4054,13 +4179,35 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
 
 .wechat-feishu-publish-content {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 14px;
-  padding: 2px 0 18px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 4px 18px 0;
+}
+
+.wechat-feishu-publish-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.wechat-feishu-publish-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wechat-feishu-publish-content::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+  transition: background 0.22s ease;
+}
+
+.wechat-feishu-publish-content.is-scrolling::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--apple-tertiary) 42%, transparent);
 }
 
 .wechat-feishu-intro-card {

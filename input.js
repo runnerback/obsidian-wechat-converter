@@ -518,6 +518,7 @@ function dataUrlToBlob(dataUrl) {
 // 视图类型标识
 const APPLE_STYLE_VIEW = 'apple-style-converter';
 const APPLE_STYLE_VIEW_TITLE = 'Obsidian 发布助手';
+const GITHUB_REPOSITORY_URL = 'https://github.com/DavidLam-oss/obsidian-wechat-converter';
 const OBSIDIAN_PUBLISHER_PRO_URL = 'https://xiaoweibox.top/obsidian-publisher/pro/';
 const OBSIDIAN_PUBLISHER_GUIDE_URL = 'https://xiaoweibox.top/obsidian-publisher/guide/';
 const OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL = `${OBSIDIAN_PUBLISHER_GUIDE_URL}?from=obsidian-plugin#install-extension`;
@@ -1936,7 +1937,9 @@ class AppleStyleView extends ItemView {
     // 1.1 左侧：双层信息（插件名 + 文档名）
     this.currentDocLabel = toolbar.createEl('div', { cls: 'apple-toolbar-title' });
     if (!isMobileClient(this.app)) {
-      this.currentDocLabel.createDiv({ text: APPLE_STYLE_VIEW_TITLE, cls: 'apple-toolbar-plugin-name' });
+      const pluginLine = this.currentDocLabel.createDiv({ cls: 'apple-toolbar-plugin-line' });
+      pluginLine.createEl('span', { text: APPLE_STYLE_VIEW_TITLE, cls: 'apple-toolbar-plugin-name' });
+      pluginLine.createEl('span', { text: '公众号预览', cls: 'apple-toolbar-preview-badge' });
     }
     this.docTitleText = this.currentDocLabel.createDiv({ text: '未选择文档', cls: 'apple-toolbar-doc-name' });
 
@@ -1967,6 +1970,8 @@ class AppleStyleView extends ItemView {
     const settingsButton = createIconBtn('sliders-horizontal', '样式设置', () => {
       this.togglePanel(this.settingsOverlay, settingsButton, () => this.resetSettingsPanelViewState());
     });
+    settingsButton.setAttribute('aria-label', '公众号排版样式设置');
+    settingsButton.setAttribute('title', '公众号排版样式设置');
     this.settingsBtn = settingsButton;
 
     this.aiLayoutBtn = createIconBtn('sparkles', 'AI 编排', () => this.onAiLayoutButtonClick());
@@ -4999,6 +5004,7 @@ class AppleStyleView extends ItemView {
     modal.contentEl.addClass('wechat-sync-modal');
     modal.contentEl.removeClass?.('wechat-multiplatform-modal');
     modal.contentEl.removeClass?.('wechat-multiplatform-result-modal');
+    modal.contentEl.removeClass?.('wechat-feishu-modal-content');
     modal.modalEl?.addClass('wechat-publish-shell');
     modal.modalEl?.removeClass?.('wechat-multiplatform-shell');
     if (mobileSync) {
@@ -6562,15 +6568,15 @@ class AppleStyleView extends ItemView {
     iconDiv.textContent = '📝';
     this.loadPlaceholderIcon(iconDiv);
     placeholder.createEl('h2', { text: 'Obsidian 发布助手' });
-    placeholder.createEl('p', { text: '在 Obsidian 写作，预览确认公众号排版，或直接以 Markdown 原文发布到其他平台。' });
+    placeholder.createEl('p', { text: '当前面板用于预览微信公众号排版。' });
     const steps = placeholder.createEl('div', { cls: 'apple-steps' });
-    steps.createEl('div', { text: '1️⃣ 打开要发布的 Markdown 文件' });
-    steps.createEl('div', { text: '2️⃣ 在预览中确认微信公众号排版' });
-    steps.createEl('div', { text: '3️⃣ 点击「发布与分发」选择微信或其他平台' });
+    steps.createEl('div', { text: '1. 打开 Markdown 文件' });
+    steps.createEl('div', { text: '2. 预览公众号排版' });
+    steps.createEl('div', { text: '3. 发布到微信、飞书或其他平台' });
 
     // 添加提示
     placeholder.createEl('p', {
-      text: '提示：点击要发布的文档即可在预览中查看排版效果。',
+      text: '飞书和其他平台会走各自发布流程。',
       cls: 'apple-placeholder-note'
     });
   }
@@ -7573,13 +7579,49 @@ class AppleStyleSettingTab extends PluginSettingTab {
     }];
   }
 
+  /**
+   * @param {ObsidianElementLike} containerEl
+   */
+  renderGitHubStarBanner(containerEl) {
+    const banner = containerEl.createDiv({ cls: 'apple-settings-github-banner' });
+    const iconWrap = banner.createDiv({ cls: 'apple-settings-github-icon' });
+    const setIcon = getObsidianSetIcon();
+    if (typeof setIcon === 'function') {
+      setIcon(iconWrap, 'star');
+    } else {
+      iconWrap.setText('Star');
+    }
+
+    const copy = banner.createDiv({ cls: 'apple-settings-github-copy' });
+    copy.createEl('div', { text: '喜欢这个插件？', cls: 'apple-settings-github-kicker' });
+    copy.createEl('p', {
+      text: '在 GitHub 上点个 Star，可以帮更多 Obsidian 创作者发现它。',
+      cls: 'apple-settings-github-desc',
+    });
+
+    const starButton = banner.createEl('button', {
+      text: 'Star on GitHub',
+      cls: 'apple-settings-github-button',
+    });
+    starButton.onclick = () => {
+      this.plugin.openExternalUrl?.(GITHUB_REPOSITORY_URL);
+    };
+  }
+
+  /**
+   * @param {ObsidianElementLike} containerEl
+   * @param {string} description
+   */
+  renderSettingsTabIntro(containerEl, description) {
+    const intro = containerEl.createDiv({ cls: 'apple-settings-tab-intro' });
+    intro.createEl('p', { text: description, cls: 'apple-settings-tab-intro-desc' });
+  }
+
   renderSettingsContent() {
     const { containerEl } = this;
     containerEl.empty();
 
-    // 提示信息
-    new Setting(containerEl)
-      .setDesc('在 Obsidian 中完成写作与预览；微信账号、浏览器插件发布和默认发布选项在这里配置。更多排版样式请在侧边栏面板中调整。');
+    this.renderGitHubStarBanner(containerEl);
 
     // === Tab 导航 ===
     const tabBar = containerEl.createDiv({ cls: 'apple-settings-tabs' });
@@ -7633,6 +7675,11 @@ class AppleStyleSettingTab extends PluginSettingTab {
     // === 微信 Tab ===
     {
       const containerEl = wechatContent;
+
+    this.renderSettingsTabIntro(
+      containerEl,
+      '配置公众号账号、封面摘要和微信预览相关选项。'
+    );
 
     // 预览模式设置
     new Setting(containerEl)
@@ -8710,6 +8757,20 @@ class AppleStylePlugin extends Plugin {
       return leaves[0].view;
     }
     return null;
+  }
+
+  openExternalUrl(url) {
+    const target = String(url || '').trim();
+    if (!/^https?:\/\//i.test(target)) return false;
+    const view = this.getConverterView?.();
+    if (view && typeof view.openExternalUrl === 'function') {
+      return view.openExternalUrl(target);
+    }
+    if (typeof window !== 'undefined' && typeof window.open === 'function') {
+      window.open(target, '_blank', 'noopener');
+      return true;
+    }
+    return false;
   }
 
   getWechatSyncBridgeService() {

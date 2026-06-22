@@ -132,6 +132,13 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
 
   containerEl.empty();
 
+  if (typeof tab.renderSettingsTabIntro === 'function') {
+    tab.renderSettingsTabIntro(
+      containerEl,
+      '配置飞书自建应用、目标文件夹和 OpenAPI 调用统计。'
+    );
+  }
+
   containerEl.createEl('h2', { text: '飞书云文档同步配置', cls: 'wechat-feishu-heading' });
   containerEl.createEl('p', {
     text: '通过飞书自建应用机器人接口，将当前 Obsidian 笔记一键发布并转换为原生的飞书云文档（docx），支持保留标题、表格、以及图片上传（包含本地和图床图片）。',

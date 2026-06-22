@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-wechat-converter",
 	"version": "2.8.11",
-	"description": "Apple Style Formatter for Obsidian",
+	"description": "Obsidian plugin for WeChat articles, Feishu cloud docs, and multi-platform publishing.",
 	"main": "main.js",
 	"scripts": {
 		"generate:embedded": "node scripts/generate-embedded-deps.mjs",

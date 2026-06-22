@@ -97,6 +97,22 @@ function createFeishuRadio(container, name, value, checked) {
 }
 
 /**
+ * @param {HTMLElement} scrollEl
+ */
+function bindTransientScrollbar(scrollEl) {
+  let hideTimer = 0;
+  const showScrollbar = () => {
+    scrollEl.addClass('is-scrolling');
+    window.clearTimeout(hideTimer);
+    hideTimer = window.setTimeout(() => {
+      scrollEl.removeClass('is-scrolling');
+    }, 850);
+  };
+
+  scrollEl.addEventListener('scroll', showScrollbar, { passive: true });
+}
+
+/**
  * Renders the Feishu publish tab content.
  * @param {any} view AppleStyleView instance
  * @param {any} modal Obsidian Modal instance
@@ -116,6 +132,7 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
 
   // Clear previous content
   containerEl.empty();
+  containerEl.addClass('wechat-feishu-modal-content');
 
   // 1. Re-render the tab headers inside containerEl (so they stay when switching tabs)
   const tabsWrapper = containerEl.createDiv({ cls: 'wechat-publish-mode-tabs' });
@@ -145,6 +162,7 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
 
   // 2. Tab Content wrapper
   const contentWrapper = shell.createDiv({ cls: 'wechat-feishu-publish-content' });
+  bindTransientScrollbar(contentWrapper);
 
   // 3. Check if Feishu sync is enabled and configured
   if (!settings || !settings.enabled || !settings.appId || !settings.appSecret || !settings.folderToken) {
