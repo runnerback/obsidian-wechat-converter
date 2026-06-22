@@ -595,7 +595,7 @@ describe('AppleStyleView native render + lifecycle', () => {
     expect(container.querySelector('.apple-ai-layout-overlay')).toBeTruthy();
     expect(container.querySelector('.apple-settings-area')).toBeTruthy();
     expect(container.querySelector('.apple-toolbar-plugin-name')).toBeNull();
-    expect(container.querySelector('.apple-icon-btn[aria-label="样式设置"]')).toBeTruthy();
+    expect(container.querySelector('.apple-icon-btn[aria-label="公众号排版样式设置"]')).toBeTruthy();
     expect(container.querySelector('.apple-icon-btn[aria-label="AI 编排"]')).toBeTruthy();
     expect(container.querySelector('.apple-icon-btn[aria-label="发布与分发"]')).toBeTruthy();
     expect(container.querySelector('.apple-icon-btn[aria-label="复制到公众号"]')).toBeNull();

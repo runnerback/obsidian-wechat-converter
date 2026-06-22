@@ -76,6 +76,7 @@ function makePlugin(settingsOverrides = {}) {
     manifest: { dir: '/test', id: 'wechat-converter', version: '0.0.0-test' },
     settings: makeMinimalSettings(settingsOverrides),
     saveSettings: vi.fn().mockResolvedValue(undefined),
+    openExternalUrl: vi.fn(() => true),
     startWechatSyncBridgeInBackground: vi.fn(),
     _wechatSyncBridgeService: null,
     getWechatSyncBridgeService: vi.fn(() => ({
@@ -126,6 +127,24 @@ describe('AppleStyleSettingTab settings rendering - smoke test', () => {
     const plugin = makePlugin();
     expect(() => renderTab(plugin)).not.toThrow();
     expect(globalThis.__obsidianSettingNamesRegistry.length).toBeGreaterThan(5);
+  });
+
+  it('exposes a GitHub star shortcut at the top of settings', () => {
+    const plugin = makePlugin();
+    const tab = renderTab(plugin);
+
+    const banner = tab.containerEl.querySelector('.apple-settings-github-banner');
+    const starButton = banner?.querySelector('.apple-settings-github-button');
+    expect(banner).not.toBeNull();
+    expect(banner.textContent).toContain('喜欢这个插件？');
+    expect(starButton).not.toBeNull();
+    expect(tab.containerEl.querySelector('.apple-settings-intro')).toBeNull();
+    expect(tab.containerEl.querySelector('.apple-settings-tab-intro')?.textContent).toContain('配置公众号账号、封面摘要和微信预览相关选项');
+    expect(tab.containerEl.querySelector('.apple-settings-tab-intro')?.textContent).not.toContain('不会改变');
+
+    starButton.click();
+
+    expect(plugin.openExternalUrl).toHaveBeenCalledWith('https://github.com/DavidLam-oss/obsidian-wechat-converter');
   });
 
   it('keeps 高级设置 fields that earlier refactors silently dropped', () => {

@@ -299,6 +299,13 @@ function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
   plugin.settings.multiPlatformSync = multiPlatformSettings;
   const isProLicensed = hasWechatSyncProLicense(multiPlatformSettings);
 
+  if (typeof tab.renderSettingsTabIntro === 'function') {
+    tab.renderSettingsTabIntro(
+      containerEl,
+      '连接浏览器插件，并选择要保存草稿的内容平台。'
+    );
+  }
+
   new Setting(containerEl)
     .setName('浏览器插件发布')
     .setDesc('Obsidian 负责写作、预览和平台选择；浏览器插件使用当前的浏览器登录态，把文章保存到知乎、掘金、CSDN 等平台草稿箱。微信仍可使用上方公众号 API。')

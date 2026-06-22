@@ -164,8 +164,11 @@ describe('Feishu publish modal UX', () => {
     expect(shell).not.toBeNull();
     expect(content).not.toBeNull();
     expect(buttonRow).not.toBeNull();
+    expect(containerEl.classList.contains('wechat-feishu-modal-content')).toBe(true);
     expect(buttonRow.parentElement).toBe(shell);
     expect(content.contains(buttonRow)).toBe(false);
+    content.dispatchEvent(new Event('scroll'));
+    expect(content.classList.contains('is-scrolling')).toBe(true);
     expect(containerEl.textContent).not.toContain('发布设置');
     expect(containerEl.textContent).not.toContain('同步目标文件夹');
     expect(containerEl.textContent).not.toContain('Token: folder-token');

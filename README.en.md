@@ -2,14 +2,14 @@
 
 # Wechat Converter for Obsidian
 
-Convert Obsidian Markdown into polished WeChat articles, then keep publishing to more platforms from the same workflow. Wechat Converter now supports live preview, copy-to-editor, WeChat draft sync, and beta multi-platform distribution through the Obsidian Publisher browser extension.
+Convert Obsidian Markdown into polished WeChat articles, Feishu cloud documents, and multi-platform publishing drafts from the same workflow. Wechat Converter now supports live preview, copy-to-editor, WeChat draft sync, Feishu cloud document sync, and beta multi-platform distribution through the Obsidian Publisher browser extension.
 
-![Version](https://img.shields.io/badge/version-2.8.8-blue)
+![Version](https://img.shields.io/badge/version-2.8.11-blue)
 ![Obsidian](https://img.shields.io/badge/Obsidian-1.0.0+-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Chrome Companion](https://img.shields.io/badge/Chrome%20Companion-Obsidian%20Publisher%20%E2%80%A2%20Coming%20Soon-7c3aed)
 
-This plugin is built for writers who publish from Obsidian to WeChat Official Accounts and other Chinese content platforms. It focuses on the last mile of publishing: preserving layout, code blocks, math, images, and article metadata while keeping the workflow fast inside Obsidian.
+This plugin is built for writers who publish from Obsidian to WeChat Official Accounts, Feishu cloud documents, and other Chinese content platforms. It focuses on the last mile of publishing: preserving layout, code blocks, math, images, and article metadata while keeping the workflow fast inside Obsidian.
 
 > This project is deeply refactored from [ai-writing-plugins](https://github.com/Ceeon/ai-writing-plugins). Proper attribution is retained in this repository.
 
@@ -19,21 +19,22 @@ If this plugin saves you time when formatting, copying, or syncing WeChat articl
 
 Wechat Converter does not include client-side telemetry and does not automatically upload your notes. Network access, local filesystem reads, and clipboard writes are used only when you explicitly run the related feature.
 
-- **Network access and `fetch()` calls**: WeChat draft sync calls the official WeChat API, custom API proxy settings call the proxy URL you configure, AI layout calls the AI Provider you configure, and multi-platform delivery connects to the local companion browser extension service.
+- **Network access and `fetch()` calls**: WeChat draft sync calls the official WeChat API, Feishu cloud document sync calls the Feishu Open Platform API, custom API proxy settings call the proxy URL you configure, AI layout calls the AI Provider you configure, and multi-platform delivery connects to the local companion browser extension service.
 - **Local filesystem access**: The plugin reads local vault files only when processing images, covers, Mermaid exports, LaTeX exports, and other assets referenced by the current note.
 - **Clipboard access**: Copy actions write the current rendered article to the system clipboard so you can paste it into the WeChat editor or another publishing surface. On mobile, the plugin may immediately read back the clipboard after writing to verify that the copy succeeded; clipboard contents are not uploaded.
-- **Third-party accounts**: WeChat sync requires your own AppID and AppSecret. Other platforms are handled by the companion browser extension using the login state already present in your browser.
-- **Paid and companion features**: Core conversion, preview, copy, and WeChat publishing features are available in the plugin. Some optional Pro and companion-extension capabilities may require a paid license. Multi-platform publishing and Pro licensing are coordinated with Obsidian Publisher.
+- **Third-party accounts**: WeChat sync requires your own AppID and AppSecret. Feishu sync requires your own Feishu app ID, app secret, target folder token, and optional user ID. Other platforms are handled by the companion browser extension using the login state already present in your browser.
+- **Paid and companion features**: Core conversion, preview, copy, WeChat publishing, and Feishu cloud document publishing features are available in the plugin. Some optional Pro and companion-extension capabilities may require a paid license. Multi-platform publishing and Pro licensing are coordinated with Obsidian Publisher.
 
-## Big Update: Multi-platform Publishing
+## Big Update: Feishu Cloud Documents and Multi-platform Publishing
 
-Wechat Converter is no longer limited to WeChat Official Accounts. From the same `Publish & Distribute` window, you can send the current article to platforms such as Zhihu, Juejin, CSDN, Yuque, Xiaohongshu, and other targets supported by Obsidian Publisher.
+Wechat Converter is no longer limited to WeChat Official Accounts. From the same `Publish & Distribute` window, you can sync the current note to Feishu cloud documents or send it to platforms such as Zhihu, Juejin, CSDN, Yuque, Xiaohongshu, and other targets supported by Obsidian Publisher.
 
 - **WeChat still uses the official API path**: WeChat draft sync keeps the plugin's AppID / AppSecret flow, including cover, excerpt, multi-account support, and account-level defaults.
+- **Feishu uses the built-in OpenAPI path**: Feishu cloud document sync creates docx documents in your configured folder, then keeps the note linked for smart overwrite updates when possible.
 - **Other platforms use the browser extension path**: Obsidian Publisher handles real browser sessions and saves drafts through the user's logged-in browser state, so Obsidian does not need to embed every platform login.
-- **Choose platforms before sending**: Open the publishing modal, switch to `Other platforms`, select the targets, and send the task to the browser extension.
+- **Choose the publishing target before sending**: Open the publishing modal, switch to `Feishu Cloud Docs` for Feishu sync, or switch to `Other platforms` to select browser-extension targets.
 - **Lightweight status inside Obsidian**: Settings and publishing views show bridge connectivity, selected platforms, and last-known login hints. Final draft links, failures, and retries remain in the Obsidian Publisher task window.
-- **Built for multi-channel creators**: Write once in Obsidian, sync to WeChat, then push the same article into multiple platform draft boxes for final review and manual publishing.
+- **Built for multi-channel creators**: Write once in Obsidian, sync to WeChat, archive or collaborate in Feishu, then push the same article into multiple platform draft boxes for final review and manual publishing.
 
 > Multi-platform publishing is currently beta. Platform login state, draft creation, anti-abuse checks, result links, and retry behavior are handled by Obsidian Publisher. Obsidian focuses on writing, rendering, platform selection, and task delivery.
 ## Highlights
@@ -42,6 +43,7 @@ Wechat Converter is no longer limited to WeChat Official Accounts. From the same
 - Live article preview with fast side-by-side rendering.
 - Copy rich HTML directly into the WeChat editor.
 - Sync articles to the WeChat draft box with multi-account support.
+- Sync notes to Feishu cloud documents with smart overwrite updates, document rebinding, images, GIFs, callouts, math, and Mermaid handling.
 - Account-level draft defaults for source URL and comment settings.
 - Math rendering with SVG output for better WeChat compatibility.
 - Mermaid diagrams rendered by Obsidian preview, then rasterized to PNG on export for WeChat-safe copy and sync.
@@ -59,6 +61,7 @@ Wechat Converter is no longer limited to WeChat Official Accounts. From the same
 
 ## Recent Updates
 
+- Feishu cloud document publishing is now available from the publishing modal, with create/update flows, document rebinding, OpenAPI usage statistics, local/remote image upload, GIF support, and optional Kroki rendering for Mermaid diagrams.
 - WeChat draft sync can now keep a note linked to the draft it created, so later syncs update the existing draft instead of creating a duplicate. The publishing modal also lets you unlink when you want to start fresh.
 - Covers can now be selected from the WeChat permanent image material library, with cached material lists, a clearer picker loading state, and cover handoff to Obsidian Publisher for consistent multi-platform drafts.
 - Markdown task list markers now render as WeChat-safe checkbox glyphs, including task markers that pass through cached AI layout output.
@@ -76,7 +79,29 @@ Wechat Converter is no longer limited to WeChat Official Accounts. From the same
 2. Edit your Markdown note as usual. The right panel updates the article preview in real time.
 3. Click `Copy to WeChat` to paste rich HTML into the WeChat editor.
 4. Optionally click `Sync to Draft` after configuring your WeChat AppID and AppSecret in plugin settings.
-5. For beta multi-platform distribution, enable Obsidian Publisher distribution in plugin settings, connect the browser extension, then use `Publish & Distribute` -> `Other platforms` to send the article to selected platform draft boxes.
+5. To publish to Feishu, enable Feishu sync in plugin settings, configure your Feishu app credentials and target folder token, then use `Publish & Distribute` -> `Feishu Cloud Docs`.
+6. For beta multi-platform distribution, enable Obsidian Publisher distribution in plugin settings, connect the browser extension, then use `Publish & Distribute` -> `Other platforms` to send the article to selected platform draft boxes.
+
+### Feishu cloud document sync
+
+- Configure Feishu sync from plugin settings with your Feishu app ID, app secret, target folder token, and optional user ID.
+- Recommended permissions: grant the app identity all cloud document / cloud drive related permissions, and grant the user identity all permissions to avoid edge-case 403 errors during import, overwrite updates, image handling, and ownership transfer.
+- First sync creates a docx document in the configured folder. Later syncs prefer updating the linked document so the Feishu URL can stay stable.
+- If the Feishu-side document was moved, recreated, or your local cache points to an old token, paste the new docx URL in the Feishu tab to rebind the current note.
+- Local paths, relative paths, WikiLinks, remote image URLs, and GIF files are supported. Mermaid diagrams can stay as source or be rendered through Kroki when you explicitly choose remote rendering.
+
+<table>
+  <tr>
+    <th align="center">Feishu settings and API usage</th>
+    <th align="center">Publish modal: Feishu Cloud Docs</th>
+    <th align="center">Synced Feishu document</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/feishu_settings_tab.png" alt="Feishu sync settings tab" height="420" /></td>
+    <td align="center"><img src="images/feishu_publish_modal.png" alt="Feishu publish modal" height="420" /></td>
+    <td align="center"><img src="images/feishu_doc_result.png" alt="Synced Feishu cloud document" height="420" /></td>
+  </tr>
+</table>
 
 ### Horizontally scrollable content
 
