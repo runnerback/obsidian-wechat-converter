@@ -6580,11 +6580,11 @@ class AppleStyleView extends ItemView {
     const iconDiv = placeholder.createEl('div', { cls: 'apple-placeholder-icon' });
     this.renderPlaceholderIcon(iconDiv);
     placeholder.createEl('h2', { text: 'Obsidian 发布助手' });
-    placeholder.createEl('p', { text: '当前面板用于预览微信公众号排版。' });
+    placeholder.createEl('p', { text: '当前面板用于预览微信公众号排版。请在左侧编辑器中打开或激活任意 Markdown 笔记以自动加载预览。' });
     const steps = placeholder.createEl('div', { cls: 'apple-steps' });
-    steps.createEl('div', { text: '1. 打开 Markdown 文件' });
-    steps.createEl('div', { text: '2. 预览公众号排版' });
-    steps.createEl('div', { text: '3. 发布到微信、飞书或其他平台' });
+    steps.createEl('div', { text: '1. 打开或点击任意 Markdown 笔记' });
+    steps.createEl('div', { text: '2. 预览微信公众号排版' });
+    steps.createEl('div', { text: '3. 一键复制或同步到微信、飞书等平台' });
 
     // 添加提示
     placeholder.createEl('p', {
