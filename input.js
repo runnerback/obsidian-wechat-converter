@@ -5517,6 +5517,11 @@ class AppleStyleView extends ItemView {
     modal.modalEl?.addClass('wechat-material-picker-modal');
     modal.contentEl.addClass('wechat-material-picker');
 
+    if (isMobileClient(this.app)) {
+      modal.modalEl?.addClass('wechat-material-picker-modal-mobile');
+      modal.contentEl.addClass('wechat-material-picker-mobile');
+    }
+
     const pageSize = 12;
     let currentPage = 1;
     let totalCount = 0;
