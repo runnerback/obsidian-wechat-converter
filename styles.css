@@ -2937,6 +2937,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 .wechat-sync-shell-mobile .modal-content {
+  min-height: 0;
   max-height: calc(100vh - 60px);
   overflow-y: auto;
   padding-bottom: max(16px, env(safe-area-inset-bottom));
@@ -3369,6 +3370,13 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   padding-top: 2px;
 }
 
+@media (max-height: 640px) {
+  .wechat-publish-shell .modal-content {
+    min-height: 0;
+    height: auto;
+  }
+}
+
 .wechat-publish-shell .modal-content.wechat-feishu-modal-content {
   overflow: hidden;
 }
@@ -3412,6 +3420,9 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   padding: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--apple-border) 86%, transparent);
   background: transparent;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
 }
 
 .wechat-sync-modal button.wechat-publish-mode-tab {
@@ -3431,6 +3442,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   font-weight: 500;
   line-height: 1.2;
   transition: color 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
 }
 
 .wechat-sync-modal button.wechat-publish-mode-tab:hover {
@@ -3464,6 +3476,12 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   border: 1px solid color-mix(in srgb, var(--apple-border) 72%, transparent);
   border-radius: 12px;
   background: color-mix(in srgb, var(--apple-background) 88%, var(--apple-surface));
+}
+
+.wechat-multiplatform-tip {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .wechat-multiplatform-kicker {
@@ -4021,6 +4039,9 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   gap: 0;
   border-bottom: 1px solid var(--background-modifier-border);
   margin: 16px 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
 }
 
 .apple-settings-tab {
@@ -4035,6 +4056,17 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   border-bottom: 2px solid transparent;
   transition: color 0.15s, border-color 0.15s;
   user-select: none;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .apple-settings-tabs {
+    margin: 12px 0;
+  }
+  .apple-settings-tab {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
 }
 
 .apple-settings-tab:hover {

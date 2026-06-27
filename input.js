@@ -5031,14 +5031,10 @@ class AppleStyleView extends ItemView {
       cls: `wechat-publish-mode-tab${activeMode === 'wechat' ? ' is-active' : ''}`,
     });
 
-    let feishuTab = null;
-    const feishuSettings = normalizeFeishuSyncSettings(this.plugin.settings.feishuSync);
-    if (feishuSettings.enabled) {
-      feishuTab = publishModeTabs.createEl('button', {
-        text: '飞书云文档',
-        cls: `wechat-publish-mode-tab${activeMode === 'feishu' ? ' is-active' : ''}`,
-      });
-    }
+    const feishuTab = publishModeTabs.createEl('button', {
+      text: '飞书云文档',
+      cls: `wechat-publish-mode-tab${activeMode === 'feishu' ? ' is-active' : ''}`,
+    });
 
     const multiPlatformTab = publishModeTabs.createEl('button', {
       cls: `wechat-publish-mode-tab${activeMode === 'multi' ? ' is-active' : ''}`,
@@ -5058,35 +5054,36 @@ class AppleStyleView extends ItemView {
 
     const accounts = this.plugin.settings.wechatAccounts || [];
     if (accounts.length === 0) {
-      if (options.modal) {
-        const modal = options.modal;
-        const mobileSync = isMobileClient(this.app);
-        this.preparePublishModalShell(modal, { mode: 'wechat', mobileSync });
-        const { feishuTab, multiPlatformTab } = this.createPublishModeTabs(modal, 'wechat');
-        if (feishuTab) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- reason: dynamic tab element click handler
-          feishuTab.onclick = () => this.showFeishuSyncModal({ modal });
+      if (!options.modal) {
+        if (this.plugin.settings.feishuSync?.enabled) {
+          this.showFeishuSyncModal();
+          return;
         }
-        multiPlatformTab.onclick = () => this.showMultiPlatformSyncModal({ modal });
-        const empty = modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' });
-        empty.createEl('h3', { text: '尚未配置微信公众号账号' });
-        empty.createEl('p', { text: '微信草稿箱需要先配置公众号 API。其他平台仍可通过浏览器插件发送。' });
-        const settingsBtn = empty.createEl('button', { text: '去设置', cls: 'mod-cta' });
-        settingsBtn.onclick = () => {
-          modal.close();
-          this.openPluginSettings();
-        };
-        return;
+        if (this.plugin.settings.multiPlatformSync?.enabled) {
+          this.showMultiPlatformSyncModal();
+          return;
+        }
       }
-      if (this.plugin.settings.feishuSync?.enabled) {
-        this.showFeishuSyncModal();
-        return;
+      const modal = options.modal || createObsidianModal(this.app);
+      const mobileSync = isMobileClient(this.app);
+      this.preparePublishModalShell(modal, { mode: 'wechat', mobileSync });
+      const { feishuTab, multiPlatformTab } = this.createPublishModeTabs(modal, 'wechat');
+      if (feishuTab) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- reason: dynamic tab element click handler
+        feishuTab.onclick = () => this.showFeishuSyncModal({ modal });
       }
-      if (this.plugin.settings.multiPlatformSync?.enabled) {
-        this.showMultiPlatformSyncModal();
-        return;
+      multiPlatformTab.onclick = () => this.showMultiPlatformSyncModal({ modal });
+      const empty = modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' });
+      empty.createEl('h3', { text: '尚未配置微信公众号账号' });
+      empty.createEl('p', { text: '微信草稿箱需要先配置公众号 API。其他平台仍可通过浏览器插件发送。' });
+      const settingsBtn = empty.createEl('button', { text: '去设置', cls: 'mod-cta' });
+      settingsBtn.onclick = () => {
+        modal.close();
+        this.openPluginSettings();
+      };
+      if (!options.modal) {
+        modal.open();
       }
-      this.promptConfigureWechatAccount();
       return;
     }
     const modal = options.modal || createObsidianModal(this.app);

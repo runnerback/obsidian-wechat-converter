@@ -63,6 +63,7 @@ function renderFeishuUsageStats(containerEl, tab, plugin, settings, obsidian, No
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: '16px',
+    flexWrap: 'wrap',
   });
 
   const copy = header.createDiv();
@@ -292,6 +293,7 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
     background: 'var(--background-primary)',
     borderRadius: '6px',
     border: '1px solid var(--background-modifier-border)',
+    flexWrap: 'wrap',
   });
 
   detailedLinkRow.createSpan({ text: '💡 ' });

@@ -665,6 +665,10 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   introText.createEl('p', {
     text: '选择平台后通过浏览器插件保存为草稿。',
   });
+  introText.createEl('p', {
+    text: '💡 提示：多平台发布能力依赖于浏览器插件，建议在电脑端使用。',
+    cls: 'wechat-multiplatform-tip',
+  });
   const publishModalCapabilities = resolvePublishModalCapabilities(view, cachedConnection);
   const isProLicensed = publishModalCapabilities.proLicensed === true;
   const quotaHint = asModalElement(modal.contentEl.createDiv({
