@@ -2927,7 +2927,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   color: var(--apple-primary);
 }
 
-div.modal.wechat-publish-shell.wechat-sync-shell-mobile {
+div.modal.wechat-sync-shell-mobile {
   display: flex;
   flex-direction: column;
   width: 100vw;
@@ -2939,11 +2939,10 @@ div.modal.wechat-publish-shell.wechat-sync-shell-mobile {
   overflow: hidden;
 }
 
-.wechat-sync-shell-mobile .modal-content {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: none;
+div.modal.wechat-sync-shell-mobile div.modal-content.wechat-sync-modal-mobile {
+  max-height: calc(100vh - 100px);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   padding-bottom: max(16px, env(safe-area-inset-bottom));
