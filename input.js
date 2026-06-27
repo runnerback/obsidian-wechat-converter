@@ -4852,9 +4852,19 @@ class AppleStyleView extends ItemView {
       return false;
     }
 
-    if (typeof window !== 'undefined' && typeof window.open === 'function') {
-      window.open(target, '_blank', 'noopener');
-      return true;
+    if (typeof window !== 'undefined') {
+      try {
+        const a = document.createElement('a');
+        a.href = target;
+        a.target = '_blank';
+        a.click();
+        return true;
+      } catch {
+        if (typeof window.open === 'function') {
+          window.open(target, '_blank', 'noopener');
+          return true;
+        }
+      }
     }
 
     new Notice('无法打开草稿链接，请在浏览器插件中查看同步结果');
@@ -8764,9 +8774,19 @@ class AppleStylePlugin extends Plugin {
         return true;
       }
     }
-    if (typeof window !== 'undefined' && typeof window.open === 'function') {
-      window.open(target, '_blank', 'noopener');
-      return true;
+    if (typeof window !== 'undefined') {
+      try {
+        const a = document.createElement('a');
+        a.href = target;
+        a.target = '_blank';
+        a.click();
+        return true;
+      } catch {
+        if (typeof window.open === 'function') {
+          window.open(target, '_blank', 'noopener');
+          return true;
+        }
+      }
     }
     return false;
   }

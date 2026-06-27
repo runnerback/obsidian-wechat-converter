@@ -2940,9 +2940,9 @@ div.modal.wechat-sync-shell-mobile {
 }
 
 div.modal.wechat-sync-shell-mobile div.modal-content.wechat-sync-modal-mobile {
-  max-height: calc(100vh - 100px);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  height: calc(100vh - 80px);
+  max-height: calc(100vh - 80px);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   padding-bottom: max(16px, env(safe-area-inset-bottom));
@@ -3321,15 +3321,15 @@ div.modal.wechat-sync-shell-mobile div.modal-content.wechat-sync-modal-mobile {
 }
 
 .wechat-sync-modal-mobile .wechat-modal-buttons {
-  position: sticky;
-  bottom: 0;
+  position: relative;
   z-index: 2;
-  background: var(--background-primary);
+  background: transparent;
   padding-top: 10px;
   padding-bottom: max(12px, env(safe-area-inset-bottom));
   gap: 10px;
   flex-direction: column-reverse;
   border-top: 1px solid var(--background-modifier-border);
+  margin-top: auto;
 }
 
 .wechat-sync-modal-mobile .wechat-modal-buttons button {
@@ -3352,7 +3352,15 @@ div.modal.wechat-sync-shell-mobile div.modal-content.wechat-sync-modal-mobile {
 
 .wechat-sync-modal-mobile .wechat-modal-cover-preview {
   width: 100%;
-  height: 180px;
+  height: 120px;
+}
+
+.wechat-sync-modal-mobile .wechat-sync-advanced-body {
+  height: calc(100vh - 450px - var(--keyboard-height, 0px));
+  max-height: calc(100vh - 450px - var(--keyboard-height, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 14px;
 }
 
 .wechat-publish-shell {
@@ -3564,6 +3572,27 @@ div.modal.wechat-sync-shell-mobile div.modal-content.wechat-sync-modal-mobile {
 
 .wechat-multiplatform-quota-link:hover {
   background: color-mix(in srgb, var(--apple-accent) 7%, var(--apple-background));
+}
+
+@media (max-width: 480px) {
+  .wechat-multiplatform-quota-hint {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: 10px;
+  }
+  .wechat-multiplatform-quota-pill {
+    align-self: center;
+  }
+  .wechat-multiplatform-quota-copy {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+  .wechat-multiplatform-quota-link {
+    margin-left: 0;
+    width: 100%;
+    text-align: center;
+  }
 }
 
 .wechat-multiplatform-badge {
