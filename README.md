@@ -9,23 +9,14 @@
 只需一键，即可将您的 Markdown 笔记转换为符合微信生态美学、阅读体验极佳的 HTML；也可以同步到飞书云文档，或在发布窗口选择其他平台，通过 Obsidian 发布助手浏览器插件保存为各平台草稿。无论是代码块、引用、列表、本地图片、GIF 动图还是公式图表，都尽量保持从 Obsidian 到发布端的完整呈现。
 
 ![Version](https://img.shields.io/badge/version-2.9.1-blue)
-![Obsidian](https://img.shields.io/badge/Obsidian-1.0.0+-purple)
+![Obsidian](https://img.shields.io/badge/Obsidian-1.4.0+-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Chrome Companion](https://img.shields.io/badge/Chrome%20%E5%8D%8F%E5%90%8C%E6%89%A9%E5%B1%95-Obsidian%20%E5%8F%91%E5%B8%83%E5%8A%A9%E6%89%8B%E2%80%A2%E5%8D%B3%E5%B0%86%E4%B8%8A%E6%9E%B6-7c3aed)
+![Chrome Companion](https://img.shields.io/badge/Chrome%20%E5%8D%8F%E5%90%8C%E6%89%A9%E5%B1%95-Obsidian%20%E5%8F%91%E5%B8%83%E5%8A%A9%E6%89%8B%E2%80%A2%E5%B7%B2%E4%B8%8A%E7%BA%BF-7c3aed)
 
 > 本项目基于开源项目 [ai-writing-plugins](https://github.com/Ceeon/ai-writing-plugins) 进行深度重构与迭代开发。我们致力于打造 Obsidian 生态中体验最好的公众号排版工具。
 
 如果这个插件帮你节省了公众号排版、复制或同步草稿箱的时间，欢迎[支持项目继续维护](./docs/support.md)。
 
-## 🔐 隐私与权限说明
-
-插件默认在你的 Obsidian 本地运行，不包含客户端遥测，也不会自动上传你的笔记内容。以下能力只会在你主动使用对应功能时触发：
-
-- **网络请求**：同步微信公众号草稿时会访问微信官方 API；同步飞书云文档时会访问飞书开放平台 API；配置 API 代理时会访问你填写的代理地址；使用 AI 编排时会访问你配置的 AI Provider；使用多平台发布时会连接本机浏览器插件服务。
-- **本地文件读取**：处理当前笔记引用的本地图片、封面和 Mermaid / LaTeX 导出资源时，会读取必要的 vault 内文件。
-- **剪贴板**：点击复制按钮时，插件会把当前预览内容写入系统剪贴板，便于粘贴到微信公众号后台；移动端可能在写入后立即读回剪贴板，用于确认复制是否成功，不会把剪贴板内容上传到远端。
-- **第三方账号**：微信公众号同步需要你自行配置 AppID / AppSecret；飞书云文档同步需要你自行配置飞书自建应用 App ID / App Secret、目标文件夹 Token 和可选 User ID；其他平台发布由「Obsidian 发布助手」浏览器插件使用你浏览器中已有的登录态保存草稿。
-- **Pro / 浏览器插件**：核心转换、预览、复制、微信发布和飞书云文档发布流程可在插件内使用；部分可选 Pro 与浏览器插件能力可能需要付费授权。多平台发布和 Pro 授权能力由配套浏览器插件处理；Obsidian 插件侧负责写作、排版、平台选择和任务投递。
 
 ## 🚀 发布能力一览
 
@@ -388,8 +379,41 @@
 
 安全建议：代理会中转微信 API 请求，请只使用你信任的官方中转或自建服务；代理地址必须使用 `https://`。如果选择自建服务，请在服务端限制只允许访问 `https://api.weixin.qq.com/`，并避免记录 `appid`、`secret`、`access_token` 等敏感信息。
 
+## 🔐 隐私与权限说明
+
+插件默认在你的 Obsidian 本地运行，不包含客户端遥测，也不会自动上传你的笔记内容。以下能力只会在你主动使用对应功能时触发：
+
+- **网络请求**：同步微信公众号草稿时会访问微信官方 API；同步飞书云文档时会访问飞书开放平台 API；配置 API 代理时会访问你填写的代理地址；使用 AI 编排时会访问你配置的 AI Provider；使用多平台发布时会连接本机浏览器插件服务。
+- **本地文件读取**：处理当前笔记引用的本地图片、封面和 Mermaid / LaTeX 导出资源时，会读取必要的 vault 内文件。
+- **剪贴板**：点击复制按钮时，插件会把当前预览内容写入系统剪贴板，便于粘贴到微信公众号后台；移动端可能在写入后立即读回剪贴板，用于确认复制是否成功，不会把剪贴板内容上传到远端。
+- **第三方账号**：微信公众号同步需要你自行配置 AppID / AppSecret；飞书云文档同步需要你自行配置飞书自建应用 App ID / App Secret、目标文件夹 Token 和可选 User ID；其他平台发布由「Obsidian 发布助手」浏览器插件使用你浏览器中已有的登录态保存草稿。
+- **Pro / 浏览器插件**：核心转换、预览、复制、微信发布和飞书云文档发布流程可在插件内使用；部分可选 Pro 与浏览器插件能力可能需要付费授权。多平台发布和 Pro 授权能力由配套浏览器插件处理；Obsidian 插件侧负责写作、排版、平台选择和任务投递。
+
 ## 🚀 安装
 
+### 方式一：社区插件市场安装（推荐 ⭐）
+
+这是最简单、最安全的安装方式：
+1. 打开 Obsidian 的 **设置** (Settings) -> **社区插件** (Community plugins)。
+2. 关闭 **限制模式** (Safe mode) 以启用社区插件。
+3. 点击社区插件旁的 **浏览** (Browse) 按钮。
+4. 搜索 `Wechat converter` 或 `微信公众号排版转换器`。
+5. 点击 **安装** (Install)，安装完成后点击 **启用** (Enable)。
+
+### 方式二：BRAT 安装（测试版/抢先体验）
+
+如果你使用 BRAT 管理插件更新并希望体验最新的 Beta 特性：
+1. 安装并启用 BRAT 插件。
+2. 在 BRAT 中添加仓库：`DavidLam-oss/obsidian-wechat-converter`。
+3. 安装后执行一次冒烟检查：
+   - 打开转换面板
+   - 预览渲染
+   - 复制到公众号
+   - （可选）一键同步到草稿箱
+
+### 方式三：手动安装（GitHub Release）
+
+若您无法访问社区插件市场，可以手动进行安装：
 1. 从 [GitHub Releases](https://github.com/DavidLam-oss/obsidian-wechat-converter/releases) 下载最新的 `obsidian-wechat-converter.zip` 插件包。
 2. 解压并将其中的文件夹放入 Obsidian vault 的 `.obsidian/plugins/` 目录中。
    > 最终路径应为：`.../.obsidian/plugins/obsidian-wechat-converter/`
@@ -399,19 +423,6 @@
    - `styles.css`
 4. 重启 Obsidian 或在设置中刷新插件列表，并启用插件。
 
-### BRAT 安装/更新
-
-如果你使用 BRAT 管理插件更新：
-
-1. 安装并启用 BRAT 插件。
-2. 在 BRAT 中添加仓库：`DavidLam-oss/obsidian-wechat-converter`。
-3. 安装后执行一次冒烟检查：
-   - 打开转换面板
-   - 预览渲染
-   - 复制到公众号
-   - （可选）一键同步到草稿箱
-
-> 说明：当前版本已支持标准三件套运行时，BRAT 更新路径与 Obsidian 插件标准发布方式一致。
 
 
 ## 🤝 贡献 (Contributing)

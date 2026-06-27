@@ -5,9 +5,9 @@
 Convert Obsidian Markdown into polished WeChat articles, Feishu cloud documents, and multi-platform publishing drafts from the same workflow. Wechat Converter now supports live preview, copy-to-editor, WeChat draft sync, Feishu cloud document sync, and beta multi-platform distribution through the Obsidian Publisher browser extension.
 
 ![Version](https://img.shields.io/badge/version-2.9.1-blue)
-![Obsidian](https://img.shields.io/badge/Obsidian-1.0.0+-purple)
+![Obsidian](https://img.shields.io/badge/Obsidian-1.4.0+-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Chrome Companion](https://img.shields.io/badge/Chrome%20Companion-Obsidian%20Publisher%20%E2%80%A2%20Coming%20Soon-7c3aed)
+![Chrome Companion](https://img.shields.io/badge/Chrome%20Companion-Obsidian%20Publisher%20%E2%80%A2%20Available-7c3aed)
 
 This plugin is built for writers who publish from Obsidian to WeChat Official Accounts, Feishu cloud documents, and other Chinese content platforms. It focuses on the last mile of publishing: preserving layout, code blocks, math, images, and article metadata while keeping the workflow fast inside Obsidian.
 
@@ -15,15 +15,6 @@ This plugin is built for writers who publish from Obsidian to WeChat Official Ac
 
 If this plugin saves you time when formatting, copying, or syncing WeChat articles, you can [support ongoing maintenance](./docs/support.md).
 
-## Privacy and permissions
-
-Wechat Converter does not include client-side telemetry and does not automatically upload your notes. Network access, local filesystem reads, and clipboard writes are used only when you explicitly run the related feature.
-
-- **Network access and `fetch()` calls**: WeChat draft sync calls the official WeChat API, Feishu cloud document sync calls the Feishu Open Platform API, custom API proxy settings call the proxy URL you configure, AI layout calls the AI Provider you configure, and multi-platform delivery connects to the local companion browser extension service.
-- **Local filesystem access**: The plugin reads local vault files only when processing images, covers, Mermaid exports, LaTeX exports, and other assets referenced by the current note.
-- **Clipboard access**: Copy actions write the current rendered article to the system clipboard so you can paste it into the WeChat editor or another publishing surface. On mobile, the plugin may immediately read back the clipboard after writing to verify that the copy succeeded; clipboard contents are not uploaded.
-- **Third-party accounts**: WeChat sync requires your own AppID and AppSecret. Feishu sync requires your own Feishu app ID, app secret, target folder token, and optional user ID. Other platforms are handled by the companion browser extension using the login state already present in your browser.
-- **Paid and companion features**: Core conversion, preview, copy, WeChat publishing, and Feishu cloud document publishing features are available in the plugin. Some optional Pro and companion-extension capabilities may require a paid license. Multi-platform publishing and Pro licensing are coordinated with Obsidian Publisher.
 
 ## Big Update: Feishu Cloud Documents and Multi-platform Publishing
 
@@ -213,27 +204,50 @@ If WeChat API IP allowlisting is a problem in your network, you can use a Cloudf
 - Technical writers who need code, math, and image fidelity
 - Chinese-language creators who want a faster publishing workflow
 
+## Privacy and permissions
+
+Wechat Converter does not include client-side telemetry and does not automatically upload your notes. Network access, local filesystem reads, and clipboard writes are used only when you explicitly run the related feature.
+
+- **Network access and `fetch()` calls**: WeChat draft sync calls the official WeChat API, Feishu cloud document sync calls the Feishu Open Platform API, custom API proxy settings call the proxy URL you configure, AI layout calls the AI Provider you configure, and multi-platform delivery connects to the local companion browser extension service.
+- **Local filesystem access**: The plugin reads local vault files only when processing images, covers, Mermaid exports, LaTeX exports, and other assets referenced by the current note.
+- **Clipboard access**: Copy actions write the current rendered article to the system clipboard so you can paste it into the WeChat editor or another publishing surface. On mobile, the plugin may immediately read back the clipboard after writing to verify that the copy succeeded; clipboard contents are not uploaded.
+- **Third-party accounts**: WeChat sync requires your own AppID and AppSecret. Feishu sync requires your own Feishu app ID, app secret, target folder token, and optional user ID. Other platforms are handled by the companion browser extension using the login state already present in your browser.
+- **Paid and companion features**: Core conversion, preview, copy, WeChat publishing, and Feishu cloud document publishing features are available in the plugin. Some optional Pro and companion-extension capabilities may require a paid license. Multi-platform publishing and Pro licensing are coordinated with Obsidian Publisher.
+
 ## Installation
 
-### Manual install
+### Method 1: Community Plugin Market (Recommended ⭐)
 
-1. Download the latest release from [GitHub Releases](https://github.com/DavidLam-oss/obsidian-wechat-converter/releases).
-2. Extract the plugin into your vault under `.obsidian/plugins/obsidian-wechat-converter/`.
-3. Make sure the folder contains:
-   - `main.js`
-   - `manifest.json`
-   - `styles.css`
-4. Reload Obsidian and enable the plugin.
+This is the easiest and safest way to install the plugin:
+1. Open Obsidian **Settings** -> **Community plugins**.
+2. Turn off **Safe mode** to enable community plugins.
+3. Click **Browse** next to Community plugins.
+4. Search for `Wechat converter`.
+5. Click **Install**, and once completed, click **Enable**.
 
-### BRAT
+### Method 2: BRAT (Beta / Early Access)
 
-1. Install and enable BRAT.
-2. Add the repository `DavidLam-oss/obsidian-wechat-converter`.
-3. After installation, do a quick smoke test:
+If you want to experience the latest features and updates before they are officially released:
+1. Install and enable the BRAT plugin.
+2. Add the Beta repository in BRAT: `DavidLam-oss/obsidian-wechat-converter`.
+3. Perform a quick smoke test after installation:
    - Open the converter panel
    - Check preview rendering
    - Copy once to WeChat
-   - Optionally test draft sync
+   - (Optional) Test draft sync
+
+### Method 3: Manual Installation (GitHub Release)
+
+If you cannot access the community plugin market:
+1. Download the latest `obsidian-wechat-converter.zip` release bundle from [GitHub Releases](https://github.com/DavidLam-oss/obsidian-wechat-converter/releases).
+2. Extract the archive into your vault under `.obsidian/plugins/obsidian-wechat-converter/`.
+   > The final path must be: `.../.obsidian/plugins/obsidian-wechat-converter/`
+3. Verify that the folder contains at least:
+   - `main.js`
+   - `manifest.json`
+   - `styles.css`
+4. Reload Obsidian and enable the plugin in settings.
+
 
 ## More docs
 
