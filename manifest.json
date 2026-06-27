@@ -3,7 +3,7 @@
 	"name": "Wechat Converter",
 	"version": "2.9.1",
 	"minAppVersion": "1.4.0",
-	"description": "Convert Markdown into polished WeChat articles, Feishu cloud docs, and multi-platform publishing drafts.",
+	"description": "专为 Obsidian 打造的排版转换器。一键将 Markdown 转换为精美 HTML，支持同步/发布至微信公众号、飞书、小红书、知乎、今日头条、抖音图文、B站（哔哩哔哩）、微博、CSDN 等多平台。",
 	"author": "DavidLam (林小卫很行)",
 	"authorUrl": "https://github.com/DavidLam-oss",
 	"isDesktopOnly": false
