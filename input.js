@@ -6584,11 +6584,11 @@ class AppleStyleView extends ItemView {
     const steps = placeholder.createEl('div', { cls: 'apple-steps' });
     steps.createEl('div', { text: '1. 打开或点击任意 Markdown 笔记' });
     steps.createEl('div', { text: '2. 预览微信公众号排版' });
-    steps.createEl('div', { text: '3. 一键复制或同步到微信、飞书等平台' });
+    steps.createEl('div', { text: '3. 一键复制或同步到微信、飞书、小红书等平台' });
 
     // 添加提示
     placeholder.createEl('p', {
-      text: '飞书和其他平台会走各自发布流程。',
+      text: '注：此面板仅预览微信排版。同步至飞书、小红书等平台直接以源 Markdown 笔记为准。',
       cls: 'apple-placeholder-note'
     });
   }
