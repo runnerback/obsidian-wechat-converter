@@ -45,6 +45,12 @@ Review every new usage of these APIs before committing:
 - Dynamic window APIs: avoid returning functions produced from dynamic `.call()` / `.bind()` access. Wrap the call in a named helper or call the safe API directly so TypeScript-style review scans do not classify the return as unsafe.
 - File deletion or cleanup: validate vault-relative paths, block config/system directories, and add tests for unsafe paths.
 
+## Manifest Metadata Guidelines
+
+Review `manifest.json` metadata before release:
+- **No "Obsidian" in description**: The plugin description must not contain the word "Obsidian" (case-insensitive) to prevent redundancy.
+- **End with punctuation**: The description must end with an ASCII punctuation mark (`.`, `!`, or `?`).
+
 ## Browser Extension Bridge Safety
 
 Treat the browser extension bridge as protocol-sensitive. Avoid changing these without a dedicated compatibility review:

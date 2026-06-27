@@ -175,6 +175,44 @@ for (const relativePath of files) {
   }
 }
 
+// Validate manifest.json description rules
+try {
+  const manifestPath = path.join(ROOT, 'manifest.json');
+  const manifestRaw = await readFile(manifestPath, 'utf8');
+  const manifest = JSON.parse(manifestRaw);
+  const desc = manifest.description || '';
+  const manifestLines = manifestRaw.split('\n');
+  const descLineNum = manifestLines.findIndex(l => l.includes('"description"')) + 1 || 1;
+  const descLineContent = manifestLines[descLineNum - 1] || '';
+
+  if (/\bobsidian\b/i.test(desc)) {
+    findings.push({
+      id: 'manifest-desc-no-obsidian',
+      message: 'Plugin description must not include the word "Obsidian" (redundant).',
+      file: 'manifest.json',
+      line: descLineNum,
+      code: descLineContent.trim(),
+    });
+  }
+  if (!/[.!?]$/.test(desc)) {
+    findings.push({
+      id: 'manifest-desc-punctuation',
+      message: 'Plugin description should end with punctuation (., !, or ?).',
+      file: 'manifest.json',
+      line: descLineNum,
+      code: descLineContent.trim(),
+    });
+  }
+} catch (e) {
+  findings.push({
+    id: 'manifest-read-error',
+    message: `Failed to read or parse manifest.json: ${e.message}`,
+    file: 'manifest.json',
+    line: 1,
+    code: '',
+  });
+}
+
 if (findings.length > 0) {
   console.error('Obsidian scan risk guard found risky patterns:\n');
   for (const finding of findings) {
