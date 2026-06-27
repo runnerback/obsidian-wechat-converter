@@ -4854,7 +4854,8 @@ class AppleStyleView extends ItemView {
 
     if (typeof window !== 'undefined') {
       try {
-        const activeDoc = getActiveDocumentCompat() || document;
+        const activeDoc = getActiveDocumentCompat();
+        if (!activeDoc) return false;
         const a = activeDoc.createElement('a');
         a.href = target;
         a.target = '_blank';
@@ -8780,7 +8781,8 @@ class AppleStylePlugin extends Plugin {
     }
     if (typeof window !== 'undefined') {
       try {
-        const activeDoc = getActiveDocumentCompat() || document;
+        const activeDoc = getActiveDocumentCompat();
+        if (!activeDoc) return false;
         const a = activeDoc.createElement('a');
         a.href = target;
         a.target = '_blank';
