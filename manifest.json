@@ -3,7 +3,7 @@
 	"name": "Wechat Converter",
 	"version": "2.9.2",
 	"minAppVersion": "1.4.0",
-	"description": "一键将 Markdown 转换为微信公众号、飞书等平台精美 HTML 排版的转换器，支持同步/发布至小红书、知乎、今日头条、抖音图文、B站（哔哩哔哩）、微博、CSDN 等多平台.",
+	"description": "Convert Markdown into polished WeChat articles, Feishu cloud docs, and drafts for Xiaohongshu, Zhihu, Toutiao, Douyin, Bilibili, Weibo, and CSDN.",
 	"author": "DavidLam (林小卫很行)",
 	"authorUrl": "https://github.com/DavidLam-oss",
 	"isDesktopOnly": false
