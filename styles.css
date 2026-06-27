@@ -2106,9 +2106,8 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   max-width: 360px;
   margin: 0 auto;
   text-align: center;
-  color: #6e6e73;
+  color: var(--text-normal);
   background: transparent;
-  /* 强制透明背景，使用父容器的白色背景 */
 }
 
 .apple-placeholder-icon {
@@ -2120,21 +2119,40 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 .apple-placeholder h2 {
   font-size: 20px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-normal);
   margin: 0 0 10px 0;
 }
 
-.apple-placeholder p {
-  font-size: 14px;
-  color: #6e6e73;
-  line-height: 1.55;
-  margin: 0 0 22px 0;
+.apple-placeholder-card {
+  text-align: left;
+  background: color-mix(in srgb, var(--background-secondary) 85%, transparent);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 12px 0;
+  box-sizing: border-box;
+  width: calc(100% - 24px);
+  max-width: 320px;
+}
+
+.apple-placeholder-card-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+.apple-placeholder-card-divider {
+  border-top: 1px solid var(--background-modifier-border);
+  margin: 14px 0 12px 0;
 }
 
 .apple-placeholder .apple-placeholder-note {
-  margin: 18px 0 0;
-  font-size: 12px;
+  margin: 0;
+  font-size: 11.5px;
   line-height: 1.45;
+  color: var(--text-muted);
+  opacity: 0.85;
 }
 
 .apple-steps {
@@ -2146,8 +2164,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   background: transparent;
   border-radius: 0;
   font-size: 13px;
-  color: #4f4f55;
-  /* 确保文字颜色适配 */
+  color: var(--text-normal);
 }
 
 /* ========================================
