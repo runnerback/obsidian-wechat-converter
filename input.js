@@ -6580,19 +6580,17 @@ class AppleStyleView extends ItemView {
     const iconDiv = placeholder.createEl('div', { cls: 'apple-placeholder-icon' });
     this.renderPlaceholderIcon(iconDiv);
     placeholder.createEl('h2', { text: 'Obsidian 发布助手' });
-    const card = placeholder.createDiv({ cls: 'apple-placeholder-card' });
-    card.createEl('p', {
+    const content = placeholder.createDiv({ cls: 'apple-placeholder-content' });
+    content.createEl('p', {
       text: '当前面板用于预览微信公众号排版。请在左侧编辑器中打开或激活任意 Markdown 笔记以自动加载预览。',
-      cls: 'apple-placeholder-card-desc'
+      cls: 'apple-placeholder-desc'
     });
-    const steps = card.createEl('div', { cls: 'apple-steps' });
+    const steps = content.createEl('div', { cls: 'apple-steps' });
     steps.createEl('div', { text: '1. 打开或点击任意 Markdown 笔记' });
     steps.createEl('div', { text: '2. 预览微信公众号排版' });
     steps.createEl('div', { text: '3. 一键复制或同步到微信、飞书、小红书等平台' });
 
-    card.createDiv({ cls: 'apple-placeholder-card-divider' });
-
-    card.createEl('p', {
+    content.createEl('p', {
       text: '注：此面板仅预览微信排版。同步至飞书、小红书等平台直接以源 Markdown 笔记为准。',
       cls: 'apple-placeholder-note'
     });

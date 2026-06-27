@@ -2108,62 +2108,53 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   text-align: center;
   color: var(--text-normal);
   background: transparent;
+  padding: 32px 18px;
 }
 
 .apple-placeholder-icon {
-  width: 58px;
-  height: 58px;
-  margin-bottom: 18px;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 22px;
 }
 
 .apple-placeholder h2 {
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 600;
   color: var(--text-normal);
-  margin: 0 0 10px 0;
+  margin: 0 0 28px 0;
 }
 
-.apple-placeholder-card {
+.apple-placeholder-content {
   text-align: left;
-  background: color-mix(in srgb, var(--background-secondary) 85%, transparent);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  padding: 16px;
-  margin: 16px 12px 0;
-  box-sizing: border-box;
-  width: calc(100% - 24px);
-  max-width: 320px;
+  width: 100%;
+  max-width: 310px;
+  margin: 0 auto;
 }
 
-.apple-placeholder-card-desc {
-  font-size: 13px;
+.apple-placeholder-desc {
+  font-size: 13.5px;
   color: var(--text-muted);
-  line-height: 1.5;
-  margin: 0 0 16px 0;
-}
-
-.apple-placeholder-card-divider {
-  border-top: 1px solid var(--background-modifier-border);
-  margin: 14px 0 12px 0;
+  line-height: 1.6;
+  margin: 0 0 22px 0;
 }
 
 .apple-placeholder .apple-placeholder-note {
-  margin: 0;
+  margin: 28px 0 0 0;
   font-size: 11.5px;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--text-muted);
-  opacity: 0.85;
+  opacity: 0.75;
 }
 
 .apple-steps {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 12px;
   align-items: flex-start;
   padding: 0;
   background: transparent;
   border-radius: 0;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--text-normal);
 }
 
