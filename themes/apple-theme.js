@@ -652,8 +652,8 @@ class AppleTheme {
   getH1Style(type, color, fontSize, font, headingColor, config = AppleTheme.THEME_CONFIGS.github) {
     const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 30px auto 20px; color: ${headingColor}; text-align: center; line-height: 1.2;`;
     switch (type) {
-      case 'editorial-h1': // Magazine Style: Forced Serif + Golden Line
-        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 22px; padding: 0 0 14px; color: ${headingColor}; text-align: center; line-height: 1.2; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 120px 2px; background-repeat: no-repeat; background-position: bottom center; letter-spacing: 1px;`;
+      case 'editorial-h1': // Magazine Style: Forced Serif + Golden Line (More elegant: 1px height, 80px width, tightened spacing)
+        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 28px auto 16px; padding: 0 0 10px; color: ${headingColor}; text-align: center; line-height: 1.2; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 80px 1px; background-repeat: no-repeat; background-position: bottom center; letter-spacing: 1px;`;
       case 'bottom-line':
         // Pure CSS centered short line using linear-gradient (simulating image)
         return `${base}
@@ -693,8 +693,8 @@ class AppleTheme {
   getH2Style(type, color, fontSize, font, headingColor, config = AppleTheme.THEME_CONFIGS.github) {
     const base = `font-family: ${font}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 32px auto 16px; text-align: center; color: ${headingColor}; line-height: 1.25;`;
     switch (type) {
-      case 'editorial-h1': // Golden Line (Shifted from H1)
-        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 34px auto 20px; padding: 0 0 14px; color: ${headingColor}; text-align: center; line-height: 1.2; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 120px 2px; background-repeat: no-repeat; background-position: bottom center; letter-spacing: 1px;`;
+      case 'editorial-h1': // Golden Line (Shifted from H1 - More elegant: 1px height, 80px width, tightened spacing)
+        return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: bold; margin: 28px auto 14px; padding: 0 0 10px; color: ${headingColor}; text-align: center; line-height: 1.2; background-image: linear-gradient(to right, transparent, ${color}, transparent); background-size: 80px 1px; background-repeat: no-repeat; background-position: bottom center; letter-spacing: 1px;`;
       case 'editorial-h2': // Magazine Subtitle
         return `font-family: ${AppleTheme.FONTS.serif}; display: block; font-size: ${fontSize}px; font-weight: normal; margin: 32px auto 16px; text-align: center; color: ${headingColor}; line-height: 1.4; font-style: italic; letter-spacing: 1px;`;
       case 'bottom-line':
