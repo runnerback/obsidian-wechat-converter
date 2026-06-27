@@ -49,6 +49,12 @@ const RULES = [
     extensions: new Set(['.js', '.mjs', '.cjs']),
   },
   {
+    id: 'no-document-create-element',
+    message: 'Avoid calling document.createElement directly. Use getActiveDocumentCompat().createElement to support Obsidian popout windows.',
+    pattern: /\bdocument\.createElement\s*\(/,
+    extensions: new Set(['.js', '.mjs', '.cjs']),
+  },
+  {
     id: 'no-active-window-timers',
     message: 'Use window.setTimeout()/window.clearTimeout() for timers. Reserve active-window helpers for DOM/window-bound APIs.',
     pattern: /\bactiveWindow\.(?:setTimeout|clearTimeout)\s*\(/,

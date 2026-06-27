@@ -41,6 +41,7 @@ Review every new usage of these APIs before committing:
 - Clipboard fallback: do not remove the rich HTML `execCommand('copy')` fallback without manual regression coverage in Obsidian/Electron and mobile-like environments.
 - `fetch(data:)`: parse `data:` URLs locally instead of fetching them.
 - `globalThis`: avoid it in production plugin code. Prefer `window` or the helpers in `services/dom-utils.js` so popout windows stay compatible.
+- `activeDocument`: use `getActiveDocumentCompat()` (or `window.activeDocument || document`) instead of the global `document` when creating elements or querying elements dynamically, to ensure full compatibility with Obsidian's popout windows.
 - Timer helpers: use `window.setTimeout()` and `window.clearTimeout()` for timers instead of `activeWindow.setTimeout()` / `activeWindow.clearTimeout()`.
 - Dynamic window APIs: avoid returning functions produced from dynamic `.call()` / `.bind()` access. Wrap the call in a named helper or call the safe API directly so TypeScript-style review scans do not classify the return as unsafe.
 - File deletion or cleanup: validate vault-relative paths, block config/system directories, and add tests for unsafe paths.
