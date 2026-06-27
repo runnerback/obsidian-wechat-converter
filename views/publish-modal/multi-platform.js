@@ -119,7 +119,7 @@ function callBooleanMethod(target, methodName, args = []) {
   const method = toRecord(target)[methodName];
   if (typeof method !== 'function') return null;
   const methodFn = /** @type {(...methodArgs: unknown[]) => unknown} */ (method);
-  return methodFn(...args) === true;
+  return methodFn.apply(target, args) === true;
 }
 
 /**
