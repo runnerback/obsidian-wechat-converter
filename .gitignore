@@ -15,7 +15,6 @@ OBSIDIAN_REVIEW_*.md
 *_review.txt
 *_review
 
-docs/*
 !docs/support.md
 
 # Local skill directories
