@@ -5,6 +5,14 @@ const { __applyExtensions: applyExtensions } = obsidian;
 const { renderFeishuSettingsTab } = await import('../views/settings/feishu-tab.js');
 const { createDefaultFeishuSyncSettings } = await import('../services/feishu-settings.js');
 
+// Mirror getFeishuApiUsageMonthKey (local YYYY-MM) so the test tracks the real
+// "current month" instead of a hardcoded value that breaks when the month rolls.
+function currentUsageMonthKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
 function makeTab() {
   const feishuSync = createDefaultFeishuSyncSettings();
   feishuSync.enabled = true;
@@ -19,7 +27,7 @@ function makeTab() {
     sourcePath: 'notes/feishu.md',
   }];
   feishuSync.apiUsage = {
-    month: '2026-06',
+    month: currentUsageMonthKey(),
     count: 64,
     updatedAt: 123,
   };
@@ -50,7 +58,7 @@ describe('Feishu settings tab', () => {
     expect(containerEl.textContent).toContain('您已成功分享 1 个文档');
     expect(containerEl.textContent).toContain('64 / 10,000');
     expect(containerEl.textContent).toContain('剩余约 9,936 次');
-    expect(containerEl.textContent).toContain('统计周期：2026-06');
+    expect(containerEl.textContent).toContain('统计周期：' + currentUsageMonthKey());
 
     const resetButton = Array.from(containerEl.querySelectorAll('button'))
       .find((button) => button.textContent === '重置计数');

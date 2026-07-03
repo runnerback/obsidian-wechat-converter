@@ -313,3 +313,28 @@ export function htmlToText(html = '') {
   const container = createHtmlContainer('div', html);
   return container ? (container.textContent || '') : '';
 }
+
+/**
+ * @param {Event} event
+ * @returns {HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null}
+ */
+function getValueElementFromEvent(event) {
+  const target = event.target;
+  if (
+    target instanceof HTMLInputElement
+    || target instanceof HTMLSelectElement
+    || target instanceof HTMLTextAreaElement
+  ) {
+    return target;
+  }
+  return null;
+}
+
+/**
+ * @param {Event} event
+ * @param {string} [fallback]
+ * @returns {string}
+ */
+export function getEventTargetValue(event, fallback = '') {
+  return getValueElementFromEvent(event)?.value ?? fallback;
+}

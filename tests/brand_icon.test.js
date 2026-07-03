@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 
 describe('Brand Icon Data URL Validation', () => {
   it('contains a valid, untruncated PNG base64 string for the placeholder icon', () => {
-    const source = readFileSync('input.js', 'utf8');
+    // PLACEHOLDER_ICON_DATA_URL 于 Phase 8 随 renderPlaceholderIcon 迁到该模块（原在 input.js）
+    const source = readFileSync('views/preview/render-pipeline.js', 'utf8');
     const match = source.match(/const PLACEHOLDER_ICON_DATA_URL = 'data:image\/png;base64,([^']+)';/);
     
     expect(match).not.toBeNull();
