@@ -4,27 +4,31 @@
 // YAML frontmatter after a successful 发布与分发 action.
 //
 // Design (confirmed with user):
-// - English frontmatter keys.
+// - English frontmatter keys, flattened for readability in Obsidian's
+//   properties panel (no nested object list).
 // - Wording is "已同步/synced" (most flows create drafts, not public posts).
-// - `publish_targets` is a CUMULATIVE list, de-duplicated by platform(+account):
-//   re-publishing the same platform updates that entry's time/url in place
-//   instead of appending duplicates.
-// - `publish_status` reflects the completeness of the MOST RECENT action:
-//   'synced' when every requested platform succeeded, otherwise 'partial'.
 // - Only successful platforms are recorded. No filename / folder changes.
+// - Timestamp is Beijing wall time (UTC+8) WITHOUT an offset suffix, and
+//   carries an ISO week + weekday marker, e.g. `2026-07-03W27-5T13:54:59`
+//   (W27 = 27th ISO week of the year, -5 = Friday; Mon=1 ... Sun=7).
 
 export const PUBLISH_STATUS_SYNCED = 'synced';
 export const PUBLISH_STATUS_PARTIAL = 'partial';
 
 export const FRONTMATTER_KEYS = Object.freeze({
   status: 'publish_status',
-  targets: 'publish_targets',
-  lastAt: 'last_publish_at',
+  platforms: 'publish_platforms',
+  platform: 'publish_platform',
+  kind: 'publish_kind',
+  time: 'publish_time',
 });
+
+// Keys from earlier versions that we now flatten away.
+const DEPRECATED_KEYS = ['publish_targets', 'last_publish_at'];
 
 /**
  * @typedef {{ platform: string, kind?: string, account?: string, url?: string, time?: string }} PublishTargetInput
- * @typedef {{ platform: string, kind: string, account?: string, url?: string, time: string }} PublishTargetEntry
+ * @typedef {{ platform: string, kind: string, time: string }} PublishTargetEntry
  */
 
 /**
@@ -36,102 +40,68 @@ function toTrimmedString(value) {
 }
 
 /**
- * Format a Date as a UTC+8 (Asia/Shanghai) ISO-8601 string with explicit
- * `+08:00` offset, e.g. `2026-07-03T21:40:00+08:00`. Computed from UTC math
- * so it is correct regardless of the host machine's local timezone.
+ * @param {number} n
+ * @returns {string}
+ */
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+/**
+ * ISO-8601 week number for a Y/M/D (treated in UTC).
+ * @param {number} year
+ * @param {number} monthIndex 0-based
+ * @param {number} day
+ * @returns {number}
+ */
+function isoWeekNumber(year, monthIndex, day) {
+  const date = new Date(Date.UTC(year, monthIndex, day));
+  const dayNum = (date.getUTCDay() + 6) % 7; // Mon=0 ... Sun=6
+  date.setUTCDate(date.getUTCDate() - dayNum + 3); // move to the Thursday of this week
+  const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+  const firstDayNum = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - firstDayNum + 3);
+  return 1 + Math.round((date.getTime() - firstThursday.getTime()) / (7 * 24 * 3600 * 1000));
+}
+
+/**
+ * Format a Date as Beijing (UTC+8) wall time with ISO week + weekday marker,
+ * e.g. `2026-07-03W27-5T13:54:59`. No timezone offset suffix. Computed from
+ * UTC math so it is correct regardless of the host machine's local timezone.
  * @param {Date} [date]
  * @returns {string}
  */
 export function formatBeijingTimestamp(date = new Date()) {
   const base = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
   const shifted = new Date(base.getTime() + 8 * 60 * 60 * 1000);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`
-    + `T${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}:${pad(shifted.getUTCSeconds())}+08:00`;
+  const year = shifted.getUTCFullYear();
+  const monthIndex = shifted.getUTCMonth();
+  const day = shifted.getUTCDate();
+  const week = isoWeekNumber(year, monthIndex, day);
+  const weekday = shifted.getUTCDay() === 0 ? 7 : shifted.getUTCDay(); // Mon=1 ... Sun=7
+  return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}W${week}-${weekday}`
+    + `T${pad2(shifted.getUTCHours())}:${pad2(shifted.getUTCMinutes())}:${pad2(shifted.getUTCSeconds())}`;
 }
 
 /**
- * @returns {string} current time as UTC+8 ISO string
+ * @returns {string} current time as Beijing (UTC+8) timestamp
  */
 export function nowBeijingTimestamp() {
   return formatBeijingTimestamp(new Date());
 }
 
 /**
- * Normalize a raw target descriptor into a stable frontmatter entry.
- * Optional fields (account/url) are only included when present.
+ * Normalize a raw target descriptor.
  * @param {PublishTargetInput} input
- * @param {string} [now] ISO timestamp fallback for `time`
+ * @param {string} [now] timestamp fallback for `time`
  * @returns {PublishTargetEntry | null}
  */
 export function buildPublishTarget(input, now) {
   const platform = toTrimmedString(input && input.platform).toLowerCase();
   if (!platform) return null;
-
   const kind = toTrimmedString(input && input.kind) || 'draft';
-  const account = toTrimmedString(input && input.account);
-  const url = toTrimmedString(input && input.url);
   const time = toTrimmedString(input && input.time) || toTrimmedString(now) || nowBeijingTimestamp();
-
-  /** @type {PublishTargetEntry} */
-  const entry = { platform, kind, time };
-  if (account) entry.account = account;
-  if (url) entry.url = url;
-  return entry;
-}
-
-/**
- * De-dup key for a target: platform (+ account when present).
- * @param {{ platform?: unknown, account?: unknown }} entry
- * @returns {string}
- */
-function targetKey(entry) {
-  const platform = toTrimmedString(entry && entry.platform).toLowerCase();
-  const account = toTrimmedString(entry && entry.account);
-  return account ? `${platform}::${account}` : platform;
-}
-
-/**
- * Coerce an unknown existing frontmatter value into an array of entries.
- * @param {unknown} value
- * @returns {PublishTargetEntry[]}
- */
-function toExistingTargets(value) {
-  if (!Array.isArray(value)) return [];
-  /** @type {PublishTargetEntry[]} */
-  const out = [];
-  for (const item of value) {
-    if (!item || typeof item !== 'object') continue;
-    const built = buildPublishTarget(/** @type {PublishTargetInput} */ (item), '');
-    if (built) out.push(built);
-  }
-  return out;
-}
-
-/**
- * Cumulative merge: keep existing entries, update-in-place on matching key,
- * append new platforms. Latest wins for time/url/kind. Order preserved
- * (existing first, then newly-added platforms).
- * @param {unknown} existing
- * @param {PublishTargetEntry[]} incoming
- * @returns {PublishTargetEntry[]}
- */
-export function mergePublishTargets(existing, incoming) {
-  const merged = toExistingTargets(existing);
-  const indexByKey = new Map();
-  merged.forEach((entry, index) => indexByKey.set(targetKey(entry), index));
-
-  for (const entry of Array.isArray(incoming) ? incoming : []) {
-    if (!entry || !toTrimmedString(entry.platform)) continue;
-    const key = targetKey(entry);
-    if (indexByKey.has(key)) {
-      merged[indexByKey.get(key)] = { ...merged[indexByKey.get(key)], ...entry };
-    } else {
-      indexByKey.set(key, merged.length);
-      merged.push(entry);
-    }
-  }
-  return merged;
+  return { platform, kind, time };
 }
 
 /**
@@ -146,9 +116,29 @@ export function resolvePublishStatus(requestedCount, successCount) {
 }
 
 /**
- * Mutate a frontmatter object in place with the merged publish status.
- * Intended to be called inside Obsidian's `fileManager.processFrontMatter`.
- * Returns the same object for convenience/testing.
+ * Cumulative, de-duplicated (case-insensitive) union of platform strings.
+ * @param {unknown} existing
+ * @param {string[]} incoming
+ * @returns {string[]}
+ */
+export function mergePlatformList(existing, incoming) {
+  const out = [];
+  const seen = new Set();
+  const push = (value) => {
+    const key = toTrimmedString(value).toLowerCase();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      out.push(key);
+    }
+  };
+  if (Array.isArray(existing)) existing.forEach(push);
+  (Array.isArray(incoming) ? incoming : []).forEach(push);
+  return out;
+}
+
+/**
+ * Mutate a frontmatter object in place with flattened publish status.
+ * Intended to be called inside `fileManager.processFrontMatter`.
  * @param {Record<string, unknown>} frontmatter
  * @param {{ targets: PublishTargetInput[], requestedCount?: number, now?: string }} options
  * @returns {Record<string, unknown>}
@@ -163,11 +153,19 @@ export function updatePublishFrontmatter(frontmatter, { targets, requestedCount,
 
   if (normalized.length === 0) return fm; // never write an empty/false status
 
-  fm[FRONTMATTER_KEYS.targets] = mergePublishTargets(fm[FRONTMATTER_KEYS.targets], /** @type {PublishTargetEntry[]} */ (normalized));
+  const latest = normalized[normalized.length - 1];
+  fm[FRONTMATTER_KEYS.platforms] = mergePlatformList(fm[FRONTMATTER_KEYS.platforms], normalized.map((t) => t.platform));
+  fm[FRONTMATTER_KEYS.platform] = latest.platform;
+  fm[FRONTMATTER_KEYS.kind] = latest.kind;
+  fm[FRONTMATTER_KEYS.time] = timestamp;
   fm[FRONTMATTER_KEYS.status] = resolvePublishStatus(
     typeof requestedCount === 'number' ? requestedCount : normalized.length,
     normalized.length,
   );
-  fm[FRONTMATTER_KEYS.lastAt] = timestamp;
+
+  // Clean up nested/legacy keys from earlier versions for readability.
+  for (const key of DEPRECATED_KEYS) {
+    if (fm[key] !== undefined) delete fm[key];
+  }
   return fm;
 }
