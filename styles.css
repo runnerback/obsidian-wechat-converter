@@ -3444,6 +3444,9 @@ div.modal.wechat-sync-shell-mobile div.modal-content.wechat-sync-modal-mobile {
   border-bottom: 1px solid color-mix(in srgb, var(--apple-border) 86%, transparent);
   background: transparent;
   overflow-x: auto;
+  /* 显式关掉纵向溢出：只设 overflow-x:auto 时 overflow-y 会被 computed 成 auto，
+     导致 tab 比容器高 1px 就冒出多余的竖向 scrollbar（见发布弹窗 tab 条） */
+  overflow-y: hidden;
   white-space: nowrap;
   -webkit-overflow-scrolling: touch;
 }
