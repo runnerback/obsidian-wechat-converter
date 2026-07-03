@@ -1305,41 +1305,6 @@ class AppleStyleView extends ItemView {
 
 
   /**
-   * 创建账号选择器
-   */
-  /**
-   * @param {ObsidianElementLike} parent
-   */
-  createAccountSelector(parent) {
-    /** @type {WechatAccountLike[]} */
-    const accounts = this.plugin.settings.wechatAccounts || [];
-    if (accounts.length === 0) return;
-
-    const section = parent.createEl('div', { cls: 'apple-setting-section wechat-account-selector' });
-    section.createEl('label', { cls: 'apple-setting-label', text: '同步账号' });
-
-    const select = /** @type {ObsidianInputLike} */ (section.createEl('select', { cls: 'wechat-account-select' }));
-
-    const defaultId = this.plugin.settings.defaultAccountId;
-
-    for (const account of accounts) {
-      const option = /** @type {ObsidianInputLike} */ (select.createEl('option', {
-        value: account.id,
-        text: account.id === defaultId ? `${account.name} (默认)` : account.name
-      }));
-      if (account.id === defaultId) {
-        option.selected = true;
-      }
-    }
-
-    // 保存选中的账号 ID 到实例属性
-    this.selectedAccountId = defaultId;
-    select.addEventListener('change', (event) => {
-      this.selectedAccountId = getEventTargetValue(event, defaultId);
-    });
-  }
-
-  /**
    * 从文章内容中提取第一张图片作为封面
    */
   getFirstImageFromArticle() {
@@ -2254,16 +2219,6 @@ class AppleStyleView extends ItemView {
     this.resizeTimeout = window.setTimeout(() => {
       this.convertCurrent(true);
     }, 300);
-  }
-
-  /**
-   * 渲染 HTML
-   * @param {string} html
-   */
-  renderHTML(html) {
-    if (!this.previewContainer) return;
-    this.previewContainer.empty();
-    setElementHtml(this.previewContainer, html);
   }
 
   /**
