@@ -98,6 +98,7 @@ export default [
 	      "services/feishu-sync.js",
       "services/path-utils.js",
       "services/markdown-source.js",
+      "services/publish-status.js",
       "services/render-pipeline.js",
       "services/obsidian-fetch-adapter.js",
       "services/native-renderer.js",

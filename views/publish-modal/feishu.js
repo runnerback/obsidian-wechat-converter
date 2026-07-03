@@ -398,6 +398,13 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
       // Save settings
       await plugin.saveSettings();
 
+      if (typeof view.recordPublishStatus === 'function') {
+        await view.recordPublishStatus(activeFile, {
+          successfulTargets: [{ platform: 'feishu', kind: 'doc', url: (result && result.url) || '' }],
+          requestedCount: 1,
+        });
+      }
+
       hideFeishuNotice(progressNotice);
       resultCard.empty();
       const warnings = getFeishuResultWarnings(result);

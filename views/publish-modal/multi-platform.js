@@ -18,6 +18,9 @@ import {
   normalizeWechatsyncPlatform,
   summarizeWechatsyncPlatformResponse,
   updateCachedPlatformsAfterSync,
+  getMultiPlatformResultSummary,
+  getWechatSyncResultPlatformId,
+  getWechatSyncResultUrl,
 } from '../../services/wechatsync-results.js';
 
 import {
@@ -1044,6 +1047,23 @@ async function showMultiPlatformPublishModal(view, options = {}) {
         },
       });
       await view.plugin.saveSettings();
+      try {
+        const publishFile = typeof view.getPublishContextFile === 'function' ? view.getPublishContextFile() : null;
+        const resultsForStatus = immediateResults.length ? immediateResults : taskResults;
+        const statusSummary = getMultiPlatformResultSummary(resultsForStatus, requestedPlatformIds, null);
+        if (publishFile && statusSummary.successCount > 0 && typeof view.recordPublishStatus === 'function') {
+          await view.recordPublishStatus(publishFile, {
+            successfulTargets: statusSummary.successResults.map((item) => ({
+              platform: getWechatSyncResultPlatformId(item),
+              kind: 'draft',
+              url: getWechatSyncResultUrl(item),
+            })),
+            requestedCount: requestedPlatformIds.length,
+          });
+        }
+      } catch (statusError) {
+        console.warn('[Wechatsync] 记录多平台发布状态失败', statusError);
+      }
       view.showWechatsyncEnqueueAcceptedModal({
         syncId: result?.syncId || '',
         title,

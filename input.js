@@ -162,6 +162,7 @@ import {
   sortWechatsyncPlatformItemsForDisplay,
 } from './services/wechatsync-results.js';
 import { resolveSyncAccount, toSyncFriendlyMessage } from './services/sync-context.js';
+import { updatePublishFrontmatter } from './services/publish-status.js';
 import {
   createEmptyDraftCache,
   normalizeDraftCache,
@@ -6205,6 +6206,32 @@ class AppleStyleView extends ItemView {
   }
 
   /**
+   * 发布/分发成功后，把"已同步"状态写入源笔记的 frontmatter（英文 key）。
+   * 仅记录成功的平台；累加去重；不改文件名/文件夹。
+   * @param {TFileLike | null | undefined} file
+   * @param {{ successfulTargets: Array<{ platform: string, kind?: string, account?: string, url?: string }>, requestedCount?: number }} payload
+   * @returns {Promise<void>}
+   */
+  async recordPublishStatus(file, payload) {
+    try {
+      const targets = payload && Array.isArray(payload.successfulTargets) ? payload.successfulTargets : [];
+      if (!file || targets.length === 0) return;
+      const fileManager = this.app?.fileManager;
+      if (!fileManager || typeof fileManager.processFrontMatter !== 'function') return;
+      const now = new Date().toISOString();
+      await fileManager.processFrontMatter(file, (frontmatter) => {
+        updatePublishFrontmatter(frontmatter, {
+          targets,
+          requestedCount: typeof payload.requestedCount === 'number' ? payload.requestedCount : targets.length,
+          now,
+        });
+      });
+    } catch (error) {
+      console.warn('记录发布状态到 frontmatter 失败:', error);
+    }
+  }
+
+  /**
    * 处理同步到微信逻辑
    */
   async onSyncToWechat() {
@@ -6283,6 +6310,12 @@ class AppleStyleView extends ItemView {
 
       notice.hide();
       new Notice(isUpdate ? '✅ 更新成功！微信草稿已更新' : '✅ 同步成功！请前往微信公众号后台草稿箱查看');
+      if (activeFile) {
+        await this.recordPublishStatus(activeFile, {
+          successfulTargets: [{ platform: 'wechat', kind: 'draft', account: account.name || account.id || '' }],
+          requestedCount: 1,
+        });
+      }
       const failedImageSources = Array.from(new Set([
         ...(Array.isArray(imageUploadFailures) ? imageUploadFailures.map(item => item?.src).filter(Boolean) : []),
         ...(Array.isArray(placeholderImageSources) ? placeholderImageSources.filter(Boolean) : []),
