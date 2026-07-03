@@ -21,6 +21,7 @@ export const FRONTMATTER_KEYS = Object.freeze({
   platform: 'publish_platform',
   kind: 'publish_kind',
   time: 'publish_time',
+  at: 'publish_at',
 });
 
 // Keys from earlier versions that we now flatten away.
@@ -91,6 +92,20 @@ export function nowBeijingTimestamp() {
 }
 
 /**
+ * Standard, sortable ISO-8601 timestamp in Beijing time WITH explicit
+ * `+08:00` offset, e.g. `2026-07-03T13:54:59+08:00`. Intended for the
+ * machine-oriented `publish_at` field used by Dataview/Bases sort & filter.
+ * @param {Date} [date]
+ * @returns {string}
+ */
+export function formatBeijingIso(date = new Date()) {
+  const base = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+  const shifted = new Date(base.getTime() + 8 * 60 * 60 * 1000);
+  return `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth() + 1)}-${pad2(shifted.getUTCDate())}`
+    + `T${pad2(shifted.getUTCHours())}:${pad2(shifted.getUTCMinutes())}:${pad2(shifted.getUTCSeconds())}+08:00`;
+}
+
+/**
  * Normalize a raw target descriptor.
  * @param {PublishTargetInput} input
  * @param {string} [now] timestamp fallback for `time`
@@ -139,16 +154,21 @@ export function mergePlatformList(existing, incoming) {
 /**
  * Mutate a frontmatter object in place with flattened publish status.
  * Intended to be called inside `fileManager.processFrontMatter`.
+ * Both timestamps are derived from the same instant (`date`):
+ *   - `publish_time`: human-readable Beijing time with week/weekday
+ *   - `publish_at`:   standard ISO-8601 (+08:00) for sorting/filtering
  * @param {Record<string, unknown>} frontmatter
- * @param {{ targets: PublishTargetInput[], requestedCount?: number, now?: string }} options
+ * @param {{ targets: PublishTargetInput[], requestedCount?: number, date?: Date }} options
  * @returns {Record<string, unknown>}
  */
-export function updatePublishFrontmatter(frontmatter, { targets, requestedCount, now } = { targets: [] }) {
+export function updatePublishFrontmatter(frontmatter, { targets, requestedCount, date } = { targets: [] }) {
   const fm = frontmatter && typeof frontmatter === 'object' ? frontmatter : {};
-  const timestamp = toTrimmedString(now) || nowBeijingTimestamp();
+  const when = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+  const readableTime = formatBeijingTimestamp(when);
+  const isoTime = formatBeijingIso(when);
 
   const normalized = (Array.isArray(targets) ? targets : [])
-    .map((t) => buildPublishTarget(t, timestamp))
+    .map((t) => buildPublishTarget(t, readableTime))
     .filter((t) => t !== null);
 
   if (normalized.length === 0) return fm; // never write an empty/false status
@@ -157,7 +177,8 @@ export function updatePublishFrontmatter(frontmatter, { targets, requestedCount,
   fm[FRONTMATTER_KEYS.platforms] = mergePlatformList(fm[FRONTMATTER_KEYS.platforms], normalized.map((t) => t.platform));
   fm[FRONTMATTER_KEYS.platform] = latest.platform;
   fm[FRONTMATTER_KEYS.kind] = latest.kind;
-  fm[FRONTMATTER_KEYS.time] = timestamp;
+  fm[FRONTMATTER_KEYS.time] = readableTime;
+  fm[FRONTMATTER_KEYS.at] = isoTime;
   fm[FRONTMATTER_KEYS.status] = resolvePublishStatus(
     typeof requestedCount === 'number' ? requestedCount : normalized.length,
     normalized.length,
