@@ -163,6 +163,7 @@ import {
 } from './services/wechatsync-results.js';
 import { resolveSyncAccount, toSyncFriendlyMessage } from './services/sync-context.js';
 import { updatePublishFrontmatter } from './services/publish-status.js';
+import { collectArticleImageReferences } from './services/article-image-assets.js';
 import {
   createEmptyDraftCache,
   normalizeDraftCache,
@@ -5288,6 +5289,10 @@ class AppleStyleView extends ItemView {
       text: '从素材库选择',
       cls: 'wechat-cover-select-material-btn',
     });
+    const referencedBtn = coverBtns.createEl('button', {
+      text: '本篇引用',
+      cls: 'wechat-cover-referenced-btn',
+    });
 
     // 摘要设置
     const digestSection = advancedBody.createDiv({ cls: 'wechat-modal-section' });
@@ -5457,6 +5462,26 @@ class AppleStyleView extends ItemView {
         if (currentPath) {
           const state = this.articleStates.get(currentPath) || {};
           this.articleStates.set(currentPath, { ...state, coverBase64, thumbMediaId, materialCover });
+        }
+      });
+    };
+
+    referencedBtn.onclick = async () => {
+      if (!activeFile) {
+        new Notice('未找到当前笔记，无法读取本篇引用的图片');
+        return;
+      }
+      await this.showReferencedImagePickerModal(activeFile, (image) => {
+        coverBase64 = image.src;
+        thumbMediaId = '';
+        materialCover = null;
+        this.sessionCoverBase64 = coverBase64;
+        this.sessionThumbMediaId = '';
+        updatePreview();
+
+        if (currentPath) {
+          const state = this.articleStates.get(currentPath) || {};
+          this.articleStates.set(currentPath, { ...state, coverBase64, thumbMediaId: '', materialCover: null });
         }
       });
     };
@@ -5684,6 +5709,139 @@ class AppleStyleView extends ItemView {
     modal.open();
     modal.modalEl?.addClass('wechat-material-picker-modal');
     await loadPage(1);
+  }
+
+  /**
+   * 收集当前 md 文档里引用的本地图片（jpg/png/webp），用于"本篇引用"封面选择。
+   * 现读文件源码 -> 复用 collectArticleImageReferences 解析 ![]() 与 ![[]] ->
+   * 用 getFirstLinkpathDest 解析为库内文件 -> getResourcePath 得到 app:// 预览/封面源。
+   * 仅本地图；远程图床/data:/svg/gif 一律跳过；按文件路径去重。
+   * @param {TFileLike | null | undefined} activeFile
+   * @returns {Promise<Array<{ src: string, name: string, path: string, alt: string }>>}
+   */
+  async getReferencedLocalImages(activeFile) {
+    /** @type {Array<{ src: string, name: string, path: string, alt: string }>} */
+    const out = [];
+    try {
+      if (!activeFile || typeof this.app?.vault?.read !== 'function') return out;
+      const markdown = await this.app.vault.read(activeFile);
+      const references = collectArticleImageReferences(markdown);
+      const allowedExtensions = new Set(['jpg', 'jpeg', 'png', 'webp']);
+      const seenPaths = new Set();
+      const sourcePath = typeof activeFile.path === 'string' ? activeFile.path : '';
+
+      for (const reference of references) {
+        let raw = String(reference?.src || '').trim();
+        if (!raw) continue;
+        if (/^(https?:|data:)/i.test(raw)) continue; // 跳过远程图床/内联数据
+        if (raw.startsWith('<') && raw.endsWith('>')) raw = raw.slice(1, -1).trim();
+
+        // 去掉锚点与尺寸标记；对百分号编码的路径解码
+        let linkpath = raw.split('#')[0].split('|')[0].trim();
+        if (!linkpath) continue;
+        try {
+          linkpath = decodeURIComponent(linkpath);
+        } catch (decodeError) {
+          void decodeError; // 非法编码时保留原样
+        }
+
+        const resolved = this.app.metadataCache?.getFirstLinkpathDest?.(linkpath, sourcePath);
+        const file = resolved && typeof resolved.extension === 'string' ? resolved : null;
+        if (!file) continue;
+        if (!allowedExtensions.has(file.extension.toLowerCase())) continue;
+        if (seenPaths.has(file.path)) continue;
+        seenPaths.add(file.path);
+
+        const src = this.app.vault.getResourcePath(file);
+        if (!src) continue;
+        out.push({
+          src,
+          name: typeof file.name === 'string' ? file.name : linkpath,
+          path: file.path,
+          alt: String(reference?.alt || ''),
+        });
+      }
+    } catch (error) {
+      console.warn('收集本篇引用图片失败:', error);
+    }
+    return out;
+  }
+
+  /**
+   * 弹出"本篇引用图片"网格，供用户选择一张作为封面。
+   * @param {TFileLike | null | undefined} activeFile
+   * @param {(image: { src: string, name: string, path: string, alt: string }) => void} onSelect
+   * @returns {Promise<void>}
+   */
+  async showReferencedImagePickerModal(activeFile, onSelect) {
+    const images = await this.getReferencedLocalImages(activeFile);
+
+    const modal = createObsidianModal(this.app);
+    modal.titleEl.setText('从本篇引用图片选择封面');
+    modal.modalEl?.addClass('wechat-material-picker-modal');
+    modal.contentEl.addClass('wechat-material-picker');
+    if (isMobileClient(this.app)) {
+      modal.modalEl?.addClass('wechat-material-picker-modal-mobile');
+      modal.contentEl.addClass('wechat-material-picker-mobile');
+    }
+
+    const toolbar = modal.contentEl.createDiv({ cls: 'wechat-material-toolbar' });
+    toolbar.createDiv({
+      cls: 'wechat-material-count',
+      text: images.length > 0 ? `本篇共引用 ${images.length} 张可用图片` : '本篇没有可用作封面的图片',
+    });
+
+    const grid = modal.contentEl.createDiv({ cls: 'wechat-material-grid' });
+    const footer = modal.contentEl.createDiv({ cls: 'wechat-material-footer' });
+    const confirmBtn = footer.createEl('button', { text: '使用这张封面', cls: 'mod-cta wechat-material-confirm' });
+    confirmBtn.disabled = true;
+
+    /** @type {{ src: string, name: string, path: string, alt: string } | null} */
+    let selected = null;
+
+    if (!images.length) {
+      grid.createDiv({
+        cls: 'wechat-material-empty',
+        text: '本篇没有可用作封面的图片（仅支持本地 jpg / png / webp）。',
+      });
+    } else {
+      for (const image of images) {
+        const cell = grid.createDiv({ cls: 'wechat-material-cell' });
+        cell.setAttribute('role', 'button');
+        cell.setAttribute('tabindex', '0');
+        cell.setAttribute('title', image.name);
+        const img = cell.createEl('img', {
+          attr: { src: image.src, loading: 'lazy', alt: image.alt || image.name },
+        });
+        img.onerror = () => {
+          img.remove();
+          cell.createDiv({ cls: 'wechat-material-thumb-fallback', text: image.name });
+        };
+        cell.createDiv({ cls: 'wechat-material-name', text: image.name });
+        const selectCell = () => {
+          grid.querySelectorAll('.wechat-material-cell.is-selected').forEach((el) => el.removeClass('is-selected'));
+          cell.addClass('is-selected');
+          selected = image;
+          confirmBtn.disabled = false;
+        };
+        cell.onclick = selectCell;
+        cell.onkeydown = (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectCell();
+          }
+        };
+      }
+    }
+
+    confirmBtn.onclick = () => {
+      if (!selected) return;
+      modal.close();
+      if (typeof onSelect === 'function') onSelect(selected);
+    };
+
+    modal.open();
+    modal.modalEl?.addClass('wechat-material-picker-modal');
   }
 
   /**
