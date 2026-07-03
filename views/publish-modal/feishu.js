@@ -6,6 +6,7 @@
 // Uses Obsidian APIs (Setting, Notice, etc.).
 
 import { getActiveWindowValue } from '../../services/dom-utils.js';
+import { MULTI_PLATFORM_TAB_LABEL } from '../../services/settings-defaults.js';
 import { syncNoteToFeishu } from '../../services/feishu-sync.js';
 import { collectMermaidFences } from '../../services/feishu-mermaid-renderer.js';
 import {
@@ -153,7 +154,7 @@ function renderFeishuPublishTab(view, modal, containerEl, options = {}) {
   const multiTabBtn = tabsWrapper.createEl('button', {
     cls: 'wechat-publish-mode-tab',
   });
-  multiTabBtn.createEl('span', { text: '其他平台（小红书/知乎等）' });
+  multiTabBtn.createEl('span', { text: MULTI_PLATFORM_TAB_LABEL });
   multiTabBtn.onclick = () => {
     view.showMultiPlatformSyncModal({ modal });
   };

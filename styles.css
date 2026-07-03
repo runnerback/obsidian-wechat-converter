@@ -3443,11 +3443,20 @@ div.modal.wechat-sync-shell-mobile div.modal-content.wechat-sync-modal-mobile {
   padding: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--apple-border) 86%, transparent);
   background: transparent;
-  overflow-x: auto;
-  /* 显式关掉纵向溢出：只设 overflow-x:auto 时 overflow-y 会被 computed 成 auto，
-     导致 tab 比容器高 1px 就冒出多余的竖向 scrollbar（见发布弹窗 tab 条） */
-  overflow-y: hidden;
+  /* 桌面端：按全部 tab 的固有宽度撑开，让 tab 条成为弹窗的最小内容宽度。
+     弹窗宽度随各 tab 正文内容自适应；若不强制 tab 条宽度，切到窄内容(飞书)时弹窗变窄、
+     tab 条(nowrap)末尾文字("抖音等）")就会被裁。这里不设任何 overflow：
+     既让弹窗恒 ≥ tab 条宽度(三个 tab 永远完整)，又不会冒出多余 scrollbar。
+     移动端受限弹窗的横向滚动交给下方 .wechat-sync-modal-mobile 规则。 */
+  width: max-content;
   white-space: nowrap;
+}
+
+/* 移动端弹窗宽度被 100vw 卡死，tab 条放不下时才允许横向滚动（纵向始终关掉） */
+.wechat-sync-modal-mobile .wechat-publish-mode-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
 }
 
