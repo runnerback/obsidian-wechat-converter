@@ -164,6 +164,7 @@ import {
 import { resolveSyncAccount, toSyncFriendlyMessage } from './services/sync-context.js';
 import { updatePublishFrontmatter } from './services/publish-status.js';
 import { collectArticleImageReferences } from './services/article-image-assets.js';
+import { renderSelectableImageGrid } from './views/publish-modal/image-grid.js';
 import {
   createEmptyDraftCache,
   normalizeDraftCache,
@@ -5614,49 +5615,29 @@ class AppleStyleView extends ItemView {
      * @param {WechatMaterialItemLike[]} items
      */
     const renderItems = (items) => {
-      grid.empty();
-      grid.removeClass('is-loading');
-      if (!items.length) {
-        grid.createDiv({ cls: 'wechat-material-empty', text: '素材库中暂无图片素材' });
-        return;
-      }
-
-      for (const item of items) {
-        const mediaId = item.media_id || item.mediaId || '';
-        if (!mediaId) continue;
-        const cell = grid.createDiv({ cls: 'wechat-material-cell' });
-        cell.setAttribute('role', 'button');
-        cell.setAttribute('tabindex', '0');
-        cell.setAttribute('title', item.name || '未命名图片');
-        const url = item.url || '';
-        if (url) {
-          const img = cell.createEl('img', {
-            attr: { src: url, loading: 'lazy', alt: item.name || '素材图片' },
-          });
-          img.onerror = () => {
-            img.remove();
-            cell.createDiv({ cls: 'wechat-material-thumb-fallback', text: item.name || '图片' });
+      const mapped = (Array.isArray(items) ? items : [])
+        .map((item) => {
+          const mediaId = item.media_id || item.mediaId || '';
+          if (!mediaId) return null;
+          const name = item.name || '未命名图片';
+          return {
+            key: mediaId,
+            thumbUrl: item.url || '',
+            name,
+            title: name,
+            payload: { mediaId, url: item.url || '', name: item.name || '' },
           };
-        } else {
-          cell.createDiv({ cls: 'wechat-material-thumb-fallback', text: item.name || '图片' });
-        }
-        cell.createDiv({ cls: 'wechat-material-name', text: item.name || '未命名图片' });
-        const selectCell = () => {
-          grid.querySelectorAll('.wechat-material-cell.is-selected').forEach((el) => {
-            el.removeClass('is-selected');
-          });
-          cell.addClass('is-selected');
-          selectedItem = { mediaId, url, name: item.name || '' };
-          confirmBtn.disabled = false;
-        };
-        cell.onclick = selectCell;
-        cell.onkeydown = (event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            selectCell();
-          }
-        };
-      }
+        })
+        .filter(Boolean);
+      renderSelectableImageGrid({
+        grid,
+        items: /** @type {any[]} */ (mapped),
+        confirmBtn,
+        emptyText: '素材库中暂无图片素材',
+        onSelect: (payload) => {
+          selectedItem = /** @type {WechatMaterialSelectionLike} */ (payload);
+        },
+      });
     };
 
     /**
@@ -5793,46 +5774,30 @@ class AppleStyleView extends ItemView {
 
     const grid = modal.contentEl.createDiv({ cls: 'wechat-material-grid' });
     const footer = modal.contentEl.createDiv({ cls: 'wechat-material-footer' });
+    // 与"从素材库选择"弹窗保持一致：footer 左侧占位（对应分页区）+ 右侧确认按钮，
+    // 借助 .wechat-material-footer 的 space-between 让按钮靠右。
+    footer.createDiv({ cls: 'wechat-material-pagination' });
     const confirmBtn = footer.createEl('button', { text: '使用这张封面', cls: 'mod-cta wechat-material-confirm' });
     confirmBtn.disabled = true;
 
     /** @type {{ src: string, name: string, path: string, alt: string } | null} */
     let selected = null;
 
-    if (!images.length) {
-      grid.createDiv({
-        cls: 'wechat-material-empty',
-        text: '本篇没有可用作封面的图片（仅支持本地 jpg / png / webp）。',
-      });
-    } else {
-      for (const image of images) {
-        const cell = grid.createDiv({ cls: 'wechat-material-cell' });
-        cell.setAttribute('role', 'button');
-        cell.setAttribute('tabindex', '0');
-        cell.setAttribute('title', image.name);
-        const img = cell.createEl('img', {
-          attr: { src: image.src, loading: 'lazy', alt: image.alt || image.name },
-        });
-        img.onerror = () => {
-          img.remove();
-          cell.createDiv({ cls: 'wechat-material-thumb-fallback', text: image.name });
-        };
-        cell.createDiv({ cls: 'wechat-material-name', text: image.name });
-        const selectCell = () => {
-          grid.querySelectorAll('.wechat-material-cell.is-selected').forEach((el) => el.removeClass('is-selected'));
-          cell.addClass('is-selected');
-          selected = image;
-          confirmBtn.disabled = false;
-        };
-        cell.onclick = selectCell;
-        cell.onkeydown = (event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            selectCell();
-          }
-        };
-      }
-    }
+    renderSelectableImageGrid({
+      grid,
+      items: images.map((image) => ({
+        key: image.path,
+        thumbUrl: image.src,
+        name: image.name,
+        title: image.name,
+        payload: image,
+      })),
+      confirmBtn,
+      emptyText: '本篇没有可用作封面的图片（仅支持本地 jpg / png / webp）。',
+      onSelect: (payload) => {
+        selected = /** @type {{ src: string, name: string, path: string, alt: string }} */ (payload);
+      },
+    });
 
     confirmBtn.onclick = () => {
       if (!selected) return;

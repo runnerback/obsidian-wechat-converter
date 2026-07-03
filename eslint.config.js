@@ -117,6 +117,7 @@ export default [
       "services/wechatsync-settings.js",
       "views/connection-status-bar.js",
       "views/publish-modal/feishu.js",
+      "views/publish-modal/image-grid.js",
       "views/publish-modal/multi-platform.js",
       "views/settings/feishu-tab.js",
       "views/settings/multi-platform-tab.js",
