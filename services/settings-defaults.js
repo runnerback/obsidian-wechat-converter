@@ -43,6 +43,12 @@ export const DEFAULT_SETTINGS = {
   cleanupDirTemplate: '', // 发送成功后要清理的目录（支持 {{note}}）
   multiPlatformSync: createDefaultMultiPlatformSyncSettings(),
   feishuSync: createDefaultFeishuSyncSettings(),
+  // 标题 AI 润色（客户端直连 DeepSeek，OpenAI 兼容接口）
+  titleAiPolish: {
+    apiKey: '',
+    apiBase: 'https://api.deepseek.com/v1',
+    model: 'deepseek-v4-pro', // 可选 deepseek-v4-pro / deepseek-v4-flash(lite)
+  },
   // 旧字段保留用于迁移检测
   wechatAppId: '',
   wechatAppSecret: '',

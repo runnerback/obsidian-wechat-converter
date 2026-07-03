@@ -431,6 +431,8 @@ export class AppleStyleSettingTab extends PluginSettingTab {
 
     this.renderAiSettingsSection(containerEl);
 
+    this.renderTitlePolishSection(containerEl);
+
     // 高级设置
     new Setting(containerEl)
       .setName('高级设置')
@@ -799,6 +801,60 @@ export class AppleStyleSettingTab extends PluginSettingTab {
           });
       });
     }
+  }
+
+  /**
+   * 标题 AI 润色设置：DeepSeek API Key / Base / 模型选择。
+   * 客户端直连 LLM，凭证仅存本地 data.json。
+   * @param {any} containerEl
+   */
+  renderTitlePolishSection(containerEl) {
+    new Setting(containerEl)
+      .setName('标题 AI 润色')
+      .setDesc('在「发布与分发」的文章标题旁一键让 LLM 根据正文优化标题（给 5 个候选）。凭证仅保存在本地。')
+      .setHeading();
+
+    const cfg = this.plugin.settings.titleAiPolish || {};
+
+    new Setting(containerEl)
+      .setName('DeepSeek API Key')
+      .setDesc('从 DeepSeek 开放平台获取。仅保存在本地 data.json，用于客户端直连调用。')
+      .addText((text) => {
+        text.inputEl.type = 'password';
+        text
+          .setPlaceholder('sk-...')
+          .setValue(cfg.apiKey || '')
+          .onChange(async (value) => {
+            this.plugin.settings.titleAiPolish.apiKey = value.trim();
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName('API Base')
+      .setDesc('OpenAI 兼容接口地址，默认 https://api.deepseek.com/v1。')
+      .addText((text) => {
+        text
+          .setPlaceholder('https://api.deepseek.com/v1')
+          .setValue(cfg.apiBase || '')
+          .onChange(async (value) => {
+            this.plugin.settings.titleAiPolish.apiBase = value.trim();
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName('模型')
+      .setDesc('选择用于标题润色的模型。')
+      .addDropdown((dropdown) => {
+        dropdown.addOption('deepseek-v4-pro', 'DeepSeek V4 Pro（质量优先）');
+        dropdown.addOption('deepseek-v4-flash', 'DeepSeek V4 Lite（快/省）');
+        dropdown.setValue(cfg.model || 'deepseek-v4-pro');
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.titleAiPolish.model = value;
+          await this.plugin.saveSettings();
+        });
+      });
   }
 
   /**

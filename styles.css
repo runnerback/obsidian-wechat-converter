@@ -3211,6 +3211,63 @@ div.modal.wechat-sync-shell-mobile div.modal-content.wechat-sync-modal-mobile {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--apple-accent) 12%, transparent);
 }
 
+/* 标题 AI 润色 —— 按钮 + 5 候选选择 */
+.wechat-title-polish-btn {
+  margin-top: 8px;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--apple-accent) 40%, var(--apple-border));
+  border-radius: var(--apple-radius-md);
+  background: color-mix(in srgb, var(--apple-accent) 8%, var(--apple-background));
+  color: var(--apple-accent);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.wechat-title-polish-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--apple-accent) 14%, var(--apple-background));
+}
+
+.wechat-title-polish-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.wechat-title-suggest-box {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wechat-title-suggest-box.is-hidden {
+  display: none;
+}
+
+.wechat-title-suggest-hint {
+  font-size: 12px;
+  color: var(--apple-secondary);
+}
+
+.wechat-title-suggest-item {
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--apple-border) 88%, transparent);
+  border-radius: var(--apple-radius-md);
+  background: var(--apple-background);
+  color: var(--apple-primary);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: normal;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.wechat-title-suggest-item:hover {
+  border-color: var(--apple-accent);
+  background: color-mix(in srgb, var(--apple-accent) 6%, var(--apple-background));
+}
+
 .wechat-publish-shell .wechat-account-select {
   min-height: 34px;
   border-color: color-mix(in srgb, var(--apple-border) 88%, transparent);

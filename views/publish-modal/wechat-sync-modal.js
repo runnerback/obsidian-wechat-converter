@@ -5,11 +5,12 @@
 // AppleStyleView god-class (Phase 5) as a prototype mixin (Object.assign onto
 // the view prototype) so `this` usage is unchanged.
 
-import { obsidianApi, getObsidianModalClass, createObsidianModal, isMobileClient, getActiveDocumentCompat } from '../../services/obsidian-adapters.js';
+import { obsidianApi, getObsidianModalClass, createObsidianModal, isMobileClient, getActiveDocumentCompat, getObsidianRequestUrl } from '../../services/obsidian-adapters.js';
 import { isRecord } from '../../services/input-utils.js';
 import { resolveSyncAccount } from '../../services/sync-context.js';
 import { htmlToText, getEventTargetValue } from '../../services/dom-utils.js';
 import { MULTI_PLATFORM_TAB_LABEL } from '../../services/settings-defaults.js';
+import { polishTitleWithLlm } from '../../services/title-polish.js';
 import { WechatAPI } from '../../services/wechat-api.js';
 import { getDraftAssociation, clearDraftAssociation } from '../../services/wechat-draft-cache.js';
 
@@ -315,13 +316,60 @@ export const wechatSyncModalMixin = {
     titleInput.setCssStyles({ width: '100%' });
     titleInput.maxLength = 64; // 微信标题最大限制 64 字符
 
-    // 实时更新缓存（标题）
-    titleInput.addEventListener('input', () => {
+    const syncTitleToCache = () => {
       if (currentPath) {
         const state = this.articleStates.get(currentPath) || {};
         this.articleStates.set(currentPath, { ...state, title: titleInput.value.trim() });
       }
-    });
+    };
+
+    // 实时更新缓存（标题）
+    titleInput.addEventListener('input', syncTitleToCache);
+
+    // 标题 AI 润色：根据正文让 LLM 给 5 个候选标题，点击采用
+    const polishBtn = /** @type {any} */ (titleSection.createEl('button', {
+      cls: 'wechat-title-polish-btn',
+      text: '✨ AI 润色标题',
+    }));
+    const suggestBox = titleSection.createDiv({ cls: 'wechat-title-suggest-box is-hidden' });
+
+    polishBtn.onclick = async () => {
+      const cfg = this.plugin.settings.titleAiPolish || {};
+      if (!cfg.apiKey) {
+        new Notice('请先在插件设置 →「标题 AI 润色」里配置 DeepSeek API Key');
+        return;
+      }
+      const originalText = polishBtn.textContent;
+      polishBtn.disabled = true;
+      polishBtn.textContent = '润色中…';
+      suggestBox.classList.add('is-hidden');
+      suggestBox.empty();
+      try {
+        const titles = await polishTitleWithLlm({
+          requestUrl: getObsidianRequestUrl(),
+          apiBase: cfg.apiBase,
+          apiKey: cfg.apiKey,
+          model: cfg.model || 'deepseek-v4-pro',
+          currentTitle: titleInput.value,
+          articleMarkdown: this.lastResolvedMarkdown,
+        });
+        suggestBox.createEl('div', { cls: 'wechat-title-suggest-hint', text: '点击采用一个标题：' });
+        titles.forEach((t) => {
+          const item = suggestBox.createEl('button', { cls: 'wechat-title-suggest-item', text: t });
+          item.onclick = () => {
+            titleInput.value = String(t || '').slice(0, 64);
+            syncTitleToCache();
+            suggestBox.classList.add('is-hidden');
+          };
+        });
+        suggestBox.classList.remove('is-hidden');
+      } catch (e) {
+        new Notice(`标题润色失败：${e?.message || e}`, 8000);
+      } finally {
+        polishBtn.disabled = false;
+        polishBtn.textContent = originalText;
+      }
+    };
 
     // 封面设置
     const coverSection = advancedBody.createDiv({ cls: 'wechat-modal-section' });

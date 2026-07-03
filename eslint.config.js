@@ -81,6 +81,7 @@ export default [
       "input.js",
       "services/markdown-utils.js",
       "services/image-swipe.js",
+      "services/title-polish.js",
       "services/ai-layout.js",
       "services/ai-layout-runtime/generated-skills.js",
       "services/ai-layout-runtime/registry.js",
