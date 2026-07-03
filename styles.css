@@ -4813,9 +4813,11 @@ div.modal.wechat-sync-shell-mobile div.modal-content.wechat-sync-modal-mobile {
 .wechat-material-cell img,
 .wechat-material-thumb-fallback {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  /* 预览框 4:3；object-fit:contain 让整张图缩放后完整落在框内(不裁切)，
+     背景色填充留白。素材库/本篇引用两个 tab 共用 image-grid，此处一改两处生效。 */
+  aspect-ratio: 4 / 3;
   border-radius: 6px;
-  object-fit: cover;
+  object-fit: contain;
   background: var(--apple-surface);
 }
 
