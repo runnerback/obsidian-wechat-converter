@@ -162,7 +162,7 @@ import {
   sortWechatsyncPlatformItemsForDisplay,
 } from './services/wechatsync-results.js';
 import { resolveSyncAccount, toSyncFriendlyMessage } from './services/sync-context.js';
-import { updatePublishFrontmatter } from './services/publish-status.js';
+import { updatePublishFrontmatter, nowBeijingTimestamp } from './services/publish-status.js';
 import {
   createEmptyDraftCache,
   normalizeDraftCache,
@@ -6218,7 +6218,7 @@ class AppleStyleView extends ItemView {
       if (!file || targets.length === 0) return;
       const fileManager = this.app?.fileManager;
       if (!fileManager || typeof fileManager.processFrontMatter !== 'function') return;
-      const now = new Date().toISOString();
+      const now = nowBeijingTimestamp();
       await fileManager.processFrontMatter(file, (frontmatter) => {
         updatePublishFrontmatter(frontmatter, {
           targets,

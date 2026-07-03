@@ -4,12 +4,21 @@ const {
   mergePublishTargets,
   resolvePublishStatus,
   updatePublishFrontmatter,
+  formatBeijingTimestamp,
   FRONTMATTER_KEYS,
   PUBLISH_STATUS_SYNCED,
   PUBLISH_STATUS_PARTIAL,
 } = require('../services/publish-status');
 
 describe('publish-status service', () => {
+  describe('formatBeijingTimestamp', () => {
+    it('renders UTC+8 wall time with +08:00 offset regardless of host tz', () => {
+      expect(formatBeijingTimestamp(new Date('2026-07-03T05:43:00.000Z'))).toBe('2026-07-03T13:43:00+08:00');
+      // crosses date boundary (23:30 UTC -> 07:30 next day +08:00)
+      expect(formatBeijingTimestamp(new Date('2026-07-03T23:30:00.000Z'))).toBe('2026-07-04T07:30:00+08:00');
+    });
+  });
+
   describe('buildPublishTarget', () => {
     it('normalizes platform to lowercase and defaults kind/time', () => {
       const entry = buildPublishTarget({ platform: 'WeChat' }, '2026-07-03T00:00:00.000Z');

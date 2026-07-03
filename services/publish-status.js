@@ -36,6 +36,28 @@ function toTrimmedString(value) {
 }
 
 /**
+ * Format a Date as a UTC+8 (Asia/Shanghai) ISO-8601 string with explicit
+ * `+08:00` offset, e.g. `2026-07-03T21:40:00+08:00`. Computed from UTC math
+ * so it is correct regardless of the host machine's local timezone.
+ * @param {Date} [date]
+ * @returns {string}
+ */
+export function formatBeijingTimestamp(date = new Date()) {
+  const base = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+  const shifted = new Date(base.getTime() + 8 * 60 * 60 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`
+    + `T${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}:${pad(shifted.getUTCSeconds())}+08:00`;
+}
+
+/**
+ * @returns {string} current time as UTC+8 ISO string
+ */
+export function nowBeijingTimestamp() {
+  return formatBeijingTimestamp(new Date());
+}
+
+/**
  * Normalize a raw target descriptor into a stable frontmatter entry.
  * Optional fields (account/url) are only included when present.
  * @param {PublishTargetInput} input
@@ -49,7 +71,7 @@ export function buildPublishTarget(input, now) {
   const kind = toTrimmedString(input && input.kind) || 'draft';
   const account = toTrimmedString(input && input.account);
   const url = toTrimmedString(input && input.url);
-  const time = toTrimmedString(input && input.time) || toTrimmedString(now) || new Date().toISOString();
+  const time = toTrimmedString(input && input.time) || toTrimmedString(now) || nowBeijingTimestamp();
 
   /** @type {PublishTargetEntry} */
   const entry = { platform, kind, time };
@@ -133,7 +155,7 @@ export function resolvePublishStatus(requestedCount, successCount) {
  */
 export function updatePublishFrontmatter(frontmatter, { targets, requestedCount, now } = { targets: [] }) {
   const fm = frontmatter && typeof frontmatter === 'object' ? frontmatter : {};
-  const timestamp = toTrimmedString(now) || new Date().toISOString();
+  const timestamp = toTrimmedString(now) || nowBeijingTimestamp();
 
   const normalized = (Array.isArray(targets) ? targets : [])
     .map((t) => buildPublishTarget(t, timestamp))
