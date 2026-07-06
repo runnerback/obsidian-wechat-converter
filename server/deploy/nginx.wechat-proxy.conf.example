@@ -1,0 +1,26 @@
+# nginx 反向代理模板：wechat-proxy.runfast.xyz → 127.0.0.1:3000
+# 放到 /etc/nginx/sites-available/wechat-proxy，再软链到 sites-enabled/。
+# HTTPS 是必须的：插件端强制要求代理地址为 https://（否则拒绝，保护 AppSecret）。
+#
+# 部署顺序：
+#   1) 先只写下面的 80 端口 server 块，nginx -t && systemctl reload nginx
+#   2) certbot --nginx -d wechat-proxy.runfast.xyz  自动签发证书并补全 443 块
+#   3) certbot 会自动把 80 重定向到 443
+
+server {
+    listen 80;
+    server_name wechat-proxy.runfast.xyz;
+
+    # 大图上传：base64 后体积会变大，放宽到 20M（应用层 express 限制 15MB）
+    client_max_body_size 20M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+}

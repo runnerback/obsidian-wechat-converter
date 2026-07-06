@@ -1,17 +1,17 @@
 {
-  "name": "wechat-sync-proxy-server",
+  "name": "wechat-proxy",
   "version": "1.0.0",
-  "description": "Paid proxy server for Obsidian WeChat Converter",
+  "description": "自用微信公众号 API 中转代理：部署在个人 ECS 上，用固定公网 IP 转发微信请求，解决本机 IP 变化导致的白名单漂移",
   "main": "app.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node app.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "sqlite3": "^5.1.7",
-    "node-fetch": "^2.7.0",
-    "form-data": "^4.0.0"
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
   },
-  "author": "Indie Developer",
   "license": "MIT"
 }

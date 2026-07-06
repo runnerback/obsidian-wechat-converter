@@ -1,200 +1,93 @@
+// 自用微信公众号 API 中转代理
+// ------------------------------------------------------------
+// 用途：给 Obsidian「微信发布助手」插件用。插件把发往 api.weixin.qq.com 的
+// 请求 POST 到本服务，由 ECS 的固定公网 IP 转发出去，从而绕开
+// “本机 IP 经常变 → 微信 IP 白名单漂移 → 同步失败” 的问题。
+// 微信公众号后台只需把这台 ECS 的公网 IP 加进 IP 白名单即可。
+//
+// 协议（插件 → 本服务，POST /proxy，JSON body）：
+//   普通请求：{ url, method: 'GET' | 'POST', data? }
+//   图片上传：{ url, method: 'UPLOAD', fileData(base64), fileName, mimeType, fieldName }
+//   请求头可能带 X-Client-Id（插件本地设备 ID，仅透传/不校验）。
+// 返回：原样透传微信的 HTTP 状态码 + JSON。
+//
+// 安全约束：
+//   - 只允许转发到 https://api.weixin.qq.com/（其他域名一律拒绝，避免变成开放代理）；
+//   - 可选 PROXY_TOKEN：设置后要求 ?token= 与之匹配，防止陌生人乱用你的 ECS；
+//   - 仅在内存中转发，不落库、不打印含 AppSecret 的 URL。
+//
+// 运行环境：Node.js >= 18（用到全局 fetch / FormData / Blob，无需 node-fetch / form-data）。
+
+require('dotenv').config();
 const express = require('express');
-const fetch = require('node-fetch');
-const FormData = require('form-data');
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const DB_PATH = path.join(__dirname, 'database.db');
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || '127.0.0.1';
+const PROXY_TOKEN = process.env.PROXY_TOKEN || '';
+const WECHAT_API_PREFIX = 'https://api.weixin.qq.com/';
+const MAX_UPLOAD_MB = 15; // 兼容大图 base64（微信封面/正文图）
 
-// 初始化 SQLite 数据库
-const db = new sqlite3.Database(DB_PATH, (err) => {
-  if (err) {
-    console.error('无法打开 SQLite 数据库:', err.message);
-  } else {
-    console.log('已连接至 SQLite 数据库.');
-    // 初始化数据表
-    db.serialize(() => {
-      db.run(`
-        CREATE TABLE IF NOT EXISTS users (
-          token TEXT PRIMARY KEY,
-          expired_at INTEGER NOT NULL,
-          device_limit INTEGER DEFAULT 3,
-          comment TEXT,
-          created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
-        )
-      `);
-      db.run(`
-        CREATE TABLE IF NOT EXISTS device_logs (
-          token TEXT,
-          client_id TEXT,
-          last_seen INTEGER,
-          PRIMARY KEY (token, client_id)
-        )
-      `);
-    });
-  }
+app.use(express.json({ limit: `${MAX_UPLOAD_MB}mb` }));
+
+// 健康检查（nginx / 部署验证用）
+app.get('/health', (req, res) => {
+  res.json({ ok: true, service: 'wechat-proxy', tokenRequired: !!PROXY_TOKEN, ts: Date.now() });
 });
 
-// 解析 JSON 体 (限制为 15MB 兼容大图上传)
-app.use(express.json({ limit: '15mb' }));
-
-// CORS 跨域请求头处理与 OPTIONS 快速响应
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Id');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+// 核心转发
+app.post('/proxy', async (req, res) => {
+  // 可选 token 校验：URL 里带 ?token=xxx
+  if (PROXY_TOKEN && req.query.token !== PROXY_TOKEN) {
+    return res.status(401).json({ error: 'proxy token 无效或缺失' });
   }
-  next();
-});
 
-// 辅助包装 DB 异步查询方法
-const dbGet = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
-};
+  const { url, method = 'GET', data, fileData, fileName, mimeType, fieldName = 'media' } = req.body || {};
 
-const dbAll = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
-};
-
-const dbRun = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve(this);
-    });
-  });
-};
-
-// 鉴权与防超用核心中间件
-async function checkAccess(req, res, next) {
-  const token = req.query.token;
-  const clientId = req.headers['x-client-id'];
-
-  if (!token) {
-    return res.status(401).json({ error: '未授权：链接中缺少 token 参数' });
+  // 域名白名单：只准转发微信官方 API
+  if (typeof url !== 'string' || !url.startsWith(WECHAT_API_PREFIX)) {
+    return res.status(400).json({ error: '非法 URL，仅允许转发 api.weixin.qq.com' });
   }
 
   try {
-    // 1. 检查 Token 有效性与过期
-    const user = await dbGet("SELECT * FROM users WHERE token = ?", [token]);
-    if (!user) {
-      return res.status(403).json({ error: 'Token 无效，请联系作者获取' });
-    }
+    const m = String(method).toUpperCase();
+    let wechatResp;
 
-    if (Date.now() > user.expired_at) {
-      const expiryDate = new Date(user.expired_at).toLocaleDateString('zh-CN');
-      return res.status(403).json({ error: `服务已于 ${expiryDate} 到期，请联系作者续费` });
-    }
-
-    // 2. 弹性的设备防超额绑定逻辑
-    if (clientId) {
-      const fifteenDaysAgo = Date.now() - 15 * 24 * 60 * 60 * 1000;
-      // 自动清理 15 天前未活跃的过期设备
-      await dbRun("DELETE FROM device_logs WHERE last_seen < ?", [fifteenDaysAgo]);
-
-      // 获取当前活跃设备
-      const activeDevices = await dbAll("SELECT client_id, last_seen FROM device_logs WHERE token = ?", [token]);
-      const deviceIds = activeDevices.map(d => d.client_id);
-      const limit = user.device_limit || 3;
-
-      if (!deviceIds.includes(clientId)) {
-        // 新设备：如果超过弹性限制数，立刻阻断
-        if (deviceIds.length >= limit) {
-          return res.status(403).json({ error: `安全警报：当前 Token 绑定的设备数量已达上限 (最大 ${limit} 台)` });
-        }
-        // 允许绑定，写入新设备
-        await dbRun("INSERT INTO device_logs (token, client_id, last_seen) VALUES (?, ?, ?)", [token, clientId, Date.now()]);
-      } else {
-        // 已绑定设备：10分钟活跃写节流，避免高频发图频繁写 SQLite
-        const record = activeDevices.find(d => d.client_id === clientId);
-        if (Date.now() - record.last_seen > 10 * 60 * 1000) {
-          await dbRun("UPDATE device_logs SET last_seen = ? WHERE token = ? AND client_id = ?", [Date.now(), token, clientId]);
-        }
-      }
-    }
-
-    req.user = user;
-    next();
-  } catch (err) {
-    console.error('鉴权执行异常:', err.message);
-    return res.status(500).json({ error: '服务端内部鉴权异常' });
-  }
-}
-
-// 核心转发路由
-app.post('/proxy', checkAccess, async (req, res) => {
-  const { url, method = 'GET', data, fileData, fileName, mimeType, fieldName = 'media' } = req.body;
-
-  if (!url || !url.startsWith('https://api.weixin.qq.com/')) {
-    return res.status(400).json({ error: '非法 URL。只允许访问微信官方 API (api.weixin.qq.com)' });
-  }
-
-  try {
-    const normalizedMethod = String(method).toUpperCase();
-    let response;
-
-    if (normalizedMethod === 'UPLOAD') {
-      // 1. 处理图片上传请求 (Base64 -> Buffer -> FormData)
+    if (m === 'UPLOAD') {
+      // 图片上传：base64 → Blob → multipart/form-data
       if (!fileData) {
         return res.status(400).json({ error: '缺少图片二进制数据 fileData' });
       }
-
-      const buffer = Buffer.from(fileData, 'base64');
-      const formData = new FormData();
-      // 使用 form-data 附加 Buffer
-      formData.append(fieldName, buffer, {
-        filename: fileName || 'image.jpg',
-        contentType: mimeType || 'image/jpeg'
-      });
-
-      response = await fetch(url, {
+      const bytes = Buffer.from(fileData, 'base64');
+      const form = new FormData();
+      form.append(fieldName, new Blob([bytes], { type: mimeType || 'image/jpeg' }), fileName || 'image.jpg');
+      wechatResp = await fetch(url, { method: 'POST', body: form });
+    } else if (m === 'POST') {
+      wechatResp = await fetch(url, {
         method: 'POST',
-        body: formData,
-        headers: formData.getHeaders()
+        headers: { 'Content-Type': 'application/json' },
+        body: data !== undefined ? JSON.stringify(data) : undefined,
       });
     } else {
-      // 2. 处理普通 JSON 请求 (GET / POST)
-      const opts = { method: normalizedMethod };
-      if (normalizedMethod === 'POST') {
-        opts.headers = { 'Content-Type': 'application/json' };
-        if (data !== undefined) {
-          opts.body = JSON.stringify(data);
-        }
-      }
-      response = await fetch(url, opts);
+      wechatResp = await fetch(url, { method: 'GET' });
     }
 
-    const responseText = await response.text();
-    let result;
+    const text = await wechatResp.text();
+    let json;
     try {
-      result = responseText ? JSON.parse(responseText) : {};
+      json = text ? JSON.parse(text) : {};
     } catch {
-      return res.status(502).json({ error: '微信服务器返回了非 JSON 格式响应' });
+      return res.status(502).json({ error: '微信服务器返回了非 JSON 响应' });
     }
-
-    res.status(response.status).json(result);
-  } catch (error) {
-    // 日志安全脱敏：仅打印错误消息，避免把包含 AppSecret 的 URL 整体写进日志
-    console.error('中转转发失败:', error.message);
-    res.status(500).json({ error: '代理中转请求失败，请稍后重试' });
+    // 原样透传微信状态码 + JSON
+    return res.status(wechatResp.status).json(json);
+  } catch (err) {
+    // 只打印错误消息，绝不打印 url（含 AppSecret / access_token）
+    console.error('[wechat-proxy] 转发失败:', err.message);
+    return res.status(502).json({ error: '代理中转失败，请稍后重试' });
   }
 });
 
-// 启动服务
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`微信中转代理服务已启动，正在监听 http://127.0.0.1:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`[wechat-proxy] listening on http://${HOST}:${PORT}  (token 校验: ${PROXY_TOKEN ? '开' : '关'})`);
 });

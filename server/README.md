@@ -1,79 +1,133 @@
-# 微信公众号 API 官方中转代理服务 (Server Side)
+# wechat-proxy · 自用微信公众号 API 中转代理
 
-本项目是 **Obsidian 微信排版助手**官方付费中转服务的服务端开源实现。
-
-为了实现 **100% 透明度**并确保用户的账号资产安全，我们公开服务端的全部源代码。用户不仅可以审计我们的代码逻辑，也可以直接提取此文件夹中的代码，部署到自己的独立 VPS 上。
-
----
-
-## 🔒 隐私与安全声明 (Zero-Storage Policy)
-
-1. **AppSecret 零存储**：
-   服务端数据库（SQLite）中**仅存储**：
-   - 您的授权 **Token** (用于鉴权)
-   - 您的服务**有效期** (Expired At)
-   - 绑定的**设备 ID** (Client ID)
-   
-   您的微信公众号敏感密钥 `AppID` 和 `AppSecret` 均保存在您本地的 Obsidian 客户端中。在发起请求时，凭证被发送至中转服务器，中转服务器在**内存中完成与微信官方接口的请求和数据流转发**，并在响应返回后**立即释放内存**。我们**绝对不会**在服务器的磁盘、数据库或日志中记录您的任何 AppSecret 或文章内容。
-
-2. **数据传输加密**：
-   所有传输通过 Caddy 强制开启 HTTPS，支持 TLS 1.2/1.3。您的本地数据不会以明文暴露在网络中。
+> **版本**：v1.0.0 ｜ **最后更新**：2026-07-06
+> 部署在个人 ECS 上，用固定公网 IP 转发微信请求，解决“本机 IP 经常变 → 微信 IP 白名单漂移 → 同步失败”。
 
 ---
 
-## 🛠 服务端核心逻辑
+## 1. 它解决什么问题
 
-本服务端基于 **Node.js (Express)** + **SQLite** 构建，并运行于非 Root 的普通用户权限下。
+微信公众号「素材/草稿」API 要求把调用方 IP 加进后台白名单。你在家里/公司/热点之间切换，本机公网 IP 一直变，白名单跟不上，插件就报错。
 
-### 1. 设备绑定与防滥用机制
-为了防止 Token 被恶意共享或被用于高频爬虫，服务端实现了一个**轻量级、15天滚动的设备绑定防超额逻辑**：
-- 每个 Token 默认支持绑定不超过限制的设备（默认 **3台**）。
-- 每次请求时，客户端会发送一个本地持久化的随机 UUID (ClientId)。
-- 中转服务会记录设备最近活跃时间。**超过 15 天未使用的设备记录会被自动清理**，使更换新设备后能够平滑绑定。
-- 在并发上传图片等高频写操作时，服务端会对 SQLite 数据库的写入进行 **10分钟的时间写节流 (Throttle)**，避免高并发锁库导致响应超时。
+把这台**固定公网 IP 的 ECS** 作为中转：插件把请求发给 ECS，ECS 再转发给微信。微信后台只需把 **ECS 的 IP** 加进白名单一次即可。
 
-### 2. 本地自建部署指南
+```
+Obsidian 插件 ──HTTPS──►  ECS(nginx) ──►  app.js(:3000) ──►  api.weixin.qq.com
+   (本机 IP 随便变)         wechat-proxy.runfast.xyz          (只认 ECS 固定 IP)
+```
 
-如果您不使用官方提供的托管服务，想使用此代码在自己的 VPS 上部署，可以参考以下步骤：
+## 2. 协议（插件已内置，无需改插件）
 
-#### 基础环境
-- Node.js >= 18
-- SQLite3
+插件在设置里填了「API 代理地址」后，会把微信请求 `POST` 到本服务 `/proxy`：
 
-#### 安装与启动
-1. 将 `server/` 文件夹复制到您的 VPS 服务器上。
-2. 安装依赖：
-   ```bash
-   npm install --production
+| 场景 | body |
+|---|---|
+| 普通请求 | `{ url, method: 'GET'\|'POST', data? }` |
+| 图片上传 | `{ url, method: 'UPLOAD', fileData(base64), fileName, mimeType, fieldName }` |
+
+本服务原样透传微信的状态码 + JSON。**只允许转发 `https://api.weixin.qq.com/`**，其他域名一律 400。
+
+## 3. 安全设计
+
+- **域名白名单**：只转发微信官方 API，杜绝被当成开放代理。
+- **可选 token**：设 `PROXY_TOKEN` 后，代理地址必须带 `?token=xxx`，防陌生人蹭你的 ECS。
+- **零存储**：只在内存中转发，不落库；错误日志只打消息、绝不打含 AppSecret 的 URL。
+- **强制 HTTPS**：插件端拒绝 `http://` 代理地址（保护 AppSecret），所以 nginx 必须上证书。
+
+## 4. 部署到 ECS（沿用 feishu-tool 那台：`115.190.207.149`）
+
+> Node.js 需 ≥ 18（用到全局 `fetch`/`FormData`/`Blob`）。ECS 上已有 Node 22 + PM2 + nginx + certbot。
+
+### 4.1 上传代码
+
+在本机项目根目录执行（也可用 `npm run deploy:server`，见插件根 `package.json`）：
+
+```bash
+cd obsidian-plugin/obsidian-wechat-converter
+rsync -avz --delete \
+  --exclude='node_modules' \
+  --exclude='.env' \
+  server/ root@115.190.207.149:/var/www/wechat-proxy/
+```
+
+> `.env` 不 rsync（不覆盖 ECS 上的生产配置），首次需手动创建，见 4.2。
+
+### 4.2 首次：配 .env + 装依赖 + 起服务
+
+```bash
+ssh root@115.190.207.149
+cd /var/www/wechat-proxy
+
+# 1) 配置 .env（生成一个随机口令）
+cp .env.example .env
+echo "PROXY_TOKEN=$(openssl rand -hex 16)" >> .env   # 或手动编辑 .env 填 PROXY_TOKEN
+cat .env   # 记下 PROXY_TOKEN，后面填到插件里
+
+# 2) 装依赖
+npm install --production
+
+# 3) PM2 启动 + 开机自启
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+### 4.3 nginx + HTTPS（首次）
+
+```bash
+# 1) DNS：把 wechat-proxy.runfast.xyz 的 A 记录指向 115.190.207.149
+
+# 2) 放置 nginx 配置
+cp /var/www/wechat-proxy/deploy/nginx.wechat-proxy.conf.example \
+   /etc/nginx/sites-available/wechat-proxy
+ln -s /etc/nginx/sites-available/wechat-proxy /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+
+# 3) 签发证书（certbot 会自动补全 443 块并把 80 跳转 443）
+certbot --nginx -d wechat-proxy.runfast.xyz
+```
+
+### 4.4 后续更新（改了代码）
+
+```bash
+# 本机
+npm run deploy:server        # rsync + ssh 里 npm install + pm2 restart（见插件根 package.json）
+# 或手动：
+rsync -avz --delete --exclude='node_modules' --exclude='.env' \
+  server/ root@115.190.207.149:/var/www/wechat-proxy/
+ssh root@115.190.207.149 "cd /var/www/wechat-proxy && npm install --production && pm2 restart wechat-proxy"
+```
+
+## 5. 验证
+
+```bash
+# 健康检查
+curl -s https://wechat-proxy.runfast.xyz/health
+# 期望：{"ok":true,"service":"wechat-proxy","tokenRequired":true,...}
+
+# PM2 状态 / 日志
+ssh root@115.190.207.149 "pm2 status wechat-proxy && pm2 logs wechat-proxy --lines 20"
+```
+
+## 6. 配置插件 + 微信后台
+
+1. **微信公众平台** → 设置与开发 → 基本配置 → IP 白名单 → 加入 **`115.190.207.149`**。
+2. **Obsidian 插件设置** → 高级设置 → **API 代理地址** 填：
    ```
-3. 启动中转服务（推荐使用 PM2 守护进程）：
-   ```bash
-   # 启动服务（默认监听 3000 端口）
-   pm2 start app.js --name wechat-proxy
+   https://wechat-proxy.runfast.xyz/proxy?token=<你的 PROXY_TOKEN>
    ```
+   （没设 PROXY_TOKEN 就不带 `?token=`，但强烈建议设。）
+3. 回插件里正常同步草稿即可，请求会走 ECS 转发。
 
-#### 数据库管理 CLI
-服务端提供了一个内置的 CLI 管理脚本 `manage.js`，您可以在服务器终端用它来管理 Token。
+## 7. 常见问题
 
-- **添加新用户/生成 Token**：
-  ```bash
-  # 生成一个有效期 365 天、限制 3 台设备、备注为“测试用户”的 Token
-  node manage.js add --days 365 --limit 3 --comment "测试用户"
-  ```
-- **为已有 Token 续期**：
-  ```bash
-  node manage.js renew --token wp_user_xxxx --days 365
-  ```
-- **重置设备绑定**（当用户彻底重装插件导致ClientId改变锁死时）：
-  ```bash
-  node manage.js reset-devices --token wp_user_xxxx
-  ```
-- **查看所有授权用户状态**：
-  ```bash
-  node manage.js list
-  ```
+| 现象 | 原因 | 解决 |
+|---|---|---|
+| 插件报 401 | 代理地址没带 / 带错 `?token=` | 核对 `.env` 里的 `PROXY_TOKEN`，补到代理地址 |
+| 插件报 400「非法 URL」 | 代理地址填成别的路径/域名 | 必须是 `.../proxy`，且插件请求的是微信 API |
+| 微信报 40164 / IP 不在白名单 | ECS IP 没加白名单 | 微信后台白名单加 `115.190.207.149` |
+| 插件报「必须使用 HTTPS」 | 代理地址填了 `http://` | 用 `https://`，先把 4.3 的证书签好 |
+| 502 | app.js 没起 / 端口不对 | `pm2 restart wechat-proxy`，确认 `.env` 的 PORT 与 nginx 一致 |
 
 ---
 
-## 📝 许可证
-本项目代码完全开源，遵循项目整体的授权许可证。
+许可证：MIT。此为自用实现，未包含任何鉴权计费/设备绑定逻辑。
