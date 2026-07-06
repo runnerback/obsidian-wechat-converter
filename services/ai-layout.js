@@ -218,6 +218,8 @@ function createDefaultAiSettings() {
   return {
     enabled: true,
     defaultProviderId: '',
+    // AI 编排使用的模型质量（覆盖 provider.model；当前 DeepSeek：v4 pro / v4 flash(lite)）
+    layoutModel: 'deepseek-v4-pro',
     defaultLayoutFamily: AI_LAYOUT_SELECTION_AUTO,
     defaultColorPalette: AI_LAYOUT_SELECTION_AUTO,
     customColor: '#7c3aed',
@@ -1126,6 +1128,9 @@ function normalizeAiSettings(raw = {}) {
       ? source.enabled === true
       : defaults.enabled,
     defaultProviderId,
+    layoutModel: typeof source.layoutModel === 'string' && source.layoutModel.trim()
+      ? source.layoutModel.trim()
+      : defaults.layoutModel,
     defaultLayoutFamily: normalizeLayoutFamily(source.defaultLayoutFamily, AI_LAYOUT_SELECTION_AUTO),
     defaultColorPalette: normalizeColorPalette(
       source.defaultColorPalette ?? source.defaultStylePack,

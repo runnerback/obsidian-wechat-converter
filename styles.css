@@ -1708,6 +1708,8 @@
   left: 0;
   right: 0;
   bottom: 0;
+  /* 深色主题下 slider 有 1px 边框；border-box 让边框不撑高，圆点定位不偏 */
+  box-sizing: border-box;
   background-color: var(--apple-border);
   transition: 0.2s;
   border-radius: 22px;
@@ -1731,9 +1733,11 @@ body.theme-dark .apple-toggle-input:checked+.apple-toggle-slider,
   height: 18px;
   width: 18px;
   left: 2px;
-  bottom: 2px;
+  /* 用 top:50% + translateY 精确纵向居中，不受边框/box-sizing 影响 */
+  top: 50%;
+  transform: translateY(-50%);
   background-color: white;
-  transition: 0.2s;
+  transition: transform 0.2s;
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
@@ -1743,7 +1747,7 @@ body.theme-dark .apple-toggle-input:checked+.apple-toggle-slider,
 }
 
 .apple-toggle-input:checked+.apple-toggle-slider:before {
-  transform: translateX(18px);
+  transform: translate(18px, -50%);
 }
 
 /* === 滑块 (Slider) - 回归原生样式 === */
@@ -2770,6 +2774,9 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
   font-size: 14px;
+  /* 显式行高：appearance:none 的 <select> 在无 line-height 时会把文字上下裁掉（见类型下拉） */
+  line-height: 1.5;
+  height: auto;
   background: var(--background-primary);
   color: var(--text-normal);
   transition: border-color 0.15s ease;

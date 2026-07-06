@@ -329,7 +329,9 @@ export const wechatSyncModalMixin = {
     // 实时更新缓存（标题）
     titleInput.addEventListener('input', syncTitleToCache);
 
-    // 标题 AI 润色：根据正文让 LLM 给 5 个候选标题，点击采用
+    // 标题 AI 润色：根据正文让 LLM 给 5 个候选标题，点击采用。
+    // 设置里关闭「启用标题 AI 润色」时，整块按钮不渲染。
+    if (this.plugin.settings.titlePolishEnabled !== false) {
     const polishBtn = /** @type {any} */ (titleSection.createEl('button', {
       cls: 'wechat-title-polish-btn',
       text: '✨ AI 润色标题',
@@ -375,6 +377,7 @@ export const wechatSyncModalMixin = {
         polishBtn.textContent = originalText;
       }
     };
+    }
 
     // 封面设置
     const coverSection = advancedBody.createDiv({ cls: 'wechat-modal-section' });

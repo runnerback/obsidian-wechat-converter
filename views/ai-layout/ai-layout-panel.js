@@ -713,7 +713,11 @@ export const aiLayoutPanelMixin = {
         await this.convertCurrent(true, { showLoading: false });
       }
       const aiSettings = this.plugin.settings.ai || createDefaultAiSettings();
-      const provider = resolveAiProvider(aiSettings);
+      const baseProvider = resolveAiProvider(aiSettings);
+      // AI 编排用自己的模型质量(layoutModel)覆盖 provider 的默认模型
+      const provider = baseProvider
+        ? { ...baseProvider, model: aiSettings.layoutModel || baseProvider.model }
+        : baseProvider;
       const imageRefs = aiSettings.includeImagesInLayout === false
         ? []
         : extractImageRefsFromHtml(this.baseRenderedHtml || this.currentHtml || '');
@@ -1834,7 +1838,11 @@ export const aiLayoutPanelMixin = {
       : extractImageRefsFromHtml(this.baseRenderedHtml || this.currentHtml || '');
 
     const selection = this.getCurrentAiLayoutSelection();
-    const provider = resolveAiProvider(aiSettings);
+    const baseProvider = resolveAiProvider(aiSettings);
+    // AI 编排用自己的模型质量(layoutModel)覆盖 provider 的默认模型
+    const provider = baseProvider
+      ? { ...baseProvider, model: aiSettings.layoutModel || baseProvider.model }
+      : baseProvider;
     if (selection.layoutFamily !== 'source-first' && !provider) {
       new Notice('请先在插件设置中配置并启用 AI Provider');
       return;

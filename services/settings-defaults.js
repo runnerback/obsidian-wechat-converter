@@ -40,7 +40,8 @@ export const DEFAULT_SETTINGS = {
   multiPlatformSync: createDefaultMultiPlatformSyncSettings(),
   feishuSync: createDefaultFeishuSyncSettings(),
   // 标题 AI 润色：复用 ai.defaultProviderId 那个 Provider 的 key/baseUrl，
-  // 仅这里单独选模型（当前 DeepSeek：v4 pro / v4 lite）。
+  // 这里单独控制开关与模型质量（当前 DeepSeek：v4 pro / v4 flash(lite)）。
+  titlePolishEnabled: true,
   titlePolishModel: 'deepseek-v4-pro',
   // 旧字段保留用于迁移检测
   wechatAppId: '',

@@ -533,48 +533,9 @@ export class AppleStyleSettingTab extends PluginSettingTab {
    */
   renderAiSettingsSection(containerEl) {
     new Setting(containerEl)
-      .setName('AI 编排')
-      .setDesc('管理模型、默认布局、默认颜色和缓存策略。实际生成与应用入口在转换器顶部工具栏的「AI 编排」按钮中。')
+      .setName('AI Provider')
+      .setDesc('配置 LLM Provider（当前 DeepSeek）。「AI 编排」与「标题 AI 润色」都复用这里选中的默认 Provider 的凭证；各自的开关与模型质量在各自区块里设置。')
       .setHeading();
-
-    new Setting(containerEl)
-      .setName('启用 AI 编排')
-      .setDesc('关闭后会隐藏右侧工具栏中的 AI 编排入口，但不会删除已经为文章和布局/颜色组合生成过的缓存结果。')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.ai.enabled === true)
-        .onChange(async (value) => {
-          this.plugin.settings.ai.enabled = value;
-          await this.plugin.saveSettings();
-          this.refreshOpenConverterAiState();
-        }));
-
-    const layoutFamilyOptions = getLayoutFamilyList({ includeAuto: true, includeReserved: false });
-    new Setting(containerEl)
-      .setName('默认布局')
-      .setDesc('打开 AI 编排面板时默认选中的布局。保持“自动推荐”时，AI 会根据文章内容推荐布局风格。')
-      .addDropdown((dropdown) => {
-        layoutFamilyOptions.forEach((option) => dropdown.addOption(option.value, option.label));
-        dropdown.setValue(this.plugin.settings.ai.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO);
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.ai.defaultLayoutFamily = value;
-          await this.plugin.saveSettings();
-          this.refreshOpenConverterAiState();
-        });
-      });
-
-    const colorPaletteOptions = getColorPaletteList({ includeAuto: true });
-    new Setting(containerEl)
-      .setName('默认颜色')
-      .setDesc('打开 AI 编排面板时默认选中的颜色。保持“自动推荐”时，AI 会在内置配色方案中推荐一个结果；生成后也可以手动切换颜色复用当前布局。')
-      .addDropdown((dropdown) => {
-        colorPaletteOptions.forEach((option) => dropdown.addOption(option.value, option.label));
-        dropdown.setValue(this.plugin.settings.ai.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO);
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.ai.defaultColorPalette = value;
-          await this.plugin.saveSettings();
-          this.refreshOpenConverterAiState();
-        });
-      });
 
     /** @type {any[]} */
     const providers = this.plugin.settings.ai.providers || [];
@@ -697,12 +658,66 @@ export class AppleStyleSettingTab extends PluginSettingTab {
     });
     addProviderBtn.onclick = () => this.showEditAiProviderModal(null);
 
+    // 折叠区「AI 编排」：该能力的全部设置（开关/模型质量/布局/颜色/进阶项）
     const advancedOptions = containerEl.createEl('details', { cls: 'apple-settings-details' });
     advancedOptions.createEl('summary', {
       cls: 'apple-settings-summary',
-      text: 'AI 编排高级选项'
+      text: 'AI 编排'
     });
     const advancedArea = advancedOptions.createDiv({ cls: 'apple-settings-area apple-settings-advanced-area' });
+
+    new Setting(advancedArea)
+      .setName('启用 AI 编排')
+      .setDesc('关闭后会隐藏右侧工具栏中的 AI 编排入口，但不会删除已生成的缓存结果。')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.ai.enabled === true)
+        .onChange(async (value) => {
+          this.plugin.settings.ai.enabled = value;
+          await this.plugin.saveSettings();
+          this.refreshOpenConverterAiState();
+        }));
+
+    new Setting(advancedArea)
+      .setName('模型质量')
+      .setDesc('AI 编排使用的模型质量，复用上方「默认 AI Provider」的凭证。')
+      .addDropdown((dropdown) => {
+        dropdown.addOption('deepseek-v4-pro', 'DeepSeek V4 Pro（质量优先）');
+        dropdown.addOption('deepseek-v4-flash', 'DeepSeek V4 Lite（快/省）');
+        dropdown.setValue(this.plugin.settings.ai.layoutModel || 'deepseek-v4-pro');
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.ai.layoutModel = value;
+          await this.plugin.saveSettings();
+          this.refreshOpenConverterAiState();
+        });
+      });
+
+    const layoutFamilyOptions = getLayoutFamilyList({ includeAuto: true, includeReserved: false });
+    new Setting(advancedArea)
+      .setName('默认布局')
+      .setDesc('打开 AI 编排面板时默认选中的布局。保持“自动推荐”时，AI 会根据文章内容推荐布局风格。')
+      .addDropdown((dropdown) => {
+        layoutFamilyOptions.forEach((option) => dropdown.addOption(option.value, option.label));
+        dropdown.setValue(this.plugin.settings.ai.defaultLayoutFamily || AI_LAYOUT_SELECTION_AUTO);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.ai.defaultLayoutFamily = value;
+          await this.plugin.saveSettings();
+          this.refreshOpenConverterAiState();
+        });
+      });
+
+    const colorPaletteOptions = getColorPaletteList({ includeAuto: true });
+    new Setting(advancedArea)
+      .setName('默认颜色')
+      .setDesc('打开 AI 编排面板时默认选中的颜色。保持“自动推荐”时，AI 会推荐一个配色；生成后也可手动切换。')
+      .addDropdown((dropdown) => {
+        colorPaletteOptions.forEach((option) => dropdown.addOption(option.value, option.label));
+        dropdown.setValue(this.plugin.settings.ai.defaultColorPalette || AI_LAYOUT_SELECTION_AUTO);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.ai.defaultColorPalette = value;
+          await this.plugin.saveSettings();
+          this.refreshOpenConverterAiState();
+        });
+      });
 
     new Setting(advancedArea)
       .setName('编排时参考图片')
@@ -767,20 +782,33 @@ export class AppleStyleSettingTab extends PluginSettingTab {
    * @param {any} containerEl
    */
   renderTitlePolishSection(containerEl) {
-    new Setting(containerEl)
-      .setName('标题 AI 润色')
-      .setDesc('在「发布与分发」的文章标题旁一键让 LLM 根据正文优化标题（给 5 个候选）。使用上方「默认 AI Provider」的凭证，这里只选模型。')
-      .setHeading();
-
     const providers = this.plugin.settings.ai?.providers || [];
     const defaultProviderId = this.plugin.settings.ai?.defaultProviderId;
     const provider = providers.find((p) => p.id === defaultProviderId);
 
-    new Setting(containerEl)
-      .setName('标题润色模型')
+    // 折叠区「标题 AI 润色」：该能力的全部设置（开关 + 模型质量）
+    const details = containerEl.createEl('details', { cls: 'apple-settings-details' });
+    details.createEl('summary', {
+      cls: 'apple-settings-summary',
+      text: '标题 AI 润色'
+    });
+    const area = details.createDiv({ cls: 'apple-settings-area apple-settings-advanced-area' });
+
+    new Setting(area)
+      .setName('启用标题 AI 润色')
+      .setDesc('开启后，在「发布与分发」的文章标题旁显示「AI 润色标题」按钮，一键让 LLM 根据正文优化标题（给 5 个候选）。')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.titlePolishEnabled !== false)
+        .onChange(async (value) => {
+          this.plugin.settings.titlePolishEnabled = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(area)
+      .setName('模型质量')
       .setDesc(provider
         ? `使用 Provider「${provider.name}」的凭证；当前 DeepSeek 可选 V4 Pro / V4 Lite。`
-        : '尚未配置默认 AI Provider。请先在上方「AI 编排」里添加并选中一个 Provider（DeepSeek），标题润色才能用。')
+        : '尚未配置默认 AI Provider。请先在上方「AI Provider」里添加并选中一个 Provider（DeepSeek），标题润色才能用。')
       .addDropdown((dropdown) => {
         dropdown.addOption('deepseek-v4-pro', 'DeepSeek V4 Pro（质量优先）');
         dropdown.addOption('deepseek-v4-flash', 'DeepSeek V4 Lite（快/省）');
@@ -833,7 +861,7 @@ export class AppleStyleSettingTab extends PluginSettingTab {
     const baseUrlInput = /** @type {any} */ (baseUrlGroup.createEl('input', {
       type: 'text',
       placeholder: 'https://api.openai.com/v1 或 http://localhost:11434/v1',
-      value: provider?.baseUrl || 'https://api.openai.com/v1'
+      value: provider?.baseUrl || 'https://api.deepseek.com/v1'
     }));
 
     const apiKeyGroup = form.createDiv({ cls: 'wechat-form-group' });
@@ -844,39 +872,36 @@ export class AppleStyleSettingTab extends PluginSettingTab {
       value: provider?.apiKey || ''
     }));
 
+    // 模型：Provider 层只标明模型家族「DeepSeek V4」一项；具体 Pro/Lite 质量
+    // 由各消费方（标题润色 / AI 编排）在各自设置里选，故这里不放质量选项。
     const modelGroup = form.createDiv({ cls: 'wechat-form-group' });
     modelGroup.createEl('label', { text: '模型' });
-    const modelInput = /** @type {any} */ (modelGroup.createEl('input', {
-      type: 'text',
-      placeholder: 'gpt-4.1-mini',
-      value: provider?.model || 'gpt-4.1-mini'
-    }));
+    const modelSelectWrap = modelGroup.createDiv({ cls: 'wechat-form-select-wrap' });
+    const modelSelect = /** @type {any} */ (modelSelectWrap.createEl('select', { cls: 'wechat-form-select' }));
+    // value 用真实模型作默认/兜底（测试连接、消费方未覆盖时可用），label 只显示家族名
+    const opt = /** @type {any} */ (modelSelect.createEl('option', { value: 'deepseek-v4-pro', text: 'DeepSeek V4' }));
+    opt.selected = true;
 
     const applyKindDefaults = () => {
       const kind = kindSelect.value || AI_PROVIDER_KINDS.OPENAI_COMPATIBLE;
       if (kind === AI_PROVIDER_KINDS.GEMINI) {
         baseUrlInput.placeholder = 'https://generativelanguage.googleapis.com/v1beta';
-        modelInput.placeholder = 'gemini-2.5-flash';
-        if (!provider || provider.kind !== kind) {
-          if (!baseUrlInput.value.trim()) baseUrlInput.value = 'https://generativelanguage.googleapis.com/v1beta';
-          if (!modelInput.value.trim()) modelInput.value = 'gemini-2.5-flash';
+        if ((!provider || provider.kind !== kind) && !baseUrlInput.value.trim()) {
+          baseUrlInput.value = 'https://generativelanguage.googleapis.com/v1beta';
         }
         return;
       }
       if (kind === AI_PROVIDER_KINDS.ANTHROPIC) {
         baseUrlInput.placeholder = 'https://api.anthropic.com/v1';
-        modelInput.placeholder = 'claude-3-5-haiku-latest';
-        if (!provider || provider.kind !== kind) {
-          if (!baseUrlInput.value.trim()) baseUrlInput.value = 'https://api.anthropic.com/v1';
-          if (!modelInput.value.trim()) modelInput.value = 'claude-3-5-haiku-latest';
+        if ((!provider || provider.kind !== kind) && !baseUrlInput.value.trim()) {
+          baseUrlInput.value = 'https://api.anthropic.com/v1';
         }
         return;
       }
-      baseUrlInput.placeholder = 'https://api.openai.com/v1 或 http://localhost:11434/v1';
-      modelInput.placeholder = 'gpt-4.1-mini';
-      if (!provider || provider.kind !== kind) {
-        if (!baseUrlInput.value.trim()) baseUrlInput.value = 'https://api.openai.com/v1';
-        if (!modelInput.value.trim()) modelInput.value = 'gpt-4.1-mini';
+      // OpenAI 兼容（DeepSeek 走这条）：默认指向 DeepSeek
+      baseUrlInput.placeholder = 'https://api.deepseek.com/v1 或 http://localhost:11434/v1';
+      if ((!provider || provider.kind !== kind) && !baseUrlInput.value.trim()) {
+        baseUrlInput.value = 'https://api.deepseek.com/v1';
       }
     };
     kindSelect.addEventListener('change', applyKindDefaults);
@@ -909,7 +934,7 @@ export class AppleStyleSettingTab extends PluginSettingTab {
         kind: kindSelect.value,
         baseUrl: baseUrlInput.value.trim(),
         apiKey: apiKeyInput.value.trim(),
-        model: modelInput.value.trim(),
+        model: modelSelect.value,
         enabled: enabledToggle.checked,
       });
       const issueSummary = summarizeAiProviderIssues(candidate);
@@ -937,7 +962,7 @@ export class AppleStyleSettingTab extends PluginSettingTab {
         kind: kindSelect.value,
         baseUrl: baseUrlInput.value.trim(),
         apiKey: apiKeyInput.value.trim(),
-        model: modelInput.value.trim(),
+        model: modelSelect.value,
         enabled: enabledToggle.checked,
       });
 
