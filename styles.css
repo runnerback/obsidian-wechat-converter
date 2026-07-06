@@ -1488,6 +1488,8 @@
   max-width: none;
   margin: 0;
   gap: 0;
+  /* 与折叠标题(summary padding 14px)对齐，内容不再贴左/右边 */
+  padding: 4px 14px 10px;
 }
 
 .apple-settings-details .apple-setting-section {

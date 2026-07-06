@@ -7,7 +7,6 @@
 import {
   obsidianApi,
   createObsidianModal,
-  getObsidianSetIcon,
   getObsidianRequestUrl,
   getObsidianRequest,
   refreshSettingTabCompat,
@@ -19,7 +18,6 @@ import { toReadableError, generateId } from '../../services/input-utils.js';
 import {
   MAX_ACCOUNTS,
   MULTI_PLATFORM_TAB_LABEL,
-  GITHUB_REPOSITORY_URL,
   getWechatAccountPublishOptions,
   normalizeWechatAccountPublishOptions,
 } from '../../services/settings-defaults.js';
@@ -134,38 +132,6 @@ export class AppleStyleSettingTab extends PluginSettingTab {
 
   /**
    * @param {any} containerEl
-   */
-  renderGitHubStarBanner(containerEl) {
-    const banner = containerEl.createDiv({ cls: 'apple-settings-github-banner' });
-    const iconWrap = banner.createDiv({ cls: 'apple-settings-github-icon' });
-    const setIcon = getObsidianSetIcon();
-    if (typeof setIcon === 'function') {
-      setIcon(iconWrap, 'star');
-    } else {
-      iconWrap.setText('Star');
-    }
-
-    const copy = banner.createDiv({ cls: 'apple-settings-github-copy' });
-    copy.createEl('div', { text: '喜欢这个插件？', cls: 'apple-settings-github-kicker' });
-    copy.createEl('p', {
-      text: '在 GitHub 上点个 Star，可以帮更多 Obsidian 创作者发现它。',
-      cls: 'apple-settings-github-desc',
-    });
-
-    const starButton = banner.createEl('button', {
-      text: 'Star on GitHub',
-      cls: 'apple-settings-github-button',
-    });
-    starButton.onclick = () => {
-      const openExternalUrl = this.plugin.openExternalUrl;
-      if (typeof openExternalUrl === 'function') {
-        openExternalUrl.call(this.plugin, GITHUB_REPOSITORY_URL);
-      }
-    };
-  }
-
-  /**
-   * @param {any} containerEl
    * @param {string} description
    */
   renderSettingsTabIntro(containerEl, description) {
@@ -176,8 +142,6 @@ export class AppleStyleSettingTab extends PluginSettingTab {
   renderSettingsContent() {
     const { containerEl } = this;
     containerEl.empty();
-
-    this.renderGitHubStarBanner(containerEl);
 
     // === Tab 导航 ===
     const tabBar = containerEl.createDiv({ cls: 'apple-settings-tabs' });
