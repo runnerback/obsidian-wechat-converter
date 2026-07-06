@@ -148,14 +148,14 @@ describe('AppleStyleSettingTab settings rendering - smoke test', () => {
   });
 
   it('keeps 高级设置 fields that earlier refactors silently dropped', () => {
-    // Regression guard for commit d115abd. If you remove either of these,
-    // either restore them (recommended) or update this test deliberately.
+    // Regression guard for 高级设置 字段。清理资源相关字段（自动清理/清理目录/回收站）
+    // 已按需求刻意移除，此处只守护仍需保留的字段。
     renderTab(makePlugin());
     const names = globalThis.__obsidianSettingNamesRegistry;
-    expect(names).toContain('发送成功后自动清理资源');
-    expect(names).toContain('清理目录');
-    expect(names).toContain('使用系统回收站');
     expect(names).toContain('API 代理地址');
+    // 清理资源功能已移除，确认对应设置项确实不再出现
+    expect(names).not.toContain('发送成功后自动清理资源');
+    expect(names).not.toContain('清理目录');
   });
 
   it('renders the preview / watermark headings on the wechat tab', () => {

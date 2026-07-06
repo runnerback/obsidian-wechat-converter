@@ -157,86 +157,16 @@ describe('AppleStyleView - Frontmatter Meta & Configured Directory Cleanup', () 
     expect(view.isSafeCleanupDirPath('.obsidian')).toBe(true);
   });
 
-  it('should cleanup configured directory after sync success', async () => {
+  it('cleanupConfiguredDirectory is a no-op after the feature was removed', async () => {
+    // 「发送成功后自动清理资源」功能已移除：无论旧配置如何，都不再删除任何目录。
     plugin.settings.cleanupAfterSync = true;
     plugin.settings.cleanupUseSystemTrash = true;
     plugin.settings.cleanupDirTemplate = 'published/{{note}}_img';
 
     const result = await view.cleanupConfiguredDirectory(activeFile);
 
-    expect(view.app.vault.trash).toHaveBeenCalledWith(
-      expect.objectContaining({ path: 'published/post_img' }),
-      true
-    );
-    expect(result.success).toBe(true);
-    expect(frontmatter.cover).toBe('');
-    expect(frontmatter.cover_dir).toBe('');
-  });
-
-  it('should skip cleanup with warning when cleanup directory is not configured', async () => {
-    plugin.settings.cleanupAfterSync = true;
-    plugin.settings.cleanupDirTemplate = '';
-
-    const result = await view.cleanupConfiguredDirectory(activeFile);
-
-    expect(result.success).toBe(false);
-    expect(result.warning).toContain('未配置清理目录');
+    expect(result).toEqual({ attempted: false });
     expect(view.app.vault.trash).not.toHaveBeenCalled();
-  });
-
-  it('should refuse cleanup when configured path points to a file', async () => {
-    plugin.settings.cleanupAfterSync = true;
-    plugin.settings.cleanupDirTemplate = 'published/single-file.jpg';
-
-    const result = await view.cleanupConfiguredDirectory(activeFile);
-
-    expect(result.success).toBe(false);
-    expect(result.warning).toContain('不是目录');
-    expect(view.app.vault.trash).not.toHaveBeenCalled();
-  });
-
-  it('should return warning (not throw) when cleanup delete fails', async () => {
-    plugin.settings.cleanupAfterSync = true;
-    plugin.settings.cleanupDirTemplate = 'published/{{note}}_img';
-    view.app.vault.trash.mockRejectedValueOnce(new Error('boom'));
-
-    const result = await view.cleanupConfiguredDirectory(activeFile);
-
-    expect(result.success).toBe(false);
-    expect(result.warning).toContain('删除失败');
-  });
-
-  it('should clear only frontmatter paths that are inside cleaned directory', async () => {
-    frontmatter = {
-      excerpt: '摘要',
-      cover: 'assets/shared-cover.jpg',
-      cover_dir: 'published/post_img',
-      Cover: 'published/post_img/post-cover.jpg',
-      CoverDIR: 'published/post_img',
-    };
-    view.app.metadataCache.getFileCache = vi.fn(() => ({ frontmatter }));
-
-    plugin.settings.cleanupAfterSync = true;
-    plugin.settings.cleanupDirTemplate = 'published/{{note}}_img';
-
-    const result = await view.cleanupConfiguredDirectory(activeFile);
-
-    expect(result.success).toBe(true);
-    expect(frontmatter.cover).toBe('assets/shared-cover.jpg');
-    expect(frontmatter.cover_dir).toBe('');
-    expect(frontmatter.Cover).toBe('');
-    expect(frontmatter.CoverDIR).toBe('');
-  });
-
-  it('should return success with warning when frontmatter cleanup fails', async () => {
-    plugin.settings.cleanupAfterSync = true;
-    plugin.settings.cleanupDirTemplate = 'published/{{note}}_img';
-    view.app.fileManager.processFrontMatter.mockRejectedValueOnce(new Error('fm failed'));
-
-    const result = await view.cleanupConfiguredDirectory(activeFile);
-
-    expect(result.success).toBe(true);
-    expect(result.warning).toContain('frontmatter');
   });
 
   it('should clear frontmatter paths when cleanup dir matches by tail path', async () => {

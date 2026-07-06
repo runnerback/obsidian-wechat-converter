@@ -438,48 +438,6 @@ export class AppleStyleSettingTab extends PluginSettingTab {
       .setName('高级设置')
       .setHeading();
 
-    new Setting(containerEl)
-      .setName('发送成功后自动清理资源')
-      .setDesc('默认关闭。开启后会在创建草稿成功后，删除你在下方配置的目录。')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.cleanupAfterSync)
-        .onChange(async (value) => {
-          this.plugin.settings.cleanupAfterSync = value;
-          await this.plugin.saveSettings();
-        }));
-
-    let hasWarnedAbsoluteCleanupPath = false;
-    new Setting(containerEl)
-      .setName('清理目录')
-      .setDesc('填写 vault 内相对路径（不要填 /Users/... 这类绝对路径），支持 {{note}} 占位符，例如 published/{{note}}_img。')
-      .addText(text => text
-        .setPlaceholder('published/{{note}}_img')
-        .setValue(this.plugin.settings.cleanupDirTemplate || '')
-        .onChange(async (value) => {
-          if (this.isAbsolutePathLike(value)) {
-            if (!hasWarnedAbsoluteCleanupPath) {
-              new Notice('⚠️ 清理目录请填写 vault 内相对路径，不要使用绝对路径（如 /Users/... 或 C:\\...）');
-              hasWarnedAbsoluteCleanupPath = true;
-            }
-          } else {
-            hasWarnedAbsoluteCleanupPath = false;
-          }
-
-          const normalized = this.normalizeVaultPath(value);
-          this.plugin.settings.cleanupDirTemplate = normalized;
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('使用系统回收站')
-      .setDesc('开启时优先移动到系统回收站；关闭时直接从 vault 删除。')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.cleanupUseSystemTrash !== false)
-        .onChange(async (value) => {
-          this.plugin.settings.cleanupUseSystemTrash = value;
-          await this.plugin.saveSettings();
-        }));
-
     let hasWarnedInsecureProxy = false;
     new Setting(containerEl)
       .setName('API 代理地址')
@@ -804,54 +762,31 @@ export class AppleStyleSettingTab extends PluginSettingTab {
   }
 
   /**
-   * 标题 AI 润色设置：DeepSeek API Key / Base / 模型选择。
-   * 客户端直连 LLM，凭证仅存本地 data.json。
+   * 标题 AI 润色设置。
+   * 复用上方「默认 AI Provider」的 API Key / Base URL（DeepSeek），这里只单独选模型。
    * @param {any} containerEl
    */
   renderTitlePolishSection(containerEl) {
     new Setting(containerEl)
       .setName('标题 AI 润色')
-      .setDesc('在「发布与分发」的文章标题旁一键让 LLM 根据正文优化标题（给 5 个候选）。凭证仅保存在本地。')
+      .setDesc('在「发布与分发」的文章标题旁一键让 LLM 根据正文优化标题（给 5 个候选）。使用上方「默认 AI Provider」的凭证，这里只选模型。')
       .setHeading();
 
-    const cfg = this.plugin.settings.titleAiPolish || {};
+    const providers = this.plugin.settings.ai?.providers || [];
+    const defaultProviderId = this.plugin.settings.ai?.defaultProviderId;
+    const provider = providers.find((p) => p.id === defaultProviderId);
 
     new Setting(containerEl)
-      .setName('DeepSeek API Key')
-      .setDesc('从 DeepSeek 开放平台获取。仅保存在本地 data.json，用于客户端直连调用。')
-      .addText((text) => {
-        text.inputEl.type = 'password';
-        text
-          .setPlaceholder('sk-...')
-          .setValue(cfg.apiKey || '')
-          .onChange(async (value) => {
-            this.plugin.settings.titleAiPolish.apiKey = value.trim();
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName('API Base')
-      .setDesc('OpenAI 兼容接口地址，默认 https://api.deepseek.com/v1。')
-      .addText((text) => {
-        text
-          .setPlaceholder('https://api.deepseek.com/v1')
-          .setValue(cfg.apiBase || '')
-          .onChange(async (value) => {
-            this.plugin.settings.titleAiPolish.apiBase = value.trim();
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName('模型')
-      .setDesc('选择用于标题润色的模型。')
+      .setName('标题润色模型')
+      .setDesc(provider
+        ? `使用 Provider「${provider.name}」的凭证；当前 DeepSeek 可选 V4 Pro / V4 Lite。`
+        : '尚未配置默认 AI Provider。请先在上方「AI 编排」里添加并选中一个 Provider（DeepSeek），标题润色才能用。')
       .addDropdown((dropdown) => {
         dropdown.addOption('deepseek-v4-pro', 'DeepSeek V4 Pro（质量优先）');
         dropdown.addOption('deepseek-v4-flash', 'DeepSeek V4 Lite（快/省）');
-        dropdown.setValue(cfg.model || 'deepseek-v4-pro');
+        dropdown.setValue(this.plugin.settings.titlePolishModel || 'deepseek-v4-pro');
         dropdown.onChange(async (value) => {
-          this.plugin.settings.titleAiPolish.model = value;
+          this.plugin.settings.titlePolishModel = value;
           await this.plugin.saveSettings();
         });
       });

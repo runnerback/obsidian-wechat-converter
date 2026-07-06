@@ -7,14 +7,18 @@
 const MAX_CONTENT_CHARS = 8000; // 正文过长时截断，够 LLM 抓住主旨即可
 const TITLE_COUNT = 5;
 
+// 时间码格式：(07-02-1936) —— 两位月-两位日-四位时分，半角/全角括号均识别。
+// 只匹配这种精确格式，标题里其他括号内容（如副标题）不受影响。
+const TITLE_TIMECODE_RE = /[（(]\d{2}-\d{2}-\d{4}[）)]/g;
+
 /**
- * 剥掉标题开头的时间码括号，如 "(06-24-1435)特斯拉..." / "（06-24-1435）特斯拉..." → "特斯拉..."
- * 只剥开头第一个括号（半角/全角都支持），不动正文里的其他括号。
+ * 通用能力：移除标题中的时间码，如 "(07-02-1936)FSD 入欧与土耳其市场预判" → "FSD 入欧与土耳其市场预判"。
+ * 正则精确匹配 (MM-DD-HHMM) 格式，出现即移除（不限位置），并收敛残留空格。
  * @param {string} title
  * @returns {string}
  */
-export function stripTitleTimecodePrefix(title) {
-  return String(title || '').replace(/^\s*[（(][^）)]*[）)]\s*/, '').trim();
+export function stripTitleTimecode(title) {
+  return String(title || '').replace(TITLE_TIMECODE_RE, '').replace(/\s{2,}/g, ' ').trim();
 }
 
 /**
@@ -58,7 +62,7 @@ export async function polishTitleWithLlm({ requestUrl, apiBase, apiKey, model, c
   if (!apiKey) throw new Error('未配置 DeepSeek API Key，请在插件设置里填写');
   if (typeof requestUrl !== 'function') throw new Error('requestUrl 不可用');
 
-  const cleanTitle = stripTitleTimecodePrefix(currentTitle);
+  const cleanTitle = stripTitleTimecode(currentTitle);
   const content = String(articleMarkdown || '').trim().slice(0, MAX_CONTENT_CHARS);
   if (!content) throw new Error('当前没有可用的文章正文，请先打开并渲染一篇文章');
 

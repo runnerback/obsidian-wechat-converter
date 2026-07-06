@@ -10,7 +10,7 @@ import { isRecord } from '../../services/input-utils.js';
 import { resolveSyncAccount } from '../../services/sync-context.js';
 import { htmlToText, getEventTargetValue } from '../../services/dom-utils.js';
 import { MULTI_PLATFORM_TAB_LABEL } from '../../services/settings-defaults.js';
-import { polishTitleWithLlm } from '../../services/title-polish.js';
+import { polishTitleWithLlm, stripTitleTimecode } from '../../services/title-polish.js';
 import { WechatAPI } from '../../services/wechat-api.js';
 import { getDraftAssociation, clearDraftAssociation } from '../../services/wechat-draft-cache.js';
 
@@ -302,10 +302,13 @@ export const wechatSyncModalMixin = {
     const titleSection = advancedBody.createDiv({ cls: 'wechat-modal-section' });
     titleSection.createEl('label', { text: '文章标题', cls: 'wechat-modal-label' });
 
-    // 标题逻辑：优先使用缓存 -> frontmatter.title -> 文件名
-    const initialTitle = cachedState?.title !== undefined
-      ? cachedState.title
-      : (frontmatterMeta.title || (activeFile ? activeFile.basename : ''));
+    // 标题逻辑：优先使用缓存 -> frontmatter.title -> 文件名。
+    // 微信 tab 专属：正则检测并移除 (07-02-1936) 这类时间码（其他平台 tab 不受影响）。
+    const initialTitle = stripTitleTimecode(
+      cachedState?.title !== undefined
+        ? cachedState.title
+        : (frontmatterMeta.title || (activeFile ? activeFile.basename : '')),
+    );
 
     const titleInput = /** @type {ObsidianInputLike} */ (titleSection.createEl('input', {
       type: 'text',
@@ -334,9 +337,11 @@ export const wechatSyncModalMixin = {
     const suggestBox = titleSection.createDiv({ cls: 'wechat-title-suggest-box is-hidden' });
 
     polishBtn.onclick = async () => {
-      const cfg = this.plugin.settings.titleAiPolish || {};
-      if (!cfg.apiKey) {
-        new Notice('请先在插件设置 →「标题 AI 润色」里配置 DeepSeek API Key');
+      // 复用「默认 AI Provider」的 key/baseUrl；标题润色模型单独取 titlePolishModel
+      const ai = this.plugin.settings.ai || {};
+      const provider = (ai.providers || []).find((p) => p.id === ai.defaultProviderId);
+      if (!provider || !provider.apiKey || !provider.baseUrl) {
+        new Notice('请先在插件设置 →「AI 编排」里添加并选中一个默认 AI Provider（填好 API Key）');
         return;
       }
       const originalText = polishBtn.textContent;
@@ -347,9 +352,9 @@ export const wechatSyncModalMixin = {
       try {
         const titles = await polishTitleWithLlm({
           requestUrl: getObsidianRequestUrl(),
-          apiBase: cfg.apiBase,
-          apiKey: cfg.apiKey,
-          model: cfg.model || 'deepseek-v4-pro',
+          apiBase: provider.baseUrl,
+          apiKey: provider.apiKey,
+          model: this.plugin.settings.titlePolishModel || 'deepseek-v4-pro',
           currentTitle: titleInput.value,
           articleMarkdown: this.lastResolvedMarkdown,
         });
@@ -535,8 +540,10 @@ export const wechatSyncModalMixin = {
       this.sessionThumbMediaId = thumbMediaId;
       this.sessionDraftMediaId = (!forceNewDraft && draftAssociation?.mediaId) ? draftAssociation.mediaId : '';
       this.sessionDraftIndex = (!forceNewDraft && Number.isInteger(draftAssociation?.index)) ? draftAssociation.index : 0;
-      // 传递用户输入的标题，或使用 frontmatter 标题或文件名
-      this.sessionTitle = titleInput.value.trim() || frontmatterMeta.title || (activeFile ? activeFile.basename : '无标题文章');
+      // 传递用户输入的标题，或使用 frontmatter 标题或文件名；微信 tab 统一剥除时间码
+      this.sessionTitle = stripTitleTimecode(
+        titleInput.value.trim() || frontmatterMeta.title || (activeFile ? activeFile.basename : '无标题文章'),
+      );
       // 传递用户输入的摘要，或使用自动提取的摘要
       this.sessionDigest = digestInput.value.trim() || autoDigest || '一键同步自 Obsidian';
       await this.onSyncToWechat();

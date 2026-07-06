@@ -1127,50 +1127,10 @@ class AppleStyleView extends ItemView {
    * @param {TFileLike | null | undefined} activeFile
    * @returns {Promise<CleanupResultLike>}
    */
-  async cleanupConfiguredDirectory(activeFile) {
-    if (!this.plugin.settings.cleanupAfterSync) {
-      return { attempted: false };
-    }
-
-    const useSystemTrash = this.plugin.settings.cleanupUseSystemTrash !== false;
-    const resolved = this.resolveCleanupDirPath(activeFile);
-    if (!resolved.path) {
-      return { attempted: true, success: false, warning: resolved.warning || '未解析到清理目录' };
-    }
-
-    const normalized = resolved.path;
-    if (!this.isSafeCleanupDirPath(normalized)) {
-      return { attempted: true, success: false, warning: `清理目录不安全，已跳过: ${normalized}` };
-    }
-
-    const abstractFile = this.app.vault.getAbstractFileByPath(normalized);
-    if (!abstractFile) {
-      return { attempted: true, success: false, warning: `清理目录不存在: ${normalized}` };
-    }
-
-    const isFile = typeof abstractFile.extension === 'string';
-    if (isFile) {
-      return { attempted: true, success: false, warning: `清理路径不是目录，已跳过: ${normalized}` };
-    }
-
-    try {
-      if (typeof this.app.vault.trash === 'function') {
-        await this.app.vault.trash(abstractFile, useSystemTrash);
-      } else if (typeof this.app.vault.delete === 'function') {
-        await this.app.vault.delete(abstractFile, true);
-      } else {
-        throw new Error('当前 Obsidian 版本不支持删除接口');
-      }
-    } catch (error) {
-      return { attempted: true, success: false, warning: `删除失败 (${normalized}): ${toReadableError(error).message}` };
-    }
-
-    const frontmatterWarning = await this.clearInvalidPublishMetaAfterCleanup(activeFile, normalized);
-    if (frontmatterWarning) {
-      return { attempted: true, success: true, cleanedPath: normalized, warning: frontmatterWarning };
-    }
-
-    return { attempted: true, success: true, cleanedPath: normalized };
+  async cleanupConfiguredDirectory(_activeFile) {
+    // 「发送成功后自动清理资源」功能已移除：无条件跳过，老配置(data.json 里的
+    // cleanupAfterSync) 也不再触发，避免删了设置项后无法关闭。
+    return { attempted: false };
   }
 
   /**

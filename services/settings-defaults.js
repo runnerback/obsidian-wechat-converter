@@ -37,18 +37,11 @@ export const DEFAULT_SETTINGS = {
   // 排版设置
   sidePadding: 16, // 页面两侧留白 (px)
   coloredHeader: false, // 标题是否使用主题色
-  // 同步后清理资源（默认关闭，避免破坏性行为）
-  cleanupAfterSync: false,
-  cleanupUseSystemTrash: true,
-  cleanupDirTemplate: '', // 发送成功后要清理的目录（支持 {{note}}）
   multiPlatformSync: createDefaultMultiPlatformSyncSettings(),
   feishuSync: createDefaultFeishuSyncSettings(),
-  // 标题 AI 润色（客户端直连 DeepSeek，OpenAI 兼容接口）
-  titleAiPolish: {
-    apiKey: '',
-    apiBase: 'https://api.deepseek.com/v1',
-    model: 'deepseek-v4-pro', // 可选 deepseek-v4-pro / deepseek-v4-flash(lite)
-  },
+  // 标题 AI 润色：复用 ai.defaultProviderId 那个 Provider 的 key/baseUrl，
+  // 仅这里单独选模型（当前 DeepSeek：v4 pro / v4 lite）。
+  titlePolishModel: 'deepseek-v4-pro',
   // 旧字段保留用于迁移检测
   wechatAppId: '',
   wechatAppSecret: '',
