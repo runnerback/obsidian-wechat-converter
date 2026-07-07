@@ -68,7 +68,8 @@ describe('publish-status service', () => {
       });
       expect(fm[FRONTMATTER_KEYS.status]).toBe(PUBLISH_STATUS_SYNCED);
       expect(fm[FRONTMATTER_KEYS.platforms]).toEqual(['wechat']);
-      expect(fm[FRONTMATTER_KEYS.platform]).toBe('wechat');
+      expect(fm.platform_wechat).toBe(1);
+      expect(fm.publish_platform).toBeUndefined();
       expect(fm[FRONTMATTER_KEYS.kind]).toBe('draft');
       expect(fm[FRONTMATTER_KEYS.time]).toBe('2026-07-03W27-5T13:43:00');
       expect(fm[FRONTMATTER_KEYS.at]).toBe('2026-07-03T13:43:00+08:00');
@@ -87,17 +88,27 @@ describe('publish-status service', () => {
       updatePublishFrontmatter(fm, { targets: [{ platform: 'wechat' }], requestedCount: 1, date: new Date('2026-07-03T05:43:00.000Z') });
       expect(fm.title).toBe('keep-me');
       expect(fm[FRONTMATTER_KEYS.platforms]).toEqual(['wechat', 'feishu']);
-      expect(fm[FRONTMATTER_KEYS.platform]).toBe('wechat');
+      expect(fm.platform_wechat).toBe(1);
+      expect(fm.platform_feishu).toBe(1);
       expect(fm[FRONTMATTER_KEYS.kind]).toBe('draft');
       expect(fm[FRONTMATTER_KEYS.time]).toBe('2026-07-03W27-5T13:43:00');
       expect(fm[FRONTMATTER_KEYS.at]).toBe('2026-07-03T13:43:00+08:00');
     });
 
-    it('cleans up legacy nested keys from earlier versions', () => {
-      const fm = { publish_targets: [{ platform: 'x' }], last_publish_at: 'old' };
+    it('normalizes platform aliases: xiaohongshu → rednote (list + per-platform flag)', () => {
+      const fm = { publish_platforms: ['wechat', 'xiaohongshu'] };
+      updatePublishFrontmatter(fm, { targets: [{ platform: 'xiaohongshu' }], requestedCount: 1, date: new Date() });
+      expect(fm[FRONTMATTER_KEYS.platforms]).toEqual(['wechat', 'rednote']);
+      expect(fm.platform_rednote).toBe(1);
+      expect(fm.platform_xiaohongshu).toBeUndefined();
+    });
+
+    it('cleans up legacy keys from earlier versions (incl. publish_platform)', () => {
+      const fm = { publish_targets: [{ platform: 'x' }], last_publish_at: 'old', publish_platform: 'wechat' };
       updatePublishFrontmatter(fm, { targets: [{ platform: 'wechat' }], requestedCount: 1, date: new Date() });
       expect(fm.publish_targets).toBeUndefined();
       expect(fm.last_publish_at).toBeUndefined();
+      expect(fm.publish_platform).toBeUndefined();
     });
 
     it('is a no-op when there are no successful targets', () => {

@@ -18,14 +18,32 @@ export const PUBLISH_STATUS_PARTIAL = 'partial';
 export const FRONTMATTER_KEYS = Object.freeze({
   status: 'publish_status',
   platforms: 'publish_platforms',
-  platform: 'publish_platform',
   kind: 'publish_kind',
   time: 'publish_time',
   at: 'publish_at',
 });
 
 // Keys from earlier versions that we now flatten away.
-const DEPRECATED_KEYS = ['publish_targets', 'last_publish_at'];
+// publish_platform(单值"最近一次平台")已废弃:多平台时只剩最后一个,信息丢失;
+// 改为每平台独立布尔字段 platform_<name>: 1(见 updatePublishFrontmatter)。
+const DEPRECATED_KEYS = ['publish_targets', 'last_publish_at', 'publish_platform'];
+
+// 平台名归一(frontmatter 口径):扩展/各链路上报的别名统一成简短稳定名。
+const PLATFORM_NAME_ALIASES = Object.freeze({
+  xiaohongshu: 'rednote',
+  xhs: 'rednote',
+  '小红书': 'rednote',
+});
+
+/**
+ * 归一化平台名:别名映射(如 xiaohongshu → rednote),其余转小写。
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function normalizePlatformName(value) {
+  const key = (typeof value === 'string' ? value.trim() : '').toLowerCase();
+  return PLATFORM_NAME_ALIASES[key] || key;
+}
 
 /**
  * @typedef {{ platform: string, kind?: string, account?: string, url?: string, time?: string }} PublishTargetInput
@@ -112,7 +130,7 @@ export function formatBeijingIso(date = new Date()) {
  * @returns {PublishTargetEntry | null}
  */
 export function buildPublishTarget(input, now) {
-  const platform = toTrimmedString(input && input.platform).toLowerCase();
+  const platform = normalizePlatformName(input && input.platform);
   if (!platform) return null;
   const kind = toTrimmedString(input && input.kind) || 'draft';
   const time = toTrimmedString(input && input.time) || toTrimmedString(now) || nowBeijingTimestamp();
@@ -140,7 +158,8 @@ export function mergePlatformList(existing, incoming) {
   const out = [];
   const seen = new Set();
   const push = (value) => {
-    const key = toTrimmedString(value).toLowerCase();
+    // 归一化后再去重:旧笔记里的 xiaohongshu 与新的 rednote 合并为一项
+    const key = normalizePlatformName(value);
     if (key && !seen.has(key)) {
       seen.add(key);
       out.push(key);
@@ -175,7 +194,10 @@ export function updatePublishFrontmatter(frontmatter, { targets, requestedCount,
 
   const latest = normalized[normalized.length - 1];
   fm[FRONTMATTER_KEYS.platforms] = mergePlatformList(fm[FRONTMATTER_KEYS.platforms], normalized.map((t) => t.platform));
-  fm[FRONTMATTER_KEYS.platform] = latest.platform;
+  // 每平台独立布尔字段:成功发布记 1;未发布的平台不写字段(0 留给手动重置)
+  for (const target of normalized) {
+    fm[`platform_${target.platform}`] = 1;
+  }
   fm[FRONTMATTER_KEYS.kind] = latest.kind;
   fm[FRONTMATTER_KEYS.time] = readableTime;
   fm[FRONTMATTER_KEYS.at] = isoTime;
