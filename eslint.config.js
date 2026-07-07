@@ -225,6 +225,9 @@ export default [
       "lib/",
       "services/generated-embedded-deps.js",
       "dist/",
+      // rednote/ 为 note-to-red 全量移植的 TS 代码(保持上游原貌,esbuild 编译),
+      // 本仓库 eslint 只配了 JS 规则,不套用
+      "rednote/",
     ],
   }
 ];

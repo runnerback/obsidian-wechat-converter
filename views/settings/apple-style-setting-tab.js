@@ -397,6 +397,8 @@ export class AppleStyleSettingTab extends PluginSettingTab {
 
     this.renderTitlePolishSection(containerEl);
 
+    this.renderRednoteSettingsSection(containerEl);
+
     // 高级设置
     new Setting(containerEl)
       .setName('高级设置')
@@ -726,6 +728,40 @@ export class AppleStyleSettingTab extends PluginSettingTab {
       if (button?.setButtonText) button.setButtonText('测试代理');
       if (button?.setDisabled) button.setDisabled(false);
     }
+  }
+
+  /**
+   * 小红书图卡(rednote,自 note-to-red 全量移植)设置区。
+   * 折叠区内异步渲染上游 RedSettingTab(用户信息/标题级别/主题管理/字体管理等);
+   * 动态 import 保持测试链(CJS require)不触碰 TS。
+   * @param {any} containerEl
+   */
+  renderRednoteSettingsSection(containerEl) {
+    const details = containerEl.createEl('details', { cls: 'apple-settings-details' });
+    details.createEl('summary', {
+      cls: 'apple-settings-summary',
+      text: '小红书图卡(Note to RED)'
+    });
+    const area = details.createDiv({ cls: 'apple-settings-area apple-settings-advanced-area' });
+
+    let rendered = false;
+    details.addEventListener('toggle', () => {
+      if (!details.open || rendered) return;
+      rendered = true;
+      (async () => {
+        try {
+          const { RedSettingTab } = await import('../../rednote/index.ts');
+          const tab = new RedSettingTab(this.app, this.plugin);
+          tab.containerEl = area;
+          tab.display();
+        } catch (error) {
+          area.createEl('p', {
+            text: `小红书图卡设置加载失败：${toReadableError(error).message}`,
+            cls: 'setting-item-description',
+          });
+        }
+      })();
+    });
   }
 
   renderTitlePolishSection(containerEl) {

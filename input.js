@@ -466,6 +466,11 @@ class AppleStyleView extends ItemView {
     // 创建设置面板
     this.createSettingsPanel(container);
 
+    // 预览模式切换条:公众号(默认) / 小红书图卡(rednote,自 note-to-red 移植)
+    const modeBar = container.createEl('div', { cls: 'apple-preview-mode-bar' });
+    const wechatModeBtn = modeBar.createEl('button', { cls: 'apple-preview-mode-btn is-active', text: '公众号' });
+    const rednoteModeBtn = modeBar.createEl('button', { cls: 'apple-preview-mode-btn', text: '小红书' });
+
     // 创建预览区 - 根据设置决定是否使用手机框
     const usePhoneFrame = this.plugin.settings.usePhoneFrame && !isMobileClient(this.app);
     const previewWrapper = container.createEl('div', {
@@ -500,6 +505,34 @@ class AppleStyleView extends ItemView {
         cls: 'apple-converter-preview',
       });
     }
+
+    // rednote(小红书图卡)预览容器:与公众号预览并存,按模式显隐
+    this.rednoteContainer = container.createEl('div', { cls: 'red-embed-container is-hidden' });
+    this.rednoteController = null;
+    this._previewMode = 'wechat';
+
+    /** @param {'wechat' | 'rednote'} mode */
+    this.setPreviewMode = async (mode) => {
+      if (mode === this._previewMode) return;
+      this._previewMode = mode;
+      wechatModeBtn.classList.toggle('is-active', mode === 'wechat');
+      rednoteModeBtn.classList.toggle('is-active', mode === 'rednote');
+      previewWrapper.classList.toggle('is-hidden', mode === 'rednote');
+      this.rednoteContainer.classList.toggle('is-hidden', mode !== 'rednote');
+      if (mode === 'rednote' && !this.rednoteController) {
+        // 懒加载:动态 import 保持测试链(CJS require(input.js))不触碰 TS
+        const { RedPreviewController } = await import('./rednote/view.ts');
+        this.rednoteController = new RedPreviewController(
+          this.app,
+          this,
+          this.plugin.themeManager,
+          this.plugin.settingsManager
+        );
+        await this.rednoteController.mount(this.rednoteContainer);
+      }
+    };
+    wechatModeBtn.addEventListener('click', () => { this.setPreviewMode('wechat'); });
+    rednoteModeBtn.addEventListener('click', () => { this.setPreviewMode('rednote'); });
 
     this.setPlaceholder();
 
@@ -1924,6 +1957,10 @@ class AppleStyleView extends ItemView {
   }
 
   async onClose() {
+    if (this.rednoteController) {
+      this.rednoteController.unmount();
+      this.rednoteController = null;
+    }
     if (this.activeLeafRenderTimer) {
       window.clearTimeout(this.activeLeafRenderTimer);
       this.activeLeafRenderTimer = null;
@@ -2020,6 +2057,14 @@ class AppleStylePlugin extends Plugin {
     this.obsidianApi = obsidianApi;
 
     await this.loadSettings();
+
+    // rednote(小红书图卡)管理器:自 note-to-red 全量移植,设置存 settings.rednote。
+    // 动态 import:esbuild 打包时仍会内联;测试经 CJS require(input.js) 时不在
+    // 顶层拉起 TS 链(vitest 的 CJS→TS 静态 interop 有缺陷,动态 import 走 vite 管道正常)。
+    const { createRednoteManagers } = await import('./rednote/index.ts');
+    const { settingsManager, themeManager } = await createRednoteManagers(this.app, this);
+    this.settingsManager = settingsManager;
+    this.themeManager = themeManager;
 
     this.registerView(
       APPLE_STYLE_VIEW,

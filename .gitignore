@@ -32,3 +32,6 @@ main.js
 # Generated runtime snapshots (rebuilt via `npm run generate:runtime`)
 services/generated-embedded-deps.js
 services/ai-layout-runtime/generated-skills.js
+
+# chrome plugin
+chrome-plugins/obsidian-publisher

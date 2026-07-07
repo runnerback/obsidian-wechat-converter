@@ -16,7 +16,9 @@ export default defineConfig({
     setupFiles: ['./tests/helpers/obsidian-resolver.cjs'],
     server: {
       deps: {
-        inline: ['obsidian'],
+        // rednote/ 为 note-to-red 移植的 TS 代码:强制走 vite 管道,
+        // 使 obsidian → __mocks__ 的 alias 对其生效
+        inline: ['obsidian', /rednote/],
       },
     },
     coverage: {

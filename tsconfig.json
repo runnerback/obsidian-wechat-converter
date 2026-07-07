@@ -9,6 +9,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
     "forceConsistentCasingInFileNames": true
   },
   "include": [
@@ -17,7 +18,8 @@
     "views/**/*.js",
     "tests/**/*.js",
     "scripts/**/*.mjs",
-    "esbuild.config.mjs"
+    "esbuild.config.mjs",
+    "rednote/**/*.ts"
   ],
   "exclude": [
     "node_modules",
