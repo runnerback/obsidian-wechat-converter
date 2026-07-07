@@ -48,6 +48,21 @@ export function rednoteCardFilename(index) {
 }
 
 /**
+ * 在扩展上报的平台列表里找小红书的平台 id(id 含 xiaohongshu/xhs 或名称含「小红书」)。
+ * @param {Array<{ id?: string, name?: string }>} platforms
+ * @returns {string} 找不到返回空串
+ */
+export function findXiaohongshuPlatformId(platforms) {
+  const list = Array.isArray(platforms) ? platforms : [];
+  const hit = list.find((platform) => {
+    const id = String(platform?.id || '').toLowerCase();
+    const name = String(platform?.name || '');
+    return id.includes('xiaohongshu') || id === 'xhs' || name.includes('小红书');
+  });
+  return hit ? String(hit.id) : '';
+}
+
+/**
  * 把图卡写入笔记同目录的 sync-to-rednote/:已存在则先清空其中文件,再逐张写入。
  * 发布后这些文件保留(留档),不做删除。
  * @param {{ vault: { adapter: { exists: (p: string) => Promise<boolean> }, createFolder: (p: string) => Promise<unknown>, createBinary: (p: string, data: ArrayBuffer) => Promise<unknown>, getAbstractFileByPath: (p: string) => unknown, delete: (f: unknown) => Promise<void>, getFolderByPath?: (p: string) => unknown } }} app Obsidian App

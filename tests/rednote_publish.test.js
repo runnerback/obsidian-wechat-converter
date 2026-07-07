@@ -7,6 +7,7 @@ import {
   rednoteCardFilename,
   syncCardsToRednoteFolder,
   buildRednoteArticle,
+  findXiaohongshuPlatformId,
 } from '../services/rednote-publish.js';
 
 const SAMPLE = `# FSD市区实测：偏弱但能用🔍
@@ -86,6 +87,19 @@ describe('buildRednoteArticle - 桥接 article 组装', () => {
     expect(article.markdown).toContain('![card_01.png](asset://image-1)');
     expect(article.cover).toBe('asset://image-0');
     expect(article.content).toContain('<img src="asset://image-0"');
+  });
+});
+
+describe('findXiaohongshuPlatformId - 平台匹配', () => {
+  it('按 id 含 xiaohongshu / 名称含小红书 匹配', () => {
+    expect(findXiaohongshuPlatformId([{ id: 'zhihu', name: '知乎' }, { id: 'xiaohongshu', name: '小红书' }])).toBe('xiaohongshu');
+    expect(findXiaohongshuPlatformId([{ id: 'xhs-web', name: 'RED' }])).toBe('');
+    expect(findXiaohongshuPlatformId([{ id: 'xhs', name: 'RED' }])).toBe('xhs');
+    expect(findXiaohongshuPlatformId([{ id: 'red-1', name: '小红书笔记' }])).toBe('red-1');
+  });
+  it('列表为空/无匹配返回空串', () => {
+    expect(findXiaohongshuPlatformId([])).toBe('');
+    expect(findXiaohongshuPlatformId(null)).toBe('');
   });
 });
 

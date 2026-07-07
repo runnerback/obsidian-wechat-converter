@@ -514,9 +514,6 @@ class AppleStyleView extends ItemView {
       if (this.platformSelectEl) this.platformSelectEl.value = mode;
       previewWrapper.classList.toggle('is-hidden', mode === 'rednote');
       this.rednoteContainer.classList.toggle('is-hidden', mode !== 'rednote');
-      // 顶栏发布按钮提示随平台切换
-      const sendLabel = mode === 'rednote' ? '发布到小红书' : '发布与分发';
-      this.sendBtn?.setAttribute('aria-label', sendLabel);
       if (mode === 'rednote' && !this.rednoteController) {
         // 懒加载:动态 import 保持测试链(CJS require(input.js))不触碰 TS
         const { RedPreviewController } = await import('./rednote/view.ts');

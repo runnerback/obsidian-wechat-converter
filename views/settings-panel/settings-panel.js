@@ -82,9 +82,9 @@ export const settingsPanelMixin = {
       this.copyBtn = null;
     }
 
-    // [同步] 按钮（始终显示）:按当前平台分流发布流程
-    //   公众号 → 发布与分发窗口;小红书 → 图卡渲染 + sync-to-rednote + 桥接投递
-    this.sendBtn = createIconBtn('send', '发布与分发', () => this.handlePublishAction());
+    // [同步] 按钮（始终显示）:所有平台统一走「发布与分发」窗口;
+    // 小红书的图卡链路在窗口的「其他平台」tab 勾选后由发送流程自动执行
+    this.sendBtn = createIconBtn('send', '发布与分发', () => this.showSyncModal());
 
     // 2. 创建悬浮设置层 (初始隐藏)
     this.settingsOverlay = container.createEl('div', { cls: 'apple-settings-overlay' });

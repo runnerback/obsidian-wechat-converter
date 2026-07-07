@@ -42,6 +42,7 @@ import {
 } from '../connection-status-bar.js';
 
 import { stripMarkdownFrontmatter } from '../../services/markdown-utils.js';
+import { findXiaohongshuPlatformId } from '../../services/rednote-publish.js';
 import {
   DEFAULT_MAX_IMAGE_SIZE_BYTES,
   findAssetForCover,
@@ -868,8 +869,43 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     syncBtn.disabled = true;
     syncBtn.addClass?.('apple-btn-disabled');
     const sendStartedAt = Date.now();
-    const requestedPlatformIds = Array.from(selectedPlatforms);
+    // 小红书:总是走 rednote 图卡链路(单独投递);其余平台走下方通用文字链路。
+    // 图卡链路失败只跳过小红书,不阻断其他平台。
+    const xhsPlatformId = findXiaohongshuPlatformId(
+      toRecord(view.plugin.settings.multiPlatformSync).supportedPlatforms
+    );
+    const wantsXiaohongshu = !!xhsPlatformId && selectedPlatforms.has(xhsPlatformId);
+    const requestedPlatformIds = Array.from(selectedPlatforms)
+      .filter((id) => !wantsXiaohongshu || id !== xhsPlatformId);
     try {
+      if (wantsXiaohongshu) {
+        try {
+          notice.setMessage('正在准备小红书图卡...');
+          const prep = await view.prepareRednoteCardArticle();
+          notice.setMessage('正在投递小红书图卡...');
+          const redBridge = view.plugin.getWechatSyncBridgeService();
+          await redBridge.enqueueSyncArticle({
+            platforms: [xhsPlatformId],
+            title: prep.article.title,
+            markdown: prep.article.markdown,
+            content: prep.article.content,
+            cover: prep.article.cover,
+            assets: prep.article.assets,
+            source: 'obsidian',
+          });
+          new Notice(`✅ 小红书图卡已投递(${prep.cardCount} 张,已存 ${prep.dirPath}/)。请到浏览器插件任务窗口或小红书草稿箱查看。`, 10000);
+        } catch (redError) {
+          new Notice(`⚠️ 已跳过小红书：${toReadableError(redError).message}`, 10000);
+        }
+        if (requestedPlatformIds.length === 0) {
+          // 只勾了小红书:图卡链路已处理完毕,不再走通用链路
+          notice.hide();
+          modal.close();
+          return;
+        }
+        notice.setMessage('正在准备并发送到浏览器插件...');
+      }
+
       const resolvedImages = toResolvedImages(await resolveArticleImages(rawMarkdown, activeFile, {
         app: view.app,
         cover: rawCover,
