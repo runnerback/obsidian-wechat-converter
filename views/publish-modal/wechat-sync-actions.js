@@ -214,7 +214,10 @@ export const wechatSyncActionsMixin = {
       return;
     }
 
-    const notice = new Notice(`🚀 正在使用 ${account.name} 同步...`, 0);
+    // 同步通道标识：让用户在提示里一眼看到走没走 API 代理
+    const usingProxy = !!String(this.plugin.settings.proxyUrl || '').trim();
+    const proxyTag = usingProxy ? '（经 API 代理）' : '（直连微信）';
+    const notice = new Notice(`🚀 正在使用 ${account.name} 同步...${proxyTag}`, 0);
     const activeFile = this.getPublishContextFile();
     const publishMeta = this.getFrontmatterPublishMeta(activeFile);
 
@@ -271,7 +274,7 @@ export const wechatSyncActionsMixin = {
       }
 
       notice.hide();
-      new Notice(isUpdate ? '✅ 更新成功！微信草稿已更新' : '✅ 同步成功！请前往微信公众号后台草稿箱查看');
+      new Notice((isUpdate ? '✅ 更新成功！微信草稿已更新' : '✅ 同步成功！请前往微信公众号后台草稿箱查看') + proxyTag);
       if (activeFile) {
         await this.recordPublishStatus(activeFile, {
           successfulTargets: [{ platform: 'wechat', kind: 'draft', account: account.name || account.id || '' }],

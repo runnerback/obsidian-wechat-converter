@@ -427,7 +427,11 @@ export class AppleStyleSettingTab extends PluginSettingTab {
         if (text.inputEl && typeof text.inputEl.setAttribute === 'function') {
           text.inputEl.setCssStyles?.({ width: '320px', maxWidth: '100%' });
         }
-      });
+      })
+      .addButton(button => button
+        .setButtonText('测试代理')
+        .setTooltip('测试代理是否连通、能否转发到微信')
+        .onClick(() => this.testProxyConnection(button)));
 
     }
 
@@ -688,6 +692,42 @@ export class AppleStyleSettingTab extends PluginSettingTab {
    * 复用上方「默认 AI Provider」的 API Key / Base URL（DeepSeek），这里只单独选模型。
    * @param {any} containerEl
    */
+  /**
+   * 测试 API 代理：构造一个哑请求经代理转发到微信，看是否收到微信响应。
+   * 收到微信 JSON（哪怕是 40013 invalid appid 这类 errcode）= 代理转发链路正常；
+   * 抛错（401/403/网络）= 代理不可用或口令不对。
+   * @param {any} [button] 可选，测试期间禁用/改文案
+   */
+  async testProxyConnection(button) {
+    const proxyUrl = String(this.plugin.settings.proxyUrl || '').trim();
+    if (!proxyUrl) {
+      new Notice('请先填写 API 代理地址');
+      return;
+    }
+    if (!proxyUrl.toLowerCase().startsWith('https://')) {
+      new Notice('❌ 代理地址必须使用 https://');
+      return;
+    }
+    if (button?.setButtonText) button.setButtonText('测试中…');
+    if (button?.setDisabled) button.setDisabled(true);
+    try {
+      // 哑凭证 + 哑请求：只验证"代理能否把请求转发到微信并带回响应"，不涉及真实账号
+      const api = new WechatAPI('PROXY_TEST', 'PROXY_TEST', proxyUrl, this.plugin.settings.clientId);
+      const testUrl = 'https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=PROXY_TEST&secret=PROXY_TEST';
+      const result = await api.sendRequest(testUrl, { method: 'GET' });
+      if (result && result.errcode !== undefined) {
+        new Notice(`✅ 代理生效：请求已经代理转发到微信并收到响应（errcode ${result.errcode}）`, 6000);
+      } else {
+        new Notice('✅ 代理已连通', 5000);
+      }
+    } catch (error) {
+      new Notice(`❌ 代理测试失败：${toReadableError(error).message}`, 9000);
+    } finally {
+      if (button?.setButtonText) button.setButtonText('测试代理');
+      if (button?.setDisabled) button.setDisabled(false);
+    }
+  }
+
   renderTitlePolishSection(containerEl) {
     const providers = this.plugin.settings.ai?.providers || [];
     const defaultProviderId = this.plugin.settings.ai?.defaultProviderId;
