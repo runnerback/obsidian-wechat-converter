@@ -894,6 +894,14 @@ async function showMultiPlatformPublishModal(view, options = {}) {
             source: 'obsidian',
           });
           new Notice(`✅ 小红书图卡已投递(${prep.cardCount} 张,已存 ${prep.dirPath}/)。请到浏览器插件任务窗口或小红书草稿箱查看。`, 10000);
+          // 属性标签:与微信/飞书/多平台复用同一 recordPublishStatus
+          //(publish_status / publish_platforms / publish_time … 英文 key,累加去重)
+          if (activeFile && typeof view.recordPublishStatus === 'function') {
+            await view.recordPublishStatus(activeFile, {
+              successfulTargets: [{ platform: xhsPlatformId, kind: 'draft' }],
+              requestedCount: 1,
+            });
+          }
         } catch (redError) {
           new Notice(`⚠️ 已跳过小红书：${toReadableError(redError).message}`, 10000);
         }
