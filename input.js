@@ -467,11 +467,6 @@ class AppleStyleView extends ItemView {
     // 创建设置面板
     this.createSettingsPanel(container);
 
-    // 预览模式切换条:公众号(默认) / 小红书图卡(rednote,自 note-to-red 移植)
-    const modeBar = container.createEl('div', { cls: 'apple-preview-mode-bar' });
-    const wechatModeBtn = modeBar.createEl('button', { cls: 'apple-preview-mode-btn is-active', text: '公众号' });
-    const rednoteModeBtn = modeBar.createEl('button', { cls: 'apple-preview-mode-btn', text: '小红书' });
-
     // 创建预览区 - 根据设置决定是否使用手机框
     const usePhoneFrame = this.plugin.settings.usePhoneFrame && !isMobileClient(this.app);
     const previewWrapper = container.createEl('div', {
@@ -512,14 +507,16 @@ class AppleStyleView extends ItemView {
     this.rednoteController = null;
     this._previewMode = 'wechat';
 
-    /** @param {'wechat' | 'rednote'} mode */
+    /** @param {'wechat' | 'rednote'} mode 由顶栏平台下拉调用 */
     this.setPreviewMode = async (mode) => {
       if (mode === this._previewMode) return;
       this._previewMode = mode;
-      wechatModeBtn.classList.toggle('is-active', mode === 'wechat');
-      rednoteModeBtn.classList.toggle('is-active', mode === 'rednote');
+      if (this.platformSelectEl) this.platformSelectEl.value = mode;
       previewWrapper.classList.toggle('is-hidden', mode === 'rednote');
       this.rednoteContainer.classList.toggle('is-hidden', mode !== 'rednote');
+      // 顶栏发布按钮提示随平台切换
+      const sendLabel = mode === 'rednote' ? '发布到小红书' : '发布与分发';
+      this.sendBtn?.setAttribute('aria-label', sendLabel);
       if (mode === 'rednote' && !this.rednoteController) {
         // 懒加载:动态 import 保持测试链(CJS require(input.js))不触碰 TS
         const { RedPreviewController } = await import('./rednote/view.ts');
@@ -527,14 +524,11 @@ class AppleStyleView extends ItemView {
           this.app,
           this,
           this.plugin.themeManager,
-          this.plugin.settingsManager,
-          { onPublish: () => this.publishRednoteCards() }
+          this.plugin.settingsManager
         );
         await this.rednoteController.mount(this.rednoteContainer);
       }
     };
-    wechatModeBtn.addEventListener('click', () => { this.setPreviewMode('wechat'); });
-    rednoteModeBtn.addEventListener('click', () => { this.setPreviewMode('rednote'); });
 
     this.setPlaceholder();
 

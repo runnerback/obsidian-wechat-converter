@@ -6434,32 +6434,20 @@ div.modal.wechat-material-picker-modal-mobile {
 
 /* src/styles/index.css */
 
-/* ==== 预览模式切换条(公众号 / 小红书)==== */
-.apple-preview-mode-bar {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  padding: 6px 8px 0;
-  flex: 0 0 auto;
-}
-.apple-preview-mode-btn {
-  padding: 4px 16px;
-  font-size: 12px;
+/* ==== 顶栏平台下拉(公众号 / 小红书,决定预览与发布流程)==== */
+.apple-toolbar-platform-select {
+  margin-left: 8px;
+  padding: 1px 22px 1px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  height: auto;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 14px;
-  background: transparent;
-  color: var(--text-muted);
+  border-radius: 10px;
+  background: var(--background-secondary);
+  color: var(--text-normal);
   cursor: pointer;
 }
-.apple-preview-mode-btn.is-active {
-  background: var(--interactive-accent);
-  border-color: var(--interactive-accent);
-  color: var(--text-on-accent);
-  font-weight: 600;
-}
-.apple-preview-mode-bar .apple-preview-mode-btn:hover:not(.is-active) {
-  color: var(--text-normal);
-}
+.apple-toolbar-platform-select:focus { outline: none; border-color: var(--interactive-accent); }
 
 /* rednote 嵌入容器:占满预览区剩余空间,内部自滚动 */
 .red-embed-container {
@@ -6472,10 +6460,3 @@ div.modal.wechat-material-picker-modal-mobile {
 .red-embed-container.is-hidden { display: none; }
 .apple-preview-wrapper.is-hidden { display: none; }
 
-/* 发布到小红书按钮:用小红书品牌红区分于普通导出按钮 */
-.red-publish-button {
-  background: #ff2442 !important;
-  color: #fff !important;
-  border-color: #ff2442 !important;
-}
-.red-publish-button:hover:not(:disabled) { filter: brightness(0.92); }

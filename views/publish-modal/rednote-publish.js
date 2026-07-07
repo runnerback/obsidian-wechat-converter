@@ -48,6 +48,23 @@ function findXiaohongshuPlatformId(platforms) {
 
 export const rednotePublishMixin = {
   /**
+   * 顶栏「发布」按钮统一入口:按当前预览平台分流。
+   * 公众号 → 原「发布与分发」窗口;小红书 → 图卡发布链路。
+   */
+  async handlePublishAction() {
+    const view = /** @type {any} */ (this);
+    if (view._previewMode === 'rednote') {
+      try {
+        await view.publishRednoteCards();
+      } catch (error) {
+        new Notice(`❌ 发布到小红书失败：${toReadableError(error).message}`, 9000);
+      }
+      return;
+    }
+    view.showSyncModal();
+  },
+
+  /**
    * rednote 预览底部「发布到小红书」的执行体(由 RedPreviewController 回调)。
    * 任何一步失败直接抛错(按钮侧统一 Notice),不做静默兜底。
    */

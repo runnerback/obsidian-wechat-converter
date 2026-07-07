@@ -22,12 +22,21 @@ export const settingsPanelMixin = {
     // 1. 创建顶部工具栏
     const toolbar = container.createEl('div', { cls: 'apple-top-toolbar' });
 
-    // 1.1 左侧：双层信息（插件名 + 文档名）
+    // 1.1 左侧：双层信息（插件名 + 平台下拉 + 文档名）
     this.currentDocLabel = toolbar.createEl('div', { cls: 'apple-toolbar-title' });
     if (!isMobileClient(this.app)) {
       const pluginLine = this.currentDocLabel.createDiv({ cls: 'apple-toolbar-plugin-line' });
       pluginLine.createEl('span', { text: APPLE_STYLE_VIEW_TITLE, cls: 'apple-toolbar-plugin-name' });
-      pluginLine.createEl('span', { text: '公众号预览', cls: 'apple-toolbar-preview-badge' });
+      // 平台切换下拉:决定预览模式与发布流程(后续新增平台在此加 option)
+      const platformSelect = pluginLine.createEl('select', { cls: 'apple-toolbar-platform-select' });
+      platformSelect.createEl('option', { value: 'wechat', text: '公众号' });
+      platformSelect.createEl('option', { value: 'rednote', text: '小红书' });
+      platformSelect.addEventListener('change', () => {
+        this.setPreviewMode?.(platformSelect.value);
+      });
+      this.platformSelectEl = platformSelect;
+    } else {
+      this.platformSelectEl = null;
     }
     this.docTitleText = this.currentDocLabel.createDiv({ text: '未选择文档', cls: 'apple-toolbar-doc-name' });
 
@@ -71,8 +80,9 @@ export const settingsPanelMixin = {
       this.copyBtn = null;
     }
 
-    // [同步] 按钮（始终显示；未配置账号时点击后引导去设置）
-    createIconBtn('send', '发布与分发', () => this.showSyncModal());
+    // [同步] 按钮（始终显示）:按当前平台分流发布流程
+    //   公众号 → 发布与分发窗口;小红书 → 图卡渲染 + sync-to-rednote + 桥接投递
+    this.sendBtn = createIconBtn('send', '发布与分发', () => this.handlePublishAction());
 
     // 2. 创建悬浮设置层 (初始隐藏)
     this.settingsOverlay = container.createEl('div', { cls: 'apple-settings-overlay' });
