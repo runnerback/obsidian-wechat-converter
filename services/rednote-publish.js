@@ -39,12 +39,13 @@ export function extractRednoteTitle(markdown) {
 }
 
 /**
- * 图卡文件名:card_00.png、card_01.png …(与用户既有命名习惯一致)
+ * 图卡文件名:synced-rednote-card_00.png、synced-rednote-card_01.png …
+ * 前缀标明"由发布链路自动导出",与手工放置的图片区分。
  * @param {number} index
  * @returns {string}
  */
 export function rednoteCardFilename(index) {
-  return `card_${String(index).padStart(2, '0')}.png`;
+  return `synced-rednote-card_${String(index).padStart(2, '0')}.png`;
 }
 
 /**

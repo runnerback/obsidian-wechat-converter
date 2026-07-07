@@ -72,19 +72,19 @@ describe('buildRednoteArticle - 桥接 article 组装', () => {
     expect(article.assets).toHaveLength(2);
     expect(article.assets[0]).toMatchObject({
       id: 'image-0',
-      filename: 'card_00.png',
+      filename: 'synced-rednote-card_00.png',
       mimeType: 'image/png',
       size: 3,
       base64: 'AAA',
     });
-    expect(article.assets[1].filename).toBe('card_01.png');
+    expect(article.assets[1].filename).toBe('synced-rednote-card_01.png');
   });
 
   it('markdown = 正文 + asset:// 图片引用;cover = 第一张卡', () => {
     const article = buildRednoteArticle({ title: 'T', body: '正文', cards });
     expect(article.markdown).toContain('正文');
-    expect(article.markdown).toContain('![card_00.png](asset://image-0)');
-    expect(article.markdown).toContain('![card_01.png](asset://image-1)');
+    expect(article.markdown).toContain('![synced-rednote-card_00.png](asset://image-0)');
+    expect(article.markdown).toContain('![synced-rednote-card_01.png](asset://image-1)');
     expect(article.cover).toBe('asset://image-0');
     expect(article.content).toContain('<img src="asset://image-0"');
   });
@@ -105,8 +105,8 @@ describe('findXiaohongshuPlatformId - 平台匹配', () => {
 
 describe('rednoteCardFilename', () => {
   it('两位补零', () => {
-    expect(rednoteCardFilename(0)).toBe('card_00.png');
-    expect(rednoteCardFilename(11)).toBe('card_11.png');
+    expect(rednoteCardFilename(0)).toBe('synced-rednote-card_00.png');
+    expect(rednoteCardFilename(11)).toBe('synced-rednote-card_11.png');
   });
 });
 
@@ -132,12 +132,12 @@ describe('syncCardsToRednoteFolder - 落盘(先清空再写)', () => {
     expect(dir).toBe('notes/文章目录/01 小红书/sync-to-rednote');
     expect(app.vault.createFolder).toHaveBeenCalledWith(dir);
     expect(app.vault.createBinary).toHaveBeenCalledTimes(2);
-    expect(app.vault.createBinary.mock.calls[0][0]).toBe(`${dir}/card_00.png`);
-    expect(app.vault.createBinary.mock.calls[1][0]).toBe(`${dir}/card_01.png`);
+    expect(app.vault.createBinary.mock.calls[0][0]).toBe(`${dir}/synced-rednote-card_00.png`);
+    expect(app.vault.createBinary.mock.calls[1][0]).toBe(`${dir}/synced-rednote-card_01.png`);
   });
 
   it('目录已存在时先清空其中文件再写入', async () => {
-    const oldFiles = [{ path: 'x/card_00.png' }, { path: 'x/other.jpg' }];
+    const oldFiles = [{ path: 'x/synced-rednote-card_00.png' }, { path: 'x/other.jpg' }];
     const app = makeApp({ existingChildren: oldFiles });
     await syncCardsToRednoteFolder(app, noteFile, [new ArrayBuffer(1)]);
     expect(app.vault.delete).toHaveBeenCalledTimes(2);
