@@ -6434,20 +6434,35 @@ div.modal.wechat-material-picker-modal-mobile {
 
 /* src/styles/index.css */
 
-/* ==== 顶栏平台下拉(公众号 / 小红书,决定预览与发布流程)==== */
+/* ==== 顶栏平台下拉(操作区最左,公众号 / 小红书,决定预览与发布流程)==== */
+.apple-toolbar-platform-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+}
 .apple-toolbar-platform-select {
-  margin-left: 8px;
-  padding: 1px 22px 1px 8px;
-  font-size: 11px;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 2px 22px 2px 10px;
+  font-size: 12px;
   line-height: 1.5;
   height: auto;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--background-secondary);
   color: var(--text-normal);
   cursor: pointer;
 }
 .apple-toolbar-platform-select:focus { outline: none; border-color: var(--interactive-accent); }
+.apple-toolbar-platform-arrow {
+  position: absolute;
+  right: 6px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-normal);
+  pointer-events: none;
+}
 
 /* rednote 嵌入容器:占满预览区剩余空间,内部自滚动 */
 .red-embed-container {

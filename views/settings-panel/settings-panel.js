@@ -22,26 +22,28 @@ export const settingsPanelMixin = {
     // 1. 创建顶部工具栏
     const toolbar = container.createEl('div', { cls: 'apple-top-toolbar' });
 
-    // 1.1 左侧：双层信息（插件名 + 平台下拉 + 文档名）
+    // 1.1 左侧：双层信息（插件名 + 文档名）
     this.currentDocLabel = toolbar.createEl('div', { cls: 'apple-toolbar-title' });
     if (!isMobileClient(this.app)) {
       const pluginLine = this.currentDocLabel.createDiv({ cls: 'apple-toolbar-plugin-line' });
       pluginLine.createEl('span', { text: APPLE_STYLE_VIEW_TITLE, cls: 'apple-toolbar-plugin-name' });
-      // 平台切换下拉:决定预览模式与发布流程(后续新增平台在此加 option)
-      const platformSelect = pluginLine.createEl('select', { cls: 'apple-toolbar-platform-select' });
-      platformSelect.createEl('option', { value: 'wechat', text: '公众号' });
-      platformSelect.createEl('option', { value: 'rednote', text: '小红书' });
-      platformSelect.addEventListener('change', () => {
-        this.setPreviewMode?.(platformSelect.value);
-      });
-      this.platformSelectEl = platformSelect;
-    } else {
-      this.platformSelectEl = null;
     }
     this.docTitleText = this.currentDocLabel.createDiv({ text: '未选择文档', cls: 'apple-toolbar-doc-name' });
 
     // 1.2 右侧：操作按钮组
     const actions = toolbar.createEl('div', { cls: 'apple-toolbar-actions' });
+
+    // 平台切换下拉(操作区最左,带 ▾ 指示):决定预览模式与发布流程,
+    // 后续新增平台在此加 option
+    const platformWrap = actions.createEl('div', { cls: 'apple-toolbar-platform-wrap' });
+    const platformSelect = platformWrap.createEl('select', { cls: 'apple-toolbar-platform-select' });
+    platformSelect.createEl('option', { value: 'wechat', text: '公众号' });
+    platformSelect.createEl('option', { value: 'rednote', text: '小红书' });
+    platformWrap.createEl('span', { cls: 'apple-toolbar-platform-arrow', text: '▾' });
+    platformSelect.addEventListener('change', () => {
+      this.setPreviewMode?.(platformSelect.value);
+    });
+    this.platformSelectEl = platformSelect;
 
     // 按钮工厂函数
     /**
