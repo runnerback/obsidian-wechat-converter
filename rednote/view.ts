@@ -49,16 +49,21 @@ export class RedPreviewController {
     // #endregion
 
     // #region 基础视图方法
+    /** 宿主注入的发布回调(存在时在底部栏渲染「发布到小红书」按钮) */
+    private onPublish?: () => Promise<void>;
+
     constructor(
         app: App,
         hostComponent: RedPreviewController['hostComponent'],
         themeManager: ThemeManager,
-        settingsManager: SettingsManager
+        settingsManager: SettingsManager,
+        options?: { onPublish?: () => Promise<void> }
     ) {
         this.app = app;
         this.hostComponent = hostComponent;
         this.themeManager = themeManager;
         this.settingsManager = settingsManager;
+        this.onPublish = options?.onPublish;
         this.backgroundManager = new BackgroundManager();
         this.imgTemplateManager = new ImgTemplateManager(
             this.settingsManager,
@@ -389,6 +394,31 @@ export class RedPreviewController {
                 }
             }
         });
+
+        // 发布到小红书(宿主 wechat-converter 注入回调时才显示)
+        if (this.onPublish) {
+            const publishButton = parent.createEl('button', {
+                text: '发布到小红书',
+                cls: 'red-export-button red-publish-button'
+            });
+            publishButton.addEventListener('click', async () => {
+                if (!this.previewEl || !this.onPublish) return;
+                publishButton.disabled = true;
+                publishButton.setText('发布中...');
+                try {
+                    await this.onPublish();
+                    publishButton.setText('已投递');
+                } catch (error) {
+                    publishButton.setText('发布失败');
+                    new Notice(`发布到小红书失败：${error instanceof Error ? error.message : String(error)}`, 8000);
+                } finally {
+                    setTimeout(() => {
+                        publishButton.disabled = false;
+                        publishButton.setText('发布到小红书');
+                    }, 2500);
+                }
+            });
+        }
     }
 
     private initializeCopyButtonListener() {

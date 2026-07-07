@@ -99,6 +99,8 @@ export default [
 	      "services/feishu-settings.js",
 	      "services/feishu-sync.js",
       "services/path-utils.js",
+      "services/rednote-publish.js",
+      "views/publish-modal/rednote-publish.js",
       "services/markdown-source.js",
       "services/input-utils.js",
       "services/obsidian-adapters.js",

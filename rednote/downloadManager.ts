@@ -17,6 +17,57 @@ export class DownloadManager {
         };
     }
 
+    /**
+     * 导出全部图卡为 Blob 数组(发布到小红书用):复用 downloadAllImages 的
+     * 逐节显隐 + html-to-image 渲染逻辑,但不打 zip、不触发下载,按页序返回 PNG Blob。
+     */
+    static async exportAllImageBlobs(element: HTMLElement): Promise<Blob[]> {
+        const previewContainer = element.querySelector('.red-preview-container');
+        if (!previewContainer) throw new Error('找不到预览容器');
+
+        const VISIBLE_CLASS = 'red-section-visible';
+        const HIDDEN_CLASS = 'red-section-hidden';
+        const sections = previewContainer.querySelectorAll<HTMLElement>('.red-content-section');
+        if (!sections.length) throw new Error('没有可导出的图卡(请用二级标题分节)');
+
+        const originalVisibility = Array.from(sections).map(section => ({
+            visible: section.classList.contains(VISIBLE_CLASS),
+            hidden: section.classList.contains(HIDDEN_CLASS)
+        }));
+
+        const blobs: Blob[] = [];
+        try {
+            for (let i = 0; i < sections.length; i++) {
+                sections.forEach(section => {
+                    section.classList.add(HIDDEN_CLASS);
+                    section.classList.remove(VISIBLE_CLASS);
+                });
+                sections[i].classList.remove(HIDDEN_CLASS);
+                sections[i].classList.add(VISIBLE_CLASS);
+
+                await new Promise(resolve => setTimeout(resolve, 300));
+                const imageElement = element.querySelector<HTMLElement>('.red-image-preview');
+                if (!imageElement) throw new Error('找不到预览区域');
+
+                let blob = await htmlToImage.toBlob(imageElement, this.getExportConfig(imageElement));
+                if (!(blob instanceof Blob)) {
+                    // 备用:toCanvas → toBlob
+                    const canvas = await htmlToImage.toCanvas(imageElement, this.getExportConfig(imageElement));
+                    blob = await new Promise<Blob>((resolve, reject) => {
+                        canvas.toBlob((b) => b ? resolve(b) : reject(new Error(`第${i + 1}页导出失败`)), 'image/png', 1);
+                    });
+                }
+                blobs.push(blob);
+            }
+        } finally {
+            sections.forEach((section, index) => {
+                section.classList.toggle(VISIBLE_CLASS, originalVisibility[index].visible);
+                section.classList.toggle(HIDDEN_CLASS, originalVisibility[index].hidden);
+            });
+        }
+        return blobs;
+    }
+
     static async downloadAllImages(element: HTMLElement): Promise<void> {
         try {
             const zip = new JSZip();

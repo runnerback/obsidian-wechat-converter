@@ -134,6 +134,7 @@ import {
 import {
   createWechatSyncBridgeService,
 } from './services/wechatsync-bridge.js';
+import { rednotePublishMixin } from './views/publish-modal/rednote-publish.js';
 import { multiPlatformResultModalsMixin } from './views/publish-modal/multi-platform-result-modals.js';
 import { coverPickerMixin } from './views/publish-modal/cover-picker.js';
 import { wechatSyncActionsMixin } from './views/publish-modal/wechat-sync-actions.js';
@@ -526,7 +527,8 @@ class AppleStyleView extends ItemView {
           this.app,
           this,
           this.plugin.themeManager,
-          this.plugin.settingsManager
+          this.plugin.settingsManager,
+          { onPublish: () => this.publishRednoteCards() }
         );
         await this.rednoteController.mount(this.rednoteContainer);
       }
@@ -2038,6 +2040,7 @@ class AppleStyleView extends ItemView {
  */
 import { AppleStyleSettingTab } from './views/settings/apple-style-setting-tab.js';
 
+Object.assign(AppleStyleView.prototype, rednotePublishMixin);
 Object.assign(AppleStyleView.prototype, multiPlatformResultModalsMixin);
 Object.assign(AppleStyleView.prototype, coverPickerMixin);
 Object.assign(AppleStyleView.prototype, wechatSyncActionsMixin);

@@ -6471,3 +6471,11 @@ div.modal.wechat-material-picker-modal-mobile {
 }
 .red-embed-container.is-hidden { display: none; }
 .apple-preview-wrapper.is-hidden { display: none; }
+
+/* 发布到小红书按钮:用小红书品牌红区分于普通导出按钮 */
+.red-publish-button {
+  background: #ff2442 !important;
+  color: #fff !important;
+  border-color: #ff2442 !important;
+}
+.red-publish-button:hover:not(:disabled) { filter: brightness(0.92); }
