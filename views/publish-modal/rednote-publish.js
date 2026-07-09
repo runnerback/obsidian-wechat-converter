@@ -68,6 +68,11 @@ export const rednotePublishMixin = {
       const { DownloadManager } = await import('../../rednote/index.ts');
       const blobs = await DownloadManager.exportAllImageBlobs(previewEl);
 
+      // 0 图卡=预览没渲染出内容,直接暴露(不静默发空 article 让下游报"无图片")
+      if (!blobs.length) {
+        throw new Error('小红书预览未渲染出任何图卡,请先在顶栏切到「小红书」预览、确认图卡显示后再发布');
+      }
+
       notice.setMessage(`正在处理 ${blobs.length} 张图卡...`);
       const cards = [];
       const buffers = [];
