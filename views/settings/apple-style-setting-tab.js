@@ -149,30 +149,38 @@ export class AppleStyleSettingTab extends PluginSettingTab {
     const feishuTab = tabBar.createDiv({ cls: 'apple-settings-tab', text: '飞书' });
     const multiTab = tabBar.createDiv({ cls: 'apple-settings-tab apple-settings-tab-multi' });
     multiTab.createSpan({ text: MULTI_PLATFORM_TAB_LABEL, cls: 'apple-settings-tab-label' });
+    const rednoteTab = tabBar.createDiv({ cls: 'apple-settings-tab', text: '小红书' });
 
     const wechatContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
     const feishuContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
     feishuContent.setCssStyles({ display: 'none' });
     const multiContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
     multiContent.setCssStyles({ display: 'none' });
+    const rednoteContent = containerEl.createDiv({ cls: 'apple-settings-tab-content' });
+    rednoteContent.setCssStyles({ display: 'none' });
+    let rednoteRendered = false;
 
     wechatTab.onclick = () => {
       this._activeSettingsTab = 'wechat';
       wechatTab.addClass('active');
       feishuTab.removeClass('active');
       multiTab.removeClass('active');
+      rednoteTab.removeClass('active');
       wechatContent.setCssStyles({ display: '' });
       feishuContent.setCssStyles({ display: 'none' });
       multiContent.setCssStyles({ display: 'none' });
+      rednoteContent.setCssStyles({ display: 'none' });
     };
     feishuTab.onclick = () => {
       this._activeSettingsTab = 'feishu';
       feishuTab.addClass('active');
       wechatTab.removeClass('active');
       multiTab.removeClass('active');
+      rednoteTab.removeClass('active');
       wechatContent.setCssStyles({ display: 'none' });
       feishuContent.setCssStyles({ display: '' });
       multiContent.setCssStyles({ display: 'none' });
+      rednoteContent.setCssStyles({ display: 'none' });
       renderFeishuSettingsTab(this, feishuContent, { obsidianApi });
     };
     multiTab.onclick = () => {
@@ -180,9 +188,38 @@ export class AppleStyleSettingTab extends PluginSettingTab {
       multiTab.addClass('active');
       wechatTab.removeClass('active');
       feishuTab.removeClass('active');
+      rednoteTab.removeClass('active');
       wechatContent.setCssStyles({ display: 'none' });
       feishuContent.setCssStyles({ display: 'none' });
       multiContent.setCssStyles({ display: '' });
+      rednoteContent.setCssStyles({ display: 'none' });
+    };
+    rednoteTab.onclick = () => {
+      this._activeSettingsTab = 'rednote';
+      rednoteTab.addClass('active');
+      wechatTab.removeClass('active');
+      feishuTab.removeClass('active');
+      multiTab.removeClass('active');
+      wechatContent.setCssStyles({ display: 'none' });
+      feishuContent.setCssStyles({ display: 'none' });
+      multiContent.setCssStyles({ display: 'none' });
+      rednoteContent.setCssStyles({ display: '' });
+      // 首次激活时懒加载上游 RedSettingTab（用户信息/标题级别/主题管理/字体管理等）
+      if (rednoteRendered) return;
+      rednoteRendered = true;
+      (async () => {
+        try {
+          const { RedSettingTab } = await import('../../rednote/index.ts');
+          const tab = new RedSettingTab(this.app, this.plugin);
+          tab.containerEl = rednoteContent;
+          tab.display();
+        } catch (error) {
+          rednoteContent.createEl('p', {
+            text: `小红书设置加载失败：${toReadableError(error).message}`,
+            cls: 'setting-item-description',
+          });
+        }
+      })();
     };
 
     // 恢复上次激活的 Tab
@@ -190,6 +227,8 @@ export class AppleStyleSettingTab extends PluginSettingTab {
       feishuTab.onclick();
     } else if (this._activeSettingsTab === 'multi') {
       multiTab.onclick();
+    } else if (this._activeSettingsTab === 'rednote') {
+      rednoteTab.onclick();
     }
 
     // === 微信 Tab ===
@@ -396,8 +435,6 @@ export class AppleStyleSettingTab extends PluginSettingTab {
     this.renderAiSettingsSection(containerEl);
 
     this.renderTitlePolishSection(containerEl);
-
-    this.renderRednoteSettingsSection(containerEl);
 
     // 高级设置
     new Setting(containerEl)
@@ -728,40 +765,6 @@ export class AppleStyleSettingTab extends PluginSettingTab {
       if (button?.setButtonText) button.setButtonText('测试代理');
       if (button?.setDisabled) button.setDisabled(false);
     }
-  }
-
-  /**
-   * 小红书图卡(rednote,自 note-to-red 全量移植)设置区。
-   * 折叠区内异步渲染上游 RedSettingTab(用户信息/标题级别/主题管理/字体管理等);
-   * 动态 import 保持测试链(CJS require)不触碰 TS。
-   * @param {any} containerEl
-   */
-  renderRednoteSettingsSection(containerEl) {
-    const details = containerEl.createEl('details', { cls: 'apple-settings-details' });
-    details.createEl('summary', {
-      cls: 'apple-settings-summary',
-      text: '小红书图卡(Note to RED)'
-    });
-    const area = details.createDiv({ cls: 'apple-settings-area apple-settings-advanced-area' });
-
-    let rendered = false;
-    details.addEventListener('toggle', () => {
-      if (!details.open || rendered) return;
-      rendered = true;
-      (async () => {
-        try {
-          const { RedSettingTab } = await import('../../rednote/index.ts');
-          const tab = new RedSettingTab(this.app, this.plugin);
-          tab.containerEl = area;
-          tab.display();
-        } catch (error) {
-          area.createEl('p', {
-            text: `小红书图卡设置加载失败：${toReadableError(error).message}`,
-            cls: 'setting-item-description',
-          });
-        }
-      })();
-    });
   }
 
   renderTitlePolishSection(containerEl) {
