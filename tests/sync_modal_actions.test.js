@@ -194,7 +194,7 @@ describe('AppleStyleView - sync action modal flows', () => {
   });
 
   it('showSyncFailureActions should show proxy auth error message and hide unlink button', () => {
-    view.showSyncFailureActions('Token 无效，请联系作者获取', {
+    view.showSyncFailureActions('Token 无效，请检查代理配置', {
       isProxyAuth: true,
       draftAssociation: {
         sourcePath: 'folder/note.md',

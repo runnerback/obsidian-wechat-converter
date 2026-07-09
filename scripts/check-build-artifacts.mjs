@@ -3,7 +3,6 @@ import { execFileSync } from "node:child_process";
 
 const GENERATED_ARTIFACTS = [
   "main.js",
-  "services/generated-embedded-deps.js",
   "services/ai-layout-runtime/generated-skills.js",
 ];
 

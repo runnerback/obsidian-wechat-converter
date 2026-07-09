@@ -261,21 +261,6 @@ export function parseHtmlFragment(html = '') {
  * @param {string} [html]
  * @returns {T | null | undefined}
  */
-export function appendHtmlFragment(element, html = '') {
-  if (!element) return element;
-  const fragment = parseHtmlFragment(html);
-  if (fragment) {
-    element.appendChild(fragment);
-  }
-  return element;
-}
-
-/**
- * @template {Element} T
- * @param {T | null | undefined} element
- * @param {string} [html]
- * @returns {T | null | undefined}
- */
 export function setElementHtml(element, html = '') {
   if (!element) return element;
   const fragment = parseHtmlFragment(html);

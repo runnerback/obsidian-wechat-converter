@@ -54,7 +54,7 @@ export const multiPlatformResultModalsMixin = {
       const syncIdText = taskId ? `（任务 ${taskId}）` : '';
       const fallbackText = usedFallbackSend ? '当前插件未提供任务 ID，' : '';
       const quotaText = skippedPlatformIds.length
-        ? `已跳过 ${skippedPlatformIds.length} 个超出今日额度的平台。`
+        ? `已跳过 ${skippedPlatformIds.length} 个平台。`
         : '';
       new Notice(`✅ 已发送到浏览器插件${syncIdText}。${fallbackText}${quotaText}请在浏览器插件的历史或目标平台草稿箱查看结果。`, 10000);
       return;
@@ -99,11 +99,11 @@ export const multiPlatformResultModalsMixin = {
     };
     summary.createEl('div', {
       cls: 'wechat-multiplatform-result-summary-title',
-      text: skippedPlatformIds.length ? '已按免费版额度投递' : '任务已交给浏览器插件',
+      text: skippedPlatformIds.length ? '部分平台已跳过' : '任务已交给浏览器插件',
     });
     summary.createEl('p', {
       text: skippedPlatformIds.length
-        ? `已发布到：${formatPlatformNames(publishedPlatformIds)}。跳过 ${skippedPlatformIds.length} 个超出今日额度的平台：${formatPlatformNames(skippedPlatformIds)}。升级 Pro 可发布到全部平台。`
+        ? `已发布到：${formatPlatformNames(publishedPlatformIds)}。跳过 ${skippedPlatformIds.length} 个平台：${formatPlatformNames(skippedPlatformIds)}。`
         : (taskId
           ? 'Obsidian 已完成投递，不会长时间等待所有平台完成。后续草稿链接、失败原因和重试请在浏览器插件任务窗口里查看。'
           : '当前插件版本没有返回任务 ID。文章已发送，请在浏览器插件历史记录中查看最近任务。'),
@@ -171,16 +171,12 @@ export const multiPlatformResultModalsMixin = {
       const body = row.createDiv({ cls: 'wechat-multiplatform-result-body' });
       body.createEl('div', { text: platformName, cls: 'wechat-multiplatform-result-name' });
       body.createEl('div', {
-        text: '免费版每天 3 个平台额度，当前平台未入队。',
+        text: '该平台本次未入队。',
         cls: 'wechat-multiplatform-result-detail',
       });
     }
 
     const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
-    if (quotaRecord.quotaBlocked) {
-      const upgradeBtn = btnRow.createEl('button', { text: '升级 Pro' });
-      upgradeBtn.onclick = () => this.openPublisherProPage();
-    }
     const closeBtn = btnRow.createEl('button', { text: '关闭' });
     closeBtn.onclick = () => modal.close();
     if (taskId) {
@@ -214,12 +210,11 @@ export const multiPlatformResultModalsMixin = {
         .filter(Boolean);
       return names.length ? names.join('、') : '无';
     };
-    const reason = quotaResult?.reason || '';
     const rawMessage = typeof quotaResult?.message === 'string' ? quotaResult.message.trim() : '';
     const legacyQuotaMessage = /单次最多|每次最多|每天最多发布\s*1\s*次|每天最多\s*1\s*次/.test(rawMessage);
     const summaryText = rawMessage && !legacyQuotaMessage
       ? rawMessage
-      : '免费版今日平台额度不足，明天 0:00 重置，或升级 Pro。';
+      : '本次有平台未入队，请稍后重试。';
 
     if (typeof getObsidianModalClass() !== 'function') {
       new Notice(summaryText, 10000);
@@ -238,7 +233,7 @@ export const multiPlatformResultModalsMixin = {
     const summary = modal.contentEl.createDiv({ cls: 'wechat-multiplatform-result-summary is-warning is-quota-blocked' });
     summary.createEl('div', {
       cls: 'wechat-multiplatform-result-summary-title',
-      text: reason === 'daily_limit' ? '今日平台额度不足' : '免费版平台额度不足',
+      text: '部分平台未入队',
     });
     summary.createEl('p', { text: summaryText });
     summary.createEl('div', {
@@ -249,8 +244,6 @@ export const multiPlatformResultModalsMixin = {
     });
 
     const btnRow = modal.contentEl.createDiv({ cls: 'wechat-modal-buttons' });
-    const upgradeBtn = btnRow.createEl('button', { text: '升级 Pro', cls: 'mod-cta' });
-    upgradeBtn.onclick = () => this.openPublisherProPage();
     const closeBtn = btnRow.createEl('button', { text: '关闭' });
     closeBtn.onclick = () => modal.close();
 

@@ -15,7 +15,6 @@
 
 > 本项目基于开源项目 [ai-writing-plugins](https://github.com/Ceeon/ai-writing-plugins) 进行深度重构与迭代开发。我们致力于打造 Obsidian 生态中体验最好的公众号排版工具。
 
-如果这个插件帮你节省了公众号排版、复制或同步草稿箱的时间，欢迎[支持项目继续维护](./docs/support.md)。
 
 
 ## 🚀 发布能力一览
@@ -383,22 +382,21 @@
 4. 搜索 `Wechat converter` 或 `微信公众号排版转换器`。
 5. 点击 **安装** (Install)，安装完成后点击 **启用** (Enable)。
 
-### 方式二：BRAT 安装（测试版/抢先体验）
+### 方式二：本地构建安装（自维护）
 
-如果你使用 BRAT 管理插件更新并希望体验最新的 Beta 特性：
-1. 安装并启用 BRAT 插件。
-2. 在 BRAT 中添加仓库：`DavidLam-oss/obsidian-wechat-converter`。
+本项目为本地自维护版本，通过本地构建部署：
+1. `npm install` 安装依赖。
+2. 执行 `bash dev-install.sh` 构建并部署到 Obsidian 插件目录。
 3. 安装后执行一次冒烟检查：
    - 打开转换面板
    - 预览渲染
    - 复制到公众号
    - （可选）一键同步到草稿箱
 
-### 方式三：手动安装（GitHub Release）
+### 方式三：手动安装
 
-若您无法访问社区插件市场，可以手动进行安装：
-1. 从 [GitHub Releases](https://github.com/DavidLam-oss/obsidian-wechat-converter/releases) 下载最新的 `obsidian-wechat-converter.zip` 插件包。
-2. 解压并将其中的文件夹放入 Obsidian vault 的 `.obsidian/plugins/` 目录中。
+1. 本地执行 `npm run build` 生成三件套（`main.js` / `manifest.json` / `styles.css`）。
+2. 将其放入 Obsidian vault 的 `.obsidian/plugins/wechat-converter/` 目录中。
    > 最终路径应为：`.../.obsidian/plugins/obsidian-wechat-converter/`
 3. 确保文件夹内至少包含以下文件（三件套运行时）：
    - `main.js`
@@ -422,9 +420,6 @@
 
 本项目采用 [MIT License](LICENSE) 开源。
 
-## 👨‍💻 作者
+## 👨‍💻 维护
 
-**林小卫很行 (DavidLam)**
-
-一名热衷于提升生产力的开发者与内容创作者。
-如果您在使用过程中有任何问题、建议或发现了 Bug，欢迎随时在 GitHub Issue 区留言反馈。相信工具的力量，让创作更自由。
+本项目为本地自维护版本，仅供个人使用。

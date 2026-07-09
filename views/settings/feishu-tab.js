@@ -282,47 +282,6 @@ function renderFeishuSettingsTab(tab, containerEl, options = {}) {
     margin: '0 0 12px 0',
   });
 
-  // Link Row
-  const detailedLinkRow = guideCard.createDiv({ cls: 'wechat-feishu-guide-link-row' });
-  detailedLinkRow.setCssStyles({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    marginBottom: '18px',
-    padding: '8px 12px',
-    background: 'var(--background-primary)',
-    borderRadius: '6px',
-    border: '1px solid var(--background-modifier-border)',
-    flexWrap: 'wrap',
-  });
-
-  detailedLinkRow.createSpan({ text: '💡 ' });
-  const detailedLink = detailedLinkRow.createEl('a', {
-    text: '点击查看飞书同步详细图文配置与排障指南 ➔',
-    href: 'https://xiaoweibox.top/chats/feishu-sync',
-  });
-  detailedLink.onclick = (e) => {
-    e.preventDefault();
-    if (plugin && typeof plugin.openExternalUrl === 'function') {
-      plugin.openExternalUrl('https://xiaoweibox.top/chats/feishu-sync');
-    } else {
-      window.open('https://xiaoweibox.top/chats/feishu-sync', '_blank', 'noopener');
-    }
-  };
-  detailedLink.setCssStyles({
-    color: 'var(--text-accent)',
-    textDecoration: 'none',
-    fontWeight: '600',
-    fontSize: '13px',
-    cursor: 'pointer',
-  });
-  detailedLink.onmouseenter = () => {
-    detailedLink.setCssStyles({ textDecoration: 'underline' });
-  };
-  detailedLink.onmouseleave = () => {
-    detailedLink.setCssStyles({ textDecoration: 'none' });
-  };
-
   // Steps list
   const stepsContainer = guideCard.createDiv({ cls: 'guide-steps-list' });
   stepsContainer.setCssStyles({

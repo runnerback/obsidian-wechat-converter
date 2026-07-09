@@ -180,10 +180,6 @@ import {
 
 // 视图类型标识
 const APPLE_STYLE_VIEW = 'apple-style-converter';
-const OBSIDIAN_PUBLISHER_PRO_URL = 'https://xiaoweibox.top/obsidian-publisher/pro/';
-const OBSIDIAN_PUBLISHER_GUIDE_URL = 'https://xiaoweibox.top/obsidian-publisher/guide/';
-const OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL = `${OBSIDIAN_PUBLISHER_GUIDE_URL}?from=obsidian-plugin#install-extension`;
-const OBSIDIAN_PUBLISHER_BRIDGE_GUIDE_URL = `${OBSIDIAN_PUBLISHER_GUIDE_URL}?from=obsidian-plugin#bridge`;
 
 // Pure data helpers extracted to services/wechatsync-settings.js so the
 // views/ layer can normalize / read settings without depending on input.js.
@@ -1362,20 +1358,6 @@ class AppleStyleView extends ItemView {
 
     new Notice('无法打开草稿链接，请在浏览器插件中查看同步结果');
     return false;
-  }
-
-  openPublisherProPage() {
-    return this.openExternalUrl(OBSIDIAN_PUBLISHER_PRO_URL);
-  }
-
-  openPublisherGuidePage(section = '') {
-    if (section === 'bridge') {
-      return this.openExternalUrl(OBSIDIAN_PUBLISHER_BRIDGE_GUIDE_URL);
-    }
-    if (section === 'install-extension') {
-      return this.openExternalUrl(OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL);
-    }
-    return this.openExternalUrl(OBSIDIAN_PUBLISHER_GUIDE_URL);
   }
 
   showAccountSetupEmptyState() {

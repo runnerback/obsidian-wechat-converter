@@ -13,7 +13,6 @@ This plugin is built for writers who publish from Obsidian to WeChat Official Ac
 
 > This project is deeply refactored from [ai-writing-plugins](https://github.com/Ceeon/ai-writing-plugins). Proper attribution is retained in this repository.
 
-If this plugin saves you time when formatting, copying, or syncing WeChat articles, you can [support ongoing maintenance](./docs/support.md).
 
 
 ## Big Update: Feishu Cloud Documents and Multi-platform Publishing
@@ -225,22 +224,21 @@ This is the easiest and safest way to install the plugin:
 4. Search for `Wechat converter`.
 5. Click **Install**, and once completed, click **Enable**.
 
-### Method 2: BRAT (Beta / Early Access)
+### Method 2: Local Build (Self-Maintained)
 
-If you want to experience the latest features and updates before they are officially released:
-1. Install and enable the BRAT plugin.
-2. Add the Beta repository in BRAT: `DavidLam-oss/obsidian-wechat-converter`.
+This is a self-maintained build, deployed via a local build:
+1. Run `npm install`.
+2. Run `bash dev-install.sh` to build and deploy into your Obsidian plugins folder.
 3. Perform a quick smoke test after installation:
    - Open the converter panel
    - Check preview rendering
    - Copy once to WeChat
    - (Optional) Test draft sync
 
-### Method 3: Manual Installation (GitHub Release)
+### Method 3: Manual Installation
 
-If you cannot access the community plugin market:
-1. Download the latest `obsidian-wechat-converter.zip` release bundle from [GitHub Releases](https://github.com/DavidLam-oss/obsidian-wechat-converter/releases).
-2. Extract the archive into your vault under `.obsidian/plugins/obsidian-wechat-converter/`.
+1. Run `npm run build` locally to produce `main.js` / `manifest.json` / `styles.css`.
+2. Place them into your vault under `.obsidian/plugins/wechat-converter/`.
    > The final path must be: `.../.obsidian/plugins/obsidian-wechat-converter/`
 3. Verify that the folder contains at least:
    - `main.js`

@@ -244,32 +244,6 @@ export function normalizeMultiPlatformSyncSettings(value = {}) {
   };
 }
 
-export function getConfiguredWechatsyncPlatforms(settings = {}, cachedPlatforms = []) {
-  const normalizedSettings = normalizeMultiPlatformSyncSettings(settings);
-  /** @type {Map<string, PlatformLike>} */
-  const availableById = new Map(
-    mergeWechatsyncPlatformLists(getFallbackWechatsyncPlatforms(), normalizedSettings.supportedPlatforms)
-      .map((platform) => [platform.id, platform])
-  );
-  /** @type {Map<string, PlatformLike>} */
-  const cachedById = new Map(
-    (cachedPlatforms || [])
-      .map((platform) => normalizePlatformCandidate(platform))
-      .filter(Boolean)
-      .map((platform) => [platform.id, platform])
-  );
-
-  return (normalizedSettings.selectedPlatforms || [])
-    .map((id) => {
-      const fallback = availableById.get(id) || { id, name: id, custom: true };
-      const cached = cachedById.get(id);
-      return cached
-        ? { ...fallback, ...cached, authKnown: true }
-        : { ...fallback, authKnown: false, authenticated: false, username: '', error: '' };
-    })
-    .filter((platform) => platform.id !== 'weixin');
-}
-
 export function getAvailableWechatsyncPlatforms(settings = {}) {
   const normalizedSettings = normalizeMultiPlatformSyncSettings(settings);
   const catalog = /** @type {PlatformLike[]} */ (buildWechatsyncPlatformCatalog({

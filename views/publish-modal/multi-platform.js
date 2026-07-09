@@ -52,7 +52,6 @@ import {
 import { getActiveWindowValue } from '../../services/dom-utils.js';
 
 const QUOTA_POLICY = 'truncate';
-const FREE_DAILY_PLATFORM_QUOTA = 3;
 const MODAL_SELECTED_PLATFORM_IDS = '__wechatMultiPlatformSelectedPlatformIds';
 const MATERIAL_COVER_ASSET_TTL_MS = 5 * 60 * 1000;
 const MAX_MATERIAL_COVER_ASSET_CACHE_ENTRIES = 3;
@@ -111,19 +110,6 @@ function toRecordList(value) {
  */
 function toText(value) {
   return typeof value === 'string' ? value : '';
-}
-
-/**
- * @param {unknown} target
- * @param {string} methodName
- * @param {unknown[]} [args]
- * @returns {boolean | null}
- */
-function callBooleanMethod(target, methodName, args = []) {
-  const method = toRecord(target)[methodName];
-  if (typeof method !== 'function') return null;
-  const methodFn = /** @type {(...methodArgs: unknown[]) => unknown} */ (method);
-  return methodFn.apply(target, args) === true;
 }
 
 /**
@@ -304,25 +290,10 @@ function isUnsupportedBridgeError(error) {
 
 /**
  * @param {number} [selectedCount]
- * @param {{ proLicensed?: boolean }} [options]
  * @returns {string}
  */
-function getQuotaHintText(selectedCount = 0, { proLicensed = false } = {}) {
-  if (proLicensed) {
-    return selectedCount > 0
-      ? `已选 ${selectedCount} 个平台。Pro 已激活，无每日平台数量限制。`
-      : 'Pro 已激活，无每日平台数量限制。';
-  }
-  if (selectedCount > FREE_DAILY_PLATFORM_QUOTA) {
-    return `已选 ${selectedCount} 个平台；免费版每天 ${FREE_DAILY_PLATFORM_QUOTA} 个平台额度，超出部分会自动跳过。`;
-  }
-  if (selectedCount === FREE_DAILY_PLATFORM_QUOTA) {
-    return `已选 ${selectedCount} 个平台，刚好达到免费版每天 ${FREE_DAILY_PLATFORM_QUOTA} 个平台额度。`;
-  }
-  if (selectedCount > 0) {
-    return `已选 ${selectedCount} 个平台；免费版每天 ${FREE_DAILY_PLATFORM_QUOTA} 个平台额度。`;
-  }
-  return `免费版每天 ${FREE_DAILY_PLATFORM_QUOTA} 个平台额度。`;
+function getQuotaHintText(selectedCount = 0) {
+  return selectedCount > 0 ? `已选 ${selectedCount} 个平台。` : '选择要发布的平台。';
 }
 
 /**
@@ -333,32 +304,6 @@ function getQuotaHintText(selectedCount = 0, { proLicensed = false } = {}) {
 function isMobileClient(app, platformApi = null) {
   if (typeof platformApi?.isMobile === 'boolean') return platformApi.isMobile;
   return toRecord(app).isMobile === true;
-}
-
-/**
- * @param {unknown} view
- * @returns {boolean}
- */
-function openPublisherProPage(view) {
-  const openedProPage = callBooleanMethod(view, 'openPublisherProPage');
-  if (openedProPage !== null) return openedProPage;
-  const openedExternalUrl = callBooleanMethod(view, 'openExternalUrl', ['https://xiaoweibox.top/obsidian-publisher/pro/']);
-  if (openedExternalUrl !== null) return openedExternalUrl;
-  return false;
-}
-
-/**
- * @param {unknown} view
- * @param {string} [section]
- * @returns {boolean}
- */
-function openPublisherGuidePage(view, section = 'install-extension') {
-  const openedGuidePage = callBooleanMethod(view, 'openPublisherGuidePage', [section]);
-  if (openedGuidePage !== null) return openedGuidePage;
-  const hash = section === 'bridge' ? 'bridge' : 'install-extension';
-  const openedExternalUrl = callBooleanMethod(view, 'openExternalUrl', [`https://xiaoweibox.top/obsidian-publisher/guide/?from=obsidian-plugin#${hash}`]);
-  if (openedExternalUrl !== null) return openedExternalUrl;
-  return false;
 }
 
 function getBridgeSafeSessionCover(cover) {
@@ -586,35 +531,6 @@ async function detectQuotaPolicySupport(bridge, cachedConnection = {}) {
 
 /**
  * @param {PublishViewLike} view
- * @param {ConnectionLike} [cachedConnection]
- * @returns {Record<string, unknown>}
- */
-function resolvePublishModalCapabilities(view, cachedConnection = {}) {
-  const cachedCapabilities = normalizeWechatSyncCapabilities(toRecord(cachedConnection.capabilities));
-  const bridge = /** @type {BridgeLike} */ (view.plugin.getWechatSyncBridgeService());
-  const activeClient = typeof bridge.getActiveClientDescriptor === 'function'
-    ? bridge.getActiveClientDescriptor()
-    : null;
-  const activeClientRecord = toRecord(activeClient);
-  if (activeClientRecord.capabilities) {
-    return {
-      ...cachedCapabilities,
-      ...normalizeWechatSyncCapabilities(toRecord(activeClientRecord.capabilities)),
-    };
-  }
-
-  const status = typeof bridge.getStatus === 'function' ? toRecord(bridge.getStatus()) : {};
-  const connectedClients = toRecordList(status.connectedClients);
-  const liveClient = connectedClients.find((client) => client.status === 'connected' && client.capabilities);
-  const liveClientRecord = toRecord(liveClient);
-  return {
-    ...cachedCapabilities,
-    ...normalizeWechatSyncCapabilities(toRecord(liveClientRecord.capabilities)),
-  };
-}
-
-/**
- * @param {PublishViewLike} view
  * @param {PublishModalOptionsLike} [options]
  * @returns {ObsidianApiLike}
  */
@@ -673,38 +589,18 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     text: '💡 提示：多平台发布能力依赖于浏览器插件，建议在电脑端使用。',
     cls: 'wechat-multiplatform-tip',
   });
-  const publishModalCapabilities = resolvePublishModalCapabilities(view, cachedConnection);
-  const isProLicensed = publishModalCapabilities.proLicensed === true;
   const quotaHint = asModalElement(modal.contentEl.createDiv({
-    cls: `wechat-multiplatform-quota-hint ${isProLicensed ? 'is-pro' : 'is-free'}`,
+    cls: 'wechat-multiplatform-quota-hint',
   }));
-  if (isProLicensed) {
-    quotaHint.createEl('span', {
-      text: 'Pro',
-      cls: 'wechat-pro-identity-badge wechat-pro-identity-badge-quota',
-    });
-  } else {
-    quotaHint.createEl('span', {
-      text: '免费版',
-      cls: 'wechat-multiplatform-quota-pill',
-    });
-  }
   const quotaText = quotaHint.createEl('span', {
     cls: 'wechat-multiplatform-quota-copy',
-    text: getQuotaHintText(0, { proLicensed: isProLicensed }),
+    text: getQuotaHintText(0),
   });
-  if (!isProLicensed) {
-    const quotaUpgradeBtn = asModalElement(quotaHint.createEl('button', {
-      text: '升级 Pro',
-      cls: 'wechat-multiplatform-quota-link',
-    }));
-    quotaUpgradeBtn.onclick = () => openPublisherProPage(view);
-  }
 
   if (!bridgeSettings.enabled) {
     const disabledHint = asModalElement(modal.contentEl.createDiv({ cls: 'wechat-sync-empty-state' }));
     disabledHint.createEl('h3', { text: '尚未启用浏览器插件发布' });
-    disabledHint.createEl('p', { text: '请先安装浏览器插件，再到设置中启用浏览器插件发布、测试连接并选择平台。免费版每天可发布到 3 个平台。' });
+    disabledHint.createEl('p', { text: '请先安装浏览器插件，再到设置中启用浏览器插件发布、测试连接并选择平台。' });
     const settingsBtn = asModalElement(disabledHint.createEl('button', { text: '去设置', cls: 'mod-cta' }));
     settingsBtn.onclick = () => {
       modal.close();
@@ -712,8 +608,6 @@ async function showMultiPlatformPublishModal(view, options = {}) {
         new Notice('请在设置中打开 Obsidian 发布助手并开启浏览器插件发布');
       }
     };
-    const guideBtn = asModalElement(disabledHint.createEl('button', { text: '安装浏览器插件教程' }));
-    guideBtn.onclick = () => openPublisherGuidePage(view, 'install-extension');
     if (shouldOpenModal) modal.open();
     return;
   }
@@ -749,7 +643,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   cancelBtn.onclick = () => modal.close();
 
   const updateQuotaHintText = () => {
-    quotaText.textContent = getQuotaHintText(selectedPlatforms.size, { proLicensed: isProLicensed });
+    quotaText.textContent = getQuotaHintText(selectedPlatforms.size);
   };
 
   const updateSyncButtonState = () => {

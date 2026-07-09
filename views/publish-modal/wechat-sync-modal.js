@@ -43,7 +43,7 @@ export const wechatSyncModalMixin = {
     
     let hintText = '可以重试同步，或先检查账号配置。';
     if (isProxyAuth) {
-      hintText = '请检查您的 API 代理地址和 Token 配置是否正确。若服务已到期，请联系作者续费。';
+      hintText = '请检查您的 API 代理地址和 Token 配置是否正确。';
     } else if (hasDraftAssociation) {
       hintText = '可以重试同步；如果微信后台草稿已被删除或无法更新，也可以取消关联后新建草稿。';
     }

@@ -32,7 +32,6 @@ import {
 
 import {
   getAvailableWechatsyncPlatforms,
-  hasWechatSyncProLicense,
   mergeWechatsyncPlatformLists,
   normalizeMultiPlatformSyncSettings,
   normalizeWechatSyncCapabilities,
@@ -44,9 +43,6 @@ import {
 } from '../connection-status-bar.js';
 import { getActiveWindowValue } from '../../services/dom-utils.js';
 
-const OBSIDIAN_PUBLISHER_PRO_URL = 'https://xiaoweibox.top/obsidian-publisher/pro/?from=obsidian-plugin';
-const OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL = 'https://xiaoweibox.top/obsidian-publisher/guide/?from=obsidian-plugin#install-extension';
-const OBSIDIAN_PUBLISHER_BRIDGE_GUIDE_URL = 'https://xiaoweibox.top/obsidian-publisher/guide/?from=obsidian-plugin#bridge';
 const LEGACY_SETTING_RENDER_KEY = ['dis', 'play'].join('');
 
 /**
@@ -239,30 +235,6 @@ function isUnsupportedBridgeError(error) {
 
 /**
  * @param {WechatSettingsTabLike} tab
- * @param {string} url
- * @returns {boolean}
- */
-function openExternalUrl(tab, url) {
-  const target = String(url || '').trim();
-  if (!/^https?:\/\//i.test(target)) return false;
-
-  if (typeof tab?.plugin?.openExternalUrl === 'function') {
-    return tab.plugin.openExternalUrl(target);
-  }
-  if (typeof tab?.plugin?.activeView?.openExternalUrl === 'function') {
-    return tab.plugin.activeView.openExternalUrl(target);
-  }
-
-  if (typeof window !== 'undefined' && typeof window.open === 'function') {
-    window.open(target, '_blank', 'noopener');
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * @param {WechatSettingsTabLike} tab
  * @param {{ obsidianApi?: Partial<WechatObsidianApiLike> }} [options={}]
  * @returns {WechatObsidianApiLike}
  */
@@ -297,7 +269,6 @@ function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
   const pluginSettings = toSettingsRecord(plugin.settings);
   const multiPlatformSettings = normalizeMultiPlatformSyncSettings(pluginSettings.multiPlatformSync);
   plugin.settings.multiPlatformSync = multiPlatformSettings;
-  const isProLicensed = hasWechatSyncProLicense(multiPlatformSettings);
 
   const renderSettingsTabIntro = tab.renderSettingsTabIntro;
   if (typeof renderSettingsTabIntro === 'function') {
@@ -314,30 +285,15 @@ function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
     .setHeading();
 
   const guide = containerEl.createDiv({
-    cls: `wechat-multiplatform-onboarding${isProLicensed ? ' is-pro' : ''}`,
+    cls: 'wechat-multiplatform-onboarding',
   });
   guide.createEl('div', {
     cls: 'wechat-multiplatform-onboarding-title',
-    text: isProLicensed ? 'Pro 已激活：多平台发布已解锁' : '下一步：安装浏览器插件并完成配置',
+    text: '下一步：安装浏览器插件并完成配置',
   });
   guide.createEl('p', {
-    text: isProLicensed
-      ? '当前浏览器插件授权已同步到 Obsidian，发布到其他平台时不再受免费版每日平台数量限制。'
-      : '免费版每天可发布到 3 个平台。想先试用，先安装浏览器插件；已经购买或已经装好浏览器插件，可直接查看配置步骤。',
+    text: '安装并启用浏览器插件后，在下方填入与浏览器插件一致的连接令牌即可完成配对，随后可发布到已选的各内容平台草稿箱。',
   });
-  if (isProLicensed) {
-    guide.createEl('span', {
-      text: 'Pro',
-      cls: 'wechat-pro-identity-badge wechat-pro-identity-badge-panel',
-    });
-  }
-  const guideActions = guide.createDiv({ cls: 'wechat-multiplatform-onboarding-actions' });
-  const installGuideBtn = guideActions.createEl('button', { text: '安装浏览器插件', cls: 'mod-cta' });
-  installGuideBtn.onclick = () => openExternalUrl(tab, OBSIDIAN_PUBLISHER_EXTENSION_GUIDE_URL);
-  const bridgeGuideBtn = guideActions.createEl('button', { text: '查看配置步骤' });
-  bridgeGuideBtn.onclick = () => openExternalUrl(tab, OBSIDIAN_PUBLISHER_BRIDGE_GUIDE_URL);
-  const proGuideBtn = guideActions.createEl('button', { text: isProLicensed ? '查看 Pro 权益' : '了解 Pro' });
-  proGuideBtn.onclick = () => openExternalUrl(tab, OBSIDIAN_PUBLISHER_PRO_URL);
 
   new Setting(containerEl)
     .setName('启用浏览器插件发布')

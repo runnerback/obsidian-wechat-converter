@@ -111,8 +111,6 @@ const AI_WECHAT_SAFE_STYLE_PRIMITIVES = AI_LAYOUT_SHARED_RESOURCES.wechatSafeSty
   sectionLabels: {},
 };
 
-const AI_STYLE_PACKS = AI_COLOR_PALETTES;
-
 const AI_PROVIDER_KIND_DEFAULTS = {
   [AI_PROVIDER_KINDS.OPENAI_COMPATIBLE]: {
     baseUrl: 'https://api.openai.com/v1',
@@ -1145,15 +1143,6 @@ function normalizeAiSettings(raw = {}) {
   };
 }
 
-function getStylePackList() {
-  return getColorPaletteList({ includeAuto: false });
-}
-
-/** @param {unknown} id */
-function getStylePackById(id) {
-  return getColorPaletteById(id);
-}
-
 /**
  * @param {AiLayoutCacheEntryLike | AiLayoutStateLike | null | undefined} entry
  * @param {AiLayoutSelectionLike | string | null | undefined} [selection={}]
@@ -1270,23 +1259,6 @@ function deriveArticleLayoutStateForSelection(state, selection = {}, defaults = 
   });
 }
 
-/**
- * @param {AiLayoutCacheEntryLike | AiLayoutStateLike | null | undefined} entry
- * @param {AiLayoutSelectionLike | string | null | undefined} [selection={}]
- * @param {AiLayoutSelectionLike | string | null | undefined} [defaults={}]
- * @returns {string}
- */
-function getArticleLayoutSelectionStateKey(entry, selection = {}, defaults = {}) {
-  const normalizedEntry = normalizeArticleLayoutCacheEntry(entry);
-  if (!normalizedEntry) return '';
-  const normalizedSelection = normalizeLayoutSelection(selection, defaults);
-  const requestedLayoutFamily = normalizeLayoutFamily(normalizedSelection.layoutFamily, AI_LAYOUT_SELECTION_AUTO);
-  if (requestedLayoutFamily !== AI_LAYOUT_SELECTION_AUTO) {
-    const requestedResolvedLayoutFamily = normalizeResolvedLayoutFamily(requestedLayoutFamily, AI_LAYOUT_DEFAULT_FAMILY);
-    return normalizedEntry.familyStates?.[requestedResolvedLayoutFamily] ? requestedResolvedLayoutFamily : '';
-  }
-  return normalizedEntry.lastAutoResolvedFamily || normalizedEntry.lastLayoutFamily || '';
-}
 
 /**
  * @param {AiSettingsLike | { providers?: AiProviderLike[] }} [aiSettings={}]
@@ -4160,7 +4132,6 @@ export {
   AI_LAYOUT_FAMILY_DEFS,
   AI_PROVIDER_KINDS,
   AI_COLOR_PALETTES,
-  AI_STYLE_PACKS,
   createDefaultAiSettings,
   normalizeAiSettings,
   normalizeAiProvider,
@@ -4177,15 +4148,12 @@ export {
   normalizeResolvedSelection,
   getArticleLayoutSelectionKey,
   getArticleLayoutSelectionState,
-  getArticleLayoutSelectionStateKey,
   getLayoutFamilyList,
   getLayoutFamilyById,
   getColorPaletteList,
   getColorPaletteById,
   resolveColorPaletteForRender,
   normalizeHexColor,
-  getStylePackList,
-  getStylePackById,
   listEnabledAiProviders,
   resolveAiProvider,
   deriveArticleLayoutStateForSelection,

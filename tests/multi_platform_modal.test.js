@@ -248,77 +248,7 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     expect(followers & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('shows the free quota hint with a Pro upgrade action', async () => {
-    const view = makeView({ selectedPlatforms: ['zhihu'] });
-    view.openPublisherProPage = vi.fn();
-    await view.showMultiPlatformSyncModal();
-    const modal = modalCapture.getLastModal();
-
-    const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
-    expect(hint).not.toBeNull();
-    expect(hint.classList.contains('is-free')).toBe(true);
-    expect(hint.textContent).toContain('免费版每天 3 个平台额度');
-    expect(hint.querySelector('.wechat-multiplatform-quota-pill')?.textContent).toBe('免费版');
-    const upgradeBtn = hint.querySelector('button');
-    expect(upgradeBtn.textContent).toBe('升级 Pro');
-
-    upgradeBtn.click();
-    expect(view.openPublisherProPage).toHaveBeenCalled();
-  });
-
-  it('hides the Pro upgrade button and shows a Pro-specific quota hint when the bridge reports proLicensed', async () => {
-    const view = makeView({ selectedPlatforms: ['zhihu'] });
-    view.plugin.settings.multiPlatformSync.connection.capabilities = { proLicensed: true };
-    view.openPublisherProPage = vi.fn();
-    await view.showMultiPlatformSyncModal();
-    const modal = modalCapture.getLastModal();
-
-    const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
-    expect(hint).not.toBeNull();
-    expect(hint.classList.contains('is-pro')).toBe(true);
-    expect(hint.querySelector('.wechat-pro-identity-badge')?.textContent).toBe('Pro');
-    expect(hint.textContent).toContain('Pro 已激活');
-    expect(hint.textContent).not.toContain('免费版每天');
-    expect(modal.contentEl.querySelector('.wechat-publish-mode-tab.is-active .wechat-pro-identity-badge')).toBeNull();
-    expect(hint.querySelector('button')).toBeNull();
-    expect(view.openPublisherProPage).not.toHaveBeenCalled();
-  });
-
-  it('uses live active client capabilities to hide the Pro upgrade button even when cached connection capabilities are stale', async () => {
-    const bridge = {
-      getActiveClientDescriptor: vi.fn(() => ({
-        capabilities: { proLicensed: true },
-      })),
-    };
-    const view = makeView({ selectedPlatforms: ['zhihu'], bridge });
-    view.plugin.settings.multiPlatformSync.connection.capabilities = {};
-    await view.showMultiPlatformSyncModal();
-    const modal = modalCapture.getLastModal();
-
-    const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
-    expect(hint.textContent).toContain('Pro 已激活');
-    expect(hint.querySelector('button')).toBeNull();
-  });
-
-  it('falls back to live connectedClients capabilities when no active client descriptor is available', async () => {
-    const bridge = {
-      getStatus: vi.fn(() => ({
-        connectedClients: [
-          { status: 'connected', capabilities: { proLicensed: true } },
-        ],
-      })),
-    };
-    const view = makeView({ selectedPlatforms: ['zhihu'], bridge });
-    view.plugin.settings.multiPlatformSync.connection.capabilities = {};
-    await view.showMultiPlatformSyncModal();
-    const modal = modalCapture.getLastModal();
-
-    const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
-    expect(hint.textContent).toContain('Pro 已激活');
-    expect(hint.querySelector('button')).toBeNull();
-  });
-
-  it('updates quota hint when the selected platforms exactly match the free quota', async () => {
+  it('updates platform hint to reflect the selected platform count (3)', async () => {
     const cachedPlatforms = [
       { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true },
       { id: 'juejin', name: '掘金', authKnown: true, authenticated: true },
@@ -331,10 +261,10 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
 
     expect(hint.textContent).toContain('已选 3 个平台');
-    expect(hint.textContent).toContain('刚好达到免费版每天 3 个平台额度');
+    expect(hint.textContent).not.toContain('免费版');
   });
 
-  it('updates quota hint when selected platforms exceed the free quota', async () => {
+  it('updates platform hint to reflect the selected platform count (5)', async () => {
     const cachedPlatforms = [
       { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true },
       { id: 'juejin', name: '掘金', authKnown: true, authenticated: true },
@@ -351,7 +281,7 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
 
     expect(hint.textContent).toContain('已选 5 个平台');
-    expect(hint.textContent).toContain('超出部分会自动跳过');
+    expect(hint.textContent).not.toContain('免费版');
   });
 
   it('passes truncate quotaPolicy and shows quota modal when the extension blocks the task', async () => {
@@ -362,7 +292,7 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
         reason: 'daily_limit',
         quotaBlocked: true,
         skippedPlatforms: ['zhihu', 'juejin'],
-        message: '免费版今日平台额度不足，明天 0:00 重置，或升级 Pro。',
+        message: '部分平台本次未入队，请稍后重试。',
       }),
     };
     const view = makeView({ selectedPlatforms: ['zhihu', 'juejin'], bridge });
@@ -666,7 +596,6 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
 
   it('shows skipped platforms in the accepted task modal when quota truncates the request', () => {
     const view = makeView({ selectedPlatforms: ['zhihu', 'juejin'] });
-    view.openPublisherProPage = vi.fn();
 
     view.showWechatsyncEnqueueAcceptedModal({
       syncId: 'sync-1',
@@ -683,15 +612,13 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
 
     const modal = modalCapture.getLastModal();
     expect(modal.titleEl.textContent).toBe('已发送到浏览器插件');
-    expect(modal.contentEl.textContent).toContain('已按免费版额度投递');
-    expect(modal.contentEl.textContent).toContain('跳过 1 个超出今日额度的平台');
+    expect(modal.contentEl.textContent).toContain('部分平台已跳过');
+    expect(modal.contentEl.textContent).toContain('跳过 1 个平台');
     expect(modal.contentEl.textContent).toContain('掘金');
 
     const upgradeBtn = Array.from(modal.contentEl.querySelectorAll('button'))
       .find((button) => button.textContent === '升级 Pro');
-    expect(upgradeBtn).toBeDefined();
-    upgradeBtn.click();
-    expect(view.openPublisherProPage).toHaveBeenCalled();
+    expect(upgradeBtn).toBeUndefined();
   });
 
   it('does not render skipped platforms again as queued task rows', () => {
@@ -746,8 +673,8 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
 
     const modal = modalCapture.getLastModal();
     expect(modal.titleEl.textContent).toBe('发布受限');
-    expect(modal.contentEl.textContent).toContain('免费版平台额度不足');
-    expect(modal.contentEl.textContent).toContain('免费版今日平台额度不足');
+    expect(modal.contentEl.textContent).toContain('部分平台未入队');
+    expect(modal.contentEl.textContent).toContain('本次有平台未入队');
     expect(modal.contentEl.textContent).not.toContain('每次最多');
     expect(modal.contentEl.textContent).not.toContain('单次最多');
     expect(modal.contentEl.querySelector('.wechat-multiplatform-result-row')).toBeNull();
@@ -766,14 +693,14 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
         quotaBlocked: true,
         reason: 'daily_limit',
         skippedPlatforms: ['zhihu'],
-        message: '今日免费发布平台数已用完，明天 0:00 重置，或升级 Pro 解除限制',
+        message: '今日平台数已用完，请稍后重试',
       },
     });
 
     const modal = modalCapture.getLastModal();
     const buttonTexts = Array.from(modal.contentEl.querySelectorAll('button')).map((button) => button.textContent);
     expect(buttonTexts).not.toContain('重新选择平台');
-    expect(buttonTexts).toContain('升级 Pro');
+    expect(buttonTexts).not.toContain('升级 Pro');
     expect(buttonTexts).toContain('关闭');
   });
 });
