@@ -510,6 +510,16 @@ class AppleStyleView extends ItemView {
       if (this.platformSelectEl) this.platformSelectEl.value = mode;
       previewWrapper.classList.toggle('is-hidden', mode === 'rednote');
       this.rednoteContainer.classList.toggle('is-hidden', mode !== 'rednote');
+      // 公众号专用按钮(样式设置 / AI 编排 / 复制到公众号)仅在公众号模式显示;
+      // 平台下拉与「发布与分发」按钮通用,始终保留
+      const wechatOnly = mode === 'wechat';
+      for (const btn of [this.settingsBtn, this.aiLayoutBtn, this.copyBtn]) {
+        if (btn) btn.style.display = wechatOnly ? '' : 'none';
+      }
+      // 切到小红书时收起可能已打开的样式/AI 悬浮层(其触发按钮已隐藏)
+      if (!wechatOnly && typeof this.closeTransientPanels === 'function') {
+        this.closeTransientPanels();
+      }
       if (mode === 'rednote' && !this.rednoteController) {
         // 懒加载:动态 import 保持测试链(CJS require(input.js))不触碰 TS
         const { RedPreviewController } = await import('./rednote/view.ts');

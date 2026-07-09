@@ -6439,7 +6439,8 @@ div.modal.wechat-material-picker-modal-mobile {
   position: relative;
   display: inline-flex;
   align-items: center;
-  margin-right: 4px;
+  margin-right: 12px;
+  flex-shrink: 0;
 }
 .apple-toolbar-platform-select {
   appearance: none;
