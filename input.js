@@ -445,7 +445,7 @@ class AppleStyleView extends ItemView {
   }
 
   getIcon() {
-    return 'send';
+    return 'tractor';
   }
 
   async onOpen() {
@@ -2057,7 +2057,7 @@ class AppleStylePlugin extends Plugin {
       (leaf) => new AppleStyleView(leaf, this)
     );
 
-    this.addRibbonIcon('send', APPLE_STYLE_VIEW_TITLE, async () => {
+    this.addRibbonIcon('tractor', APPLE_STYLE_VIEW_TITLE, async () => {
       await this.openConverter();
     });
 
@@ -2154,7 +2154,7 @@ class AppleStylePlugin extends Plugin {
       ...safeState,
       type: APPLE_STYLE_VIEW,
       state: (safeState.state && typeof safeState.state === 'object') ? safeState.state : {},
-      icon: 'send',
+      icon: 'tractor',
       title: APPLE_STYLE_VIEW_TITLE,
       active: shouldActivate,
     };
