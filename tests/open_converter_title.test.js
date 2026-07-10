@@ -17,7 +17,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       getViewState: vi.fn(() => ({
         type: 'apple-style-converter',
         state: {},
-        icon: 'wand',
+        icon: 'content-studio',
         title: '微信排版转换',
       })),
       setViewState,
@@ -36,8 +36,8 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
     expect(setViewState).toHaveBeenCalledWith({
       type: 'apple-style-converter',
       state: {},
-      icon: 'wand',
-      title: '图文工坊',
+      icon: 'content-studio',
+      title: 'Content Studio',
       active: true,
     });
     expect(revealLeaf).toHaveBeenCalledWith(staleLeaf);
@@ -51,8 +51,8 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       getViewState: vi.fn(() => ({
         type: 'apple-style-converter',
         state: { keep: true },
-        icon: 'wand',
-        title: '图文工坊',
+        icon: 'content-studio',
+        title: 'Content Studio',
       })),
       setViewState,
     };
@@ -77,8 +77,8 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       getViewState: vi.fn(() => ({
         type: 'apple-style-converter',
         state: { keep: true },
-        icon: 'wand',
-        title: '图文工坊',
+        icon: 'content-studio',
+        title: 'Content Studio',
       })),
       setViewState: vi.fn().mockResolvedValue(undefined),
     };
@@ -103,7 +103,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       getViewState: vi.fn(() => ({
         type: 'apple-style-converter',
         state: { from: 'restore' },
-        icon: 'wand',
+        icon: 'content-studio',
         title: '微信排版转换',
       })),
       setViewState: staleLeafSetViewState,
@@ -112,8 +112,8 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       getViewState: vi.fn(() => ({
         type: 'apple-style-converter',
         state: { from: 'restore' },
-        icon: 'wand',
-        title: '图文工坊',
+        icon: 'content-studio',
+        title: 'Content Studio',
       })),
       setViewState: freshLeafSetViewState,
     };
@@ -130,8 +130,8 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
     expect(staleLeafSetViewState).toHaveBeenCalledWith({
       type: 'apple-style-converter',
       state: { from: 'restore' },
-      icon: 'wand',
-      title: '图文工坊',
+      icon: 'content-studio',
+      title: 'Content Studio',
       active: false,
     });
     expect(freshLeafSetViewState).not.toHaveBeenCalled();

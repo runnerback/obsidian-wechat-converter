@@ -95,4 +95,4 @@ export function normalizeWechatAccountPublishOptions(values = {}) {
 // UI constants shared between the entry file and the settings tab module.
 export const MULTI_PLATFORM_TAB_LABEL = '其他平台（小红书/知乎/抖音等）';
 // 视图标题（ribbon / command / 视图 tab / 设置面板顶栏 共用）
-export const APPLE_STYLE_VIEW_TITLE = '图文工坊';
+export const APPLE_STYLE_VIEW_TITLE = 'Content Studio';

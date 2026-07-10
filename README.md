@@ -1,6 +1,6 @@
-# 图文工坊 Content Studio
+# Content Studio
 
-> Version 3.9.11 · Updated 2026-07-10 · [简体中文](./README.zh-CN.md)
+> Version 3.9.12 · Updated 2026-07-10 · [简体中文](./README.zh-CN.md)
 
 An Obsidian plugin for composing, previewing, and publishing rich content. Turn your Markdown notes into polished **WeChat Official Account** articles and **Xiaohongshu (rednote)** image-text cards, sync to **Feishu** docs, and one-click publish to 20+ platforms via the companion **多栖 Crosspost** browser extension.
 

@@ -1,6 +1,6 @@
-# 图文工坊 Content Studio
+# Content Studio
 
-> 版本 3.9.11 · 更新 2026-07-10 · [English](./README.md)
+> 版本 3.9.12 · 更新 2026-07-10 · [English](./README.md)
 
 一款 Obsidian 内容排版与发布插件。把 Markdown 笔记排版预览成**微信公众号**文章和**小红书**图文卡片，同步到**飞书**云文档，并通过配套浏览器扩展 **多栖 Crosspost** 一键发布到 20+ 平台草稿箱。
 

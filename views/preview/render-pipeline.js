@@ -63,7 +63,7 @@ export const renderPipelineMixin = {
     const placeholder = this.previewContainer.createEl('div', { cls: 'apple-placeholder' });
     const iconDiv = placeholder.createEl('div', { cls: 'apple-placeholder-icon' });
     this.renderPlaceholderIcon(iconDiv);
-    placeholder.createEl('h2', { text: '图文工坊' });
+    placeholder.createEl('h2', { text: 'Content Studio' });
     const content = placeholder.createDiv({ cls: 'apple-placeholder-content' });
     content.createEl('p', {
       text: '当前面板用于预览微信公众号排版。请在左侧编辑器中打开或激活任意 Markdown 笔记以自动加载预览。',
@@ -86,7 +86,7 @@ export const renderPipelineMixin = {
    */
   renderPlaceholderIcon(iconDiv) {
     iconDiv.empty();
-    const img = /** @type {ObsidianElementLike & HTMLImageElement} */ (iconDiv.createEl('img', { attr: { alt: '图文工坊' } }));
+    const img = /** @type {ObsidianElementLike & HTMLImageElement} */ (iconDiv.createEl('img', { attr: { alt: 'Content Studio' } }));
     img.src = PLACEHOLDER_ICON_DATA_URL;
     img.setCssStyles({
       width: '64px',

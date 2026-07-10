@@ -180,6 +180,8 @@ import {
 
 // 视图类型标识
 const APPLE_STYLE_VIEW = 'apple-style-converter';
+// 自定义 ribbon/视图图标(Content Studio),经 addIcon 注册
+const CONTENT_STUDIO_ICON = '<g transform="scale(0.09765625)"><path d="M208.979592 1024h606.040816c115.461224 0 208.979592-93.518367 208.979592-208.979592V208.979592C1024 93.518367 930.481633 0 815.020408 0H208.979592C93.518367 0 0 93.518367 0 208.979592v606.040816c0 115.461224 93.518367 208.979592 208.979592 208.979592z" fill="#891B26"/><path d="M194.76898 515.866122L452.022857 961.306122H229.877551c-92.36898 0-167.183673-74.814694-167.183673-167.183673v-52.244898zM500.192653 961.306122L219.010612 474.383673l70.426123-120.372244L640 961.306122zM313.678367 312.52898l70.321633-120.372245L826.409796 958.171429c-10.44898 2.089796-21.211429 3.134694-32.287347 3.134693H688.274286z m94.667755-161.854694L459.755102 62.693878h37.616327l454.426122 787.121632c-14.733061 41.795918-45.557551 75.859592-84.950204 94.876735zM545.541224 62.693878H794.122449c92.36898 0 167.183673 74.814694 167.183673 167.183673v552.96z" fill="#FFA667"/></g>';
 
 // Pure data helpers extracted to services/wechatsync-settings.js so the
 // views/ layer can normalize / read settings without depending on input.js.
@@ -445,7 +447,7 @@ class AppleStyleView extends ItemView {
   }
 
   getIcon() {
-    return 'wand';
+    return 'content-studio';
   }
 
   async onOpen() {
@@ -1399,7 +1401,7 @@ class AppleStyleView extends ItemView {
     configBtn.onclick = () => {
       modal.close();
       if (!this.openPluginSettings()) {
-        new Notice('请在设置中打开 图文工坊并配置公众号账号');
+        new Notice('请在设置中打开 Content Studio并配置公众号账号');
       }
     };
 
@@ -2019,7 +2021,7 @@ class AppleStyleView extends ItemView {
 }
 
 /**
- * 📝 图文工坊设置面板
+ * 📝 Content Studio设置面板
  */
 import { AppleStyleSettingTab } from './views/settings/apple-style-setting-tab.js';
 
@@ -2034,13 +2036,14 @@ Object.assign(AppleStyleView.prototype, renderPipelineMixin);
 Object.assign(AppleStyleView.prototype, settingsPanelMixin);
 
 /**
- * 📝 图文工坊主插件
+ * 📝 Content Studio主插件
  */
 class AppleStylePlugin extends Plugin {
   async onload() {
-    console.log('📝 正在加载 图文工坊...');
+    console.log('📝 正在加载 Content Studio...');
     /** @type {ObsidianApiLike} */
     this.obsidianApi = obsidianApi;
+    obsidianApi.addIcon?.('content-studio', CONTENT_STUDIO_ICON);
 
     await this.loadSettings();
 
@@ -2057,7 +2060,7 @@ class AppleStylePlugin extends Plugin {
       (leaf) => new AppleStyleView(leaf, this)
     );
 
-    this.addRibbonIcon('wand', APPLE_STYLE_VIEW_TITLE, async () => {
+    this.addRibbonIcon('content-studio', APPLE_STYLE_VIEW_TITLE, async () => {
       await this.openConverter();
     });
 
@@ -2115,7 +2118,7 @@ class AppleStylePlugin extends Plugin {
 
     this.startWechatSyncBridgeInBackground('plugin-load');
 
-    console.log('✅ 图文工坊加载完成');
+    console.log('✅ Content Studio加载完成');
   }
 
   /**
@@ -2154,7 +2157,7 @@ class AppleStylePlugin extends Plugin {
       ...safeState,
       type: APPLE_STYLE_VIEW,
       state: (safeState.state && typeof safeState.state === 'object') ? safeState.state : {},
-      icon: 'wand',
+      icon: 'content-studio',
       title: APPLE_STYLE_VIEW_TITLE,
       active: shouldActivate,
     };
@@ -2541,7 +2544,7 @@ class AppleStylePlugin extends Plugin {
         console.warn('停止浏览器插件连接失败:', error);
       });
     }
-    console.log('📝 图文工坊已卸载');
+    console.log('📝 Content Studio已卸载');
   }
 }
 

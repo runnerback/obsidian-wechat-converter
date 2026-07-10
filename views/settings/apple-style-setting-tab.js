@@ -42,7 +42,7 @@ const { PluginSettingTab, Setting, Notice } = obsidianApi;
 const LEGACY_SETTING_RENDER_KEY = ['dis', 'play'].join('');
 
 /**
- * 📝 图文工坊设置面板
+ * 📝 Content Studio设置面板
  */
 export class AppleStyleSettingTab extends PluginSettingTab {
   /**
@@ -122,7 +122,7 @@ export class AppleStyleSettingTab extends PluginSettingTab {
   getSettingDefinitions() {
     return [{
       name: 'Wechat Converter',
-      desc: '图文工坊设置',
+      desc: 'Content Studio设置',
       searchable: false,
       render: () => {
         this.renderSettingsContent();

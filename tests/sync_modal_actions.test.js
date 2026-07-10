@@ -119,7 +119,7 @@ describe('AppleStyleView - sync action modal flows', () => {
     configBtn.onclick();
 
     expect(notices.length).toBeGreaterThan(0);
-    expect(notices[notices.length - 1].message).toContain('请在设置中打开 图文工坊并配置公众号账号');
+    expect(notices[notices.length - 1].message).toContain('请在设置中打开 Content Studio并配置公众号账号');
   });
 
   it('showSyncFailureActions should trigger retry callback when user clicks retry', async () => {
@@ -148,7 +148,7 @@ describe('AppleStyleView - sync action modal flows', () => {
     settingsBtn.onclick();
 
     expect(notices.length).toBeGreaterThan(0);
-    expect(notices[notices.length - 1].message).toContain('请在设置中打开 图文工坊并配置公众号账号');
+    expect(notices[notices.length - 1].message).toContain('请在设置中打开 Content Studio并配置公众号账号');
   });
 
   it('showSyncFailureActions should let users unlink a stale draft and retry as a new draft', async () => {
