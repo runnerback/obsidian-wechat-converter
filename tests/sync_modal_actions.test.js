@@ -92,7 +92,7 @@ describe('AppleStyleView - sync action modal flows', () => {
 
     AppleStyleView = loadInputModule().AppleStyleView;
     view = new AppleStyleView(null, {
-      manifest: { id: 'wechat-converter' },
+      manifest: { id: 'content-studio' },
       settings: {},
       saveSettings: vi.fn(),
     });

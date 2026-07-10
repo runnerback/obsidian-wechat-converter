@@ -1327,7 +1327,7 @@ class AppleStyleView extends ItemView {
     if (!settingApi || typeof settingApi.open !== 'function') return false;
 
     settingApi.open();
-    const tabId = this.plugin?.manifest?.id || 'wechat-converter';
+    const tabId = this.plugin?.manifest?.id || 'content-studio';
     if (typeof settingApi.openTabById === 'function') {
       settingApi.openTabById(tabId);
     }

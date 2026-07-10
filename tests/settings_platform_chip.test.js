@@ -33,7 +33,7 @@ function makePlugin({ selectedPlatforms = [], connection = null } = {}) {
   };
   return {
     app: {},
-    manifest: { dir: '/test', id: 'wechat-converter', version: '0.0.0-test' },
+    manifest: { dir: '/test', id: 'content-studio', version: '0.0.0-test' },
     settings: {
       wechatAccounts: [],
       defaultAccountId: '',
