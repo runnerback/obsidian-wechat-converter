@@ -17,7 +17,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       getViewState: vi.fn(() => ({
         type: 'apple-style-converter',
         state: {},
-        icon: 'content-studio',
+        icon: 'send',
         title: '微信排版转换',
       })),
       setViewState,
@@ -36,7 +36,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
     expect(setViewState).toHaveBeenCalledWith({
       type: 'apple-style-converter',
       state: {},
-      icon: 'content-studio',
+      icon: 'send',
       title: 'Content Studio',
       active: true,
     });
@@ -51,7 +51,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       getViewState: vi.fn(() => ({
         type: 'apple-style-converter',
         state: { keep: true },
-        icon: 'content-studio',
+        icon: 'send',
         title: 'Content Studio',
       })),
       setViewState,
@@ -77,7 +77,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       getViewState: vi.fn(() => ({
         type: 'apple-style-converter',
         state: { keep: true },
-        icon: 'content-studio',
+        icon: 'send',
         title: 'Content Studio',
       })),
       setViewState: vi.fn().mockResolvedValue(undefined),
@@ -103,7 +103,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       getViewState: vi.fn(() => ({
         type: 'apple-style-converter',
         state: { from: 'restore' },
-        icon: 'content-studio',
+        icon: 'send',
         title: '微信排版转换',
       })),
       setViewState: staleLeafSetViewState,
@@ -112,7 +112,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       getViewState: vi.fn(() => ({
         type: 'apple-style-converter',
         state: { from: 'restore' },
-        icon: 'content-studio',
+        icon: 'send',
         title: 'Content Studio',
       })),
       setViewState: freshLeafSetViewState,
@@ -130,7 +130,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
     expect(staleLeafSetViewState).toHaveBeenCalledWith({
       type: 'apple-style-converter',
       state: { from: 'restore' },
-      icon: 'content-studio',
+      icon: 'send',
       title: 'Content Studio',
       active: false,
     });
