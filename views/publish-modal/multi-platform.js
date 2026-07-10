@@ -605,7 +605,7 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     settingsBtn.onclick = () => {
       modal.close();
       if (!view.openPluginSettings()) {
-        new Notice('请在设置中打开 Obsidian 发布助手并开启浏览器插件发布');
+        new Notice('请在设置中打开 图文工坊并开启浏览器插件发布');
       }
     };
     if (shouldOpenModal) modal.open();

@@ -289,11 +289,13 @@ function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
   });
   guide.createEl('div', {
     cls: 'wechat-multiplatform-onboarding-title',
-    text: '下一步：安装浏览器插件并完成配置',
+    text: '多平台发布依赖配套浏览器扩展「多栖 Crosspost」',
   });
-  guide.createEl('p', {
-    text: '安装并启用浏览器插件后，在下方填入与浏览器插件一致的连接令牌即可完成配对，随后可发布到已选的各内容平台草稿箱。',
-  });
+  const steps = guide.createEl('ol', { cls: 'wechat-multiplatform-onboarding-steps' });
+  steps.createEl('li', { text: '下载：目前仅支持从 GitHub 下载扩展包（Chrome 应用商店待上架）。' });
+  steps.createEl('li', { text: '安装：Chrome → 扩展程序 → 打开「开发者模式」→「加载已解压的扩展程序」→ 选择扩展的 dist 目录。' });
+  steps.createEl('li', { text: '配对：打开扩展弹窗 → 设置 → 复制「连接令牌」，填到下方；两端令牌一致即完成配对。' });
+  steps.createEl('li', { text: '发布：在「发布与分发」勾选目标平台，文章会经扩展用你的浏览器登录态存入各平台草稿箱。' });
 
   new Setting(containerEl)
     .setName('启用浏览器插件发布')

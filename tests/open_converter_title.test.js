@@ -37,7 +37,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       type: 'apple-style-converter',
       state: {},
       icon: 'wand',
-      title: 'Obsidian 发布助手',
+      title: '图文工坊',
       active: true,
     });
     expect(revealLeaf).toHaveBeenCalledWith(staleLeaf);
@@ -52,7 +52,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
         type: 'apple-style-converter',
         state: { keep: true },
         icon: 'wand',
-        title: 'Obsidian 发布助手',
+        title: '图文工坊',
       })),
       setViewState,
     };
@@ -78,7 +78,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
         type: 'apple-style-converter',
         state: { keep: true },
         icon: 'wand',
-        title: 'Obsidian 发布助手',
+        title: '图文工坊',
       })),
       setViewState: vi.fn().mockResolvedValue(undefined),
     };
@@ -113,7 +113,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
         type: 'apple-style-converter',
         state: { from: 'restore' },
         icon: 'wand',
-        title: 'Obsidian 发布助手',
+        title: '图文工坊',
       })),
       setViewState: freshLeafSetViewState,
     };
@@ -131,7 +131,7 @@ describe('AppleStylePlugin - openConverter title refresh', () => {
       type: 'apple-style-converter',
       state: { from: 'restore' },
       icon: 'wand',
-      title: 'Obsidian 发布助手',
+      title: '图文工坊',
       active: false,
     });
     expect(freshLeafSetViewState).not.toHaveBeenCalled();

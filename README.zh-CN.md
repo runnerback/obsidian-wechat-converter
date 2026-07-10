@@ -1,7 +1,38 @@
-# 中文文档已迁移
+# 图文工坊 Content Studio
 
-![Version](https://img.shields.io/badge/version-2.8.2-blue)
+> 版本 3.9.11 · 更新 2026-07-10 · [English](./README.md)
 
-中文文档现在是仓库首页，请查看 [README.md](./README.md)。
+一款 Obsidian 内容排版与发布插件。把 Markdown 笔记排版预览成**微信公众号**文章和**小红书**图文卡片，同步到**飞书**云文档，并通过配套浏览器扩展 **多栖 Crosspost** 一键发布到 20+ 平台草稿箱。
 
-English documentation is available at [README.en.md](./README.en.md).
+## 功能
+
+- **公众号预览与导出** —— 将 Markdown 转成符合公众号生态的 HTML（代码块、引用、列表、本地图片、GIF、公式与图表），一键复制到公众号编辑器或保存为草稿。
+- **小红书图文卡片** —— 预览区切到「小红书」模式，渲染图卡并发布图文笔记到小红书草稿箱。
+- **飞书云文档** —— 同一篇笔记同步到飞书云文档。
+- **多平台发布** —— 在「发布与分发」里勾选知乎、掘金、CSDN、头条、微博等平台，由 **多栖 Crosspost** 浏览器扩展用你已有的浏览器登录态保存为各平台草稿。
+- **AI 编排与标题润色** —— 可选的 AI 排版与标题建议。
+
+## 安装（本地构建）
+
+```bash
+npm install
+bash dev-install.sh   # 构建并部署到 Obsidian 插件目录
+```
+
+或手动执行 `npm run build`，把 `main.js` / `manifest.json` / `styles.css` 放进 `.obsidian/plugins/wechat-converter/`。
+
+## 多平台发布（多栖 Crosspost）
+
+小红书 / 知乎 / 头条 / … 的多平台发布，由配套浏览器扩展 **多栖 Crosspost** 完成：
+
+- **下载**：目前仅支持从 GitHub 下载（Chrome 应用商店待上架）。
+- **安装**：Chrome → 扩展程序 → 开启开发者模式 → 加载已解压的扩展程序 → 选择扩展的 `dist` 目录。
+- **配对**：打开扩展弹窗 → 设置 → 复制「连接令牌」→ 填到本插件设置的「其他平台」标签页。
+
+## 文档
+
+[`docs/guides/`](./docs/guides/) 内有 API 代理设置、AI Provider 设置、小红书图文发布说明。
+
+## 许可证
+
+MIT。本地自维护版，仅供个人使用。

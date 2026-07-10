@@ -58,7 +58,7 @@ describe('AppleStyleView native render + lifecycle', () => {
 
   it('getDisplayText should keep the unified plugin title', () => {
     const view = new AppleStyleView(null, { settings: {} });
-    expect(view.getDisplayText()).toBe('Obsidian 发布助手');
+    expect(view.getDisplayText()).toBe('图文工坊');
   });
 
   it('convertCurrent should render native html in silent mode', async () => {

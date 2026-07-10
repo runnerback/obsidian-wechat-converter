@@ -61,7 +61,7 @@ export const wechatSyncModalMixin = {
     settingsBtn.onclick = () => {
       modal.close();
       if (!this.openPluginSettings()) {
-        new Notice('请在设置中打开 Obsidian 发布助手并配置公众号账号');
+        new Notice('请在设置中打开 图文工坊并配置公众号账号');
       }
     };
 

@@ -1399,7 +1399,7 @@ class AppleStyleView extends ItemView {
     configBtn.onclick = () => {
       modal.close();
       if (!this.openPluginSettings()) {
-        new Notice('请在设置中打开 Obsidian 发布助手并配置公众号账号');
+        new Notice('请在设置中打开 图文工坊并配置公众号账号');
       }
     };
 
@@ -2019,7 +2019,7 @@ class AppleStyleView extends ItemView {
 }
 
 /**
- * 📝 Obsidian 发布助手设置面板
+ * 📝 图文工坊设置面板
  */
 import { AppleStyleSettingTab } from './views/settings/apple-style-setting-tab.js';
 
@@ -2034,11 +2034,11 @@ Object.assign(AppleStyleView.prototype, renderPipelineMixin);
 Object.assign(AppleStyleView.prototype, settingsPanelMixin);
 
 /**
- * 📝 Obsidian 发布助手主插件
+ * 📝 图文工坊主插件
  */
 class AppleStylePlugin extends Plugin {
   async onload() {
-    console.log('📝 正在加载 Obsidian 发布助手...');
+    console.log('📝 正在加载 图文工坊...');
     /** @type {ObsidianApiLike} */
     this.obsidianApi = obsidianApi;
 
@@ -2115,7 +2115,7 @@ class AppleStylePlugin extends Plugin {
 
     this.startWechatSyncBridgeInBackground('plugin-load');
 
-    console.log('✅ Obsidian 发布助手加载完成');
+    console.log('✅ 图文工坊加载完成');
   }
 
   /**
@@ -2541,7 +2541,7 @@ class AppleStylePlugin extends Plugin {
         console.warn('停止浏览器插件连接失败:', error);
       });
     }
-    console.log('📝 Obsidian 发布助手已卸载');
+    console.log('📝 图文工坊已卸载');
   }
 }
 
