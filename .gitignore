@@ -35,3 +35,6 @@ services/ai-layout-runtime/generated-skills.js
 
 # chrome plugin
 chrome-plugins/obsidian-publisher
+
+# 本机 Obsidian 插件目录覆盖配置（每台机器独立，不进 git）
+.vault-path.local
