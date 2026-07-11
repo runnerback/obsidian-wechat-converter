@@ -11,7 +11,7 @@
 set -e
 
 # Obsidian 目标插件目录
-VAULT_PLUGIN_DIR="/Users/zhangjianbo/Documents/SynologyDrive/COMMON/12 notes/Obsidian-repository/.obsidian/plugins/wechat-converter"
+VAULT_PLUGIN_DIR="/Volumes/T4/SynologyDrive/SynologyDrive/WORKSPACE/02 LOTUS/COMMON/12 notes/Obsidian-repository/.obsidian/plugins/wechat-converter"
 
 echo "🔨 构建 main.js ..."
 npm run build
