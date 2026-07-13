@@ -143,6 +143,7 @@ import { aiLayoutPanelMixin } from './views/ai-layout/ai-layout-panel.js';
 import { mediaAssetsMixin } from './views/publish-modal/media-assets.js';
 import { renderPipelineMixin } from './views/preview/render-pipeline.js';
 import { settingsPanelMixin } from './views/settings-panel/settings-panel.js';
+import { rednoteSettingsPanelMixin } from './views/settings-panel/rednote-settings-panel.js';
 import {
   normalizeDraftCache,
 } from './services/wechat-draft-cache.js';
@@ -317,6 +318,12 @@ class AppleStyleView extends ItemView {
     this.aiPreviewApplied = false;
     this.aiLayoutBtn = null;
     this.settingsBtn = null;
+    /** @type {ObsidianElementLike | null} 小红书模式:样式设置按钮 */
+    this.rednoteSettingsBtn = null;
+    /** @type {ObsidianElementLike | null} 小红书模式:下载菜单按钮 */
+    this.rednoteDownloadBtn = null;
+    /** @type {ObsidianElementLike | null} 小红书模式:样式设置悬浮层 */
+    this.rednoteSettingsOverlay = null;
     this.aiLayoutDebugMode = '';
     /** @type {Record<string, unknown> | null} */
     this.aiLayoutActiveGenerationSelection = null;
@@ -510,14 +517,17 @@ class AppleStyleView extends ItemView {
       if (this.platformSelectEl) this.platformSelectEl.value = mode;
       previewWrapper.classList.toggle('is-hidden', mode === 'rednote');
       this.rednoteContainer.classList.toggle('is-hidden', mode !== 'rednote');
-      // 公众号专用按钮(样式设置 / AI 编排 / 复制到公众号)仅在公众号模式显示;
-      // 平台下拉与「发布与分发」按钮通用,始终保留
+      // 顶栏按钮按模式显隐:公众号(样式设置/AI 编排/复制)与小红书
+      // (样式设置/下载)各一组;平台下拉与「发布与分发」通用,始终保留
       const wechatOnly = mode === 'wechat';
       for (const btn of [this.settingsBtn, this.aiLayoutBtn, this.copyBtn]) {
         if (btn) btn.style.display = wechatOnly ? '' : 'none';
       }
-      // 切到小红书时收起可能已打开的样式/AI 悬浮层(其触发按钮已隐藏)
-      if (!wechatOnly && typeof this.closeTransientPanels === 'function') {
+      for (const btn of [this.rednoteSettingsBtn, this.rednoteDownloadBtn]) {
+        if (btn) btn.style.display = wechatOnly ? 'none' : '';
+      }
+      // 切换模式时收起已打开的悬浮层(触发按钮随模式显隐,层不该残留)
+      if (typeof this.closeTransientPanels === 'function') {
         this.closeTransientPanels();
       }
       if (mode === 'rednote' && !this.rednoteController) {
@@ -530,6 +540,8 @@ class AppleStyleView extends ItemView {
           this.plugin.settingsManager
         );
         await this.rednoteController.mount(this.rednoteContainer);
+        // controller 就绪后才有模板/主题等选项,此时构建 rednote 样式设置悬浮层
+        this.createRednoteSettingsPanel(container, this.rednoteController);
       }
     };
 
@@ -1241,8 +1253,10 @@ class AppleStyleView extends ItemView {
   closeTransientPanels() {
     removeElementClass(this.settingsOverlay, 'visible');
     removeElementClass(this.aiLayoutOverlay, 'visible');
+    removeElementClass(this.rednoteSettingsOverlay, 'visible');
     removeElementClass(this.settingsBtn, 'active');
     removeElementClass(this.aiLayoutBtn, 'active');
+    removeElementClass(this.rednoteSettingsBtn, 'active');
   }
 
   async ensureCurrentArticleContext() {
@@ -1983,6 +1997,9 @@ class AppleStyleView extends ItemView {
     this.closeTransientPanels();
     this.aiLayoutBtn = null;
     this.settingsBtn = null;
+    this.rednoteSettingsBtn = null;
+    this.rednoteDownloadBtn = null;
+    this.rednoteSettingsOverlay = null;
 
     // 清理文章状态缓存
     if (this.articleStates) {
@@ -2032,6 +2049,7 @@ Object.assign(AppleStyleView.prototype, aiLayoutPanelMixin);
 Object.assign(AppleStyleView.prototype, mediaAssetsMixin);
 Object.assign(AppleStyleView.prototype, renderPipelineMixin);
 Object.assign(AppleStyleView.prototype, settingsPanelMixin);
+Object.assign(AppleStyleView.prototype, rednoteSettingsPanelMixin);
 
 /**
  * 📝 Content Studio主插件

@@ -83,6 +83,16 @@ export const settingsPanelMixin = {
       this.copyBtn = null;
     }
 
+    // [小红书] 按钮组(仅小红书模式显示,由 setPreviewMode 显隐):
+    // 样式设置唤起 rednote 专属悬浮层;下载弹出「当前页/全部页」小菜单
+    const rednoteSettingsButton = createIconBtn('sliders-horizontal', '小红书样式设置', () => {
+      this.togglePanel(this.rednoteSettingsOverlay, rednoteSettingsButton);
+    });
+    this.rednoteSettingsBtn = rednoteSettingsButton;
+    this.rednoteDownloadBtn = createIconBtn('download', '下载图卡', (evt) => this.openRednoteDownloadMenu(evt));
+    this.rednoteSettingsBtn.style.display = 'none';
+    this.rednoteDownloadBtn.style.display = 'none';
+
     // [同步] 按钮（始终显示）:所有平台统一走「发布与分发」窗口;
     // 小红书的图卡链路在窗口的「其他平台」tab 勾选后由发送流程自动执行
     this.sendBtn = createIconBtn('send', '发布与分发', () => this.showSyncModal());

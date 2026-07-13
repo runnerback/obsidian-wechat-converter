@@ -1,7 +1,12 @@
 // 自 note-to-red 的 RedView(ItemView)改造为「嵌入式预览控制器」:
 // 不再注册独立视图,而是挂载在 wechat-converter 预览区给定的容器里。
 // 生命周期(事件注册/MarkdownRenderer component)委托给宿主视图。
-import { App, Component, MarkdownRenderer, TFile, Notice, setIcon } from 'obsidian';
+//
+// 交互统一改造:自带的 red-toolbar / red-bottom-bar 已移除,模板/主题/字体/
+// 字号/背景图/下载等控件全部收编进宿主顶栏与「样式设置」悬浮层
+// (views/settings-panel/rednote-settings-panel.js),通过本类的公开方法调用。
+// 「锁定实时预览」概念一并移除,与公众号侧一致:始终实时渲染(防抖 500ms)。
+import { App, Component, MarkdownRenderer, TFile, Notice } from 'obsidian';
 import { RedConverter } from './converter.ts';
 import { DownloadManager } from './downloadManager.ts';
 import type { ThemeManager } from './themeManager.ts';
@@ -25,17 +30,11 @@ export class RedPreviewController {
     private previewEl: HTMLElement;
     private currentFile: TFile | null = null;
     private updateTimer: number | null = null;
-    private isPreviewLocked: boolean = false;
     private currentImageIndex: number = 0;
+    /** 当前文档是否含有效图卡内容(标题分节);下载导出前校验 */
+    private hasValidContent: boolean = false;
     private backgroundManager: BackgroundManager;
 
-    // UI 元素
-    private lockButton: HTMLButtonElement;
-    private copyButton: HTMLButtonElement;
-    private customTemplateSelect: HTMLElement;
-    private customThemeSelect: HTMLElement;
-    private customFontSelect: HTMLElement;
-    private fontSizeSelect: HTMLInputElement;
     private navigationButtons: {
         prev: HTMLButtonElement;
         next: HTMLButtonElement;
@@ -76,10 +75,9 @@ export class RedPreviewController {
         container.empty();
         container.classList.add('red-view-content');
 
-        await this.initializeToolbar(container);
         this.initializePreviewArea(container);
-        this.initializeBottomBar(container);
         this.initializeEventListeners();
+        this.applyPersistedSettings();
 
         const currentFile = this.app.workspace.getActiveFile();
         await this.onFileOpen(currentFile);
@@ -100,45 +98,6 @@ export class RedPreviewController {
     /** 当前预览根节点(发布链路导出图卡用) */
     getPreviewEl(): HTMLElement | null {
         return this.previewEl || null;
-    }
-
-    private async initializeToolbar(container: HTMLElement) {
-        const toolbar = container.createEl('div', { cls: 'red-toolbar' });
-        const controlsGroup = toolbar.createEl('div', { cls: 'red-controls-group' });
-
-        await this.initializeLockButton(controlsGroup);
-        await this.initializeTemplateSelect(controlsGroup);
-        await this.initializeThemeSelect(controlsGroup);
-        await this.initializeFontSelect(controlsGroup);
-        await this.initializeFontSizeControls(controlsGroup);
-        await this.restoreSettings();
-    }
-
-    // 添加背景设置按钮初始化方法
-    private async initializeBackgroundButton(parent: HTMLElement) {
-        const bgButton = parent.createEl('button', {
-            cls: 'red-background-button',
-            attr: { 'aria-label': '设置背景图片' }
-        });
-        setIcon(bgButton, 'image');
-
-        bgButton.addEventListener('click', () => {
-            const currentSettings = this.settingsManager.getSettings().backgroundSettings;
-            new BackgroundSettingModal(
-                this.app,
-                async (backgroundSettings) => {
-                    await this.settingsManager.updateSettings({ backgroundSettings });
-                    const imagePreview = this.previewEl.querySelector('.red-image-preview') as HTMLElement;
-                    this.backgroundManager.applyBackgroundStyles(
-                        imagePreview,
-                        backgroundSettings
-                    );
-                },
-                this.previewEl,
-                this.backgroundManager,
-                currentSettings
-            ).open();
-        });
     }
 
     private initializePreviewArea(container: HTMLElement) {
@@ -192,15 +151,6 @@ export class RedPreviewController {
         this.updateNavigationState();
     }
 
-    private initializeBottomBar(container: HTMLElement) {
-        const bottomBar = container.createEl('div', { cls: 'red-bottom-bar' });
-        const bottomControlsGroup = bottomBar.createEl('div', { cls: 'red-controls-group' });
-
-        this.initializeHelpButton(bottomControlsGroup);
-        this.initializeBackgroundButton(bottomControlsGroup);
-        this.initializeExportButtons(bottomControlsGroup);
-    }
-
     private initializeEventListeners() {
         this.hostComponent.registerEvent(
             this.app.workspace.on('file-open', this.onFileOpen.bind(this))
@@ -209,187 +159,6 @@ export class RedPreviewController {
             this.app.vault.on('modify', this.onFileModify.bind(this))
         );
         this.initializeCopyButtonListener();
-    }
-    // #endregion
-
-    // #region 控件初始化
-    private async initializeLockButton(parent: HTMLElement) {
-        this.lockButton = parent.createEl('button', {
-            cls: 'red-lock-button',
-            attr: { 'aria-label': '关闭实时预览状态' }
-        });
-        setIcon(this.lockButton, 'lock');
-        this.lockButton.addEventListener('click', () => this.togglePreviewLock());
-    }
-
-    private async initializeTemplateSelect(parent: HTMLElement) {
-        this.customTemplateSelect = this.createCustomSelect(
-            parent,
-            'red-template-select',
-            await this.getTemplateOptions()
-        );
-        this.customTemplateSelect.id = 'template-select';
-
-        this.customTemplateSelect.querySelector('.red-select')?.addEventListener('change', async (e: any) => {
-            const value = e.detail.value;
-            this.imgTemplateManager.setCurrentTemplate(value);
-            await this.settingsManager.updateSettings({ templateId: value });
-            this.imgTemplateManager.applyTemplate(this.previewEl, this.settingsManager.getSettings());
-            await this.updatePreview();
-        });
-    }
-
-    private async initializeThemeSelect(parent: HTMLElement) {
-        this.customThemeSelect = this.createCustomSelect(
-            parent,
-            'red-theme-select',
-            await this.getThemeOptions()
-        );
-        this.customThemeSelect.id = 'theme-select';
-
-        this.customThemeSelect.querySelector('.red-select')?.addEventListener('change', async (e: any) => {
-            const value = e.detail.value;
-            this.themeManager.setCurrentTheme(value);
-            await this.settingsManager.updateSettings({ themeId: value });
-            this.themeManager.applyTheme(this.previewEl);
-        });
-    }
-
-    private async initializeFontSelect(parent: HTMLElement) {
-        this.customFontSelect = this.createCustomSelect(
-            parent,
-            'red-font-select',
-            this.getFontOptions()
-        );
-        this.customFontSelect.id = 'font-select';
-
-        this.customFontSelect.querySelector('.red-select')?.addEventListener('change', async (e: any) => {
-            const value = e.detail.value;
-            this.themeManager.setFont(value);
-            await this.settingsManager.updateSettings({ fontFamily: value });
-            this.themeManager.applyTheme(this.previewEl);
-        });
-    }
-
-    private async initializeFontSizeControls(parent: HTMLElement) {
-        const fontSizeGroup = parent.createEl('div', { cls: 'red-font-size-group' });
-
-        const decreaseButton = fontSizeGroup.createEl('button', {
-            cls: 'red-font-size-btn',
-            text: '-'
-        });
-
-        this.fontSizeSelect = fontSizeGroup.createEl('input', {
-            cls: 'red-font-size-input',
-            type: 'text',
-            value: '16',
-            attr: {
-                style: 'border: none; outline: none; background: transparent;'
-            }
-        });
-
-        const increaseButton = fontSizeGroup.createEl('button', {
-            cls: 'red-font-size-btn',
-            text: '+'
-        });
-
-        const updateFontSize = async () => {
-            const size = parseInt(this.fontSizeSelect.value);
-            this.themeManager.setFontSize(size);
-            await this.settingsManager.updateSettings({ fontSize: size });
-            this.themeManager.applyTheme(this.previewEl);
-        };
-
-        decreaseButton.addEventListener('click', () => {
-            const currentSize = parseInt(this.fontSizeSelect.value);
-            if (currentSize > 12) {
-                this.fontSizeSelect.value = (currentSize - 1).toString();
-                updateFontSize();
-            }
-        });
-
-        increaseButton.addEventListener('click', () => {
-            const currentSize = parseInt(this.fontSizeSelect.value);
-            if (currentSize < 30) {
-                this.fontSizeSelect.value = (currentSize + 1).toString();
-                updateFontSize();
-            }
-        });
-
-        this.fontSizeSelect.addEventListener('change', updateFontSize);
-    }
-
-    private initializeHelpButton(parent: HTMLElement) {
-        const helpButton = parent.createEl('button', {
-            cls: 'red-help-button',
-            attr: { 'aria-label': '使用指南' }
-        });
-        setIcon(helpButton, 'help');
-        const headingLevel = this.settingsManager.getSettings().headingLevel || 'h1';
-        parent.createEl('div', {
-            cls: 'red-help-tooltip',
-            text: `使用指南：
-                1. 核心用法：用${headingLevel === 'h1' ? '一级标题(#)' : '二级标题(##)'}来分割内容，每个标题生成一张小红书配图
-                2. 内容分页：在${headingLevel === 'h1' ? '一级标题(#)' : '二级标题(##)'}下使用 --- 可将内容分割为多页，每页都会带上标题
-                3. 首图制作：单独调整首节字号至20-24px，使用【下载当前页】导出
-                4. 长文优化：内容较多的章节可调小字号至14-16px后单独导出
-                5. 批量操作：保持统一字号时，用【导出全部页】批量生成
-                6. 模板切换：顶部选择器可切换不同视觉风格
-                7. 实时编辑：解锁状态(🔓)下编辑文档即时预览效果`
-        });
-    }
-
-    private initializeExportButtons(parent: HTMLElement) {
-        // 单张下载按钮
-        const singleDownloadButton = parent.createEl('button', {
-            text: '下载当前页',
-            cls: 'red-export-button'
-        });
-
-        singleDownloadButton.addEventListener('click', async () => {
-            if (this.previewEl) {
-                singleDownloadButton.disabled = true;
-                singleDownloadButton.setText('导出中...');
-
-                try {
-                    await DownloadManager.downloadSingleImage(this.previewEl);
-                    singleDownloadButton.setText('导出成功');
-                } catch (error) {
-                    singleDownloadButton.setText('导出失败');
-                } finally {
-                    setTimeout(() => {
-                        singleDownloadButton.disabled = false;
-                        singleDownloadButton.setText('下载当前页');
-                    }, 2000);
-                }
-            }
-        });
-
-        // 批量导出按钮
-        this.copyButton = parent.createEl('button', {
-            text: '导出全部页',
-            cls: 'red-export-button'
-        });
-
-        this.copyButton.addEventListener('click', async () => {
-            if (this.previewEl) {
-                this.copyButton.disabled = true;
-                this.copyButton.setText('导出中...');
-
-                try {
-                    await DownloadManager.downloadAllImages(this.previewEl);
-                    this.copyButton.setText('导出成功');
-                } catch (error) {
-                    this.copyButton.setText('导出失败');
-                } finally {
-                    setTimeout(() => {
-                        this.copyButton.disabled = false;
-                        this.copyButton.setText('导出全部页');
-                    }, 2000);
-                }
-            }
-        });
-
     }
 
     private initializeCopyButtonListener() {
@@ -421,85 +190,116 @@ export class RedPreviewController {
     // #endregion
 
     // #region 设置管理
-    private async restoreSettings() {
+    /** 挂载时把持久化设置回放到各管理器(原 restoreSettings 去掉控件 DOM 部分) */
+    private applyPersistedSettings() {
         const settings = this.settingsManager.getSettings();
 
         if (settings.themeId) {
-            await this.restoreThemeSettings(settings.themeId);
+            this.themeManager.setCurrentTheme(settings.themeId);
         }
         if (settings.fontFamily) {
-            await this.restoreFontSettings(settings.fontFamily);
+            this.themeManager.setFont(settings.fontFamily);
         }
         if (settings.fontSize) {
-            this.fontSizeSelect.value = settings.fontSize.toString();
             this.themeManager.setFontSize(settings.fontSize);
         }
-        if (settings.templateId) { // 添加模板 ID 的恢复逻辑
-            await this.restoreTemplateSettings(settings.templateId);
+        if (settings.templateId) {
+            this.imgTemplateManager.setCurrentTemplate(settings.templateId);
+        }
+    }
+    // #endregion
+
+    // #region 宿主控件接口(顶栏 + 样式设置悬浮层调用)
+    getTemplateOptions() {
+        return this.imgTemplateManager.getImgTemplateOptions();
+    }
+
+    getThemeOptions() {
+        const templates = this.settingsManager.getVisibleThemes();
+        return templates.length > 0
+            ? templates.map(t => ({ value: t.id, label: t.name }))
+            : [{ value: 'default', label: '默认主题' }];
+    }
+
+    getFontOptions() {
+        return this.settingsManager.getFontOptions();
+    }
+
+    getSettings() {
+        return this.settingsManager.getSettings();
+    }
+
+    async setTemplate(value: string) {
+        this.imgTemplateManager.setCurrentTemplate(value);
+        await this.settingsManager.updateSettings({ templateId: value });
+        this.imgTemplateManager.applyTemplate(this.previewEl, this.settingsManager.getSettings());
+        await this.updatePreview();
+    }
+
+    async setTheme(value: string) {
+        this.themeManager.setCurrentTheme(value);
+        await this.settingsManager.updateSettings({ themeId: value });
+        this.themeManager.applyTheme(this.previewEl);
+    }
+
+    async setFont(value: string) {
+        this.themeManager.setFont(value);
+        await this.settingsManager.updateSettings({ fontFamily: value });
+        this.themeManager.applyTheme(this.previewEl);
+    }
+
+    async setFontSize(size: number) {
+        this.themeManager.setFontSize(size);
+        await this.settingsManager.updateSettings({ fontSize: size });
+        this.themeManager.applyTheme(this.previewEl);
+    }
+
+    /** 下载当前页图卡;无有效内容时抛错由宿主提示 */
+    async downloadCurrentPage() {
+        this.ensureExportReady();
+        await DownloadManager.downloadSingleImage(this.previewEl);
+    }
+
+    /** 批量导出全部页图卡;无有效内容时抛错由宿主提示 */
+    async downloadAllPages() {
+        this.ensureExportReady();
+        await DownloadManager.downloadAllImages(this.previewEl);
+    }
+
+    private ensureExportReady() {
+        if (!this.hasValidContent) {
+            throw new Error('请先添加一级标题内容');
         }
     }
 
-    private async restoreTemplateSettings(templateId: string) {
-        const templateSelect = this.customTemplateSelect.querySelector('.red-select-text');
-        const templateDropdown = this.customTemplateSelect.querySelector('.red-select-dropdown');
-        if (templateSelect && templateDropdown) {
-            const option = await this.getTemplateOptions();
-            const selected = option.find(o => o.value === templateId);
-            if (selected) {
-                templateSelect.textContent = selected.label;
-                this.customTemplateSelect.querySelector('.red-select')?.setAttribute('data-value', selected.value);
-                templateDropdown.querySelectorAll('.red-select-item').forEach(el => {
-                    if (el.getAttribute('data-value') === selected.value) {
-                        el.classList.add('red-selected');
-                    } else {
-                        el.classList.remove('red-selected');
-                    }
-                });
-            }
-        }
-        this.imgTemplateManager.setCurrentTemplate(templateId);
+    openBackgroundModal() {
+        const currentSettings = this.settingsManager.getSettings().backgroundSettings;
+        new BackgroundSettingModal(
+            this.app,
+            async (backgroundSettings) => {
+                await this.settingsManager.updateSettings({ backgroundSettings });
+                const imagePreview = this.previewEl.querySelector('.red-image-preview') as HTMLElement;
+                this.backgroundManager.applyBackgroundStyles(
+                    imagePreview,
+                    backgroundSettings
+                );
+            },
+            this.previewEl,
+            this.backgroundManager,
+            currentSettings
+        ).open();
     }
 
-    private async restoreThemeSettings(themeId: string) {
-        const templateSelect = this.customThemeSelect.querySelector('.red-select-text');
-        const templateDropdown = this.customThemeSelect.querySelector('.red-select-dropdown');
-        if (templateSelect && templateDropdown) {
-            const option = await this.getThemeOptions();
-            const selected = option.find(o => o.value === themeId);
-            if (selected) {
-                templateSelect.textContent = selected.label;
-                this.customThemeSelect.querySelector('.red-select')?.setAttribute('data-value', selected.value);
-                templateDropdown.querySelectorAll('.red-select-item').forEach(el => {
-                    if (el.getAttribute('data-value') === selected.value) {
-                        el.classList.add('red-selected');
-                    } else {
-                        el.classList.remove('red-selected');
-                    }
-                });
-            }
-        }
-        this.themeManager.setCurrentTheme(themeId);
-    }
-
-    private async restoreFontSettings(fontFamily: string) {
-        const fontSelect = this.customFontSelect.querySelector('.red-select-text');
-        const fontDropdown = this.customFontSelect.querySelector('.red-select-dropdown');
-        if (fontSelect && fontDropdown) {
-            const option = this.getFontOptions();
-            const selected = option.find(o => o.value === fontFamily);
-            if (selected) {
-                fontSelect.textContent = selected.label;
-                this.customFontSelect.querySelector('.red-select')?.setAttribute('data-value', selected.value);
-                fontDropdown.querySelectorAll('.red-select-item').forEach(el => {
-                    if (el.getAttribute('data-value') === selected.value) {
-                        el.classList.add('red-selected');
-                    } else {
-                        el.classList.remove('red-selected');
-                    }
-                });
-            }
-        }
-        this.themeManager.setFont(fontFamily);
+    /** 悬浮层底部「使用指南」文案(随标题分割级别设置变化) */
+    getUsageGuideText(): string {
+        const headingLevel = this.settingsManager.getSettings().headingLevel || 'h1';
+        const heading = headingLevel === 'h1' ? '一级标题(#)' : '二级标题(##)';
+        return `1. 核心用法：用${heading}来分割内容，每个标题生成一张小红书配图
+2. 内容分页：在${heading}下使用 --- 可将内容分割为多页，每页都会带上标题
+3. 首图制作：单独调整首节字号至20-24px，用顶栏下载菜单的【下载当前页】导出
+4. 长文优化：内容较多的章节可调小字号至14-16px后单独导出
+5. 批量操作：保持统一字号时，用【导出全部页】批量生成
+6. 模板切换：在本面板切换不同视觉风格`;
     }
     // #endregion
 
@@ -533,45 +333,8 @@ export class RedPreviewController {
             }
         }
 
-        this.updateControlsState(hasValidContent);
-        if (!hasValidContent) {
-            this.copyButton.setAttribute('title', '请先添加一级标题内容');
-        } else {
-            this.copyButton.removeAttribute('title');
-        }
+        this.hasValidContent = hasValidContent;
         this.updateNavigationState();
-    }
-
-    private updateControlsState(enabled: boolean) {
-        this.lockButton.disabled = !enabled;
-
-        const templateSelect = this.customTemplateSelect.querySelector('.red-select');
-        const themeSelect = this.customThemeSelect.querySelector('.red-select');
-        const fontSelect = this.customFontSelect.querySelector('.red-select');
-        if (templateSelect) {
-            templateSelect.classList.toggle('disabled', !enabled);
-            templateSelect.setAttribute('style', `pointer-events: ${enabled ? 'auto' : 'none'}`);
-        }
-        if (themeSelect) {
-            themeSelect.classList.toggle('disabled', !enabled);
-            themeSelect.setAttribute('style', `pointer-events: ${enabled ? 'auto' : 'none'}`);
-        }
-        if (fontSelect) {
-            fontSelect.classList.toggle('disabled', !enabled);
-            fontSelect.setAttribute('style', `pointer-events: ${enabled ? 'auto' : 'none'}`);
-        }
-
-        this.fontSizeSelect.disabled = !enabled;
-        const fontSizeButtons = this.rootEl.querySelectorAll('.red-font-size-btn');
-        fontSizeButtons.forEach(button => {
-            (button as HTMLButtonElement).disabled = !enabled;
-        });
-
-        this.copyButton.disabled = !enabled;
-        const singleDownloadButton = this.rootEl.querySelector('.red-export-button');
-        if (singleDownloadButton) {
-            (singleDownloadButton as HTMLButtonElement).disabled = !enabled;
-        }
     }
     // #endregion
 
@@ -586,18 +349,15 @@ export class RedPreviewController {
                 text: '只能预览 markdown 文本文档',
                 cls: 'red-empty-state'
             });
-            this.updateControlsState(false);
+            this.hasValidContent = false;
             return;
         }
 
-        this.updateControlsState(true);
-        this.isPreviewLocked = false;
-        setIcon(this.lockButton, 'unlock');
         await this.updatePreview();
     }
 
     async onFileModify(file: TFile) {
-        if (file === this.currentFile && !this.isPreviewLocked) {
+        if (file === this.currentFile) {
             if (this.updateTimer) {
                 window.clearTimeout(this.updateTimer);
             }
@@ -605,84 +365,6 @@ export class RedPreviewController {
                 this.updatePreview();
             }, 500);
         }
-    }
-
-    private async togglePreviewLock() {
-        this.isPreviewLocked = !this.isPreviewLocked;
-        const lockIcon = this.isPreviewLocked ? 'lock' : 'unlock';
-        const lockStatus = this.isPreviewLocked ? '开启实时预览状态' : '关闭实时预览状态';
-        setIcon(this.lockButton, lockIcon);
-        this.lockButton.setAttribute('aria-label', lockStatus);
-
-        if (!this.isPreviewLocked) {
-            await this.updatePreview();
-        }
-    }
-
-    // #region 工具方法
-    private createCustomSelect(
-        parent: HTMLElement,
-        className: string,
-        options: { value: string; label: string }[]
-    ) {
-        const container = parent.createEl('div', { cls: `red-select-container ${className}` });
-        const select = container.createEl('div', { cls: 'red-select' });
-        const selectedText = select.createEl('span', { cls: 'red-select-text' });
-        select.createEl('span', { cls: 'red-select-arrow', text: '▾' });
-
-        const dropdown = container.createEl('div', { cls: 'red-select-dropdown' });
-
-        options.forEach(option => {
-            const item = dropdown.createEl('div', {
-                cls: 'red-select-item',
-                text: option.label
-            });
-
-            item.dataset.value = option.value;
-            item.addEventListener('click', () => {
-                dropdown.querySelectorAll('.red-select-item').forEach(el =>
-                    el.classList.remove('red-selected'));
-                item.classList.add('red-selected');
-                selectedText.textContent = option.label;
-                select.dataset.value = option.value;
-                dropdown.classList.remove('red-show');
-                select.dispatchEvent(new CustomEvent('change', {
-                    detail: { value: option.value }
-                }));
-            });
-        });
-
-        if (options.length > 0) {
-            selectedText.textContent = options[0].label;
-            select.dataset.value = options[0].value;
-            dropdown.querySelector('.red-select-item')?.classList.add('red-selected');
-        }
-
-        select.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.classList.toggle('red-show');
-        });
-
-        document.addEventListener('click', () => {
-            dropdown.classList.remove('red-show');
-        });
-
-        return container;
-    }
-
-    private async getThemeOptions() {
-        const templates = this.settingsManager.getVisibleThemes();
-        return templates.length > 0
-            ? templates.map(t => ({ value: t.id, label: t.name }))
-            : [{ value: 'default', label: '默认主题' }];
-    }
-
-    private async getTemplateOptions() {
-        return this.imgTemplateManager.getImgTemplateOptions();
-    }
-
-    private getFontOptions() {
-        return this.settingsManager.getFontOptions();
     }
     // #endregion
 
