@@ -14,9 +14,7 @@
 }
 
 /* 移除旧的设置面板样式，避免冲突 */
-.apple-settings-panel {
-  display: block;
-}
+
 
 /* === 设置变更处理 === */
 /* ... (保留滑块等其他组件样式) ... */
@@ -144,7 +142,6 @@
   color: var(--apple-accent);
   border-color: rgba(0, 113, 227, 0.3);
 }
-
 
 
 .apple-btn-color:hover {
@@ -565,14 +562,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 /* === 操作按钮区 === */
-.apple-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: var(--apple-spacing-md);
-  padding-top: var(--apple-spacing-md);
-  border-top: 1px dashed var(--apple-border);
-  /* Dashed separator */
-}
+
 
 /* Unified Button Style */
 .apple-btn-primary,
@@ -596,15 +586,7 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 
 /* Full Width Variant */
-.apple-btn-full {
-  width: 100%;
-  justify-content: center;
-  display: flex;
-  align-items: center;
-  height: 38px;
-  background: var(--apple-accent);
-  /* Blue */
-}
+
 
 /* ========================================
    预览区域 - 手机仿真模式 (Canvas Mode)
@@ -905,10 +887,6 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   .apple-btn-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-
-  .apple-actions {
-    flex-direction: column;
-  }
 }
 
 /* ========================================
@@ -997,7 +975,6 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   margin: 16px 0 8px 0;
   padding: 0;
 }
-
 
 
 /* rednote 嵌入容器:占满预览区剩余空间,内部自滚动 */

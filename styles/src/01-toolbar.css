@@ -52,16 +52,6 @@
   line-height: 1.2;
 }
 
-.apple-toolbar-preview-badge {
-  padding: 0 5px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-muted) 6%, transparent);
-  color: color-mix(in srgb, var(--text-muted) 84%, transparent);
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
-}
 
 .apple-toolbar-doc-name {
   font-size: 14px;
