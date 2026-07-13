@@ -1,0 +1,58 @@
+/* src/styles/element/markdown-element.css */
+.red-code-dots {
+  margin: 8px 0 12px 0;
+  display: flex;
+  gap: 6px;
+}
+.red-code-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.red-code-dot-red {
+  background-color: #ff5f56;
+}
+.red-code-dot-yellow {
+  background-color: #ffbd2e;
+}
+.red-code-dot-green {
+  background-color: #27c93f;
+}
+.red-link {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+.red-table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+}
+.red-table th,
+.red-table td {
+  border: 1px solid var(--background-modifier-border);
+  padding: 8px;
+}
+.red-hr {
+  border: none;
+  border-top: 1px solid var(--background-modifier-border);
+  margin: 20px 0;
+}
+.red-del {
+  text-decoration: line-through;
+}
+.red-task-list-item {
+  list-style: none;
+}
+.red-task-list-item input[type=checkbox] {
+  margin-right: 6px;
+}
+.red-footnote {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+.red-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1em auto;
+}

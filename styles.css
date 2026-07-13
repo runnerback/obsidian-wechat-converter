@@ -1,3 +1,8 @@
+/*
+THIS IS A GENERATED FILE — 由 scripts/build-styles.mjs 拼接 styles/src/*.css 产出。
+不要直接编辑本文件;修改样式请编辑 styles/src/ 下对应模块后重新构建。
+*/
+
 /**
  * 🍎 Apple Style Formatter - 样式表
  * 极简、优雅、专业的苹果风格排版
@@ -263,6 +268,37 @@
 .apple-icon-btn.is-disabled:hover {
   background: transparent;
   color: var(--apple-secondary);
+}
+
+/* ==== 顶栏平台下拉(操作区最左,公众号 / 小红书,决定预览与发布流程)==== */
+.apple-toolbar-platform-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+.apple-toolbar-platform-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 2px 22px 2px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  height: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+.apple-toolbar-platform-select:focus { outline: none; border-color: var(--interactive-accent); }
+.apple-toolbar-platform-arrow {
+  position: absolute;
+  right: 6px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-normal);
+  pointer-events: none;
 }
 
 /* ========================================
@@ -2264,6 +2300,18 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
   padding: 0;
 }
 
+
+
+/* rednote 嵌入容器:占满预览区剩余空间,内部自滚动 */
+.red-embed-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.red-embed-container.is-hidden { display: none; }
+.apple-preview-wrapper.is-hidden { display: none; }
 
 /* ========================================
    多账号管理样式
@@ -6284,48 +6332,3 @@ div.modal.wechat-material-picker-modal-mobile {
 .theme-preview-modal .red-preview-content {
   margin: 0 13px;
 }
-
-/* src/styles/index.css */
-
-/* ==== 顶栏平台下拉(操作区最左,公众号 / 小红书,决定预览与发布流程)==== */
-.apple-toolbar-platform-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  margin-right: 12px;
-  flex-shrink: 0;
-}
-.apple-toolbar-platform-select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding: 2px 22px 2px 10px;
-  font-size: 12px;
-  line-height: 1.5;
-  height: auto;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
-  background: var(--background-secondary);
-  color: var(--text-normal);
-  cursor: pointer;
-}
-.apple-toolbar-platform-select:focus { outline: none; border-color: var(--interactive-accent); }
-.apple-toolbar-platform-arrow {
-  position: absolute;
-  right: 6px;
-  font-size: 18px;
-  line-height: 1;
-  color: var(--text-normal);
-  pointer-events: none;
-}
-
-/* rednote 嵌入容器:占满预览区剩余空间,内部自滚动 */
-.red-embed-container {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.red-embed-container.is-hidden { display: none; }
-.apple-preview-wrapper.is-hidden { display: none; }
-

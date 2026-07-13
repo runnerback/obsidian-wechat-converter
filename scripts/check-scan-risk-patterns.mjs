@@ -13,6 +13,7 @@ const IGNORED_DIRS = new Set([
   'node_modules',
   'RELEASE_NOTES',
   'scripts',
+  'styles', // styles/src 是 styles.css 的源模块;扫描生成产物 styles.css 即可,避免同一问题双重报告
   'tests',
 ]);
 const IGNORED_FILES = new Set([

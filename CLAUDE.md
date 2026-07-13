@@ -25,7 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Core Components**:
     - `input.js`: Main plugin logic and lifecycle management.
     - `converter.js`: Handles Markdown to WeChat-compatible HTML conversion.
-    - `styles.css`: Base plugin styles.
+    - `styles.css`: **GENERATED FILE** — built by `scripts/build-styles.mjs` from `styles/src/*.css`. NEVER edit it directly; edit the module under `styles/src/` (numeric prefix = concat order; `1x-rednote-*.css` are the rednote/小红书 styles) then run `npm run generate:styles` (also runs inside `npm run build`/`dev`). `pretest` runs `check:styles` and fails if styles.css drifts from its sources.
     - `themes/`: Contains specific visual themes (Simple, Classic, Elegant).
     - `lib/`: Helper libraries (including the dynamically loaded `mathjax-plugin.js`).
 - **Build System**:

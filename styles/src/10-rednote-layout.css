@@ -1,0 +1,165 @@
+/* ============================================================
+   rednote(小红书图卡)预览与设置样式 — 自 note-to-red 全量并入
+   (CSS 变量已加 red- 前缀避免与主题/其他插件撞名)
+   ============================================================ */
+/* src/styles/view/layout.css */
+.red-preview-wrapper {
+  padding: 10px 20px 20px 20px;
+  margin: 10px;
+  /* 工具栏/底栏已收编进宿主顶栏与悬浮层,预览区吃满容器(flex:1) */
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--background-primary);
+  flex: 1;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(82, 144, 220, 0.1);
+}
+.red-empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #999;
+  font-size: 16px;
+}
+.red-preview-container {
+  position: relative;
+  min-width: 490px;
+  aspect-ratio: 3/4;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: var(--background-primary-alt);
+  border-radius: 12px;
+  padding: 20px;
+}
+.red-preview-header {
+  padding-bottom: 10px;
+}
+.red-image-preview {
+  width: 100%;
+  max-width: 450px;
+  aspect-ratio: 3/4;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.red-content-wrapper {
+  flex: 1;
+  overflow: hidden;
+}
+.red-nav-button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.red-nav-button:hover {
+  background: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.red-page-indicator {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  font-size: 14px;
+  color: #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.red-nav-container {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  z-index: 100;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border-radius: 20px;
+}
+.red-nav-button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(4px);
+}
+.red-nav-button:hover {
+  background: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.red-content-section {
+  display: none;
+  margin: 0 13px;
+}
+.red-content-section[data-index="0"] {
+  display: block;
+}
+.red-section-active {
+  display: block;
+}
+.red-preview-container section:not(.red-section-active) {
+  display: none;
+}
+.red-nav-hidden {
+  visibility: hidden;
+}
+.red-section-visible {
+  display: block !important;
+}
+.red-section-hidden {
+  display: none !important;
+}
+.red-empty-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-error);
+  font-size: 15px;
+  background: var(--background-primary-alt);
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: 12px;
+  margin: 40px auto;
+  max-width: 320px;
+  line-height: 1.8;
+  white-space: pre-line;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

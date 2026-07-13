@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-wechat-converter",
-	"version": "3.9.24",
+	"version": "3.9.25",
 	"description": "Obsidian plugin for WeChat articles, Feishu cloud docs, and multi-platform publishing.",
 	"main": "main.js",
 	"scripts": {
@@ -8,8 +8,10 @@
 		"check:embedded": "node scripts/generate-embedded-deps.mjs --check",
 		"generate:ai-layout-runtime": "node scripts/build-ai-layout-runtime.mjs",
 		"check:ai-layout-runtime": "node scripts/build-ai-layout-runtime.mjs --check",
-		"generate:runtime": "npm run generate:embedded && npm run generate:ai-layout-runtime",
-		"check:runtime": "npm run check:embedded && npm run check:ai-layout-runtime",
+		"generate:styles": "node scripts/build-styles.mjs",
+		"check:styles": "node scripts/build-styles.mjs --check",
+		"generate:runtime": "npm run generate:embedded && npm run generate:ai-layout-runtime && npm run generate:styles",
+		"check:runtime": "npm run check:embedded && npm run check:ai-layout-runtime && npm run check:styles",
 		"check:build-artifacts": "node scripts/check-build-artifacts.mjs",
 		"dev": "npm run generate:runtime && node esbuild.config.mjs",
 		"build": "npm run generate:runtime && node esbuild.config.mjs production",

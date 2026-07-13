@@ -1,0 +1,102 @@
+/* iOS 备忘录主题(memo)专属头部 —— 由 rednote/memoHeader.ts 渲染 DOM。
+   模拟 iPhone 备忘录截图:状态栏(时间+信号/WiFi/电池) + ‹ 备忘录 导航条
+   (系统黄,参考 Apple Notes 品牌黄 #FFD52E 加深至可读) + 居中日期。 */
+.red-memo-header {
+  padding: 0 0 4px;
+}
+.red-memo-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 22px;
+  margin-bottom: 6px;
+}
+.red-memo-status-time {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1C1C1E;
+  letter-spacing: 0.3px;
+  padding-left: 6px;
+}
+.red-memo-status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-right: 2px;
+}
+.red-memo-sicon {
+  display: inline-block;
+  width: 17px;
+  height: 12px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+.red-memo-sicon-signal {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18' fill='%231C1C1E'%3E%3Crect x='0' y='11' width='4' height='6' rx='1.2'/%3E%3Crect x='6' y='8' width='4' height='9' rx='1.2'/%3E%3Crect x='12' y='4.5' width='4' height='12.5' rx='1.2'/%3E%3Crect x='18' y='1' width='4' height='16' rx='1.2'/%3E%3C/svg%3E");
+}
+.red-memo-sicon-wifi {
+  width: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18' fill='none' stroke='%231C1C1E' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M2 6.5a15.5 15.5 0 0 1 20 0'/%3E%3Cpath d='M5.8 10.5a10 10 0 0 1 12.4 0'/%3E%3Cpath d='M9.4 14a5.2 5.2 0 0 1 5.2 0'/%3E%3Ccircle cx='12' cy='16.6' r='1.4' fill='%231C1C1E' stroke='none'/%3E%3C/svg%3E");
+}
+.red-memo-sicon-battery {
+  width: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 27 14' fill='none'%3E%3Crect x='0.8' y='0.8' width='21.5' height='12.4' rx='3.6' stroke='%231C1C1E' stroke-opacity='0.45' stroke-width='1.2'/%3E%3Crect x='2.6' y='2.6' width='14' height='8.8' rx='2' fill='%231C1C1E'/%3E%3Cpath d='M24.4 4.8v4.4a2.4 2.4 0 0 0 0-4.4z' fill='%231C1C1E' fill-opacity='0.45'/%3E%3C/svg%3E");
+}
+.red-memo-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+}
+.red-memo-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  color: #D6A400;
+  font-size: 17px;
+  line-height: 1;
+  font-weight: 400;
+}
+.red-memo-back::before {
+  content: "";
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  margin-left: -6px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(214,164,0)' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 18-6-6 6-6'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+.red-memo-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+}
+.red-memo-icon {
+  display: inline-block;
+  width: 23px;
+  height: 23px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+.red-memo-icon-more {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(214,164,0)' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9.2'/%3E%3Cpath d='M16.4 12h.01'/%3E%3Cpath d='M12 12h.01'/%3E%3Cpath d='M7.6 12h.01'/%3E%3C/svg%3E");
+}
+.red-memo-icon-share {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(214,164,0)' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 11v8a1.6 1.6 0 0 0 1.6 1.6h10.8A1.6 1.6 0 0 0 19 19v-8'/%3E%3Cpolyline points='15.5 6 12 2.5 8.5 6'/%3E%3Cline x1='12' y1='2.5' x2='12' y2='14.5'/%3E%3C/svg%3E");
+}
+.red-memo-date {
+  text-align: center;
+  font-size: 12px;
+  color: #8E8871;
+  margin-top: 10px;
+  letter-spacing: 0.2px;
+}
+/* 纸张颗粒质感:feTurbulence 噪点平铺在淡黄纸底上,目标接近细纹水彩纸——
+   基频 0.42 让颗粒比普通纸粗、又不到粗纹水彩纸;4 层分形叠出深浅起伏;
+   透明度 12%。由 view.ts 在 memo 主题激活时给卡片挂类
+   (数据 URI 无法进主题 inline 样式) */
+.red-image-preview.red-memo-paper {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.42' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.12' intercept='0'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
