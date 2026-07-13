@@ -81,6 +81,8 @@ describe('备忘录主题(memo)', () => {
     expect(container.querySelector('.red-memo-date')).toBeTruthy();
     // 用户信息头部被替换
     expect(container.querySelector('.red-user-info')).toBeNull();
+    // 卡片挂纸张颗粒纹理类
+    expect(container.querySelector('.red-image-preview')?.classList.contains('red-memo-paper')).toBe(true);
   });
 
   it('切回 default 应恢复用户信息头部且无 memo 残留', async () => {
@@ -88,6 +90,7 @@ describe('备忘录主题(memo)', () => {
     expect(container.querySelector('.red-user-info')).toBeTruthy();
     expect(container.querySelector('.red-memo-bar')).toBeNull();
     expect(container.querySelector('.red-memo-header')).toBeNull();
+    expect(container.querySelector('.red-memo-paper')).toBeNull();
   });
 
   it('老用户 data.json 里的主题快照应自动补入 memo 预设', async () => {

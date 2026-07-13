@@ -5660,6 +5660,12 @@ div.modal.wechat-material-picker-modal-mobile {
   margin-top: 10px;
   letter-spacing: 0.2px;
 }
+/* 纸张颗粒质感:feTurbulence 噪点(≈5% 透明度灰阶)平铺在淡黄纸底上。
+   由 view.ts 在 memo 主题激活时给卡片挂类(数据 URI 无法进主题 inline 样式) */
+.red-image-preview.red-memo-paper {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.055' intercept='0'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
 
 /* src/styles/element/markdown-element.css */
 .red-code-dots {

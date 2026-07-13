@@ -312,12 +312,15 @@ export class RedPreviewController {
             const settings = this.settingsManager.getSettings();
             // 应用当前模板(头部/页脚 DOM + 主题样式)
             this.imgTemplateManager.applyTemplate(this.previewEl, settings);
-            // memo(iOS 备忘录)主题带专属头部,替换默认的用户信息头部
+            // memo(iOS 备忘录)主题带专属头部,替换默认的用户信息头部;
+            // 卡片挂 red-memo-paper 类叠加纸张颗粒纹理(data URI 含冒号,
+            // 无法写进主题 inline 样式——applyTheme 的解析器按冒号切分)
             if (settings.themeId === 'memo') {
                 const header = this.previewEl.querySelector('.red-preview-header');
                 if (header) {
                     renderMemoHeader(header as HTMLElement, settings);
                 }
+                this.previewEl.querySelector('.red-image-preview')?.classList.add('red-memo-paper');
             }
             // 应用当前背景设置
             if (settings.backgroundSettings.imageUrl) {
