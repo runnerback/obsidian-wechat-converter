@@ -72,6 +72,10 @@ describe('备忘录主题(memo)', () => {
     await controller.setTheme('memo');
     const header = container.querySelector('.red-preview-header');
     expect(header.classList.contains('red-memo-header')).toBe(true);
+    // 模拟状态栏:时间 + 信号/WiFi/电池
+    expect(container.querySelector('.red-memo-status-time')?.textContent).toMatch(/^\d{1,2}:\d{2}$/);
+    expect(container.querySelectorAll('.red-memo-sicon').length).toBe(3);
+    // 导航条 + 日期行
     expect(container.querySelector('.red-memo-bar')).toBeTruthy();
     expect(container.querySelector('.red-memo-back')?.textContent).toBe('备忘录');
     expect(container.querySelector('.red-memo-date')).toBeTruthy();

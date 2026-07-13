@@ -1,7 +1,7 @@
 {
 	"id": "content-studio",
 	"name": "Content Studio",
-	"version": "3.9.21",
+	"version": "3.9.22",
 	"minAppVersion": "1.4.0",
 	"description": "Convert Markdown into polished WeChat articles, Feishu cloud docs, and drafts for Xiaohongshu, Zhihu, Toutiao, Douyin, Bilibili, Weibo, and CSDN.",
 	"author": "runnerback",
