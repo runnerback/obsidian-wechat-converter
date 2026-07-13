@@ -242,22 +242,30 @@ export class RedPreviewController {
         this.themeManager.applyTheme(this.previewEl);
     }
 
-    /** 下载当前页图卡;无有效内容时抛错由宿主提示 */
+    /** 导出当前页图卡(笔记名称-n.png);无有效内容时抛错由宿主提示 */
     async downloadCurrentPage() {
         this.ensureExportReady();
-        await DownloadManager.downloadSingleImage(this.previewEl);
+        await DownloadManager.downloadSingleImage(this.previewEl, this.exportNoteName(), this.currentImageIndex);
     }
 
-    /** 批量导出全部页图卡;无有效内容时抛错由宿主提示 */
+    /** 批量导出全部页图卡(笔记名称.zip);无有效内容时抛错由宿主提示 */
     async downloadAllPages() {
         this.ensureExportReady();
-        await DownloadManager.downloadAllImages(this.previewEl);
+        await DownloadManager.downloadAllImages(this.previewEl, this.exportNoteName());
     }
 
     private ensureExportReady() {
         if (!this.hasValidContent) {
             throw new Error('请先添加一级标题内容');
         }
+    }
+
+    /** 导出文件名用的笔记名称(hasValidContent 为真时 currentFile 必然存在) */
+    private exportNoteName(): string {
+        if (!this.currentFile) {
+            throw new Error('没有打开的笔记');
+        }
+        return this.currentFile.basename;
     }
 
     openBackgroundModal() {
@@ -284,7 +292,7 @@ export class RedPreviewController {
         const heading = headingLevel === 'h1' ? '一级标题(#)' : '二级标题(##)';
         return `1. 核心用法：用${heading}来分割内容，每个标题生成一张小红书配图
 2. 内容分页：在${heading}下使用 --- 可将内容分割为多页，每页都会带上标题
-3. 首图制作：单独调整首节字号至20-24px，用顶栏下载菜单的【下载当前页】导出
+3. 首图制作：单独调整首节字号至20-24px，用顶栏下载菜单的【导出当前页】导出
 4. 长文优化：内容较多的章节可调小字号至14-16px后单独导出
 5. 批量操作：保持统一字号时，用【导出全部页】批量生成
 6. 主题切换：在本面板切换不同视觉风格(含 iOS 备忘录风)`;

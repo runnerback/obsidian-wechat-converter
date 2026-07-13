@@ -1,5 +1,8 @@
 import * as htmlToImage from 'html-to-image';
 import JSZip from 'jszip';
+// 与发布链路(sync-to-rednote/)同一套图卡命名:synced-rednote-card_00.png …
+// @ts-ignore 纯函数 JS 模块,无类型声明
+import { rednoteCardFilename } from '../services/rednote-publish.js';
 
 export class DownloadManager {
     // 添加共用的导出配置方法
@@ -68,7 +71,11 @@ export class DownloadManager {
         return blobs;
     }
 
-    static async downloadAllImages(element: HTMLElement): Promise<void> {
+    /**
+     * 导出全部页为 zip:zip 名 = 笔记名称.zip;
+     * 内部结构与发布规则一致:export-to-rednote/synced-rednote-card_00.png …
+     */
+    static async downloadAllImages(element: HTMLElement, noteName: string): Promise<void> {
         try {
             const zip = new JSZip();
             const previewContainer = element.querySelector('.red-preview-container');
@@ -105,7 +112,7 @@ export class DownloadManager {
                 try {
                     const blob = await htmlToImage.toBlob(imageElement, this.getExportConfig(imageElement));
                     if (blob instanceof Blob) {
-                        zip.file(`小红书笔记_第${i + 1}页.png`, blob);
+                        zip.file(`export-to-rednote/${rednoteCardFilename(i)}`, blob);
                     } else {
                         throw new Error('生成的不是有效的 Blob 对象');
                     }
@@ -122,7 +129,7 @@ export class DownloadManager {
                                 }
                             }, 'image/png', 1);
                         });
-                        zip.file(`小红书笔记_第${i + 1}页.png`, blob);
+                        zip.file(`export-to-rednote/${rednoteCardFilename(i)}`, blob);
                     } catch (canvasErr) {
                         console.error(`第${i + 1}页备用导出也失败`, canvasErr);
                     }
@@ -151,7 +158,7 @@ export class DownloadManager {
             const url = URL.createObjectURL(content);
             const link = Object.assign(document.createElement('a'), {
                 href: url,
-                download: `小红书笔记_${Date.now()}.zip`
+                download: `${noteName}.zip`
             });
 
             link.click();
@@ -162,7 +169,10 @@ export class DownloadManager {
         }
     }
 
-    static async downloadSingleImage(element: HTMLElement): Promise<void> {
+    /**
+     * 导出当前页:文件名 = 笔记名称-n.png(n 为当前页序号,1 起)
+     */
+    static async downloadSingleImage(element: HTMLElement, noteName: string, pageIndex: number): Promise<void> {
         try {
             const imageElement = element.querySelector('.red-image-preview') as HTMLElement;
             if (!imageElement) {
@@ -181,7 +191,7 @@ export class DownloadManager {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `小红书笔记_${new Date().getTime()}.png`;
+                link.download = `${noteName}-${pageIndex + 1}.png`;
 
                 document.body.appendChild(link);
                 link.click();
@@ -198,7 +208,7 @@ export class DownloadManager {
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = url;
-                    link.download = `小红书笔记_${new Date().getTime()}.png`;
+                    link.download = `${noteName}-${pageIndex + 1}.png`;
 
                     document.body.appendChild(link);
                     link.click();

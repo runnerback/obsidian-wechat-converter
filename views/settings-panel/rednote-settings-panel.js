@@ -108,7 +108,7 @@ export const rednoteSettingsPanelMixin = {
   },
 
   /**
-   * 顶栏下载按钮:弹出小菜单选择「下载当前页 / 导出全部页」
+   * 顶栏下载按钮:弹出小菜单选择「导出当前页 / 导出全部页」
    * @param {MouseEvent} event
    */
   openRednoteDownloadMenu(event) {
@@ -117,7 +117,7 @@ export const rednoteSettingsPanelMixin = {
 
     const menu = new obsidianApi.Menu();
     menu.addItem((item) => item
-      .setTitle('下载当前页')
+      .setTitle('导出当前页')
       .setIcon('image-down')
       .onClick(() => this.runRednoteExport(() => controller.downloadCurrentPage(), '当前页')));
     menu.addItem((item) => item
