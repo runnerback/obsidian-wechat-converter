@@ -507,6 +507,10 @@ class AppleStyleView extends ItemView {
 
     // rednote(小红书图卡)预览容器:与公众号预览并存,按模式显隐
     this.rednoteContainer = container.createEl('div', { cls: 'red-embed-container is-hidden' });
+    // Light Dismiss: 与公众号预览区一致,点击预览空白区域收起悬浮设置层
+    this.rednoteContainer.addEventListener('click', () => {
+      this.closeTransientPanels();
+    });
     this.rednoteController = null;
     this._previewMode = 'wechat';
 

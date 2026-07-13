@@ -423,6 +423,21 @@ export const settingsPanelMixin = {
       }
     }
 
+    // === 使用指南(面板底部常驻说明,与小红书设置面板同款样式) ===
+    this.createSection(settingsArea, '使用指南', (section) => {
+      section.createEl('span', {
+        text: `1. 实时预览：编辑文档时预览区实时渲染公众号排版效果，双向同步滚动
+2. 样式设置：本面板调整主题/字体/字号/主题色，「高级选项」含引用/标题/代码块等细节
+3. AI 编排：顶栏 ✨ 按钮让 AI 自动优化整篇排版与配色
+4. 复制发布：顶栏复制按钮把排版结果复制进剪贴板，粘贴到公众号编辑器即可
+5. 草稿同步：顶栏「发布与分发」直接保存公众号草稿，本地图片/公式/图表自动上传
+6. 手机预览：插件设置中开启手机框模式，模拟手机端阅读效果`,
+        attr: {
+          style: 'font-size: 11px; color: var(--apple-secondary); opacity: 0.8; font-weight: 500; display: block; white-space: pre-line; line-height: 1.7;'
+        }
+      });
+    });
+
     this.aiLayoutOverlay = container.createEl('div', { cls: 'apple-ai-layout-overlay' });
     this.createAiLayoutPanel(this.aiLayoutOverlay);
     this.updateAiToolbarState();
