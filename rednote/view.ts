@@ -15,6 +15,7 @@ import { ClipboardManager } from './clipboardManager.ts';
 import { ImgTemplateManager } from './imgTemplateManager.ts';
 import { BackgroundSettingModal } from './modals/BackgroundSettingModal.ts';
 import { BackgroundManager } from './backgroundManager.ts';
+import { renderMemoHeader } from './memoHeader.ts';
 
 export class RedPreviewController {
     // #region 属性定义
@@ -203,17 +204,10 @@ export class RedPreviewController {
         if (settings.fontSize) {
             this.themeManager.setFontSize(settings.fontSize);
         }
-        if (settings.templateId) {
-            this.imgTemplateManager.setCurrentTemplate(settings.templateId);
-        }
     }
     // #endregion
 
     // #region 宿主控件接口(顶栏 + 样式设置悬浮层调用)
-    getTemplateOptions() {
-        return this.imgTemplateManager.getImgTemplateOptions();
-    }
-
     getThemeOptions() {
         const templates = this.settingsManager.getVisibleThemes();
         return templates.length > 0
@@ -229,17 +223,11 @@ export class RedPreviewController {
         return this.settingsManager.getSettings();
     }
 
-    async setTemplate(value: string) {
-        this.imgTemplateManager.setCurrentTemplate(value);
-        await this.settingsManager.updateSettings({ templateId: value });
-        this.imgTemplateManager.applyTemplate(this.previewEl, this.settingsManager.getSettings());
-        await this.updatePreview();
-    }
-
     async setTheme(value: string) {
         this.themeManager.setCurrentTheme(value);
         await this.settingsManager.updateSettings({ themeId: value });
-        this.themeManager.applyTheme(this.previewEl);
+        // 全量重渲染而非仅刷样式:memo 主题带专属头部 DOM,切入/切出都要重建
+        await this.updatePreview();
     }
 
     async setFont(value: string) {
@@ -299,7 +287,7 @@ export class RedPreviewController {
 3. 首图制作：单独调整首节字号至20-24px，用顶栏下载菜单的【下载当前页】导出
 4. 长文优化：内容较多的章节可调小字号至14-16px后单独导出
 5. 批量操作：保持统一字号时，用【导出全部页】批量生成
-6. 模板切换：在本面板切换不同视觉风格`;
+6. 主题切换：在本面板切换不同视觉风格(含 iOS 备忘录风)`;
     }
     // #endregion
 
@@ -321,10 +309,17 @@ export class RedPreviewController {
         const hasValidContent = RedConverter.hasValidContent(this.previewEl);
 
         if (hasValidContent) {
-            // 应用当前模板
-            this.imgTemplateManager.applyTemplate(this.previewEl, this.settingsManager.getSettings());
-            // 应用当前背景设置
             const settings = this.settingsManager.getSettings();
+            // 应用当前模板(头部/页脚 DOM + 主题样式)
+            this.imgTemplateManager.applyTemplate(this.previewEl, settings);
+            // memo(iOS 备忘录)主题带专属头部,替换默认的用户信息头部
+            if (settings.themeId === 'memo') {
+                const header = this.previewEl.querySelector('.red-preview-header');
+                if (header) {
+                    renderMemoHeader(header as HTMLElement, settings);
+                }
+            }
+            // 应用当前背景设置
             if (settings.backgroundSettings.imageUrl) {
                 const previewContainer = this.previewEl.querySelector('.red-image-preview');
                 if (previewContainer) {

@@ -45,11 +45,7 @@ export const rednoteSettingsPanelMixin = {
       });
     };
 
-    // === 模板 ===
-    createSelectSection('模板', controller.getTemplateOptions(), settings.templateId,
-      (value) => controller.setTemplate(value));
-
-    // === 主题 ===
+    // === 主题(含 iOS 备忘录风格 memo) ===
     createSelectSection('主题', controller.getThemeOptions(), settings.themeId,
       (value) => controller.setTheme(value));
 

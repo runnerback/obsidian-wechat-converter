@@ -5566,66 +5566,60 @@ div.modal.wechat-material-picker-modal-mobile {
   opacity: 0.8;
 }
 
-/* src/styles/template/red-notes.css */
-.red-notes-header .red-notes-bar {
-  position: relative;
+/* iOS 备忘录主题(memo)专属头部 —— 由 rednote/memoHeader.ts 渲染 DOM。
+   自研重设计:‹ 备忘录 返回条(琥珀黄) + 圆点/分享图标 + 居中日期。
+   (原「备忘录模板」red-notes-* 样式已随模板机制移除) */
+.red-memo-header {
+  padding: 2px 0 6px;
+}
+.red-memo-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   height: 30px;
-  padding: 30px 0 0 0;
-  color: #f8c744;
-  font-size: 17px;
 }
-.red-notes-bar:before {
+.red-memo-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #C7930A;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 400;
+}
+.red-memo-back::before {
   content: "";
-  position: absolute;
-  left: 0;
-  top: 3px;
-  height: 24px;
-  line-height: 28px;
-  padding-left: 24px;
-  width: 120px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='rgb(248, 199, 68)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 18-6-6 6-6'%3E%3C/path%3E%3C/svg%3E");
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin-left: -4px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(199,147,10)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 18-6-6 6-6'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+.red-memo-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+}
+.red-memo-icon {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
   background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
-.red-notes-title {
-  position: absolute;
-  left: 24px;
-  top: 3px;
-  height: 24px;
-  line-height: 28px;
-  cursor: pointer;
+.red-memo-icon-more {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(199,147,10)' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9.2'/%3E%3Cpath d='M16.4 12h.01'/%3E%3Cpath d='M12 12h.01'/%3E%3Cpath d='M7.6 12h.01'/%3E%3C/svg%3E");
 }
-.red-notes-edit-input {
-  position: absolute;
-  left: 24px;
-  top: 3px;
-  height: 24px;
-  line-height: 24px;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid #f8c744;
-  color: #f8c744;
-  font-size: 17px;
-  outline: none;
-  width: 120px;
+.red-memo-icon-share {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(199,147,10)' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 11v8a1.6 1.6 0 0 0 1.6 1.6h10.8A1.6 1.6 0 0 0 19 19v-8'/%3E%3Cpolyline points='15.5 6 12 2.5 8.5 6'/%3E%3Cline x1='12' y1='2.5' x2='12' y2='14.5'/%3E%3C/svg%3E");
 }
-.red-notes-bar:after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 3px;
-  width: 24px;
-  height: 24px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(248, 199, 68)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cpath d='M17 12h.01'%3E%3C/path%3E%3Cpath d='M12 12h.01'%3E%3C/path%3E%3Cpath d='M7 12h.01'%3E%3C/path%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-}
-.red-notes-actions {
-  position: absolute;
-  right: 60px;
-  top: 2px;
-  width: 24px;
-  height: 24px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(248, 199, 68)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8'%3E%3C/path%3E%3Cpolyline points='16 6 12 2 8 6'%3E%3C/polyline%3E%3Cline x1='12' x2='12' y1='2' y2='15'%3E%3C/line%3E%3C/svg%3E");
-  background-repeat: no-repeat;
+.red-memo-date {
+  text-align: center;
+  font-size: 12px;
+  color: #8A8A8E;
+  margin-top: 10px;
+  letter-spacing: 0.2px;
 }
 
 /* src/styles/element/markdown-element.css */

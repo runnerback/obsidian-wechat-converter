@@ -11,7 +11,6 @@ interface HostPluginLike {
 }
 
 interface RedSettings {
-    templateId: string;
     themeId: string;
     fontFamily: string;
     fontSize: number;
@@ -38,7 +37,6 @@ interface RedSettings {
 }
 
 export const DEFAULT_SETTINGS: RedSettings = {
-    templateId: 'default',
     themeId: 'default',
     fontFamily: 'Optima-Regular, Optima, PingFangSC-light, PingFangTC-light, "PingFang SC"',
     fontSize: 16,
@@ -103,14 +101,25 @@ export class SettingsManager extends EventEmitter {
         // 从宿主 settings.rednote 命名空间读取(宿主已完成 data.json 加载)
         let savedData: Partial<RedSettings> = this.plugin.settings.rednote || {};
 
-        // 如果是首次加载或 themes 为空，导入预设主题
-        if (!savedData.themes || savedData.themes.length === 0) {
-            const { templates } = await import('../templates/index.ts');
-            savedData.themes = Object.values(templates).map(theme => ({
-                ...(theme as Theme),
-                isPreset: true
-            }));
-        }
+        // 预设主题以代码为准:已保存的预设按 id 刷新样式(保留用户的可见性
+        // 开关),代码里新增的预设(如 memo)自动补进列表——否则老用户
+        // data.json 里的主题快照永远不会出现新主题、也吃不到样式修订。
+        const { templates } = await import('../templates/index.ts');
+        const presets: Theme[] = Object.values(templates).map(theme => ({
+            ...(theme as Theme),
+            isPreset: true
+        }));
+        const savedThemes = savedData.themes || [];
+        const presetById = new Map(presets.map(p => [p.id, p]));
+        savedData.themes = [
+            ...savedThemes.map(t => {
+                const fresh = presetById.get(t.id);
+                return t.isPreset !== false && fresh
+                    ? { ...fresh, isVisible: t.isVisible }
+                    : t;
+            }),
+            ...presets.filter(p => !savedThemes.some(t => t.id === p.id)),
+        ];
 
         // 确保 customThemes 存在
         if (!savedData.customThemes) {

@@ -1,5 +1,4 @@
 import { DefaultTemplate } from './imgTelplate/defaultTemplate.ts';
-import { NotesTemplate } from './imgTelplate/notesTemplate.ts';
 import type { SettingsManager } from './settings/settings.ts';
 import type { ThemeManager } from './themeManager.ts';
 export interface ImgTemplate {
@@ -35,11 +34,9 @@ export class ImgTemplateManager {
     }
 
     private initializeTemplates() {
-        // 注册默认模板
+        // 唯一模板:默认模板(渲染用户信息头部/页脚)。
+        // 「备忘录」已从模板改为主题(templates/memo.ts + memoHeader.ts)。
         this.registerTemplate(new DefaultTemplate(this.settingsManager, this.onSettingsUpdate));
-
-        // 注册现代模板
-        this.registerTemplate(new NotesTemplate(this.settingsManager, this.onSettingsUpdate));
     }
 
     registerTemplate(template: ImgTemplate) {

@@ -11,6 +11,7 @@ import sakuraTemplate from './sakura.ts';
 import starryTemplate from './starry.ts';
 import metalTemplate from './metal.ts';
 import yuelingTemplate from './yueling.ts';
+import memoTemplate from './memo.ts';
 
 export const templates = {
     default: defaultTemplate,
@@ -23,5 +24,6 @@ export const templates = {
     sakura: sakuraTemplate,
     starry: starryTemplate,
     metal: metalTemplate,
-    yueling: yuelingTemplate
+    yueling: yuelingTemplate,
+    memo: memoTemplate
 };
