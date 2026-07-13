@@ -4,6 +4,19 @@ import JSZip from 'jszip';
 // @ts-ignore 纯函数 JS 模块,无类型声明
 import { rednoteCardFilename } from '../services/rednote-publish.js';
 
+/**
+ * 导出文件名清洗:笔记名可能含 emoji/全角标点(如「实测🚀FSD到底多能打？」),
+ * 落盘时会显示异常或被系统改写。只保留中文/英文/数字/-/_,
+ * 特殊符号与空格统一折叠为 _(导出文件名不含空格);全部被清掉时回退「小红书笔记」。
+ */
+export function sanitizeExportFilename(name: string): string {
+    const kept = name
+        .replace(/[^一-鿿a-zA-Z0-9_-]+/gu, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    return kept || '小红书笔记';
+}
+
 export class DownloadManager {
     // 添加共用的导出配置方法
     private static getExportConfig(imageElement: HTMLElement) {
@@ -158,7 +171,7 @@ export class DownloadManager {
             const url = URL.createObjectURL(content);
             const link = Object.assign(document.createElement('a'), {
                 href: url,
-                download: `${noteName}.zip`
+                download: `${sanitizeExportFilename(noteName)}.zip`
             });
 
             link.click();
@@ -191,7 +204,7 @@ export class DownloadManager {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `${noteName}-${pageIndex + 1}.png`;
+                link.download = `${sanitizeExportFilename(noteName)}-${pageIndex + 1}.png`;
 
                 document.body.appendChild(link);
                 link.click();
@@ -208,7 +221,7 @@ export class DownloadManager {
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = url;
-                    link.download = `${noteName}-${pageIndex + 1}.png`;
+                    link.download = `${sanitizeExportFilename(noteName)}-${pageIndex + 1}.png`;
 
                     document.body.appendChild(link);
                     link.click();
