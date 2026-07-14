@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-wechat-converter",
-	"version": "3.9.33",
-	"description": "Obsidian plugin for WeChat articles, Feishu cloud docs, and multi-platform publishing.",
+	"version": "3.9.34",
+	"description": "Turn notes into WeChat Official Account articles, Xiaohongshu image cards, and Feishu docs, with live preview.",
 	"main": "main.js",
 	"scripts": {
 		"generate:embedded": "node scripts/generate-embedded-deps.mjs",

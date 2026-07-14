@@ -1,9 +1,9 @@
 {
 	"id": "content-studio",
 	"name": "Content Studio",
-	"version": "3.9.33",
+	"version": "3.9.34",
 	"minAppVersion": "1.4.0",
-	"description": "Convert Markdown into polished WeChat articles, Feishu cloud docs, and drafts for Xiaohongshu, Zhihu, Toutiao, Douyin, Bilibili, Weibo, and CSDN.",
+	"description": "Turn notes into WeChat Official Account articles, Xiaohongshu image cards, and Feishu docs, with live preview.",
 	"author": "runnerback",
 	"authorUrl": "https://github.com/runnerback/obsidian-wechat-converter",
 	"isDesktopOnly": false
