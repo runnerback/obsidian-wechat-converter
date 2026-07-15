@@ -1,5 +1,21 @@
+// 已与本插件打通、可实际发布的平台白名单(单一事实来源,镜像扩展侧 ENABLED_PLATFORM_IDS)。
+// 其余平台仅作为「计划支持」在设置里只读展示。发布弹窗只列这些平台。
+export const ENABLED_PLATFORM_IDS = ['xiaohongshu', 'x'];
+// 归一别名 → 是否已接入(兼容 xhs/小红书/rednote/twitter 等上报口径)
+const ENABLED_PLATFORM_ALIASES = new Set(['xiaohongshu', 'xhs', '小红书', 'rednote', 'x', 'twitter']);
+
+/**
+ * 判断某平台是否已接入(可实际发布)。
+ * @param {unknown} id
+ * @returns {boolean}
+ */
+export function isEnabledWechatsyncPlatform(id) {
+  return ENABLED_PLATFORM_ALIASES.has(String(id || '').trim().toLowerCase());
+}
+
 export const FEATURED_WECHATSYNC_PLATFORM_ORDER = [
   'xiaohongshu',
+  'x',
   'zhihu',
   'weibo',
   'douyin',
@@ -51,6 +67,7 @@ const FEATURED_WECHATSYNC_PLATFORM_RANK = new Map(
 
 const FALLBACK_WECHATSYNC_PLATFORMS = [
   { id: 'xiaohongshu', name: '小红书', homepage: 'https://creator.xiaohongshu.com/publish/publish?from=menu&target=article', capabilities: ['article', 'draft', 'image_upload'] },
+  { id: 'x', name: 'X', homepage: 'https://x.com', capabilities: ['article', 'draft', 'image_upload'] },
   { id: 'zhihu', name: '知乎', homepage: 'https://www.zhihu.com', capabilities: ['article', 'draft', 'image_upload', 'tags', 'cover'] },
   { id: 'weibo', name: '微博', homepage: 'https://card.weibo.com/article/v5/editor', capabilities: ['article', 'draft', 'image_upload', 'cover'] },
   { id: 'douyin', name: '抖音图文', homepage: 'https://creator.douyin.com', capabilities: ['article', 'draft', 'image_upload'] },
@@ -74,7 +91,6 @@ const FALLBACK_WECHATSYNC_PLATFORMS = [
   { id: 'segmentfault', name: '思否', homepage: 'https://segmentfault.com/user/draft', capabilities: ['article', 'draft', 'image_upload'] },
   { id: 'cnblogs', name: '博客园', homepage: 'https://www.cnblogs.com', capabilities: ['article', 'draft', 'image_upload'] },
   { id: 'sohufocus', name: '搜狐焦点', homepage: 'https://mp.focus.cn/fe/index.html#/info/draft', capabilities: ['article', 'draft', 'image_upload'] },
-  { id: 'x', name: 'X (Twitter)', homepage: 'https://x.com/compose/articles', capabilities: ['article', 'draft', 'image_upload'] },
   { id: 'eastmoney', name: '东方财富', homepage: 'https://mp.eastmoney.com', capabilities: ['article', 'draft', 'image_upload', 'cover'] },
   { id: 'netease', name: '网易号', homepage: 'https://mp.163.com/#/article-publish', capabilities: ['article', 'draft', 'image_upload'] },
 ];

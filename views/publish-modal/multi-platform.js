@@ -21,6 +21,7 @@ import {
   getMultiPlatformResultSummary,
   getWechatSyncResultPlatformId,
   getWechatSyncResultUrl,
+  isEnabledWechatsyncPlatform,
 } from '../../services/wechatsync-results.js';
 
 import {
@@ -614,11 +615,10 @@ async function showMultiPlatformPublishModal(view, options = {}) {
   }
 
   const availablePlatforms = toRecordList(getAvailableWechatsyncPlatforms(bridgeSettings));
-  const defaultSelectedPlatforms = new Set(
-    parseWechatsyncPlatformIds(bridgeSettings.selectedPlatforms || [])
-  );
-  // 只显示插件设置中已勾选的平台
-  const displayedPlatforms = availablePlatforms.filter((p) => defaultSelectedPlatforms.has(getPlatformId(p)));
+  // 只显示已接入平台(小红书/X)。设置项已改为只读信息展示,不再由用户勾选;
+  // 选哪个发布在本弹窗决定,默认全选。
+  const displayedPlatforms = availablePlatforms.filter((p) => isEnabledWechatsyncPlatform(getPlatformId(p)));
+  const defaultSelectedPlatforms = new Set(displayedPlatforms.map((p) => getPlatformId(p)));
   const isBridgeReady = cachedConnectionRecord.status === 'connected';
   const modalSelectedPlatforms = getModalSelectedPlatformIds(modal, defaultSelectedPlatforms);
 

@@ -36,10 +36,12 @@ function installModalCapture() {
   };
 }
 
-function makeView({ selectedPlatforms = ['zhihu'], cachedPlatforms = null, bridge = null, app = null } = {}) {
+// 发布弹窗只显示已接入平台(小红书/X);fixture 默认用这两个。
+// 小红书=已登录(is-ok),X=需登录(is-error),覆盖两种状态类。
+function makeView({ selectedPlatforms = ['xiaohongshu', 'x'], cachedPlatforms = null, bridge = null, app = null } = {}) {
   const platforms = cachedPlatforms || [
-    { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin' },
-    { id: 'juejin', name: '掘金', authKnown: true, authenticated: false, error: '登录已失效' },
+    { id: 'xiaohongshu', name: '小红书', authKnown: true, authenticated: true, username: 'Lin' },
+    { id: 'x', name: 'X', authKnown: true, authenticated: false, error: '需登录' },
   ];
   const view = new AppleStyleView(null, {
     settings: {
@@ -94,11 +96,11 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
   });
 
   it('renders selected rows with name + status both inside the label (stacked)', async () => {
-    const view = makeView({ selectedPlatforms: ['zhihu'] });
+    const view = makeView();
     await view.showMultiPlatformSyncModal();
     const modal = modalCapture.getLastModal();
 
-    const row = findRow(modal, 'zhihu');
+    const row = findRow(modal, 'xiaohongshu');
     expect(row).toBeDefined();
 
     const label = row.querySelector('.wechat-multiplatform-platform-label');
@@ -112,20 +114,20 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
   });
 
   it('selected row carries is-selected + auth-status class', async () => {
-    const view = makeView({ selectedPlatforms: ['zhihu'] });
+    const view = makeView();
     await view.showMultiPlatformSyncModal();
     const modal = modalCapture.getLastModal();
-    const row = findRow(modal, 'zhihu');
+    const row = findRow(modal, 'xiaohongshu');
     expect(row.classList.contains('is-selected')).toBe(true);
     expect(row.classList.contains('is-ok')).toBe(true);
   });
 
   it('marks platform rows disabled when the browser bridge is not ready', async () => {
-    const view = makeView({ selectedPlatforms: ['zhihu'] });
+    const view = makeView();
     view.plugin.settings.multiPlatformSync.connection.status = 'disconnected';
     await view.showMultiPlatformSyncModal();
     const modal = modalCapture.getLastModal();
-    const row = findRow(modal, 'zhihu');
+    const row = findRow(modal, 'xiaohongshu');
     const checkbox = row.querySelector('input[type="checkbox"]');
 
     expect(row.classList.contains('is-disabled')).toBe(true);
@@ -134,13 +136,11 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
   });
 
   it('orders displayed platforms by authenticated state and featured platform order', async () => {
+    // 只显示已接入平台;已登录的排在需登录的前面(authenticated-first)
     const view = makeView({
-      selectedPlatforms: ['xiaohongshu', 'zhihu', 'weibo', 'douban'],
       cachedPlatforms: [
-        { id: 'douban', name: '豆瓣', authKnown: true, authenticated: true },
-        { id: 'xiaohongshu', name: '小红书', authKnown: true, authenticated: false },
-        { id: 'zhihu', name: '知乎', authKnown: true, authenticated: false },
-        { id: 'weibo', name: '微博', authKnown: true, authenticated: true },
+        { id: 'xiaohongshu', name: '小红书', authKnown: true, authenticated: false, error: '需登录' },
+        { id: 'x', name: 'X', authKnown: true, authenticated: true },
       ],
     });
 
@@ -149,23 +149,23 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     const rowIds = Array.from(modal.contentEl.querySelectorAll('.wechat-multiplatform-platform input'))
       .map((input) => input.value);
 
-    expect(rowIds).toEqual(['weibo', 'douban', 'xiaohongshu', 'zhihu']);
+    expect(rowIds).toEqual(['x', 'xiaohongshu']);
   });
 
   it('login_required row gets is-error class when selected', async () => {
-    const view = makeView({ selectedPlatforms: ['juejin'] });
+    const view = makeView();
     await view.showMultiPlatformSyncModal();
     const modal = modalCapture.getLastModal();
-    const row = findRow(modal, 'juejin');
+    const row = findRow(modal, 'x');
     expect(row.classList.contains('is-selected')).toBe(true);
     expect(row.classList.contains('is-error')).toBe(true);
   });
 
   it('toggling checkbox flips is-selected on the row', async () => {
-    const view = makeView({ selectedPlatforms: ['zhihu'] });
+    const view = makeView();
     await view.showMultiPlatformSyncModal();
     const modal = modalCapture.getLastModal();
-    const row = findRow(modal, 'zhihu');
+    const row = findRow(modal, 'xiaohongshu');
     const checkbox = row.querySelector('input[type="checkbox"]');
 
     expect(row.classList.contains('is-selected')).toBe(true);
@@ -183,32 +183,26 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
 
   it('keeps temporary platform choices when returning to the tab inside the same modal', async () => {
     const cachedPlatforms = [
-      { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true },
-      { id: 'juejin', name: '掘金', authKnown: true, authenticated: true },
-      { id: 'csdn', name: 'CSDN', authKnown: true, authenticated: true },
+      { id: 'xiaohongshu', name: '小红书', authKnown: true, authenticated: true },
+      { id: 'x', name: 'X', authKnown: true, authenticated: true },
     ];
-    const view = makeView({
-      selectedPlatforms: ['zhihu', 'juejin', 'csdn'],
-      cachedPlatforms,
-    });
+    const view = makeView({ cachedPlatforms });
     await view.showMultiPlatformSyncModal();
     const modal = modalCapture.getLastModal();
 
-    const juejinRow = findRow(modal, 'juejin');
-    const juejinCheckbox = juejinRow.querySelector('input[type="checkbox"]');
-    juejinCheckbox.checked = false;
-    juejinCheckbox.dispatchEvent(new Event('change'));
+    const xRow = findRow(modal, 'x');
+    const xCheckbox = xRow.querySelector('input[type="checkbox"]');
+    xCheckbox.checked = false;
+    xCheckbox.dispatchEvent(new Event('change'));
 
     await view.showMultiPlatformSyncModal({ modal });
 
-    const returnedZhihu = findRow(modal, 'zhihu').querySelector('input[type="checkbox"]');
-    const returnedJuejin = findRow(modal, 'juejin').querySelector('input[type="checkbox"]');
-    const returnedCsdn = findRow(modal, 'csdn').querySelector('input[type="checkbox"]');
+    const returnedXhs = findRow(modal, 'xiaohongshu').querySelector('input[type="checkbox"]');
+    const returnedX = findRow(modal, 'x').querySelector('input[type="checkbox"]');
 
-    expect(returnedZhihu.checked).toBe(true);
-    expect(returnedJuejin.checked).toBe(false);
-    expect(returnedCsdn.checked).toBe(true);
-    expect(findRow(modal, 'juejin').classList.contains('is-selected')).toBe(false);
+    expect(returnedXhs.checked).toBe(true);
+    expect(returnedX.checked).toBe(false);
+    expect(findRow(modal, 'x').classList.contains('is-selected')).toBe(false);
   });
 
   it('hides bridge-not-enabled empty state when enabled', async () => {
@@ -220,12 +214,12 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
   });
 
   it('row exposes a tooltip with full platform name + status when selected', async () => {
-    const view = makeView({ selectedPlatforms: ['zhihu'] });
+    const view = makeView();
     await view.showMultiPlatformSyncModal();
     const modal = modalCapture.getLastModal();
-    const row = findRow(modal, 'zhihu');
+    const row = findRow(modal, 'xiaohongshu');
     const title = row.getAttribute('title');
-    expect(title).toContain('知乎');
+    expect(title).toContain('小红书');
     expect(title).toContain('上次可用');
   });
 
@@ -248,40 +242,26 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     expect(followers & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('updates platform hint to reflect the selected platform count (3)', async () => {
-    const cachedPlatforms = [
-      { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true },
-      { id: 'juejin', name: '掘金', authKnown: true, authenticated: true },
-      { id: 'csdn', name: 'CSDN', authKnown: true, authenticated: true },
-      { id: 'bilibili', name: '哔哩哔哩', authKnown: true, authenticated: true },
-    ];
-    const view = makeView({ selectedPlatforms: ['zhihu', 'juejin', 'csdn'], cachedPlatforms });
+  it('updates platform hint to reflect the selected platform count (2)', async () => {
+    const view = makeView();
     await view.showMultiPlatformSyncModal();
     const modal = modalCapture.getLastModal();
     const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
 
-    expect(hint.textContent).toContain('已选 3 个平台');
+    expect(hint.textContent).toContain('已选 2 个平台');
     expect(hint.textContent).not.toContain('免费版');
   });
 
-  it('updates platform hint to reflect the selected platform count (5)', async () => {
-    const cachedPlatforms = [
-      { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true },
-      { id: 'juejin', name: '掘金', authKnown: true, authenticated: true },
-      { id: 'csdn', name: 'CSDN', authKnown: true, authenticated: true },
-      { id: 'bilibili', name: '哔哩哔哩', authKnown: true, authenticated: true },
-      { id: 'xiaohongshu', name: '小红书', authKnown: true, authenticated: true },
-    ];
-    const view = makeView({
-      selectedPlatforms: ['zhihu', 'juejin', 'csdn', 'bilibili', 'xiaohongshu'],
-      cachedPlatforms,
-    });
+  it('updates platform hint after deselecting a platform (2 → 1)', async () => {
+    const view = makeView();
     await view.showMultiPlatformSyncModal();
     const modal = modalCapture.getLastModal();
+    const xCheckbox = findRow(modal, 'x').querySelector('input[type="checkbox"]');
+    xCheckbox.checked = false;
+    xCheckbox.dispatchEvent(new Event('change'));
     const hint = modal.contentEl.querySelector('.wechat-multiplatform-quota-hint');
 
-    expect(hint.textContent).toContain('已选 5 个平台');
-    expect(hint.textContent).not.toContain('免费版');
+    expect(hint.textContent).toContain('已选 1 个平台');
   });
 
   it('passes truncate quotaPolicy and shows quota modal when the extension blocks the task', async () => {
@@ -291,11 +271,11 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
         accepted: false,
         reason: 'daily_limit',
         quotaBlocked: true,
-        skippedPlatforms: ['zhihu', 'juejin'],
+        skippedPlatforms: ['xiaohongshu', 'x'],
         message: '部分平台本次未入队，请稍后重试。',
       }),
     };
-    const view = makeView({ selectedPlatforms: ['zhihu', 'juejin'], bridge });
+    const view = makeView({ bridge });
     await view.showMultiPlatformSyncModal();
     const modal = modalCapture.getLastModal();
     const syncBtn = modal.contentEl.querySelector('.wechat-modal-buttons .mod-cta');
@@ -303,12 +283,12 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     await syncBtn.onclick();
 
     expect(bridge.enqueueSyncArticle).toHaveBeenCalledWith(expect.objectContaining({
-      platforms: ['zhihu', 'juejin'],
+      platforms: ['xiaohongshu', 'x'],
       source: 'obsidian',
       quotaPolicy: 'truncate',
     }));
     expect(view.showMultiPlatformQuotaBlockedModal).toHaveBeenCalledWith(expect.objectContaining({
-      requestedPlatformIds: ['zhihu', 'juejin'],
+      requestedPlatformIds: ['xiaohongshu', 'x'],
       quotaResult: expect.objectContaining({
         accepted: false,
         reason: 'daily_limit',

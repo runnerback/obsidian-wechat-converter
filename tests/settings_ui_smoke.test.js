@@ -377,7 +377,7 @@ describe('AppleStyleSettingTab settings rendering - smoke test', () => {
       getAuthSnapshot: vi.fn().mockResolvedValue({
         checkedAt: 456,
         platforms: [
-          { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin' },
+          { id: 'xiaohongshu', name: '小红书', authKnown: true, authenticated: true, username: 'Lin' },
         ],
       }),
       checkAuth: vi.fn().mockResolvedValue([]),
@@ -388,8 +388,8 @@ describe('AppleStyleSettingTab settings rendering - smoke test', () => {
         enabled: true,
         port: 9527,
         token: 'token',
-        supportedPlatforms: [{ id: 'zhihu', name: '知乎' }],
-        selectedPlatforms: ['zhihu'],
+        supportedPlatforms: [{ id: 'xiaohongshu', name: '小红书' }],
+        selectedPlatforms: [],
         connection: {
           status: 'connected',
           checkedAt: 123,
@@ -408,14 +408,15 @@ describe('AppleStyleSettingTab settings rendering - smoke test', () => {
 
     await readButton.clickHandler();
 
+    // 方案 i:按已接入平台(小红书)读登录态,不依赖 selectedPlatforms
     expect(bridge.getAuthSnapshot).toHaveBeenCalledWith({
-      platforms: ['zhihu'],
+      platforms: ['xiaohongshu'],
       maxAgeMs: 86400000,
       timeoutMs: 5000,
     });
     expect(bridge.checkAuth).not.toHaveBeenCalled();
     expect(plugin.settings.multiPlatformSync.connection.platforms).toEqual([
-      expect.objectContaining({ id: 'zhihu', authenticated: true, username: 'Lin' }),
+      expect.objectContaining({ id: 'xiaohongshu', authenticated: true, username: 'Lin' }),
     ]);
     expect(plugin.settings.multiPlatformSync.connection.message).toContain('已读取所选平台的上次登录状态');
   });

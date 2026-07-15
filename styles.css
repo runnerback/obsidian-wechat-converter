@@ -2650,6 +2650,47 @@ input[type="range"].apple-slider:active::-webkit-slider-thumb {
 }
 .wechat-platform-chip.is-ok.is-selected::before { background: var(--apple-success); }
 
+/* === 已接入平台:只读展示(无 checkbox),始终显示状态行 === */
+.wechat-platform-chip.is-selected .wechat-platform-chip-status,
+.wechat-platform-chip.is-disabled .wechat-platform-chip-status {
+  display: block;
+}
+
+/* === 计划支持平台:禁用态,灰显、不可点击 === */
+.wechat-platform-chip.is-disabled {
+  cursor: default;
+  opacity: 0.5;
+  background: var(--apple-background);
+  border-style: dashed;
+}
+.wechat-platform-chip.is-disabled:hover {
+  border-color: color-mix(in srgb, var(--apple-border) 82%, transparent);
+}
+.wechat-platform-chip.is-disabled .wechat-platform-chip-name {
+  color: var(--apple-tertiary);
+  font-weight: 500;
+}
+
+/* 「计划支持」折叠区 */
+.wechat-platform-planned {
+  margin-top: 12px;
+}
+.wechat-platform-planned-summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--apple-secondary);
+  padding: 6px 2px;
+  user-select: none;
+  list-style: revert;
+}
+.wechat-platform-planned-summary:hover {
+  color: var(--apple-primary);
+}
+.wechat-platform-planned .wechat-platform-grid {
+  margin-top: 8px;
+}
+
 .wechat-platform-chip.is-error.is-selected {
   border-color: color-mix(in srgb, var(--apple-error) 32%, var(--apple-border));
   background: color-mix(in srgb, var(--apple-error) 5%, var(--apple-background));
