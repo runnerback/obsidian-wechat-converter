@@ -145,6 +145,7 @@ import { mediaAssetsMixin } from './views/publish-modal/media-assets.js';
 import { renderPipelineMixin } from './views/preview/render-pipeline.js';
 import { settingsPanelMixin } from './views/settings-panel/settings-panel.js';
 import { rednoteSettingsPanelMixin } from './views/settings-panel/rednote-settings-panel.js';
+import { initAiLayoutState } from './views/ai-layout/ai-layout-state.js';
 import {
   normalizeDraftCache,
 } from './services/wechat-draft-cache.js';
@@ -305,19 +306,10 @@ class AppleStyleView extends ItemView {
     this.lastResolvedSourcePath = '';
     /** @type {string} */
     this.lastResolvedSourceHash = '';
-    /** @type {string} */
-    this.aiLayoutSourceSwitchPath = '';
-    /** @type {string} */
-    this.aiLayoutStaleSuppressPath = '';
-    /** @type {number} */
-    this.aiLayoutStaleSuppressUntil = 0;
-    /** @type {number | null} */
-    this.aiLayoutStaleSuppressTimer = null;
+    // AI 编排子系统状态(声明/归属见 views/ai-layout/ai-layout-state.js)
+    initAiLayoutState(this);
     /** @type {string | null} */
     this.baseRenderedHtml = null;
-    /** @type {boolean} */
-    this.aiPreviewApplied = false;
-    this.aiLayoutBtn = null;
     this.settingsBtn = null;
     /** @type {ObsidianElementLike | null} 小红书模式:样式设置按钮 */
     this.rednoteSettingsBtn = null;
@@ -325,9 +317,6 @@ class AppleStyleView extends ItemView {
     this.rednoteDownloadBtn = null;
     /** @type {ObsidianElementLike | null} 小红书模式:样式设置悬浮层 */
     this.rednoteSettingsOverlay = null;
-    this.aiLayoutDebugMode = '';
-    /** @type {Record<string, unknown> | null} */
-    this.aiLayoutActiveGenerationSelection = null;
     /** @type {ObsidianElementLike | null} */
     this.previewContainer = null;
     /** @type {ObsidianElementLike | null} */
@@ -344,76 +333,6 @@ class AppleStyleView extends ItemView {
     this.editorScrollListener = null;
     /** @type {((event: Event) => void) | null} */
     this.previewScrollListener = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutOverlay = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutArea = null;
-    /** @type {ObsidianInputLike | null} */
-    this.aiLayoutFamilySelect = null;
-    /** @type {ObsidianInputLike | null} */
-    this.aiColorPaletteSelect = null;
-    /** @type {ObsidianInputLike | null} */
-    this.aiStylePackSelect = null;
-    /** @type {ObsidianInputLike | null} */
-    this.aiCustomColorInput = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiColorPaletteControls = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiColorPaletteGrid = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutStatus = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutStatusBadge = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutStatusBody = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutStatusText = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiCachedLayoutList = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutSummary = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiGenerateBtn = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiRegenerateBtn = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiResetBtn = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiRestoreBlocksBtn = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiResultSection = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutMetaNote = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiBlockList = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiAdvancedToggleBtn = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiAdvancedBody = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutMetaChips = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiSchemaIssuePanel = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiViewJsonBtn = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiViewErrorBtn = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiDebugPanel = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiDebugPanelTitle = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiCopyPromptBtn = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiCopyDebugBtn = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiDebugPanelBody = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutLoadingMask = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutLoadingSpinner = null;
-    /** @type {ObsidianElementLike | null} */
-    this.aiLayoutLoadingMaskText = null;
     /** @type {ObsidianElementLike | null} */
     this.currentDocLabel = null;
     /** @type {ObsidianElementLike | null} */
@@ -433,15 +352,7 @@ class AppleStyleView extends ItemView {
     /** @type {string} */
     this.pendingAiStylePack = '';
     /** @type {string} */
-    this.aiPrimaryActionMode = '';
-    /** @type {boolean} */
-    this.aiLayoutLoading = false;
-    /** @type {boolean} */
-    this.aiAdvancedOpen = false;
-    /** @type {string} */
     this._sourceFirstRecoveryKey = '';
-    /** @type {{ blockKey: string, relativeTop: number, fallbackScrollTop: number } | null} */
-    this.aiLayoutPendingAnchor = null;
   }
 
   getViewType() {

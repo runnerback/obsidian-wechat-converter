@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-wechat-converter",
-	"version": "3.9.39",
+	"version": "3.9.40",
 	"description": "Turn notes into WeChat Official Account articles, Xiaohongshu image cards, and Feishu docs, with live preview.",
 	"main": "main.js",
 	"scripts": {
