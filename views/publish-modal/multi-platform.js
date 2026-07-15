@@ -21,7 +21,7 @@ import {
   getMultiPlatformResultSummary,
   getWechatSyncResultPlatformId,
   getWechatSyncResultUrl,
-  isEnabledWechatsyncPlatform,
+  getEnabledWechatsyncPlatforms,
 } from '../../services/wechatsync-results.js';
 
 import {
@@ -614,10 +614,9 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     return;
   }
 
-  const availablePlatforms = toRecordList(getAvailableWechatsyncPlatforms(bridgeSettings));
-  // 只显示已接入平台(小红书/X)。设置项已改为只读信息展示,不再由用户勾选;
-  // 选哪个发布在本弹窗决定,默认全选。
-  const displayedPlatforms = availablePlatforms.filter((p) => isEnabledWechatsyncPlatform(getPlatformId(p)));
+  // 只显示已接入平台(小红书/X),无条件从本地保证集合取(不依赖扩展缓存清单)。
+  // 设置项已改为只读信息展示,不再由用户勾选;选哪个发布在本弹窗决定,默认全选。
+  const displayedPlatforms = toRecordList(getEnabledWechatsyncPlatforms(bridgeSettings));
   const defaultSelectedPlatforms = new Set(displayedPlatforms.map((p) => getPlatformId(p)));
   const isBridgeReady = cachedConnectionRecord.status === 'connected';
   const modalSelectedPlatforms = getModalSelectedPlatformIds(modal, defaultSelectedPlatforms);

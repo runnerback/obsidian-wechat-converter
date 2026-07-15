@@ -29,6 +29,7 @@ import {
   normalizeWechatsyncPlatformList,
   summarizeWechatsyncPlatformResponse,
   isEnabledWechatsyncPlatform,
+  getEnabledWechatsyncPlatforms,
 } from '../../services/wechatsync-results.js';
 
 import {
@@ -523,7 +524,8 @@ function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
   // 已接入 / 计划支持 两段:已接入(小红书/X)只读展示"可用"+上次登录状态;
   // 其余平台禁用、仅告知"计划支持"。选哪个发布在「发布与分发」弹窗决定,
   // 设置项不再让用户逐个勾选(方案 i:设置=能力告知,弹窗=本次选择)。
-  const enabledPlatforms = availablePlatforms.filter((p) => isEnabledWechatsyncPlatform(p.id));
+  // 已接入平台无条件显示(小红书/X):从本地保证集合取,不依赖扩展上报的缓存清单。
+  const enabledPlatforms = getEnabledWechatsyncPlatforms(multiPlatformSettings);
   const plannedPlatforms = availablePlatforms.filter((p) => !isEnabledWechatsyncPlatform(p.id));
 
   const platformPicker = containerEl.createDiv({ cls: 'wechat-platform-picker' });

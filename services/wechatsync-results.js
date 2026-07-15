@@ -154,6 +154,36 @@ export function getFallbackWechatsyncPlatforms() {
   return FALLBACK_WECHATSYNC_PLATFORMS.map((platform) => ({ ...platform }));
 }
 
+/**
+ * 已接入平台(小红书/X)总是从本地保证集合(fallback catalog)取,不依赖扩展上报的
+ * supportedPlatforms 缓存——否则连接着但清单是旧缓存(不含 X)时 X 会消失。
+ * 合并 connection.platforms 的登录状态,按 FEATURED 顺序、已登录优先排序。
+ * @param {{ connection?: { platforms?: unknown[], status?: string } }} settings normalize 后的 multiPlatformSync
+ * @returns {WechatsyncPlatform[]}
+ */
+export function getEnabledWechatsyncPlatforms(settings = {}) {
+  const source = asRecord(settings);
+  const connection = asRecord(source.connection);
+  const authById = new Map(
+    normalizeWechatsyncPlatformList(Array.isArray(connection.platforms) ? connection.platforms : [])
+      .map((platform) => [platform.id, platform])
+  );
+  const bridgeConnected = connection.status === 'connected';
+  const enabled = getFallbackWechatsyncPlatforms()
+    .filter((platform) => isEnabledWechatsyncPlatform(platform.id))
+    .map((base) => {
+      const auth = authById.get(base.id);
+      const merged = { ...base, ...(auth || {}) };
+      return bridgeConnected
+        ? (auth ? merged : { ...merged, authKnown: false, authenticated: false, username: '', error: '' })
+        : { ...merged, authStatus: 'bridge_required', authKnown: true, authenticated: false, username: '', error: '' };
+    });
+  return sortWechatsyncPlatformsForDisplay(enabled, {
+    bridgeConnected,
+    authenticatedFirst: bridgeConnected,
+  });
+}
+
 function isPlatformNotFoundError(error = '') {
   return /platform not found|adapter not found|not found/i.test(String(error || ''));
 }
