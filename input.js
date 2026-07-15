@@ -135,6 +135,7 @@ import {
   createWechatSyncBridgeService,
 } from './services/wechatsync-bridge.js';
 import { rednotePublishMixin } from './views/publish-modal/rednote-publish.js';
+import { xPublishMixin } from './views/publish-modal/x-publish.js';
 import { multiPlatformResultModalsMixin } from './views/publish-modal/multi-platform-result-modals.js';
 import { coverPickerMixin } from './views/publish-modal/cover-picker.js';
 import { wechatSyncActionsMixin } from './views/publish-modal/wechat-sync-actions.js';
@@ -514,15 +515,20 @@ class AppleStyleView extends ItemView {
     this.rednoteController = null;
     this._previewMode = 'wechat';
 
-    /** @param {'wechat' | 'rednote'} mode 由顶栏平台下拉调用 */
+    /**
+     * @param {'wechat' | 'rednote' | 'x'} mode 由顶栏平台下拉调用
+     * X 复用小红书图卡预览与渲染(图片即同款图卡),仅发布链路不同。
+     */
     this.setPreviewMode = async (mode) => {
       if (mode === this._previewMode) return;
       this._previewMode = mode;
       if (this.platformSelectEl) this.platformSelectEl.value = mode;
-      previewWrapper.classList.toggle('is-hidden', mode === 'rednote');
-      this.rednoteContainer.classList.toggle('is-hidden', mode !== 'rednote');
-      // 顶栏按钮按模式显隐:公众号(样式设置/AI 编排/复制)与小红书
-      // (样式设置/下载)各一组;平台下拉与「发布与分发」通用,始终保留
+      // 图卡模式(小红书/X)显示图卡容器,隐藏公众号预览
+      const cardMode = mode === 'rednote' || mode === 'x';
+      previewWrapper.classList.toggle('is-hidden', cardMode);
+      this.rednoteContainer.classList.toggle('is-hidden', !cardMode);
+      // 顶栏按钮按模式显隐:公众号(样式设置/AI 编排/复制)一组;
+      // 图卡模式(小红书/X)复用同一组(样式设置/下载);「发布与分发」通用,始终保留
       const wechatOnly = mode === 'wechat';
       for (const btn of [this.settingsBtn, this.aiLayoutBtn, this.copyBtn]) {
         if (btn) btn.style.display = wechatOnly ? '' : 'none';
@@ -534,7 +540,7 @@ class AppleStyleView extends ItemView {
       if (typeof this.closeTransientPanels === 'function') {
         this.closeTransientPanels();
       }
-      if (mode === 'rednote' && !this.rednoteController) {
+      if (cardMode && !this.rednoteController) {
         // 懒加载:动态 import 保持测试链(CJS require(input.js))不触碰 TS
         const { RedPreviewController } = await import('./rednote/view.ts');
         this.rednoteController = new RedPreviewController(
@@ -2045,6 +2051,7 @@ class AppleStyleView extends ItemView {
 import { AppleStyleSettingTab } from './views/settings/apple-style-setting-tab.js';
 
 Object.assign(AppleStyleView.prototype, rednotePublishMixin);
+Object.assign(AppleStyleView.prototype, xPublishMixin);
 Object.assign(AppleStyleView.prototype, multiPlatformResultModalsMixin);
 Object.assign(AppleStyleView.prototype, coverPickerMixin);
 Object.assign(AppleStyleView.prototype, wechatSyncActionsMixin);

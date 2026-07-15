@@ -29,6 +29,7 @@ export const settingsPanelMixin = {
     const platformSelect = platformWrap.createEl('select', { cls: 'apple-toolbar-platform-select' });
     platformSelect.createEl('option', { value: 'wechat', text: '公众号' });
     platformSelect.createEl('option', { value: 'rednote', text: '小红书' });
+    platformSelect.createEl('option', { value: 'x', text: 'X' });
     platformWrap.createEl('span', { cls: 'apple-toolbar-platform-arrow', text: '▾' });
     platformSelect.addEventListener('change', () => {
       this.setPreviewMode?.(platformSelect.value);

@@ -43,6 +43,7 @@ import {
 
 import { stripMarkdownFrontmatter } from '../../services/markdown-utils.js';
 import { findXiaohongshuPlatformId } from '../../services/rednote-publish.js';
+import { findXPlatformId } from '../../services/x-publish.js';
 import {
   DEFAULT_MAX_IMAGE_SIZE_BYTES,
   findAssetForCover,
@@ -768,9 +769,14 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     const xhsPlatformId = findXiaohongshuPlatformId(
       toRecord(view.plugin.settings.multiPlatformSync).supportedPlatforms
     );
+    const xPlatformId = findXPlatformId(
+      toRecord(view.plugin.settings.multiPlatformSync).supportedPlatforms
+    );
     const wantsXiaohongshu = !!xhsPlatformId && selectedPlatforms.has(xhsPlatformId);
+    const wantsX = !!xPlatformId && selectedPlatforms.has(xPlatformId);
+    // 小红书与 X 都走图卡链路,单独投递;其余平台走下方通用文字链路。
     const requestedPlatformIds = Array.from(selectedPlatforms)
-      .filter((id) => !wantsXiaohongshu || id !== xhsPlatformId);
+      .filter((id) => (!wantsXiaohongshu || id !== xhsPlatformId) && (!wantsX || id !== xPlatformId));
     try {
       if (wantsXiaohongshu) {
         try {
@@ -799,8 +805,38 @@ async function showMultiPlatformPublishModal(view, options = {}) {
         } catch (redError) {
           new Notice(`⚠️ 已跳过小红书：${toReadableError(redError).message}`, 10000);
         }
+      }
+
+      if (wantsX) {
+        try {
+          notice.setMessage('正在准备 X 图卡...');
+          const prep = await view.prepareXCardArticle();
+          notice.setMessage('正在投递 X 草稿...');
+          const xBridge = view.plugin.getWechatSyncBridgeService();
+          await xBridge.enqueueSyncArticle({
+            platforms: [xPlatformId],
+            title: prep.article.title,
+            markdown: prep.article.markdown,
+            content: prep.article.content,
+            cover: prep.article.cover,
+            assets: prep.article.assets,
+            source: 'obsidian',
+          });
+          new Notice(`✅ X 图卡已投递(${prep.cardCount} 张,已存 ${prep.dirPath}/)。请到浏览器插件任务窗口或 X 草稿箱查看。`, 10000);
+          if (activeFile && typeof view.recordPublishStatus === 'function') {
+            await view.recordPublishStatus(activeFile, {
+              successfulTargets: [{ platform: 'x', kind: 'draft' }],
+              requestedCount: 1,
+            });
+          }
+        } catch (xError) {
+          new Notice(`⚠️ 已跳过 X：${toReadableError(xError).message}`, 10000);
+        }
+      }
+
+      if (wantsXiaohongshu || wantsX) {
         if (requestedPlatformIds.length === 0) {
-          // 只勾了小红书:图卡链路已处理完毕,不再走通用链路
+          // 只勾了图卡平台:图卡链路已处理完毕,不再走通用链路
           notice.hide();
           modal.close();
           return;
