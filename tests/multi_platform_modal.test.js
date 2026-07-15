@@ -163,6 +163,31 @@ describe('AppleStyleView - showMultiPlatformSyncModal platform rows', () => {
     expect(rowIds).toEqual(['x', 'xiaohongshu']);
   });
 
+  it('preferredPlatform 只默认勾选对应平台(顶栏选 X → 只勾 X)', async () => {
+    const view = makeView();
+    await view.showMultiPlatformSyncModal({ preferredPlatform: 'x' });
+    const modal = modalCapture.getLastModal();
+    // 两个平台都显示,但只有 X 默认勾选
+    expect(findRow(modal, 'x').querySelector('input[type="checkbox"]').checked).toBe(true);
+    expect(findRow(modal, 'xiaohongshu').querySelector('input[type="checkbox"]').checked).toBe(false);
+  });
+
+  it('preferredPlatform=xiaohongshu → 只勾小红书', async () => {
+    const view = makeView();
+    await view.showMultiPlatformSyncModal({ preferredPlatform: 'xiaohongshu' });
+    const modal = modalCapture.getLastModal();
+    expect(findRow(modal, 'xiaohongshu').querySelector('input[type="checkbox"]').checked).toBe(true);
+    expect(findRow(modal, 'x').querySelector('input[type="checkbox"]').checked).toBe(false);
+  });
+
+  it('无 preferredPlatform 时默认全选(小红书+X)', async () => {
+    const view = makeView();
+    await view.showMultiPlatformSyncModal();
+    const modal = modalCapture.getLastModal();
+    expect(findRow(modal, 'xiaohongshu').querySelector('input[type="checkbox"]').checked).toBe(true);
+    expect(findRow(modal, 'x').querySelector('input[type="checkbox"]').checked).toBe(true);
+  });
+
   it('login_required row gets is-error class when selected', async () => {
     const view = makeView();
     await view.showMultiPlatformSyncModal();

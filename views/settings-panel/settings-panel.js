@@ -94,9 +94,19 @@ export const settingsPanelMixin = {
     this.rednoteSettingsBtn.style.display = 'none';
     this.rednoteDownloadBtn.style.display = 'none';
 
-    // [同步] 按钮（始终显示）:所有平台统一走「发布与分发」窗口;
-    // 小红书的图卡链路在窗口的「其他平台」tab 勾选后由发送流程自动执行
-    this.sendBtn = createIconBtn('send', '发布与分发', () => this.showSyncModal());
+    // [同步] 按钮（始终显示）:所有平台统一走「发布与分发」窗口。
+    // 弹窗跟随顶栏平台下拉:公众号→微信草稿箱 tab;小红书/X→其他平台 tab,
+    // 且只默认勾选对应平台(preferredPlatform)。
+    this.sendBtn = createIconBtn('send', '发布与分发', () => {
+      const mode = this._previewMode || 'wechat';
+      if (mode === 'rednote') {
+        this.showMultiPlatformSyncModal({ preferredPlatform: 'xiaohongshu' });
+      } else if (mode === 'x') {
+        this.showMultiPlatformSyncModal({ preferredPlatform: 'x' });
+      } else {
+        this.showSyncModal();
+      }
+    });
 
     // 2. 创建悬浮设置层 (初始隐藏)
     this.settingsOverlay = container.createEl('div', { cls: 'apple-settings-overlay' });
