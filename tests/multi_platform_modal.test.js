@@ -64,10 +64,21 @@ function makeView({ selectedPlatforms = ['xiaohongshu', 'x'], cachedPlatforms = 
         recentTasks: [],
       },
     },
-    getWechatSyncBridgeService: vi.fn(() => ({})),
+    getWechatSyncBridgeService: vi.fn(() => ({
+      start: vi.fn().mockResolvedValue({}),
+      waitForConnection: vi.fn().mockResolvedValue(undefined),
+    })),
     saveSettings: vi.fn(),
   });
-  if (bridge) view.plugin.getWechatSyncBridgeService = vi.fn(() => bridge);
+  if (bridge) {
+    // 发送前会 start()+waitForConnection() 确保 WS 连通;mock 缺省补上,调用方可覆盖
+    const fullBridge = {
+      start: vi.fn().mockResolvedValue({}),
+      waitForConnection: vi.fn().mockResolvedValue(undefined),
+      ...bridge,
+    };
+    view.plugin.getWechatSyncBridgeService = vi.fn(() => fullBridge);
+  }
   view.app = app || { isMobile: false };
   if (view.app.isMobile === undefined) view.app.isMobile = false;
   view.currentHtml = '<p>hello</p>';

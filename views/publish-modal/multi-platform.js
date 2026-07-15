@@ -763,6 +763,21 @@ async function showMultiPlatformPublishModal(view, options = {}) {
     syncBtn.disabled = true;
     syncBtn.addClass?.('apple-btn-disabled');
     const sendStartedAt = Date.now();
+
+    // 确保桥接 WebSocket 实际连通:isBridgeReady 只是弹窗打开时的缓存状态,
+    // 点发送时 WS 可能已断(扩展重载/空闲断开),否则 enqueue 会抛「尚未连接」。
+    try {
+      const liveBridge = view.plugin.getWechatSyncBridgeService();
+      await liveBridge.start();
+      await liveBridge.waitForConnection(15000);
+    } catch (connErr) {
+      notice.hide();
+      syncBtn.disabled = false;
+      syncBtn.removeClass?.('apple-btn-disabled');
+      new Notice(`无法连接浏览器插件：${toReadableError(connErr).message}`, 8000);
+      return;
+    }
+
     // 小红书:总是走 rednote 图卡链路(单独投递);其余平台走下方通用文字链路。
     // 图卡链路失败只跳过小红书,不阻断其他平台。
     const xhsPlatformId = findXiaohongshuPlatformId(

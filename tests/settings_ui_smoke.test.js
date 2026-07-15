@@ -297,7 +297,9 @@ describe('AppleStyleSettingTab settings rendering - smoke test', () => {
     expect(names).toContain('本地服务端口');
     expect(names).toContain('连接令牌');
     expect(names).toContain('测试连接');
-    expect(names).toContain('读取已选平台状态');
+    // 「读取已选平台状态」按钮已移除(冗余且依赖扩展不支持的 getAuthSnapshot);
+    // 登录态检测已并入「测试连接」(逐个 checkAuth)。
+    expect(names).not.toContain('读取已选平台状态');
   });
 
   it('does not expose hidden fallback-only platforms in the settings picker', () => {
@@ -318,17 +320,21 @@ describe('AppleStyleSettingTab settings rendering - smoke test', () => {
     expect(platformIds).not.toContain('zip-download');
   });
 
-  it('testing the bridge connection does not read or refresh platform auth state', async () => {
+  it('测试连接连通后逐个 checkAuth 检测已接入平台(小红书/X)登录态', async () => {
+    const authByPlatform = {
+      xiaohongshu: { isAuthenticated: true, username: 'Lin' },
+      x: { isAuthenticated: false, error: '未登录' },
+    };
     const bridge = {
       start: vi.fn().mockResolvedValue({}),
       waitForConnection: vi.fn().mockResolvedValue(undefined),
       health: vi.fn().mockResolvedValue({ ok: true, tokenValid: true, capabilities: {} }),
       listSupportedPlatforms: vi.fn().mockResolvedValue([
-        { id: 'zhihu', name: '知乎' },
-        { id: 'juejin', name: '掘金' },
+        { id: 'xiaohongshu', name: '小红书' },
+        { id: 'x', name: 'X' },
       ]),
-      getAuthSnapshot: vi.fn().mockResolvedValue({ platforms: [], checkedAt: 0 }),
-      checkAuth: vi.fn().mockResolvedValue([]),
+      // 扩展支持单平台 checkAuth,不支持批量 getAuthSnapshot
+      checkAuth: vi.fn().mockImplementation((id) => Promise.resolve(authByPlatform[id] || { isAuthenticated: false })),
       getStatus: vi.fn().mockResolvedValue({}),
     };
     const plugin = makePlugin({
@@ -337,13 +343,11 @@ describe('AppleStyleSettingTab settings rendering - smoke test', () => {
         port: 9527,
         token: 'token',
         supportedPlatforms: [],
-        selectedPlatforms: ['zhihu'],
+        selectedPlatforms: [],
         connection: {
           status: 'connected',
           checkedAt: 123,
-          platforms: [
-            { id: 'zhihu', name: '知乎', authKnown: true, authenticated: true, username: 'Lin' },
-          ],
+          platforms: [],
           capabilities: {},
           message: '',
         },
@@ -360,65 +364,15 @@ describe('AppleStyleSettingTab settings rendering - smoke test', () => {
 
     expect(bridge.health).toHaveBeenCalled();
     expect(bridge.listSupportedPlatforms).toHaveBeenCalled();
-    expect(bridge.getAuthSnapshot).not.toHaveBeenCalled();
-    expect(bridge.checkAuth).not.toHaveBeenCalled();
-    expect(plugin.settings.multiPlatformSync.connection.platforms).toEqual([
-      expect.objectContaining({ id: 'zhihu', authenticated: true, username: 'Lin' }),
-    ]);
-    expect(plugin.settings.multiPlatformSync.connection.message).toContain('未读取平台登录状态');
-  });
-
-  it('reads cached selected platform auth state without running a live auth check', async () => {
-    const bridge = {
-      start: vi.fn().mockResolvedValue({}),
-      waitForConnection: vi.fn().mockResolvedValue(undefined),
-      health: vi.fn().mockResolvedValue({ ok: true, tokenValid: true, capabilities: {} }),
-      listSupportedPlatforms: vi.fn().mockResolvedValue([]),
-      getAuthSnapshot: vi.fn().mockResolvedValue({
-        checkedAt: 456,
-        platforms: [
-          { id: 'xiaohongshu', name: '小红书', authKnown: true, authenticated: true, username: 'Lin' },
-        ],
-      }),
-      checkAuth: vi.fn().mockResolvedValue([]),
-      getStatus: vi.fn().mockResolvedValue({}),
-    };
-    const plugin = makePlugin({
-      multiPlatformSync: {
-        enabled: true,
-        port: 9527,
-        token: 'token',
-        supportedPlatforms: [{ id: 'xiaohongshu', name: '小红书' }],
-        selectedPlatforms: [],
-        connection: {
-          status: 'connected',
-          checkedAt: 123,
-          platforms: [],
-          capabilities: {},
-          message: '',
-        },
-        recentTasks: [],
-      },
-    });
-    plugin.getWechatSyncBridgeService = vi.fn(() => bridge);
-
-    renderTab(plugin);
-    const readButton = globalThis.__obsidianButtonRegistry.find((button) => button.text === '读取');
-    expect(readButton).toBeDefined();
-
-    await readButton.clickHandler();
-
-    // 方案 i:按已接入平台(小红书)读登录态,不依赖 selectedPlatforms
-    expect(bridge.getAuthSnapshot).toHaveBeenCalledWith({
-      platforms: ['xiaohongshu'],
-      maxAgeMs: 86400000,
-      timeoutMs: 5000,
-    });
-    expect(bridge.checkAuth).not.toHaveBeenCalled();
-    expect(plugin.settings.multiPlatformSync.connection.platforms).toEqual([
-      expect.objectContaining({ id: 'xiaohongshu', authenticated: true, username: 'Lin' }),
-    ]);
-    expect(plugin.settings.multiPlatformSync.connection.message).toContain('已读取所选平台的上次登录状态');
+    // 逐个 checkAuth(小红书/X);被动检测不开标签页
+    expect(bridge.checkAuth).toHaveBeenCalledWith('xiaohongshu', expect.anything());
+    expect(bridge.checkAuth).toHaveBeenCalledWith('x', expect.anything());
+    expect(bridge.getAuthSnapshot).toBeUndefined();
+    const platforms = plugin.settings.multiPlatformSync.connection.platforms;
+    expect(platforms.map((p) => p.id)).toEqual(['xiaohongshu', 'x']);
+    expect(platforms.find((p) => p.id === 'xiaohongshu').authenticated).toBe(true);
+    expect(platforms.find((p) => p.id === 'x').authenticated).toBe(false);
+    expect(plugin.settings.multiPlatformSync.connection.message).toContain('已检测各发布平台的登录状态');
   });
 
   it('unified status bar shows 「连接失败」 and error message when connection.status is failed', () => {

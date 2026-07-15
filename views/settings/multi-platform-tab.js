@@ -573,7 +573,7 @@ function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
 
   new Setting(containerEl)
     .setName('测试连接')
-    .setDesc('只验证 Obsidian、浏览器插件和连接令牌是否连通，并读取平台清单；不会实时检测所有平台登录状态。')
+    .setDesc('验证 Obsidian 与浏览器插件是否连通，并逐个检测已接入平台（小红书、X）的登录状态。')
     .addButton(button => button
       .setButtonText('测试')
       .onClick(async () => {
@@ -649,11 +649,39 @@ function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
               console.warn('[Wechatsync] listSupportedPlatforms failed, keeping existing platform list', platformError);
             }
           }
-          const selectedPlatformIds = parseWechatsyncPlatformIds(currentBeforeTest.selectedPlatforms || []);
           const current = normalizeMultiPlatformSyncSettings(plugin.settings.multiPlatformSync);
           const currentConnection = toRecord(current.connection);
-          const nextPlatforms = toRecordList(normalizeWechatsyncPlatformList(currentConnection.platforms || []))
-            .filter((platform) => selectedPlatformIds.includes(getPlatformId(platform)));
+          // 连通后逐个检测「已接入平台」(小红书/X)的登录态 —— 用扩展支持的 checkAuth
+          // (单平台),checkAuth 已改为被动检测(不开标签页)。扩展不支持批量
+          // getAuthSnapshot(会报 Unknown method),故逐个查。
+          const enabledPlatformList = getEnabledWechatsyncPlatforms({
+            ...current,
+            supportedPlatforms: supportedPlatforms.length ? supportedPlatforms : current.supportedPlatforms,
+            connection: { ...currentConnection, status: 'connected' },
+          });
+          const authPlatforms = [];
+          for (const platform of enabledPlatformList) {
+            const id = getPlatformId(platform);
+            if (!id) continue;
+            try {
+              const res = toRecord(await bridge.checkAuth(id, { timeoutMs: 8000, forceRefresh: true }));
+              authPlatforms.push({
+                id,
+                name: platform.name || id,
+                authKnown: true,
+                authenticated: !!res.isAuthenticated,
+                username: typeof res.username === 'string' ? res.username : '',
+                error: typeof res.error === 'string' ? res.error : '',
+              });
+            } catch (authError) {
+              console.warn(`[Wechatsync] 检测 ${id} 登录态失败`, authError);
+              authPlatforms.push({ id, name: platform.name || id, authKnown: false });
+            }
+          }
+          const gotAuth = authPlatforms.some((p) => p.authKnown);
+          const nextPlatforms = authPlatforms.length
+            ? authPlatforms
+            : toRecordList(normalizeWechatsyncPlatformList(currentConnection.platforms || []));
           plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
             ...current,
             supportedPlatforms: supportedPlatforms.length ? supportedPlatforms : current.supportedPlatforms,
@@ -663,9 +691,11 @@ function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
               checkedAt: Date.now(),
               platforms: nextPlatforms,
               capabilities,
-              message: health
-                ? '已连接，连接令牌已通过插件校验。未读取平台登录状态。'
-                : '已连接。当前插件版本未提供健康校验，平台登录状态未自动检测。',
+              message: gotAuth
+                ? '已连接，并已检测各发布平台的登录状态。'
+                : (health
+                  ? '已连接，连接令牌已通过插件校验。未检测到平台登录状态。'
+                  : '已连接。当前插件版本未提供健康校验，平台登录状态未自动检测。'),
             },
           });
           await plugin.saveSettings();
@@ -746,76 +776,6 @@ function renderMultiPlatformSettingsTab(tab, containerEl, options = {}) {
         }
       }));
 
-  new Setting(containerEl)
-    .setName('读取已选平台状态')
-    .setDesc('读取浏览器插件缓存的上次状态，不会实时检测登录；发布时仍以浏览器插件实际执行为准。')
-    .addButton(button => button
-      .setButtonText('读取')
-      .onClick(async () => {
-        const current = normalizeMultiPlatformSyncSettings(plugin.settings.multiPlatformSync);
-        // 方案 i:读取「已接入平台」(小红书/X)的登录态,不再依赖用户勾选
-        /** @type {WechatPlatformLike[]} */
-        const candidates = toPlatformList(getAvailableWechatsyncPlatforms(current))
-          .filter((platform) => isEnabledWechatsyncPlatform(platform.id));
-        if (!candidates.length) {
-          new Notice('尚未读取到已接入平台，请先点击「测试连接」');
-          return;
-        }
-
-        button.setButtonText('读取中...');
-        button.setDisabled?.(true);
-        const startedAt = Date.now();
-        try {
-          const bridge = plugin.getWechatSyncBridgeService();
-          await bridge.start();
-          await bridge.waitForConnection(15000);
-          const platformFallbacks = toRecordList(mergeWechatsyncPlatformLists(
-            current.supportedPlatforms,
-            toRecord(current.connection).platforms,
-            getFallbackWechatsyncPlatforms()
-          ));
-          const authSnapshot = await getAuthSnapshotFromExtension(
-            bridge,
-            candidates.map((platform) => platform.id),
-            platformFallbacks
-          );
-          const cachedPlatforms = toRecordList(normalizeWechatsyncPlatformList(authSnapshot.platforms || []));
-          console.debug('[Wechatsync] selected platform cached auth snapshot summary', {
-            elapsedMs: Date.now() - startedAt,
-            checkedAt: authSnapshot.checkedAt,
-            ...summarizeWechatsyncPlatformResponse(cachedPlatforms),
-          });
-          plugin.settings.multiPlatformSync = normalizeMultiPlatformSyncSettings({
-            ...current,
-            connection: {
-              ...toRecord(current.connection),
-              status: 'connected',
-              checkedAt: authSnapshot.checkedAt || Date.now(),
-              platforms: cachedPlatforms,
-              capabilities: {
-                ...toRecord(toRecord(current.connection).capabilities),
-                getAuthSnapshot: true,
-              },
-              message: '已读取所选平台的上次登录状态。',
-            },
-          });
-          await plugin.saveSettings();
-          const authenticatedCount = cachedPlatforms.filter((platform) => platform.authenticated === true).length;
-          new Notice(`✅ 已读取 ${cachedPlatforms.length} 个已选平台，${authenticatedCount} 个上次可用`);
-          refreshSettingTab(tab);
-        } catch (error) {
-          const readableError = toReadableError(error);
-          console.error('[Wechatsync] selected platform cached auth snapshot failed', {
-            elapsedMs: Date.now() - startedAt,
-            code: readableError.code,
-            message: readableError.message,
-          });
-          new Notice(`❌ 读取失败：${readableError.message}`, 10000);
-        } finally {
-          button.setDisabled?.(false);
-          button.setButtonText('读取');
-        }
-      }));
 }
 
 export { renderMultiPlatformSettingsTab };
